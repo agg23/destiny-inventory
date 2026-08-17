@@ -1,7 +1,5 @@
-import { fetchProfile } from "./bungie.ts";
 import type { ArtifactLoader } from "./loader.ts";
 import { exchangeCode, refreshTokens, type OAuthConfig } from "./oauth.ts";
-import { buildRefresh, type RefreshRequest } from "./refresh.ts";
 
 export interface ServiceConfig {
   apiKey: string;
@@ -10,6 +8,9 @@ export interface ServiceConfig {
   allowedOrigin: string;
   loader: ArtifactLoader;
 }
+
+// Content-hashed names only, so a request can never walk out of the artifact directory
+const ARTIFACT_NAME = /^[A-Za-z0-9._-]+$/;
 
 const cors = (origin: string): Record<string, string> => ({
   "Access-Control-Allow-Origin": origin,
@@ -22,20 +23,6 @@ const json = (value: unknown, origin: string, status = 200): Response =>
     status,
     headers: { "Content-Type": "application/json", ...cors(origin) },
   });
-
-const gzipped = (value: unknown, origin: string): Response => {
-  const body = new Blob([JSON.stringify(value)])
-    .stream()
-    .pipeThrough(new CompressionStream("gzip"));
-
-  return new Response(body, {
-    headers: {
-      "Content-Type": "application/json",
-      "Content-Encoding": "gzip",
-      ...cors(origin),
-    },
-  });
-};
 
 export const createHandler = (config: ServiceConfig) => {
   const oauth: OAuthConfig = {
@@ -53,13 +40,34 @@ export const createHandler = (config: ServiceConfig) => {
 
     try {
       if (pathname === "/health") {
-        const artifacts = await config.loader.load();
-
-        return json({ ok: true, manifestVersion: artifacts.version }, config.allowedOrigin);
+        return json({ ok: true }, config.allowedOrigin);
       }
 
+      // Credentials are public, and the artifact index rides along so the client learns the
+      // current manifest without a separately cacheable request that could go stale
+      if (pathname === "/config") {
+        const index = await config.loader.index();
+
+        return json(
+          {
+            apiKey: config.apiKey,
+            clientId: config.clientId,
+            artifacts: index,
+          },
+          config.allowedOrigin,
+        );
+      }
+
+      // Only the Node adapter reaches this. On Workers the files are static assets, served
+      // and compressed by the platform, because re-wrapping them broke Content-Encoding
       if (pathname.startsWith("/artifacts/")) {
-        const body = await config.loader.raw(pathname.slice("/artifacts/".length));
+        const file = pathname.slice("/artifacts/".length);
+
+        if (!ARTIFACT_NAME.test(file)) {
+          return json({ error: "Bad artifact name" }, config.allowedOrigin, 400);
+        }
+
+        const body = await config.loader.raw(file);
 
         if (!body) {
           return json({ error: "No such artifact" }, config.allowedOrigin, 404);
@@ -68,7 +76,6 @@ export const createHandler = (config: ServiceConfig) => {
         return new Response(body, {
           headers: {
             "Content-Type": "application/json",
-            "Content-Encoding": "br",
             "Cache-Control": "public, max-age=31536000, immutable",
             ...cors(config.allowedOrigin),
           },
@@ -85,22 +92,6 @@ export const createHandler = (config: ServiceConfig) => {
         const { refreshToken } = (await request.json()) as { refreshToken: string };
 
         return json(await refreshTokens(oauth, refreshToken), config.allowedOrigin);
-      }
-
-      if (pathname === "/refresh" && request.method === "POST") {
-        const body = (await request.json()) as RefreshRequest;
-        const artifacts = await config.loader.load();
-
-        const profile = await fetchProfile(
-          { membershipType: body.membershipType, membershipId: body.membershipId },
-          config.apiKey,
-          body.accessToken,
-        );
-
-        return gzipped(
-          buildRefresh(artifacts, profile, body.knownHashes, body.knownPlugSets),
-          config.allowedOrigin,
-        );
       }
 
       return json({ error: "Not found" }, config.allowedOrigin, 404);

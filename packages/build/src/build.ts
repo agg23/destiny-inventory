@@ -1,17 +1,21 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { brotliCompressSync, constants } from "node:zlib";
-
-import { resolveClosure, slimItem, type Tables } from "@dvm/defs-core";
-import type { DestinyProfileResponse } from "bungie-api-ts/destiny2";
+import {
+  coreItem,
+  detailItem,
+  hasDetail,
+  isShipped,
+  resolveClosure,
+  slimItem,
+  type Tables,
+} from "@dvm/defs-core";
+import type { DestinyInventoryItemDefinition } from "bungie-api-ts/destiny2";
 
 import { loadManifest, type RawTable } from "./manifest.ts";
 
 const REPO_ROOT = new URL("../../../", import.meta.url).pathname;
 const CACHE_ROOT = join(REPO_ROOT, ".cache", "manifest");
-const PROFILE_FIXTURE = join(REPO_ROOT, ".cache", "profile.json");
 const ARTIFACT_ROOT = join(REPO_ROOT, "artifacts");
 
 const ITEMS = "DestinyInventoryItemDefinition";
@@ -26,52 +30,48 @@ const mb = (n: number): string => `${(n / 1_048_576).toFixed(2)} MB`;
 const contentHash = (body: Buffer): string =>
   createHash("sha256").update(body).digest("hex").slice(0, 16);
 
-// No runtime brotli on Workers
+// Static assets cap a single file, and the edge compresses on the way out
+const CHUNK_BYTES = 15 * 1_048_576;
+
+const writeOne = async (dir: string, name: string, value: unknown, part?: number) => {
+  const raw = Buffer.from(JSON.stringify(value));
+  const suffix = part === undefined ? "" : `-${part}`;
+  const file = `${name}${suffix}.${contentHash(raw)}.json`;
+
+  await writeFile(join(dir, file), raw);
+
+  return { file, raw: raw.length };
+};
+
+// Serving these ourselves is what broke on Workers: the edge re-compresses a body that
+// already carries Content-Encoding, so they ship plain and the platform handles encoding
 const writeArtifact = async (
   dir: string,
   name: string,
   value: unknown,
-): Promise<{ name: string; raw: number; compressed: number }> => {
-  const raw = Buffer.from(JSON.stringify(value));
-  const compressed = brotliCompressSync(raw, {
-    params: { [constants.BROTLI_PARAM_QUALITY]: 11 },
-  });
+): Promise<{ files: string[]; raw: number }> => {
+  if (!Array.isArray(value)) {
+    const only = await writeOne(dir, name, value);
 
-  const fileName = `${name}.${contentHash(raw)}.json.br`;
-  await writeFile(join(dir, fileName), compressed);
-
-  return { name: fileName, raw: raw.length, compressed: compressed.length };
-};
-
-const ownedHashes = async (): Promise<number[]> => {
-  if (!existsSync(PROFILE_FIXTURE)) {
-    return [];
+    return { files: [only.file], raw: only.raw };
   }
 
-  const body = JSON.parse(await readFile(PROFILE_FIXTURE, "utf8")) as
-    | DestinyProfileResponse
-    | { Response: DestinyProfileResponse };
+  const perRecord = Buffer.byteLength(JSON.stringify(value)) / Math.max(value.length, 1);
+  const perChunk = Math.max(1, Math.floor(CHUNK_BYTES / Math.max(perRecord, 1)));
 
-  const profile = "Response" in body ? body.Response : body;
-  const hashes = new Set<number>();
+  const files: string[] = [];
+  let raw = 0;
+  let part = 0;
 
-  for (const item of profile.profileInventory?.data?.items ?? []) {
-    hashes.add(item.itemHash);
+  for (let start = 0; start < value.length; start += perChunk) {
+    const written = await writeOne(dir, name, value.slice(start, start + perChunk), part);
+
+    files.push(written.file);
+    raw += written.raw;
+    part += 1;
   }
 
-  for (const equipment of Object.values(profile.characterEquipment?.data ?? {})) {
-    for (const item of equipment.items) {
-      hashes.add(item.itemHash);
-    }
-  }
-
-  for (const inventory of Object.values(profile.characterInventories?.data ?? {})) {
-    for (const item of inventory.items) {
-      hashes.add(item.itemHash);
-    }
-  }
-
-  return [...hashes];
+  return { files, raw };
 };
 
 const main = async () => {
@@ -79,58 +79,67 @@ const main = async () => {
   const dir = join(ARTIFACT_ROOT, manifest.version);
   await mkdir(dir, { recursive: true });
 
-  const rawItems = manifest.tables.get(ITEMS) as RawTable;
-  const slimmed: RawTable = {};
-
-  for (const [hash, item] of Object.entries(rawItems)) {
-    slimmed[hash] = slimItem(item as never);
-  }
-
   const tables: Tables = {
-    items: rawItems as Tables["items"],
+    items: manifest.tables.get(ITEMS) as Tables["items"],
     plugSets: manifest.tables.get(PLUG_SETS) as Tables["plugSets"],
   };
 
+  const all = Object.values(tables.items) as DestinyInventoryItemDefinition[];
+  const shipped = all.filter(isShipped);
+  const shippedHashes = new Set(shipped.map((item) => item.hash));
+
+  const closure = resolveClosure(shippedHashes, tables);
+
   // A dangling ref here is a missing perk at runtime
-  const owned = await ownedHashes();
-
-  if (owned.length > 0) {
-    const closure = resolveClosure(owned, tables);
-
-    if (closure.missing.length > 0) {
-      throw new Error(
-        `Closure over ${owned.length} owned hashes has ${closure.missing.length} dangling references`,
-      );
-    }
-
-    console.log(
-      `\nvalidate: ${owned.length} owned hashes close over ${closure.items.size} items and ${closure.plugSets.size} plug sets, no dangling references`,
-    );
-
-    // What one client actually receives
-    const payload = {
-      items: [...closure.items].map((hash) => slimmed[hash]).filter(Boolean),
-      plugSets: [...closure.plugSets].map((hash) => tables.plugSets[hash]).filter(Boolean),
-    };
-
-    const payloadRaw = Buffer.from(JSON.stringify(payload));
-    const payloadBrotli = brotliCompressSync(payloadRaw, {
-      params: { [constants.BROTLI_PARAM_QUALITY]: 11 },
-    });
-
-    console.log(
-      `payload: ${mb(payloadRaw.length)} raw, ${mb(payloadBrotli.length)} brotli, against DIM's 199 MB item table`,
-    );
-  } else {
-    console.log("\nvalidate: skipped, no profile fixture");
+  if (closure.missing.length > 0) {
+    throw new Error(`Universal closure has ${closure.missing.length} dangling references`);
   }
+
+  console.log(`\n${all.length} items, ${shipped.length} shipped`);
+  console.log(
+    `closure: ${closure.items.size} items, ${closure.plugSets.size} plug sets, no dangling references`,
+  );
+
+  const core = shipped.map(coreItem);
+
+  const detail = [
+    ...shipped.filter(hasDetail).map(detailItem),
+    ...[...closure.items]
+      .filter((hash) => !shippedHashes.has(hash))
+      .flatMap((hash) => {
+        const item = tables.items[hash];
+
+        return item ? [slimItem(item)] : [];
+      }),
+  ];
+
+  const plugsets = [...closure.plugSets].map((hash) => tables.plugSets[hash]).filter(Boolean);
+
+  // Profiles reference these, so the client needs to tell a withheld definition from a
+  // missing one. validate() walks definitions and cannot see a reference arriving from a
+  // profile, which is how Dummy items reached the client as errors
+  const hidden = all.filter((item) => !shippedHashes.has(item.hash)).map((item) => item.hash);
 
   console.log("\nWriting artifacts");
 
-  const written = [
-    await writeArtifact(dir, "items", slimmed),
-    await writeArtifact(dir, "plugsets", tables.plugSets),
-  ];
+  const files: Record<string, string[]> = {};
+  let totalRaw = 0;
+  let fileCount = 0;
+
+  const emit = async (name: string, value: unknown) => {
+    const result = await writeArtifact(dir, name, value);
+
+    files[name] = result.files;
+    totalRaw += result.raw;
+    fileCount += result.files.length;
+
+    return result;
+  };
+
+  const coreFile = await emit("core", core);
+  const detailFile = await emit("detail", detail);
+  await emit("plugsets", plugsets);
+  await emit("hidden", hidden);
 
   for (const [table, contents] of manifest.tables) {
     if (table === ITEMS || table === PLUG_SETS) {
@@ -138,33 +147,24 @@ const main = async () => {
     }
 
     const name = table.replace(/^Destiny|Definition$/g, "");
-    const value =
-      table === VENDORS ? { [VAULT_VENDOR]: contents[VAULT_VENDOR] } : contents;
+    const value = table === VENDORS ? { [VAULT_VENDOR]: contents[VAULT_VENDOR] } : contents;
 
-    written.push(await writeArtifact(dir, name, value));
+    await emit(name, value);
   }
 
-  const index = {
-    manifestVersion: manifest.version,
-    files: written.map((file) => file.name),
-  };
+  await writeFile(
+    join(dir, "index.json"),
+    JSON.stringify({ manifestVersion: manifest.version, files }, undefined, 2),
+  );
 
-  await writeFile(join(dir, "index.json"), JSON.stringify(index, undefined, 2));
-
-  let totalRaw = 0;
-  let totalCompressed = 0;
-
-  for (const file of written) {
-    totalRaw += file.raw;
-    totalCompressed += file.compressed;
-  }
-
-  for (const file of written.slice(0, 4)) {
-    console.log(`  ${file.name.padEnd(44)} ${mb(file.raw).padStart(10)} -> ${mb(file.compressed)}`);
-  }
-
-  console.log(`  ... ${written.length - 4} more`);
-  console.log(`\nTotal: ${mb(totalRaw)} raw, ${mb(totalCompressed)} brotli`);
+  console.log(
+    `  tier 1 core   ${String(core.length).padStart(6)} records ${mb(coreFile.raw).padStart(10)} across ${coreFile.files.length} files`,
+  );
+  console.log(
+    `  tier 2 detail ${String(detail.length).padStart(6)} records ${mb(detailFile.raw).padStart(10)} across ${detailFile.files.length} files`,
+  );
+  console.log(`  withheld      ${String(hidden.length).padStart(6)} hashes`);
+  console.log(`\nTotal: ${mb(totalRaw)} raw across ${fileCount} files, compressed by the edge`);
   console.log(`Artifacts in ${dir}`);
 };
 

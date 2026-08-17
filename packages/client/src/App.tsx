@@ -1,13 +1,10 @@
 import type { DimItem } from "app/inventory/item-types";
 import { createMemo, createResource, createSignal, For, Show } from "solid-js";
 
-import { load } from "./load.ts";
+import { beginLogin, signedIn, signOut } from "./auth.ts";
+import { load, NotSignedIn, type LoadResult } from "./load.ts";
 
 const BUNGIE = "https://www.bungie.net";
-
-const params = new URLSearchParams(location.search);
-const MEMBERSHIP_TYPE = Number(params.get("type") ?? 3);
-const MEMBERSHIP_ID = params.get("id") ?? "4611686018468466126";
 
 const Tile = (props: { item: DimItem }) => (
   <div class="tile">
@@ -24,10 +21,28 @@ const Tile = (props: { item: DimItem }) => (
 
 export const App = () => {
   const [query, setQuery] = createSignal("");
-  const [result] = createResource(() => load(MEMBERSHIP_TYPE, MEMBERSHIP_ID));
+  const [upgraded, setUpgraded] = createSignal<LoadResult | undefined>(undefined);
+  const [authError, setAuthError] = createSignal<string | undefined>(undefined);
+
+  // Gate the fetcher on a token, since reading an errored resource rethrows
+  const [authed] = createSignal(signedIn());
+  const [result] = createResource(
+    () => authed() || undefined,
+    () => load(setUpgraded),
+  );
+
+  const error = () => result.error as Error | undefined;
+
+  const skipped = () => {
+    const groups = current()?.skipped;
+
+    return groups && groups.length > 0 ? groups : undefined;
+  };
+  const current = () => (error() ? undefined : (upgraded() ?? result()));
+  const needsSignIn = () => !authed() || error() instanceof NotSignedIn;
 
   const filtered = createMemo(() => {
-    const items = result()?.items ?? [];
+    const items = current()?.items ?? [];
     const needle = query().trim().toLowerCase();
 
     if (!needle) {
@@ -43,39 +58,88 @@ export const App = () => {
 
   return (
     <main>
-      <header>
-        <input
-          type="search"
-          placeholder="Filter"
-          value={query()}
-          onInput={(e) => setQuery(e.currentTarget.value)}
-        />
-        <Show when={result()}>
-          {(loaded) => (
-            <div class="timings">
-              {filtered().length} of {loaded().items.length} items ·{" "}
-              {Math.round(loaded().timings.total)}ms total · transfer{" "}
-              {Math.round(loaded().timings.transfer)}ms · read{" "}
-              {Math.round(loaded().timings.read)}ms · defs{" "}
-              {Math.round(loaded().timings.defs)}ms · build{" "}
-              {Math.round(loaded().timings.items)}ms · {loaded().counts.fetched} defs fetched,{" "}
-              {loaded().counts.cached} cached
-            </div>
-          )}
+      <Show
+        when={!needsSignIn()}
+        fallback={
+          <div class="signin">
+            <h1>Vault</h1>
+            <p>Sign in with your Bungie account to load your inventory.</p>
+            <button
+              onClick={() => {
+                setAuthError(undefined);
+                beginLogin().catch((e: unknown) =>
+                  setAuthError(e instanceof Error ? e.message : String(e)),
+                );
+              }}
+            >
+              Sign in with Bungie
+            </button>
+            <Show when={authError()}>{(message) => <p class="error">{message()}</p>}</Show>
+          </div>
+        }
+      >
+        <header>
+          <input
+            type="search"
+            placeholder="Filter"
+            value={query()}
+            onInput={(e) => setQuery(e.currentTarget.value)}
+          />
+          <button
+            onClick={() => {
+              signOut();
+              location.reload();
+            }}
+          >
+            Sign out
+          </button>
+          <Show when={current()}>
+            {(loaded) => (
+              <div class="timings">
+                {filtered().length} of {loaded().items.length} items · tier {loaded().tier} ·
+                paint {Math.round(result()?.timings.total ?? 0)}ms · profile{" "}
+                {Math.round(loaded().timings.profile)}ms · defs{" "}
+                {Math.round(loaded().timings.defs)}ms · build{" "}
+                {Math.round(loaded().timings.items)}ms
+                <Show when={upgraded()}>
+                  {(done) => <> · complete {Math.round(done().timings.total)}ms</>}
+                </Show>
+                <Show when={loaded().counts.hidden > 0}>
+                  {" "}
+                  · {loaded().counts.hidden} hidden
+                </Show>
+                <Show when={loaded().counts.skipped > 0}>
+                  {" "}
+                  · {loaded().counts.skipped} skipped
+                </Show>
+              </div>
+            )}
+          </Show>
+          <Show when={skipped()}>
+            {(groups) => (
+              <div class="skipped">
+                <For each={groups()}>
+                  {(group) => (
+                    <div>
+                      {group.count} × {group.reason} (e.g. {group.examples.join(", ")})
+                    </div>
+                  )}
+                </For>
+              </div>
+            )}
+          </Show>
+        </header>
+
+        <Show when={error()}>{(e) => <p class="error">{e().message}</p>}</Show>
+
+        <Show when={result.loading}>
+          <p class="error">Loading</p>
         </Show>
-      </header>
 
-      <Show when={result.error as Error | undefined}>
-        {(error) => <p class="error">{error().message}</p>}
+        <div class="grid">
+          <For each={filtered()}>{(item) => <Tile item={item} />}</For>
+        </div>
       </Show>
-
-      <Show when={result.loading}>
-        <p>Loading</p>
-      </Show>
-
-      <div class="grid">
-        <For each={filtered()}>{(item) => <Tile item={item} />}</For>
-      </div>
     </main>
   );
 };

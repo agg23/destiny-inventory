@@ -1,9 +1,19 @@
 const DB_NAME = "dvm";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
-const ITEMS = "items";
-const PLUG_SETS = "plugSets";
+export const CORE = "core";
+export const DETAIL = "detail";
+export const PLUG_SETS = "plugSets";
+
 const META = "meta";
+const STORES = [CORE, DETAIL, PLUG_SETS];
+
+// Small enough that a transaction never holds the main thread long
+const CHUNK = 2000;
+
+interface HashRecord {
+  hash: number;
+}
 
 const open = (): Promise<IDBDatabase> =>
   new Promise((resolve, reject) => {
@@ -12,7 +22,7 @@ const open = (): Promise<IDBDatabase> =>
     request.onupgradeneeded = () => {
       const db = request.result;
 
-      for (const name of [ITEMS, PLUG_SETS]) {
+      for (const name of STORES) {
         if (!db.objectStoreNames.contains(name)) {
           db.createObjectStore(name, { keyPath: "hash" });
         }
@@ -33,70 +43,84 @@ const run = <T>(request: IDBRequest<T>): Promise<T> =>
     request.onerror = () => reject(request.error);
   });
 
+const settled = (tx: IDBTransaction): Promise<void> =>
+  new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+
+const yieldToPaint = (): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, 0);
+  });
+
 export interface DefStore {
   manifestVersion: () => Promise<string | undefined>;
-  keys: (store: string) => Promise<number[]>;
-  all: (store: string) => Promise<Record<number, unknown>>;
-  merge: (version: string, items: unknown[], plugSets: unknown[]) => Promise<void>;
+  setManifestVersion: (version: string) => Promise<void>;
+  count: (store: string) => Promise<number>;
+  getMany: <T>(store: string, hashes: number[]) => Promise<T[]>;
+  putAll: (store: string, records: HashRecord[]) => Promise<void>;
   clear: () => Promise<void>;
 }
 
 export const openStore = async (): Promise<DefStore> => {
   const db = await open();
 
-  const manifestVersion = () =>
-    run(db.transaction(META, "readonly").objectStore(META).get("manifestVersion")) as Promise<
-      string | undefined
-    >;
-
   return {
-    manifestVersion,
+    manifestVersion: () =>
+      run(db.transaction(META, "readonly").objectStore(META).get("manifestVersion")) as Promise<
+        string | undefined
+      >,
 
-    keys: (store) =>
-      run(db.transaction(store, "readonly").objectStore(store).getAllKeys()) as Promise<number[]>,
+    setManifestVersion: async (version) => {
+      const tx = db.transaction(META, "readwrite");
+      tx.objectStore(META).put(version, "manifestVersion");
 
-    all: async (store) => {
-      const rows = (await run(
-        db.transaction(store, "readonly").objectStore(store).getAll(),
-      )) as { hash: number }[];
-
-      const table: Record<number, unknown> = {};
-
-      for (const row of rows) {
-        table[row.hash] = row;
-      }
-
-      return table;
+      await settled(tx);
     },
 
-    merge: (version, items, plugSets) =>
-      new Promise((resolve, reject) => {
-        const tx = db.transaction([ITEMS, PLUG_SETS, META], "readwrite");
+    count: (store) => run(db.transaction(store, "readonly").objectStore(store).count()),
 
-        for (const item of items) {
-          tx.objectStore(ITEMS).put(item);
+    getMany: async <T>(store: string, hashes: number[]): Promise<T[]> => {
+      if (hashes.length === 0) {
+        return [];
+      }
+
+      const objectStore = db.transaction(store, "readonly").objectStore(store);
+
+      const rows = await Promise.all(
+        hashes.map((hash) => run<T | undefined>(objectStore.get(hash))),
+      );
+
+      return rows.filter((row) => row !== undefined);
+    },
+
+    // Chunked so a first-load population never blocks a frame for long
+    putAll: async (store, records) => {
+      for (let start = 0; start < records.length; start += CHUNK) {
+        const tx = db.transaction(store, "readwrite");
+        const objectStore = tx.objectStore(store);
+
+        for (const record of records.slice(start, start + CHUNK)) {
+          objectStore.put(record);
         }
 
-        for (const plugSet of plugSets) {
-          tx.objectStore(PLUG_SETS).put(plugSet);
-        }
+        await settled(tx);
+        await yieldToPaint();
+      }
+    },
 
-        tx.objectStore(META).put(version, "manifestVersion");
+    clear: async () => {
+      const tx = db.transaction([...STORES, META], "readwrite");
 
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      }),
+      for (const name of STORES) {
+        tx.objectStore(name).clear();
+      }
 
-    clear: () =>
-      new Promise((resolve, reject) => {
-        const tx = db.transaction([ITEMS, PLUG_SETS, META], "readwrite");
+      tx.objectStore(META).clear();
 
-        tx.objectStore(ITEMS).clear();
-        tx.objectStore(PLUG_SETS).clear();
-        tx.objectStore(META).clear();
-
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      }),
+      await settled(tx);
+    },
   };
 };

@@ -78,3 +78,29 @@ input {
 .meta {
   color: var(--muted);
 }
+
+.signin {
+  padding: 48px 24px;
+  max-width: 420px;
+}
+
+button {
+  margin-left: 8px;
+  padding: 6px 12px;
+  background: var(--tile);
+  border: 1px solid #2a2f36;
+  border-radius: 4px;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.signin button {
+  margin: 12px 0 0;
+}
+
+.skipped {
+  margin-top: 6px;
+  color: #d9a441;
+  font-variant-numeric: tabular-nums;
+}

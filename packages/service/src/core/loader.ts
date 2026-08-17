@@ -1,11 +1,9 @@
-import type { Tables } from "@dvm/defs-core";
-
-export interface Artifacts {
-  version: string;
-  tables: Tables;
+export interface ArtifactIndex {
+  manifestVersion: string;
+  files: Record<string, string[]>;
 }
 
 export interface ArtifactLoader {
-  load: () => Promise<Artifacts>;
-  raw: (table: string) => Promise<Uint8Array | undefined>;
+  index: () => Promise<ArtifactIndex | undefined>;
+  raw: (file: string) => Promise<ArrayBuffer | undefined>;
 }

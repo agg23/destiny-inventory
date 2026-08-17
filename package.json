@@ -6,8 +6,15 @@
     "node": ">=22"
   },
   "scripts": {
-    "typecheck": "tsc --build",
-    "test": "node --test"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test",
+    "dev:service": "node --env-file-if-exists=.env packages/service/src/node.ts",
+    "dev:client": "pnpm --filter @dvm/client dev",
+    "build:artifacts": "node --max-old-space-size=8192 packages/build/src/build.ts",
+    "build:client": "pnpm --filter @dvm/client build",
+    "stage": "node packages/build/src/stage.ts",
+    "build": "pnpm build:artifacts && pnpm build:client && pnpm stage",
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
     "@destinyitemmanager/dim-api-types": "^1.40.0",

@@ -27,3 +27,20 @@ export const slimItem = (item: DestinyInventoryItemDefinition): SlimItem => ({
   perks: item.perks,
   breakerType: item.breakerType,
 });
+
+// The socket fields are what pull the plug pools in, so tier 1 goes without them
+export const coreItem = (item: DestinyInventoryItemDefinition): SlimItem => {
+  const { sockets, plug, perks, ...core } = slimItem(item);
+
+  return core;
+};
+
+export const detailItem = (item: DestinyInventoryItemDefinition): SlimItem => ({
+  hash: item.hash,
+  sockets: item.sockets,
+  plug: item.plug,
+  perks: item.perks,
+});
+
+export const hasDetail = (item: DestinyInventoryItemDefinition): boolean =>
+  item.sockets !== undefined || item.plug !== undefined || item.perks !== undefined;

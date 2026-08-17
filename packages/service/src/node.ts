@@ -2,81 +2,54 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Readable } from "node:stream";
-import { brotliDecompressSync } from "node:zlib";
 
-import type { Tables } from "@dvm/defs-core";
-
-import { createHandler, type ArtifactLoader, type Artifacts } from "./core/index.ts";
+import { createHandler, type ArtifactIndex, type ArtifactLoader } from "./core/index.ts";
 
 const REPO_ROOT = new URL("../../../", import.meta.url).pathname;
 const ARTIFACT_ROOT = join(REPO_ROOT, "artifacts");
 const PORT = Number(process.env.PORT ?? 8787);
 
-const readArtifact = async (dir: string, files: string[], prefix: string) => {
-  const name = files.find((file) => file.startsWith(`${prefix}.`));
-
-  if (!name) {
-    throw new Error(`No ${prefix} artifact, run: pnpm --filter @dvm/build build`);
-  }
-
-  return JSON.parse(brotliDecompressSync(await readFile(join(dir, name))).toString("utf8"));
-};
-
-const artifactDir = async () => {
+const artifactDir = async (): Promise<string> => {
   const versions = await readdir(ARTIFACT_ROOT);
-  const version = versions.at(-1);
+  const version = versions.sort().at(-1);
 
   if (!version) {
     throw new Error("No artifacts, run: pnpm --filter @dvm/build build");
   }
 
-  const dir = join(ARTIFACT_ROOT, version);
-  const index = JSON.parse(await readFile(join(dir, "index.json"), "utf8")) as {
-    manifestVersion: string;
-    files: string[];
-  };
-
-  return { dir, index };
+  return join(ARTIFACT_ROOT, version);
 };
 
-const diskLoader = (): ArtifactLoader => {
-  let cached: Artifacts | undefined = undefined;
-
-  return {
-    raw: async (table) => {
-      const { dir, index } = await artifactDir();
-      const name = index.files.find((file) => file.startsWith(`${table}.`));
-
-      return name ? new Uint8Array(await readFile(join(dir, name))) : undefined;
-    },
-    load: async () => {
-      if (cached) {
-        return cached;
-      }
-
-      const { dir, index } = await artifactDir();
-
-      const tables: Tables = {
-        items: await readArtifact(dir, index.files, "items"),
-        plugSets: await readArtifact(dir, index.files, "plugsets"),
-      };
-
-      console.log(`Loaded ${Object.keys(tables.items).length} items, manifest ${index.manifestVersion}`);
-      cached = { version: index.manifestVersion, tables };
-
-      return cached;
-    },
-  };
+const read = async (file: string): Promise<ArrayBuffer | undefined> => {
+  try {
+    return detach(await readFile(join(await artifactDir(), file)));
+  } catch {
+    return undefined;
+  }
 };
+
+const diskLoader = (): ArtifactLoader => ({
+  index: async () => {
+    const body = await read("index.json");
+
+    return body ? (JSON.parse(new TextDecoder().decode(body)) as ArtifactIndex) : undefined;
+  },
+  raw: (file) => read(file),
+});
+
+const detach = (body: Buffer): ArrayBuffer =>
+  body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as ArrayBuffer;
 
 const toRequest = (req: IncomingMessage, body: Buffer): Request =>
   new Request(`http://localhost:${PORT}${req.url}`, {
     method: req.method,
-    headers: Object.entries(req.headers).map(([key, value]) => [key, String(value)]),
-    body: req.method === "GET" || req.method === "HEAD" ? undefined : body,
+    headers: Object.entries(req.headers).map(
+      ([key, value]) => [key, String(value)] as [string, string],
+    ),
+    body: req.method === "GET" || req.method === "HEAD" ? undefined : detach(body),
   });
 
-const send = async (res: ServerResponse, response: Response) => {
+const send = (res: ServerResponse, response: Response) => {
   res.writeHead(response.status, Object.fromEntries(response.headers));
 
   if (!response.body) {

@@ -1,0 +1,9 @@
+name = "destiny-vault-manager"
+main = "packages/service/src/worker.ts"
+compatibility_date = "2026-08-01"
+
+# Requests that match no asset fall through to the Worker, which is how /api and
+# client routes such as /auth/callback both reach it
+[assets]
+directory = "packages/client/dist"
+binding = "ASSETS"
