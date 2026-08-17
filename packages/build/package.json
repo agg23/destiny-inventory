@@ -1,0 +1,20 @@
+{
+  "name": "@dvm/build",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "node src/build.ts",
+    "parity": "node src/parity.ts",
+    "measure": "node src/measure-closure.ts"
+  },
+  "dependencies": {
+    "@dvm/defs-core": "workspace:*",
+    "@dvm/dim-bridge": "workspace:*",
+    "bungie-api-ts": "^5.10.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

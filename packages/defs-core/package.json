@@ -1,0 +1,10 @@
+{
+  "name": "@dvm/defs-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "dependencies": {
+    "bungie-api-ts": "^5.10.0"
+  }
+}

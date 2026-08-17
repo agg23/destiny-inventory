@@ -1,5 +1,5 @@
-// DIM reads these as free variables, so a bundle without them throws ReferenceError on
-// import. Credential globals stay empty, ours live in .env and never get inlined
+// DIM reads these as free variables, ReferenceError without them
+// Credentials stay empty, ours live in .env
 
 const FEATURE_FLAGS = {
   debugMoves: false,

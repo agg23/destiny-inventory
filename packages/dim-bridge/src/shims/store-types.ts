@@ -1,4 +1,4 @@
-// Only ever used in type position, so the shape doesn't have to be right
+// Type position only, the shape doesn't matter
 
 export type ThunkResult<R = void> = (
   dispatch: (action: unknown) => unknown,

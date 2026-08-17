@@ -1,4 +1,4 @@
-// DIM's version transitively pulls an oauth module that reads localStorage at import time
+// DIM's reads localStorage at import time
 
 export const reportException = (
   name: string,

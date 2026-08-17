@@ -1,0 +1,14 @@
+{
+  "name": "@dvm/service",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/core/index.ts",
+  "scripts": {
+    "dev": "node --env-file-if-exists=../../.env src/node.ts"
+  },
+  "dependencies": {
+    "@dvm/defs-core": "workspace:*",
+    "bungie-api-ts": "^5.10.0"
+  }
+}

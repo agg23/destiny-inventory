@@ -1,8 +1,7 @@
 import type { Plugin } from "esbuild";
 
-// Matches on path suffix, so it catches the relative import form that tsconfig paths
-// can't. Keep this in agreement with tsconfig.base.json, tsc reads one and the bundler
-// reads the other
+// Path suffix, so it catches relative imports too
+// Keep in sync with tsconfig.base.json
 
 const SHIMS: { match: RegExp; shim: string }[] = [
   { match: /(^|\/)utils\/sentry$/, shim: "sentry.ts" },

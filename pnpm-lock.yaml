@@ -31,6 +31,28 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
+  packages/build:
+    dependencies:
+      '@dvm/defs-core':
+        specifier: workspace:*
+        version: link:../defs-core
+      '@dvm/dim-bridge':
+        specifier: workspace:*
+        version: link:../dim-bridge
+      bungie-api-ts:
+        specifier: ^5.10.0
+        version: 5.10.0
+    devDependencies:
+      esbuild:
+        specifier: ^0.25.0
+        version: 0.25.12
+
+  packages/defs-core:
+    dependencies:
+      bungie-api-ts:
+        specifier: ^5.10.0
+        version: 5.10.0
+
   packages/dim-bridge:
     dependencies:
       '@destinyitemmanager/dim-api-types':
@@ -51,9 +73,18 @@ importers:
       '@destinyitemmanager/dim-api-types':
         specifier: ^1.40.0
         version: 1.40.0
+      '@dvm/build':
+        specifier: workspace:*
+        version: link:../build
+      '@dvm/defs-core':
+        specifier: workspace:*
+        version: link:../defs-core
       '@dvm/dim-bridge':
         specifier: workspace:*
         version: link:../dim-bridge
+      '@dvm/service':
+        specifier: workspace:*
+        version: link:../service
       bungie-api-ts:
         specifier: ^5.10.0
         version: 5.10.0
@@ -67,6 +98,15 @@ importers:
       esbuild:
         specifier: ^0.25.0
         version: 0.25.12
+
+  packages/service:
+    dependencies:
+      '@dvm/defs-core':
+        specifier: workspace:*
+        version: link:../defs-core
+      bungie-api-ts:
+        specifier: ^5.10.0
+        version: 5.10.0
 
 packages:
 

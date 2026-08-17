@@ -5,17 +5,21 @@
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
-    "build": "node scripts/build-harness.ts",
-    "phase0": "node scripts/build-harness.ts && node dist/harness.js",
+    "bundle": "node scripts/bundle.ts harness parity",
+    "phase0": "node scripts/bundle.ts harness parity && node dist/harness.js",
+    "parity": "node scripts/bundle.ts harness parity && node dist/parity.js",
     "auth": "node --env-file-if-exists=../../.env src/auth.ts",
     "profile": "node --env-file-if-exists=../../.env src/fetch-profile.ts"
   },
   "dependencies": {
     "@destinyitemmanager/dim-api-types": "^1.40.0",
+    "@dvm/build": "workspace:*",
+    "@dvm/defs-core": "workspace:*",
     "@dvm/dim-bridge": "workspace:*",
     "bungie-api-ts": "^5.10.0",
     "es-toolkit": "^1.50.0",
-    "reselect": "^5.2.0"
+    "reselect": "^5.2.0",
+    "@dvm/service": "workspace:*"
   },
   "devDependencies": {
     "esbuild": "^0.25.0"
