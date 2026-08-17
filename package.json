@@ -9,6 +9,13 @@
     "typecheck": "tsc --build",
     "test": "node --test"
   },
+  "dependencies": {
+    "@destinyitemmanager/dim-api-types": "^1.40.0",
+    "bungie-api-ts": "^5.10.0",
+    "es-toolkit": "^1.50.0",
+    "memoize-one": "^6.0.0",
+    "reselect": "^5.2.0"
+  },
   "devDependencies": {
     "typescript": "^5.7.0",
     "@types/node": "^22.10.0"

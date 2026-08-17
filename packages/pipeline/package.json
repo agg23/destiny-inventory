@@ -1,0 +1,23 @@
+{
+  "name": "@dvm/pipeline",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "node scripts/build-harness.ts",
+    "phase0": "node scripts/build-harness.ts && node dist/harness.js",
+    "auth": "node --env-file-if-exists=../../.env src/auth.ts",
+    "profile": "node --env-file-if-exists=../../.env src/fetch-profile.ts"
+  },
+  "dependencies": {
+    "@destinyitemmanager/dim-api-types": "^1.40.0",
+    "@dvm/dim-bridge": "workspace:*",
+    "bungie-api-ts": "^5.10.0",
+    "es-toolkit": "^1.50.0",
+    "reselect": "^5.2.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

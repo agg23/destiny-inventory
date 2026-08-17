@@ -15,6 +15,10 @@
     "paths": {
       "app/store/types": ["packages/dim-bridge/src/shims/store-types.ts"],
       "app/i18next-t": ["packages/dim-bridge/src/shims/i18next-t.ts"],
+      "app/i18n": ["packages/dim-bridge/src/shims/i18n.ts"],
+      "app/utils/sentry": ["packages/dim-bridge/src/shims/sentry.ts"],
+      "@sentry/browser": ["packages/dim-bridge/src/shims/sentry-sdk.ts"],
+      "@sentry/react": ["packages/dim-bridge/src/shims/sentry-sdk.ts"],
       "app/*": ["vendor/DIM/src/app/*"],
       "data/*": ["vendor/DIM/src/data/*"],
       "@dvm/*": ["packages/*/src"]
