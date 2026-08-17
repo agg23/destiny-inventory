@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["es2023"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "composite": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "app/store/types": ["packages/dim-bridge/src/shims/store-types.ts"],
+      "app/i18next-t": ["packages/dim-bridge/src/shims/i18next-t.ts"],
+      "app/*": ["vendor/DIM/src/app/*"],
+      "data/*": ["vendor/DIM/src/data/*"],
+      "@dvm/*": ["packages/*/src"]
+    }
+  }
+}

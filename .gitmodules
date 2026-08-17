@@ -1,0 +1,3 @@
+[submodule "vendor/DIM"]
+	path = vendor/DIM
+	url = https://github.com/DestinyItemManager/DIM.git

@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+
+# Manifest working data
+.cache/
+artifacts/
+
+# Wrangler
+.wrangler/
+.dev.vars
