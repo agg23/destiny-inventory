@@ -7,4 +7,5 @@ export interface Artifacts {
 
 export interface ArtifactLoader {
   load: () => Promise<Artifacts>;
+  raw: (table: string) => Promise<Uint8Array | undefined>;
 }

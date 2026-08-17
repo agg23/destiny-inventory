@@ -22,27 +22,39 @@ const readArtifact = async (dir: string, files: string[], prefix: string) => {
   return JSON.parse(brotliDecompressSync(await readFile(join(dir, name))).toString("utf8"));
 };
 
+const artifactDir = async () => {
+  const versions = await readdir(ARTIFACT_ROOT);
+  const version = versions.at(-1);
+
+  if (!version) {
+    throw new Error("No artifacts, run: pnpm --filter @dvm/build build");
+  }
+
+  const dir = join(ARTIFACT_ROOT, version);
+  const index = JSON.parse(await readFile(join(dir, "index.json"), "utf8")) as {
+    manifestVersion: string;
+    files: string[];
+  };
+
+  return { dir, index };
+};
+
 const diskLoader = (): ArtifactLoader => {
   let cached: Artifacts | undefined = undefined;
 
   return {
+    raw: async (table) => {
+      const { dir, index } = await artifactDir();
+      const name = index.files.find((file) => file.startsWith(`${table}.`));
+
+      return name ? new Uint8Array(await readFile(join(dir, name))) : undefined;
+    },
     load: async () => {
       if (cached) {
         return cached;
       }
 
-      const versions = await readdir(ARTIFACT_ROOT);
-      const version = versions.at(-1);
-
-      if (!version) {
-        throw new Error("No artifacts, run: pnpm --filter @dvm/build build");
-      }
-
-      const dir = join(ARTIFACT_ROOT, version);
-      const index = JSON.parse(await readFile(join(dir, "index.json"), "utf8")) as {
-        manifestVersion: string;
-        files: string[];
-      };
+      const { dir, index } = await artifactDir();
 
       const tables: Tables = {
         items: await readArtifact(dir, index.files, "items"),

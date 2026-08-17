@@ -16,6 +16,10 @@ const ARTIFACT_ROOT = join(REPO_ROOT, "artifacts");
 
 const ITEMS = "DestinyInventoryItemDefinition";
 const PLUG_SETS = "DestinyPlugSetDefinition";
+const VENDORS = "DestinyVendorDefinition";
+
+// getBuckets reads one vendor for the vault bucket mappings
+const VAULT_VENDOR = 1037843411;
 
 const mb = (n: number): string => `${(n / 1_048_576).toFixed(2)} MB`;
 
@@ -133,7 +137,11 @@ const main = async () => {
       continue;
     }
 
-    written.push(await writeArtifact(dir, table.replace(/^Destiny|Definition$/g, ""), contents));
+    const name = table.replace(/^Destiny|Definition$/g, "");
+    const value =
+      table === VENDORS ? { [VAULT_VENDOR]: contents[VAULT_VENDOR] } : contents;
+
+    written.push(await writeArtifact(dir, name, value));
   }
 
   const index = {

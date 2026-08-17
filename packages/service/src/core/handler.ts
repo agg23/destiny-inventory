@@ -58,6 +58,23 @@ export const createHandler = (config: ServiceConfig) => {
         return json({ ok: true, manifestVersion: artifacts.version }, config.allowedOrigin);
       }
 
+      if (pathname.startsWith("/artifacts/")) {
+        const body = await config.loader.raw(pathname.slice("/artifacts/".length));
+
+        if (!body) {
+          return json({ error: "No such artifact" }, config.allowedOrigin, 404);
+        }
+
+        return new Response(body, {
+          headers: {
+            "Content-Type": "application/json",
+            "Content-Encoding": "br",
+            "Cache-Control": "public, max-age=31536000, immutable",
+            ...cors(config.allowedOrigin),
+          },
+        });
+      }
+
       if (pathname === "/auth/token" && request.method === "POST") {
         const { code } = (await request.json()) as { code: string };
 

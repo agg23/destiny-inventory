@@ -1,13 +1,13 @@
 import type { Plugin } from "esbuild";
 
-// Path suffix, so it catches relative imports too
+// Whole-specifier match, so Vite's alias replaces the id
 // Keep in sync with tsconfig.base.json
-
-const SHIMS: { match: RegExp; shim: string }[] = [
-  { match: /(^|\/)utils\/sentry$/, shim: "sentry.ts" },
-  { match: /(^|\/)app\/i18n$/, shim: "i18n.ts" },
-  { match: /(^|\/)app\/i18next-t$/, shim: "i18next-t.ts" },
-  { match: /(^|\/)app\/store\/types$/, shim: "store-types.ts" },
+export const SHIMS: { match: RegExp; shim: string }[] = [
+  { match: /^(?:.*\/)?utils\/sentry$/, shim: "sentry.ts" },
+  { match: /^(?:.*\/)?app\/i18n$/, shim: "i18n.ts" },
+  { match: /^(?:.*\/)?app\/i18next-t$/, shim: "i18next-t.ts" },
+  { match: /^(?:.*\/)?app\/store\/types$/, shim: "store-types.ts" },
+  { match: /^(?:.*\/)?records\/collectible-matching$/, shim: "collectible-matching.ts" },
   { match: /^@sentry\/(browser|react)$/, shim: "sentry-sdk.ts" },
 ];
 
