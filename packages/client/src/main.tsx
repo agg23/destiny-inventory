@@ -2,6 +2,7 @@ import { render } from "solid-js/web";
 
 import { App } from "./App.tsx";
 import { completeLogin, markDevLogin } from "./auth.ts";
+import "./tokens.css";
 import "./style.css";
 
 const root = document.getElementById("root");

@@ -196,6 +196,7 @@ export const App = () => {
               buckets={loaded().buckets}
               matches={matches}
               selected={selected()}
+              active={activeStore(active(), stores())}
               onSelect={(item) => setSelected(selected()?.id === item.id ? undefined : item)}
             />
           )}

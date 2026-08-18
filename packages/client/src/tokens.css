@@ -1,0 +1,93 @@
+/* Latin only, one variable axis, no italics: everything else in the package stays unshipped */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("@fontsource-variable/inter/files/inter-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+
+/*
+ * Color is composited rather than enumerated: one foreground, one background, and everything
+ * between them mixed by alpha. Braytech works this way and it is why the result reads as one
+ * surface instead of a pile of greys. Neue Haas is theirs to license, so the face is Inter
+ */
+:root {
+  color-scheme: dark;
+
+  --fg: #fff;
+  --bg: #101312;
+
+  --font-body: "Inter", system-ui, sans-serif;
+
+  --text-xs: 10px;
+  --text-sm: 12px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+
+  --weight-body: 400;
+  --weight-label: 500;
+
+  /* A trace of tracking on everything, more on uppercase, both absolute */
+  --track-base: 0.2px;
+  --track-caps: 0.6px;
+
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 12px;
+  --space-6: 16px;
+  --space-7: 24px;
+
+  --text: color-mix(in srgb, var(--fg) 80%, transparent);
+  --muted: color-mix(in srgb, var(--fg) 60%, transparent);
+  --dim: color-mix(in srgb, var(--fg) 40%, transparent);
+
+  --surface: color-mix(in srgb, var(--fg) 5%, transparent);
+  --surface-raised: color-mix(in srgb, var(--fg) 10%, transparent);
+  --surface-active: color-mix(in srgb, var(--fg) 40%, transparent);
+  /* Anything floating over the grid mixes into the background instead, so it stays opaque */
+  --panel: color-mix(in srgb, var(--fg) 6%, var(--bg));
+  --panel-raised: color-mix(in srgb, var(--fg) 10%, var(--bg));
+
+  --line: color-mix(in srgb, var(--fg) 10%, transparent);
+  --line-bright: color-mix(in srgb, var(--fg) 20%, transparent);
+
+  /* Braytech's own values, which are the game's: Light gold, the rarity tiers, the elements */
+  --light: #e5d163;
+  --error: #dc513b;
+  --warning: #f3d95c;
+
+  --exotic: #cdae32;
+  --legendary: #522f65;
+  --rare: #5176a4;
+  --uncommon: #356e3b;
+  --common: #c4bdb5;
+
+  --solar: #f1631d;
+  --arc: #6de8f1;
+  --void: #a777c5;
+  --stasis: #427cff;
+  --strand: #38e266;
+
+  --tile: 44px;
+}
+
+*:focus-visible {
+  outline: 1px solid var(--light);
+  outline-offset: 1px;
+}
+
+.label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-label);
+  text-transform: uppercase;
+  letter-spacing: var(--track-caps);
+  color: var(--muted);
+}

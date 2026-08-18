@@ -13,11 +13,16 @@ interface Props {
   matches: (item: DimItem) => boolean;
   onSelect: (item: DimItem) => void;
   selected: DimItem | undefined;
+  active: DimStore | undefined;
 }
 
 // store.name comes from DIM's i18n, which the bridge shims down to the raw key
-const CharacterHeader = (props: { store: DimStore }) => (
-  <div class="store-head" style={{ "background-image": `url(${props.store.background})` }}>
+const CharacterHeader = (props: { store: DimStore; active: boolean }) => (
+  <div
+    class="store-head"
+    classList={{ active: props.active }}
+    style={{ "background-image": `url(${props.store.background})` }}
+  >
     <img src={props.store.icon} alt="" width="40" height="40" />
     <Show
       when={!props.store.isVault}
@@ -110,7 +115,9 @@ export const Inventory = (props: Props) => {
     <div class="inventory">
       <div class="stores" style={{ "grid-template-columns": columns() }}>
         <div />
-        <For each={props.stores}>{(store) => <CharacterHeader store={store} />}</For>
+        <For each={props.stores}>
+          {(store) => <CharacterHeader store={store} active={props.active?.id === store.id} />}
+        </For>
       </div>
 
       <For each={rows()}>
