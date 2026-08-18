@@ -358,17 +358,20 @@
     font-size: var(--text-sm);
   }
 
-  /* Pinned items share the label column, so a row means the same thing across both */
   .compare {
     overflow-y: auto;
     scrollbar-gutter: stable;
+    padding: var(--space-6);
+  }
+
+  /* Pinned items share the label column, so a row means the same thing across both */
+  .compare-grid {
     display: grid;
     /* Rows sit close because they are one list; the columns are two different items and need
      to read as separate things */
     gap: var(--space-3) var(--space-6);
     align-items: center;
     align-content: start;
-    padding: var(--space-6);
   }
 
   .compare-head {
@@ -409,13 +412,34 @@
 
   .compare-stat {
     display: grid;
-    grid-template-columns: 28px 1fr;
-    gap: var(--space-3);
+    grid-template-columns: 28px 30px 1fr;
+    gap: var(--space-2);
     align-items: center;
+  }
+
+  /* Green or red carries the meaning; the number alone reads as arithmetic */
+  .delta {
+    color: var(--error);
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .delta.better {
+    color: var(--strand);
   }
 
   .compare-stat .stat-value.best {
     color: var(--light);
+  }
+
+  /* The total is a sum of the rows above it, not another one of them */
+  .compare-stat.total,
+  .compare .stat-name.total,
+  .stat.total {
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--line);
   }
 
   .compare-stat .dash {
@@ -431,15 +455,29 @@
     margin-top: var(--space-5);
   }
 
+  /* Under its own item, so the two sets can be read against each other */
+  .compare-detail {
+    align-self: start;
+    min-width: 0;
+    padding-top: var(--space-7);
+  }
+
   .compare-perks {
     align-self: start;
     min-width: 0;
   }
 
+  .moves-cell {
+    align-self: start;
+    min-width: 0;
+  }
+
+  /* Stacked, since two controls side by side in a 189px column have no room for a label */
   .moves {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: var(--space-3);
+    align-items: stretch;
   }
 
   .stat {
@@ -448,6 +486,10 @@
     gap: var(--space-3);
     align-items: center;
     padding: 1px 0;
+  }
+
+  .stats.comparing .stat {
+    grid-template-columns: 1fr 32px 32px 70px;
   }
 
   .stat-name {
@@ -491,10 +533,22 @@
     flex: none;
     width: 28px;
     height: 28px;
-    border-radius: 50%;
     background: var(--surface);
     box-shadow: inset 0 0 0 1px var(--line);
     opacity: 0.45;
+  }
+
+  .plug.round {
+    border-radius: 50%;
+  }
+
+  /* The game marks an enhanced perk in Light gold, and it is the only thing that colors a plug */
+  .plug.enhanced {
+    box-shadow: inset 0 0 0 1px var(--light);
+  }
+
+  .plug.plugged.enhanced {
+    box-shadow: inset 0 0 0 2px var(--light);
   }
 
   .plug.plugged {
@@ -507,14 +561,96 @@
     opacity: 0.25;
   }
 
+  /* Inline with the heading where there is room, on its own line where there is not, but
+   right-aligned either way so it never sits under the wrong column */
+  .perk-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+    align-items: baseline;
+  }
+
+  .perk-head button {
+    margin-left: auto;
+  }
+
   .perk-group h4 {
     margin: var(--space-4) 0 var(--space-2);
     font-size: var(--text-sm);
     color: var(--dim);
   }
 
+  .set-bonus {
+    padding-bottom: var(--space-5);
+  }
+
+  .set-perk {
+    display: flex;
+    gap: var(--space-4);
+    align-items: start;
+    padding-top: var(--space-4);
+  }
+
+  .perk-icon {
+    flex: none;
+    width: 24px;
+    height: 24px;
+  }
+
+  .archetype {
+    display: flex;
+    gap: var(--space-4);
+    align-items: center;
+    padding-bottom: var(--space-4);
+  }
+
+  .benefit-head {
+    display: flex;
+    gap: var(--space-4);
+    align-items: center;
+  }
+
+  .set-perk-name,
+  .benefit-name {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-label);
+    letter-spacing: var(--track-caps);
+    text-transform: uppercase;
+  }
+
+  .benefit {
+    padding-bottom: var(--space-5);
+  }
+
+  .benefit-name.enhanced {
+    color: var(--light);
+  }
+
+  .perk-icon.enhanced {
+    box-shadow: inset 0 0 0 1px var(--light);
+  }
+
+  .tag {
+    padding: 0 var(--space-2);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-label);
+    letter-spacing: var(--track-caps);
+    text-transform: uppercase;
+    color: var(--light);
+    box-shadow: inset 0 0 0 1px
+      color-mix(in srgb, var(--light) 40%, transparent);
+  }
+
+  .benefit-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+    padding-top: var(--space-2);
+  }
+
   .description {
-    margin: var(--space-5) 0 0;
+    margin: var(--space-2) 0 0;
+    font-size: var(--text-sm);
     color: var(--muted);
     white-space: pre-wrap;
   }

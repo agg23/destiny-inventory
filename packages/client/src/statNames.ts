@@ -19,6 +19,10 @@ const SHORT: Record<string, string> = {
   "Guard Endurance": "Endurance",
   "Shield Duration": "Shield",
   "Ammo Capacity": "Ammo",
+  "Heat Generated": "Heat",
+  "Cooling Efficiency": "Cooling",
+  // DIM names its derived total through i18n, which this app has no catalog for
+  "Stats.Total": "Total",
 };
 
 export const shortStat = (name: string): string => SHORT[name] ?? name;

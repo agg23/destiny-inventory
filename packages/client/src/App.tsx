@@ -13,12 +13,14 @@ import {
 import { activeStore, NOBODY, observe, prefer, type Active } from "./active.ts";
 import { beginLogin, signedIn, signOut } from "./auth.ts";
 import { acquired } from "./arrivals.ts";
+import { comparable } from "./compare.ts";
 import { Arrivals } from "./Arrivals.tsx";
 import { Compare } from "./Compare.tsx";
 import { HoverCard } from "./HoverCard.tsx";
 import { Inventory } from "./Inventory.tsx";
 import { load, NotSignedIn, refreshProfile, type LoadResult } from "./load.ts";
 import { moveItem, subscribeStores } from "./moves.ts";
+import { plugIcons, warmIcons } from "./preload.ts";
 import { startAutoRefresh } from "./refresh.ts";
 
 const HOVER_DELAY = 120;
@@ -76,6 +78,31 @@ export const App = () => {
   onCleanup(() => window.removeEventListener("resize", measureHead));
 
   const feed = () => acquired(stores());
+
+  let warmed = false;
+
+  // Perk icons come from a different host than the grid's, so a panel opened cold spends its
+  // first moment blank. Warmed once the full definitions have landed, after first paint
+  createEffect(() => {
+    const loaded = current();
+
+    if (warmed || !loaded || loaded.tier !== "detail") {
+      return;
+    }
+
+    warmed = true;
+
+    let stop: (() => void) | undefined = undefined;
+
+    const idle = requestIdleCallback(() => {
+      stop = warmIcons(plugIcons(loaded.items));
+    });
+
+    onCleanup(() => {
+      cancelIdleCallback(idle);
+      stop?.();
+    });
+  });
 
   createEffect(() => setActive((was) => observe(was, current()?.playing)));
 
@@ -146,12 +173,31 @@ export const App = () => {
         return was.filter((already) => already.id !== item.id);
       }
 
+      const [reference] = was;
+
+      // Armor and a weapon share no stats, so a mismatched pick starts over instead
+      if (reference && !comparable(reference, item)) {
+        return [item];
+      }
+
       if (was.length < PINS) {
         return [...was, item];
       }
 
       return [...was.slice(0, PINS - 1), item];
     });
+
+  // Hovering while something is pinned is the same question the compare panel answers
+  const against = () => {
+    const [reference] = pinned();
+    const item = hovered()?.item;
+
+    if (!reference || !item || reference.id === item.id) {
+      return undefined;
+    }
+
+    return comparable(reference, item) ? reference : undefined;
+  };
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -358,7 +404,13 @@ export const App = () => {
         </div>
 
         <Show when={hovered()}>
-          {(card) => <HoverCard item={card().item} anchor={card().anchor} />}
+          {(card) => (
+            <HoverCard
+              item={card().item}
+              against={against()}
+              anchor={card().anchor}
+            />
+          )}
         </Show>
       </Show>
     </main>

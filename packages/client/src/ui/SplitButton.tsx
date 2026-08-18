@@ -17,6 +17,8 @@ interface Props {
   disabled?: boolean;
   variant?: keyof typeof ACCENT;
   size?: Size;
+  // Fills its container rather than its label, for a column of controls that line up
+  block?: boolean;
   onPrimary: () => void;
   choices: Choice[];
 }
@@ -35,10 +37,15 @@ const DISABLED_RING =
 export const SplitButton = (props: Props) => {
   const size = (): Size => props.size ?? "md";
 
+  // The primary is always in the list, so one choice means the menu only repeats the button.
+  // The caret stays put and greys out rather than coming and going between items
+  const alone = () => props.choices.length < 2;
+
   return (
     <div
       class={cn(
-        "relative inline-flex min-w-0",
+        "relative min-w-0",
+        props.block ? "flex w-full" : "inline-flex",
         ACCENT[props.variant ?? "default"],
         RING,
         props.disabled ? DISABLED_RING : GLOW,
@@ -51,7 +58,7 @@ export const SplitButton = (props: Props) => {
         size={size()}
         disabled={props.disabled}
         onClick={props.onPrimary}
-        class="min-w-0 truncate"
+        class={cn("min-w-0 truncate", props.block && "flex-1")}
       >
         {props.label}
       </Button>
@@ -71,8 +78,8 @@ export const SplitButton = (props: Props) => {
             ring="off"
             glow="off"
             size={CARET[size()]}
-            disabled={props.disabled}
-            aria-label={`${props.label}: other targets`}
+            disabled={props.disabled || alone()}
+            aria-label={`${props.label}: choose target`}
           >
             <svg viewBox="0 0 10 6" width="10" height="6" aria-hidden="true">
               <path d="M0 0h10L5 6z" fill="currentColor" />

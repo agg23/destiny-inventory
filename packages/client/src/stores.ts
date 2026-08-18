@@ -12,6 +12,8 @@ import { collectErrors } from "app/utils/log";
 
 import { buildDefinitions } from "@dvm/dim-bridge";
 
+import { setDefs } from "./defs.ts";
+
 export interface Failure {
   reason: string;
   count: number;
@@ -100,6 +102,9 @@ export const buildStoresFrom = (
   tables.set("PlugSet", plugSets as unknown as Record<string, unknown>);
 
   const defs = buildDefinitions(tables);
+
+  setDefs(defs);
+
   const buckets = getBuckets(defs);
   const withheld = stripHidden(profile, hidden);
 

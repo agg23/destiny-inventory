@@ -3,7 +3,7 @@ import type { DimStore } from "app/inventory/store-types";
 import { For, Show } from "solid-js";
 
 import { powerDelta } from "./arrivals.ts";
-import { BUNGIE } from "./ItemPanel.tsx";
+import { BUNGIE, typeName } from "./ItemPanel.tsx";
 
 interface Props {
   items: DimItem[];
@@ -42,7 +42,7 @@ export const Arrivals = (props: Props) => (
             <div>
               <div class="name">{item.name}</div>
               <div class="meta">
-                {item.typeName}
+                {typeName(item)}
                 <Show when={item.power > 0}> · {item.power}</Show>
               </div>
               <div class="meta">
