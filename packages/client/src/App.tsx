@@ -1,7 +1,8 @@
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
-import { createResource, createSignal, For, onCleanup, Show } from "solid-js";
+import { createEffect, createResource, createSignal, For, onCleanup, Show } from "solid-js";
 
+import { activeStore, NOBODY, observe, prefer, type Active } from "./active.ts";
 import { beginLogin, signedIn, signOut } from "./auth.ts";
 import { Inventory } from "./Inventory.tsx";
 import { ItemDetail } from "./ItemDetail.tsx";
@@ -19,6 +20,7 @@ export const App = () => {
   const [moveError, setMoveError] = createSignal<string | undefined>(undefined);
   const [stale, setStale] = createSignal(false);
   const [refreshedAt, setRefreshedAt] = createSignal<number | undefined>(undefined);
+  const [active, setActive] = createSignal<Active>(NOBODY);
 
   // Gate the fetcher on a token, since reading an errored resource rethrows
   const [authed] = createSignal(signedIn());
@@ -26,6 +28,9 @@ export const App = () => {
     () => authed() || undefined,
     () => load(setUpgraded),
   );
+
+  // The load reports who the game had in hand, the same as every refresh after it
+  createEffect(() => setActive((was) => observe(was, current()?.playing)));
 
   const error = () => result.error as Error | undefined;
   const current = () => (error() ? undefined : (upgraded() ?? result()));
@@ -68,6 +73,8 @@ export const App = () => {
     }
 
     const outcome = await refreshProfile(session);
+
+    setActive((was) => observe(was, outcome.playing));
 
     if (outcome.status === "manifest-changed") {
       setStale(true);
@@ -199,6 +206,8 @@ export const App = () => {
             <ItemDetail
               item={item()}
               stores={stores()}
+              active={activeStore(active(), stores())}
+              onPrefer={(target) => setActive((was) => prefer(was, target.id))}
               moving={moving()}
               moveError={moveError()}
               onMove={(target, equip) => onMove(item(), target, equip)}

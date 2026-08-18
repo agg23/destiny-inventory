@@ -1,47 +1,114 @@
 import type { DimItem, DimSocketCategory, DimSockets, DimStat } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { getSocketsByIndexes } from "app/utils/socket-utils";
+import { itemCanBeEquippedBy } from "app/utils/item-utils";
 import { For, Show } from "solid-js";
+
+import { SplitButton, type Choice } from "./SplitButton.tsx";
 
 const BUNGIE = "https://www.bungie.net";
 
 interface Props {
   item: DimItem;
   stores: DimStore[];
+  active: DimStore | undefined;
   onMove: (target: DimStore, equip: boolean) => void;
+  onPrefer: (target: DimStore) => void;
   moving: string | undefined;
   moveError: string | undefined;
   onClose: () => void;
 }
 
-// Equipping is only meaningful on a character, and only for gear that is not already on
-const Moves = (props: Props) => (
-  <div class="moves">
-    <h4>Move to</h4>
-    <div class="targets">
-      <For each={props.stores.filter((store) => store.id !== props.item.owner)}>
-        {(store) => (
-          <button type="button" disabled={Boolean(props.moving)} onClick={() => props.onMove(store, false)}>
-            {store.isVault ? "Vault" : store.className}
-          </button>
+const label = (store: DimStore) => (store.isVault ? "Vault" : store.className);
+
+/**
+ * Two controls rather than a grid of them: each does the likely thing, and the caret holds
+ * the rest. Transferring away always means the vault, since that is what it almost always
+ * means; everything else follows the active character.
+ */
+const Moves = (props: Props) => {
+  const vault = () => props.stores.find((store) => store.isVault);
+  const characters = () => props.stores.filter((store) => !store.isVault);
+
+  const canTransfer = () => !props.item.notransfer;
+
+  // Away from a character is the vault, into a character is whoever is active
+  const transferTo = () => {
+    const home = props.stores.find((store) => store.id === props.item.owner);
+
+    if (home?.isVault) {
+      return props.active;
+    }
+
+    return vault();
+  };
+
+  const equipOn = () => {
+    const targets = equippable();
+
+    if (props.active && targets.some((store) => store.id === props.active?.id)) {
+      return props.active;
+    }
+
+    return targets[0];
+  };
+
+  // An item already equipped where it is cannot be equipped there again
+  const equippable = () =>
+    characters().filter(
+      (store) =>
+        itemCanBeEquippedBy(props.item, store) &&
+        !(props.item.equipped && props.item.owner === store.id),
+    );
+
+  const act = (target: DimStore, equip: boolean, manual: boolean) => {
+    // Reaching past the default is the signal that the user wants a different character
+    if (manual && !target.isVault) {
+      props.onPrefer(target);
+    }
+
+    props.onMove(target, equip);
+  };
+
+  const others = (targets: DimStore[], primary: DimStore | undefined, equip: boolean): Choice[] =>
+    targets
+      .filter((store) => store.id !== primary?.id)
+      .map((store) => ({
+        id: store.id,
+        label: label(store),
+        onChoose: () => act(store, equip, true),
+      }));
+
+  const transferTargets = () =>
+    props.stores.filter((store) => store.id !== props.item.owner && canTransfer());
+
+  return (
+    <div class="moves">
+      <Show when={transferTo()}>
+        {(target) => (
+          <SplitButton
+            label={`Transfer to ${label(target())}`}
+            disabled={!!props.moving}
+            onPrimary={() => act(target(), false, false)}
+            choices={others(transferTargets(), target(), false)}
+          />
         )}
-      </For>
+      </Show>
+      <Show when={equipOn()}>
+        {(target) => (
+          <SplitButton
+            label={`Equip on ${label(target())}`}
+            disabled={!!props.moving}
+            onPrimary={() => act(target(), true, false)}
+            choices={others(equippable(), target(), true)}
+          />
+        )}
+      </Show>
+      <Show when={props.moving}>{(status) => <p class="meta">{status()}</p>}</Show>
+      <Show when={props.moveError}>{(message) => <p class="error">{message()}</p>}</Show>
     </div>
-    <Show when={props.item.equipment && !props.item.equipped}>
-      <div class="targets">
-        <For each={props.stores.filter((store) => !store.isVault)}>
-          {(store) => (
-            <button type="button" disabled={Boolean(props.moving)} onClick={() => props.onMove(store, true)}>
-              Equip on {store.className}
-            </button>
-          )}
-        </For>
-      </div>
-    </Show>
-    <Show when={props.moving}>{(status) => <p class="meta">{status()}</p>}</Show>
-    <Show when={props.moveError}>{(message) => <p class="error">{message()}</p>}</Show>
-  </div>
-);
+  );
+};
 
 const Bar = (props: { stat: DimStat }) => {
   const fraction = () =>

@@ -70,6 +70,7 @@ export interface LoadResult {
   skipped: Failure[];
   degraded: Failure[];
   session: Session;
+  playing: string | undefined;
 }
 
 export class NotSignedIn extends Error {
@@ -146,6 +147,26 @@ const cachedMembership = async (token: string): Promise<Membership> => {
 // already on screen. This is the only field that says which is newer
 const mintedAt = (profile: DestinyProfileResponse): number =>
   new Date(profile.responseMintedTimestamp ?? 0).getTime();
+
+const LIVE_WINDOW = 10 * 60_000;
+
+// currentActivityHash is set for orbit and the tower as well as for activities, so it is a
+// decent proxy for being in the game at all. It can also sit stale after a logout, which is
+// what pairing it with dateLastPlayed guards against
+const playingNow = (profile: DestinyProfileResponse): string | undefined => {
+  const characters = profile.characters?.data ?? {};
+  const now = Date.now();
+
+  for (const [id, activity] of Object.entries(profile.characterActivities?.data ?? {})) {
+    const lastPlayed = new Date(characters[id]?.dateLastPlayed ?? 0).getTime();
+
+    if (activity.currentActivityHash !== 0 && now - lastPlayed < LIVE_WINDOW) {
+      return id;
+    }
+  }
+
+  return undefined;
+};
 
 const profileItems = (profile: DestinyProfileResponse) => [
   ...(profile.profileInventory?.data?.items ?? []),
@@ -291,6 +312,7 @@ export const load = async (onUpgrade?: (result: LoadResult) => void): Promise<Lo
     },
     manifestVersion: index.manifestVersion,
     tier: fresh ? "core" : "detail",
+    playing: playingNow(profile),
     counts: {
       owned: owned.size,
       defs: Object.keys(items).length,
@@ -404,6 +426,7 @@ export interface RefreshOutcome {
   status: RefreshStatus;
   skipped: Failure[];
   degraded: Failure[];
+  playing: string | undefined;
 }
 
 // New items can reference definitions the load-time closure never reached, so the delta has to
@@ -444,7 +467,7 @@ export const refreshProfile = async (session: Session): Promise<RefreshOutcome> 
 
   // Definitions would be wrong for the new manifest, so the caller has to start over
   if (config.artifacts.manifestVersion !== session.index.manifestVersion) {
-    return { status: "manifest-changed", skipped: [], degraded: [] };
+    return { status: "manifest-changed", skipped: [], degraded: [], playing: undefined };
   }
 
   const profile = await fetchProfile(session.membership, token);
@@ -453,7 +476,7 @@ export const refreshProfile = async (session: Session): Promise<RefreshOutcome> 
   // Bungie's cache can hand back what we already have, or older. Rebuilding on that would
   // undo moves we just made and know about
   if (minted <= session.minted) {
-    return { status: "unchanged", skipped: [], degraded: [] };
+    return { status: "unchanged", skipped: [], degraded: [], playing: playingNow(profile) };
   }
 
   await materialiseNew(session, profile);
@@ -469,5 +492,10 @@ export const refreshProfile = async (session: Session): Promise<RefreshOutcome> 
   session.minted = minted;
   await seedInventory(built.stores, session.membership);
 
-  return { status: "updated", skipped: built.skipped, degraded: built.degraded };
+  return {
+    status: "updated",
+    skipped: built.skipped,
+    degraded: built.degraded,
+    playing: playingNow(profile),
+  };
 };
