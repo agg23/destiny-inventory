@@ -14,7 +14,8 @@
     "build:client": "pnpm --filter @dvm/client build",
     "stage": "node packages/build/src/stage.ts",
     "build": "pnpm build:artifacts && pnpm build:client && pnpm stage",
-    "deploy": "wrangler deploy"
+    "deploy": "npx wrangler deploy",
+    "deploy:cached": "pnpm build:client && pnpm stage && npx wrangler deploy"
   },
   "dependencies": {
     "@destinyitemmanager/dim-api-types": "^1.40.0",
