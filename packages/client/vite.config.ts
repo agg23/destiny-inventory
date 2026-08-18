@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 
+import tailwind from "@tailwindcss/vite";
 import solid from "vite-plugin-solid";
 import { defineConfig } from "vite";
 
@@ -14,7 +15,7 @@ const REMOTE = !API_TARGET.includes("localhost");
 
 export default defineConfig(() => {
   return {
-    plugins: [dimPathShimsPlugin(root("../dim-bridge/src/shims")), solid()],
+    plugins: [dimPathShimsPlugin(root("../dim-bridge/src/shims")), tailwind(), solid()],
     define: DIM_GLOBALS,
     resolve: {
       alias: [

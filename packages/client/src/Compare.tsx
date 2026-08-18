@@ -3,6 +3,7 @@ import type { DimStore } from "app/inventory/store-types";
 import { createMemo, For, Show } from "solid-js";
 
 import { BUNGIE, Moves, Perks } from "./ItemPanel.tsx";
+import { IconButton } from "./ui/Button.tsx";
 
 interface Props {
   items: DimItem[];
@@ -21,11 +22,7 @@ interface Row {
   values: (DimStat | undefined)[];
 }
 
-/**
- * Pinned items side by side. The stat labels are shared down one column so a row means the
- * same thing across both, which is the whole point: two loose cards make the eye hunt for the
- * matching line. Perks sit underneath per item, since there is nothing to align them by.
- */
+// Stat labels are shared down one column, so a row means the same thing across both items
 export const Compare = (props: Props) => {
   const rows = createMemo<Row[]>(() => {
     const order = new Map<number, DimStat>();
@@ -83,14 +80,15 @@ export const Compare = (props: Props) => {
                   <Show when={item.power > 0}> · {item.power}</Show>
                 </div>
               </div>
-              <button
+              <IconButton
                 type="button"
-                class="unpin"
-                aria-label={`Unpin ${item.name}`}
+                variant="ghost"
+                size="icon-sm"
+                label={`Unpin ${item.name}`}
                 onClick={() => props.onUnpin(item)}
               >
                 ✕
-              </button>
+              </IconButton>
             </div>
           )}
         </For>
@@ -99,6 +97,7 @@ export const Compare = (props: Props) => {
         <For each={props.items}>
           {(item) => (
             <Moves
+              compact={props.items.length > 1}
               item={item}
               stores={props.stores}
               active={props.active}

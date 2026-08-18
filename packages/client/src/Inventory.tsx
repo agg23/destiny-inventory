@@ -95,7 +95,7 @@ export const Inventory = (props: Props) => {
     shown().some((store) => byStore().get(store.id)?.has(bucket.hash));
 
   // Quests and Orders carry no sort, so they belong to no category
-  const uncategorised = createMemo(() => {
+  const uncategorized = createMemo(() => {
     const known = new Set(
       CATEGORIES.flatMap(
         (category) => props.buckets.byCategory[category] ?? [],
@@ -123,7 +123,7 @@ export const Inventory = (props: Props) => {
         category,
         buckets: props.buckets.byCategory[category] ?? [],
       })),
-      { category: "Other", buckets: uncategorised() },
+      { category: "Other", buckets: uncategorized() },
     ]
       .map((section) => ({
         ...section,

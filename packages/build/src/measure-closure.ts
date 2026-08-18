@@ -105,7 +105,7 @@ const main = async () => {
   console.log(`\nCollapse: ${Math.round(naiveBytes / unionBytes)}x`);
   console.log(`Union item defs: ${union.items.size}, plug sets: ${union.plugSets.size}`);
 
-  // Armour pulls the universal mod pools, weapons alone understate this badly
+  // Armor pulls the universal mod pools, weapons alone understate this badly
   const vaultCandidates = Object.values(tables.items)
     .filter(
       (item) =>

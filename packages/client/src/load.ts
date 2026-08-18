@@ -7,7 +7,7 @@ import type {
   DestinyProfileResponse,
 } from "bungie-api-ts/destiny2";
 
-import { materialiseClosure } from "@dvm/defs-core";
+import { materializeClosure } from "@dvm/defs-core";
 
 import { accessToken } from "./auth.ts";
 import { buildStoresFrom, storeItems, type Failure } from "./stores.ts";
@@ -286,7 +286,7 @@ export const load = async (
     core = await fetchRecords<ItemDef>(index, "core");
     items = byHash(core);
   } else {
-    const closure = await materialiseClosure(owned, {
+    const closure = await materializeClosure(owned, {
       items: (hashes) => readMerged(store, hashes),
       plugSets: (hashes) => store.getMany<PlugSetDef>(PLUG_SETS, hashes),
     });
@@ -454,7 +454,7 @@ export interface RefreshOutcome {
 }
 
 // New items can reference definitions the load-time closure never reached
-const materialiseNew = async (
+const materializeNew = async (
   session: Session,
   profile: DestinyProfileResponse,
 ) => {
@@ -469,7 +469,7 @@ const materialiseNew = async (
     return;
   }
 
-  const closure = await materialiseClosure(missing, {
+  const closure = await materializeClosure(missing, {
     items: (hashes) => readMerged(session.store, hashes),
     plugSets: (hashes) => session.store.getMany<PlugSetDef>(PLUG_SETS, hashes),
   });
@@ -478,10 +478,7 @@ const materialiseNew = async (
   Object.assign(session.plugSets, closure.plugSets);
 };
 
-/**
- * Re-read the profile and rebuild the stores from it. The grid follows through the move
- * engine's own subscription rather than a return value.
- */
+// The grid follows through the move engine's subscription rather than a return value
 export const refreshProfile = async (
   session: Session,
 ): Promise<RefreshOutcome> => {
@@ -516,7 +513,7 @@ export const refreshProfile = async (
     };
   }
 
-  await materialiseNew(session, profile);
+  await materializeNew(session, profile);
 
   const built = buildStoresFrom(
     session.support,

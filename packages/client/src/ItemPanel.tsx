@@ -9,7 +9,7 @@ import { getSocketsByIndexes } from "app/utils/socket-utils";
 import { itemCanBeEquippedBy } from "app/utils/item-utils";
 import { For, Show } from "solid-js";
 
-import { SplitButton, type Choice } from "./SplitButton.tsx";
+import { SplitButton, type Choice } from "./ui/SplitButton.tsx";
 
 export const BUNGIE = "https://www.bungie.net";
 
@@ -21,15 +21,13 @@ export interface MoveProps {
   onPrefer: (target: DimStore) => void;
   moving: string | undefined;
   moveError: string | undefined;
+  // Two items share the rail, so the target moves into the caret menu to buy back the width
+  compact?: boolean;
 }
 
 const label = (store: DimStore) => (store.isVault ? "Vault" : store.className);
 
-/**
- * Two controls rather than a grid of them: each does the likely thing, and the caret holds
- * the rest. Transferring away always means the vault, since that is what it almost always
- * means; everything else follows the active character.
- */
+// Transferring away always means the vault; everything else follows the active character
 export const Moves = (props: MoveProps) => {
   const vault = () => props.stores.find((store) => store.isVault);
   const characters = () => props.stores.filter((store) => !store.isVault);
@@ -98,7 +96,9 @@ export const Moves = (props: MoveProps) => {
       <Show when={transferTo()}>
         {(target) => (
           <SplitButton
-            label={`Transfer to ${label(target())}`}
+            label={
+              props.compact ? "Transfer" : `Transfer to ${label(target())}`
+            }
             disabled={!!props.moving}
             onPrimary={() => act(target(), false, false)}
             choices={others(transferTargets(), target(), false)}
@@ -108,7 +108,7 @@ export const Moves = (props: MoveProps) => {
       <Show when={equipOn()}>
         {(target) => (
           <SplitButton
-            label={`Equip on ${label(target())}`}
+            label={props.compact ? "Equip" : `Equip on ${label(target())}`}
             disabled={!!props.moving}
             onPrimary={() => act(target(), true, false)}
             choices={others(equippable(), target(), true)}

@@ -1,6 +1,6 @@
 import type { DimStore } from "app/inventory/store-types";
 
-/** Who the game says is playing, and who the user has asked for instead */
+// Who the game says is playing, and who the user has asked for instead
 export interface Active {
   playing: string | undefined;
   override: string | undefined;
@@ -13,10 +13,8 @@ export const NOBODY: Active = {
   witnessed: undefined,
 };
 
-/**
- * The override loses to reality rather than to a clock. Any change in who the game reports
- * drops it, which covers switching characters and closing the game with one rule.
- */
+// The override loses to reality rather than to a clock, so one rule covers both switching
+// characters and closing the game
 export const observe = (
   active: Active,
   playing: string | undefined,

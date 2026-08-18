@@ -3,15 +3,12 @@ const MINIMUM = 15_000;
 
 interface Options {
   onRefresh: () => Promise<void>;
-  /** True while a move is in flight; refreshing mid move would fight it */
+  // True while a move is in flight, since refreshing mid move would fight it
   busy: () => boolean;
 }
 
-/**
- * Bungie has no push for profile data, so this polls. The timer restarts after each refresh
- * rather than running on a fixed schedule, which keeps the gap between calls honest when a
- * refresh takes a while, and it only runs while the tab is visible and online.
- */
+// Bungie has no push for profile data. The timer restarts after each refresh rather than
+// running on a schedule, so a slow refresh cannot stack calls up behind it
 export const startAutoRefresh = ({
   onRefresh,
   busy,

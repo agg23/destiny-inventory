@@ -12,10 +12,7 @@ interface Props {
   anchor: DOMRect;
 }
 
-/**
- * One card the grid moves around, not a tooltip per tile: there are a thousand tiles. It sits
- * beside the item the way the game does, and flips rather than running off the edge.
- */
+// One card the grid moves around, since a tooltip per tile would be a thousand of them
 export const HoverCard = (props: Props) => {
   const position = createMemo(() => {
     const room = window.innerWidth - props.anchor.right;

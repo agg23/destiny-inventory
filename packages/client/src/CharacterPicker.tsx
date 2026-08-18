@@ -21,7 +21,7 @@ const Banner = (props: { store: DimStore }) => (
 );
 
 export const CharacterPicker = (props: Props) => (
-  <DropdownMenu gutter={4} sameWidth>
+  <DropdownMenu gutter={4} sameWidth modal={false} preventScroll={false}>
     <DropdownMenu.Trigger
       class="store-head picker"
       style={{ "background-image": `url(${props.selected?.background})` }}

@@ -3,7 +3,7 @@ export { itemReferences, plugSetReferences, type ItemReferences } from "./refere
 export { coreItem, detailItem, hasDetail, slimItem, type SlimItem } from "./projection.ts";
 export { isShipped } from "./shipped.ts";
 export {
-  materialiseClosure,
+  materializeClosure,
   type AsyncTables,
-  type Materialised,
-} from "./materialise.ts";
+  type Materialized,
+} from "./materialize.ts";

@@ -10,11 +10,7 @@ const recency = (item: DimItem) => item.id.padStart(PADDING, "0");
 // Stacks all share the id "0", and quests are instanced but are not loot
 const dropped = (item: DimItem) => item.id !== "0" && item.equipment;
 
-/**
- * The last few things acquired, newest first. Nothing is remembered at all: the list is derived
- * from what is held right now, so anything dismantled stops appearing and any browser shows the
- * same thing.
- */
+// Derived from what is held right now, so nothing is stored and every browser agrees
 export const acquired = (stores: DimStore[]): DimItem[] =>
   stores
     .flatMap((store) => store.items)
@@ -22,7 +18,7 @@ export const acquired = (stores: DimStore[]): DimItem[] =>
     .sort((a, b) => (recency(a) < recency(b) ? 1 : -1))
     .slice(0, SHOWN);
 
-/** Power against the best of the same slot already held, which is the glance that matters */
+// Power against the best of the same slot already held
 export const powerDelta = (
   item: DimItem,
   stores: DimStore[],

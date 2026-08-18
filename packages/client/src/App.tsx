@@ -162,7 +162,7 @@ export const App = () => {
   const onBackground = (e: MouseEvent) => {
     const target = e.target as HTMLElement;
 
-    if (!target.closest(".item, .compare, .split-menu, header")) {
+    if (!target.closest(".item, .compare, [data-menu], header")) {
       setPinned([]);
     }
   };

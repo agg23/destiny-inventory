@@ -1,13 +1,19 @@
+/* Declared before the import so legacy lands under utilities, not after them */
+@layer theme, base, components, legacy, utilities;
+
+@import "tailwindcss";
+
 /* Latin only, one variable axis, no italics: everything else in the package stays unshipped */
 @font-face {
   font-family: "Inter";
   font-style: normal;
   font-display: swap;
   font-weight: 100 900;
-  src: url("@fontsource-variable/inter/files/inter-latin-wght-normal.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
-    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
-    U+FEFF, U+FFFD;
+  src: url("@fontsource-variable/inter/files/inter-latin-wght-normal.woff2")
+    format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
 /*
@@ -15,6 +21,71 @@
  * between them mixed by alpha. Braytech works this way and it is why the result reads as one
  * surface instead of a pile of greys. Neue Haas is theirs to license, so the face is Inter
  */
+
+/*
+ * Tailwind reads its scale from here rather than shipping its own. Static because the game
+ * colors are reached by name and Tailwind would otherwise drop the ones no utility mentions.
+ * Spacing is a single 4px
+ * step multiplied, which is what the old hand-picked 2/4/6/8/12/16/24 list lacked: p-1 is
+ * 4px, p-2 is 8px, p-4 is 16px, and nothing in between is available to be picked carelessly
+ */
+@theme static {
+  --spacing: 4px;
+
+  --font-sans: "Inter", system-ui, sans-serif;
+
+  --text-xs: 10px;
+  --text-sm: 12px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+
+  --tracking-base: 0.2px;
+  --tracking-caps: 0.6px;
+
+  --radius-none: 0;
+
+  --color-fg: #fff;
+  --color-bg: #101312;
+
+  --color-text: color-mix(in srgb, var(--fg) 80%, transparent);
+  --color-muted: color-mix(in srgb, var(--fg) 60%, transparent);
+  --color-dim: color-mix(in srgb, var(--fg) 40%, transparent);
+
+  --color-surface: color-mix(in srgb, var(--fg) 5%, transparent);
+  --color-surface-raised: color-mix(in srgb, var(--fg) 10%, transparent);
+  --color-surface-active: color-mix(in srgb, var(--fg) 40%, transparent);
+  --color-panel: color-mix(in srgb, var(--fg) 6%, var(--bg));
+  --color-panel-raised: color-mix(in srgb, var(--fg) 10%, var(--bg));
+
+  --color-line: color-mix(in srgb, var(--fg) 10%, transparent);
+  --color-line-bright: color-mix(in srgb, var(--fg) 20%, transparent);
+
+  --color-light: #e5d163;
+  --color-error: #dc513b;
+  --color-warning: #f3d95c;
+
+  --color-exotic: #cdae32;
+  --color-legendary: #522f65;
+  --color-rare: #5176a4;
+  --color-uncommon: #356e3b;
+  --color-common: #c4bdb5;
+
+  --color-solar: #f1631d;
+  --color-arc: #6de8f1;
+  --color-void: #a777c5;
+  --color-stasis: #427cff;
+  --color-strand: #38e266;
+
+  /* Controls come in three heights and nothing else, so a one-off X cannot happen again */
+  --size-control-sm: 24px;
+  --size-control-md: 32px;
+  --size-control-lg: 40px;
+
+  --size-tile: 44px;
+}
+
 :root {
   color-scheme: dark;
 

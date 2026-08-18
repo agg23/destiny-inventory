@@ -10,16 +10,16 @@ export interface AsyncTables {
   plugSets: (hashes: number[]) => Promise<DestinyPlugSetDefinition[]>;
 }
 
-export interface Materialised {
+export interface Materialized {
   items: Record<number, DestinyInventoryItemDefinition>;
   plugSets: Record<number, DestinyPlugSetDefinition>;
 }
 
 // Pulls only the closure the profile reaches, so heap tracks the vault rather than the game
-export const materialiseClosure = async (
+export const materializeClosure = async (
   owned: Iterable<number>,
   tables: AsyncTables,
-): Promise<Materialised> => {
+): Promise<Materialized> => {
   const items: Record<number, DestinyInventoryItemDefinition> = {};
   const plugSets: Record<number, DestinyPlugSetDefinition> = {};
 
