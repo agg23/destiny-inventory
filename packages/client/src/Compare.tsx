@@ -3,6 +3,7 @@ import type { DimStore } from "app/inventory/store-types";
 import { createMemo, For, Show } from "solid-js";
 
 import { BUNGIE, Moves, Perks } from "./ItemPanel.tsx";
+import { shortStat } from "./statNames.ts";
 import { IconButton } from "./ui/Button.tsx";
 
 interface Props {
@@ -39,7 +40,7 @@ export const Compare = (props: Props) => {
       .sort((a, b) => a.sort - b.sort)
       .map((stat) => ({
         hash: stat.statHash,
-        name: stat.displayProperties.name,
+        name: shortStat(stat.displayProperties.name),
         values: props.items.map(
           (item) => item.stats?.find((own) => own.statHash === stat.statHash),
         ),
@@ -57,8 +58,12 @@ export const Compare = (props: Props) => {
       : undefined;
   };
 
+  // Two items halve the column, so the name takes the row above the icon rather than
+  // sharing it
+  const compact = () => props.items.length > 1;
+
   const columns = () =>
-    `minmax(0, 1fr) repeat(${props.items.length}, minmax(0, 1.2fr))`;
+    `var(--compare-labels) repeat(${props.items.length}, minmax(0, 1fr))`;
 
   return (
     <Show when={props.items.length > 0}>
@@ -84,6 +89,8 @@ export const Compare = (props: Props) => {
                 type="button"
                 variant="ghost"
                 size="icon-sm"
+                place="absolute"
+                class="right-0 top-0"
                 label={`Unpin ${item.name}`}
                 onClick={() => props.onUnpin(item)}
               >
@@ -97,7 +104,7 @@ export const Compare = (props: Props) => {
         <For each={props.items}>
           {(item) => (
             <Moves
-              compact={props.items.length > 1}
+              compact={compact()}
               item={item}
               stores={props.stores}
               active={props.active}

@@ -1,5 +1,6 @@
 import type {
   DimItem,
+  DimSocket,
   DimSocketCategory,
   DimSockets,
   DimStat,
@@ -144,32 +145,52 @@ export const Bar = (props: { stat: DimStat }) => {
   );
 };
 
+// The game shows a socket as a column of everything it could hold, with what is plugged lit
+// and the rest dimmed. A fixed roll is a column of one, which is why exotics look like a row
+const Socket = (props: { socket: DimSocket }) => {
+  const options = () =>
+    props.socket.plugOptions.length > 0
+      ? props.socket.plugOptions
+      : props.socket.plugged
+      ? [props.socket.plugged]
+      : [];
+
+  return (
+    <div class="socket">
+      <For each={options()}>
+        {(plug) => (
+          <img
+            class="plug"
+            classList={{
+              plugged: plug.plugDef.hash === props.socket.plugged?.plugDef.hash,
+              disabled: !plug.enabled,
+            }}
+            src={`${BUNGIE}${plug.plugDef.displayProperties.icon}`}
+            loading="lazy"
+            alt={plug.plugDef.displayProperties.name}
+            title={plug.plugDef.displayProperties.name}
+          />
+        )}
+      </For>
+    </div>
+  );
+};
+
 const Category = (props: {
   sockets: DimSockets;
   category: DimSocketCategory;
 }) => {
-  const plugged = () =>
-    getSocketsByIndexes(props.sockets, props.category.socketIndexes)
-      .map((socket) => socket.plugged)
-      .filter((plug) => plug !== null);
+  const sockets = () =>
+    getSocketsByIndexes(props.sockets, props.category.socketIndexes).filter(
+      (socket) => socket.plugged ?? socket.plugOptions.length > 0,
+    );
 
   return (
-    <Show when={plugged().length > 0}>
+    <Show when={sockets().length > 0}>
       <div class="perk-group">
         <h4>{props.category.category.displayProperties.name}</h4>
-        <div class="perks">
-          <For each={plugged()}>
-            {(plug) => (
-              <div class="perk" classList={{ disabled: !plug.enabled }}>
-                <img
-                  src={`${BUNGIE}${plug.plugDef.displayProperties.icon}`}
-                  loading="lazy"
-                  alt=""
-                />
-                {plug.plugDef.displayProperties.name}
-              </div>
-            )}
-          </For>
+        <div class="sockets">
+          <For each={sockets()}>{(socket) => <Socket socket={socket} />}</For>
         </div>
       </div>
     </Show>

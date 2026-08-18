@@ -35,15 +35,25 @@
     top: var(--header-h, 76px);
     right: 0;
     bottom: 0;
-    width: 380px;
+    width: var(--rail);
     display: flex;
     flex-direction: column;
     background: var(--panel);
     box-shadow: inset 1px 0 0 var(--line-bright);
   }
 
+  /* Widening on the second pin is a mode change the user asked for, not the layout twitching
+   * while they browse, which is why this is the one reflow that is allowed */
+  .rail.comparing {
+    width: var(--rail-compare);
+  }
+
   .body {
-    margin-right: 380px;
+    margin-right: var(--rail);
+  }
+
+  .body:has(.rail.comparing) {
+    margin-right: var(--rail-compare);
   }
 
   input {
@@ -336,8 +346,7 @@
     min-width: 0;
   }
 
-  .item-head .name,
-  .compare-head .name {
+  .item-head .name {
     font-size: var(--text-lg);
     font-weight: var(--weight-label);
     text-transform: uppercase;
@@ -352,18 +361,40 @@
   /* Pinned items share the label column, so a row means the same thing across both */
   .compare {
     overflow-y: auto;
+    scrollbar-gutter: stable;
     display: grid;
-    gap: var(--space-2) var(--space-4);
+    /* Rows sit close because they are one list; the columns are two different items and need
+     to read as separate things */
+    gap: var(--space-3) var(--space-6);
     align-items: center;
     align-content: start;
-    padding: var(--space-5);
+    padding: var(--space-6);
   }
 
   .compare-head {
+    position: relative;
     display: flex;
     gap: var(--space-4);
-    align-items: center;
-    padding-bottom: var(--space-2);
+    align-items: start;
+    padding-bottom: var(--space-5);
+  }
+
+  .compare-head .meta {
+    white-space: nowrap;
+  }
+
+  .compare-head .name {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    padding-right: var(--space-7);
+    font-size: var(--text-md);
+    font-weight: var(--weight-label);
+    line-height: var(--name-line);
+    letter-spacing: var(--track-caps);
+    text-transform: uppercase;
+    white-space: normal;
+    overflow: hidden;
   }
 
   .compare-head > div {
@@ -374,10 +405,6 @@
   .compare-head img {
     width: 32px;
     height: 32px;
-  }
-
-  .compare-head .name {
-    font-size: var(--text-md);
   }
 
   .compare-stat {
@@ -401,7 +428,7 @@
   }
 
   .compare .perk-group h4 {
-    margin-top: var(--space-4);
+    margin-top: var(--space-5);
   }
 
   .compare-perks {
@@ -444,26 +471,46 @@
     background: color-mix(in srgb, var(--fg) 70%, transparent);
   }
 
+  .sockets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    align-items: start;
+  }
+
+  /* One socket is one column: everything it could hold, stacked the way the game stacks it */
+  .socket {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  /* Fixed, never flexed: six sockets in a narrow column would otherwise each pick their own
+   size and the roll would read as a different shape on every weapon */
+  .plug {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--surface);
+    box-shadow: inset 0 0 0 1px var(--line);
+    opacity: 0.45;
+  }
+
+  .plug.plugged {
+    opacity: 1;
+    background: var(--surface-raised);
+    box-shadow: inset 0 0 0 1px var(--line-bright);
+  }
+
+  .plug.disabled {
+    opacity: 0.25;
+  }
+
   .perk-group h4 {
-    margin: var(--space-5) 0 var(--space-2);
+    margin: var(--space-4) 0 var(--space-2);
     font-size: var(--text-sm);
     color: var(--dim);
-  }
-
-  .perk {
-    display: flex;
-    gap: var(--space-3);
-    align-items: center;
-    padding: var(--space-1) 0;
-  }
-
-  .perk img {
-    width: 24px;
-    height: 24px;
-  }
-
-  .perk.disabled {
-    opacity: 0.5;
   }
 
   .description {

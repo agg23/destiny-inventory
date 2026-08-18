@@ -323,6 +323,7 @@ export const App = () => {
                 matches={matches}
                 active={activeStore(active(), stores())}
                 pinned={pinned()}
+                comparing={pinned().length > 1}
                 onSelectStore={(store) =>
                   setActive((was) => prefer(was, store.id))
                 }
@@ -333,7 +334,7 @@ export const App = () => {
             )}
           </Show>
 
-          <aside class="rail">
+          <aside class="rail" classList={{ comparing: pinned().length > 1 }}>
             <Show
               when={pinned().length > 0}
               fallback={

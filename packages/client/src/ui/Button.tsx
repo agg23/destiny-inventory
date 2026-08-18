@@ -27,7 +27,7 @@ export const GLOW = cn(
 
 export const buttonVariants = cva(
   cn(
-    "relative inline-flex shrink-0 items-center justify-center gap-1 whitespace-nowrap",
+    "inline-flex shrink-0 items-center justify-center gap-1 whitespace-nowrap",
     "cursor-pointer font-medium tracking-base transition-colors duration-250",
     "enabled:hover:bg-[color-mix(in_srgb,var(--accent)_40%,transparent)]",
     "enabled:hover:text-fg",
@@ -46,6 +46,9 @@ export const buttonVariants = cva(
         off: "shadow-none",
       },
       glow: { on: GLOW, off: "" },
+      // The base cannot just assert relative: a caller that needs it out of flow would be
+      // fighting a utility in the same layer, where source order decides and nothing is stable
+      place: { relative: "relative", absolute: "absolute" },
       fill: { on: FILL, off: "bg-transparent" },
       size: {
         sm: "h-6 px-2 text-sm",
@@ -63,6 +66,7 @@ export const buttonVariants = cva(
     defaultVariants: {
       variant: "default",
       size: "md",
+      place: "relative",
       ring: "on",
       glow: "on",
       fill: "on",
@@ -82,6 +86,7 @@ export const Button = (props: ButtonProps) => {
     "ring",
     "glow",
     "fill",
+    "place",
   ]);
 
   return (
@@ -93,6 +98,7 @@ export const Button = (props: ButtonProps) => {
           ring: local.ring,
           glow: local.glow,
           fill: local.fill,
+          place: local.place,
         }),
         local.class,
       )}

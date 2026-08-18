@@ -148,6 +148,29 @@
   --strand: #38e266;
 
   --tile: 44px;
+
+  /* Perks are the widest thing the rail has to hold. Six sockets is the most any weapon in the
+   * inventory carries, and they have to sit on one row: 6 x 28 + 5 x 4 = 188 per item */
+  --plug: 28px;
+  --socket-run: 188px;
+  --compare-labels: 64px;
+  --name-line: 20px;
+  /* Reserved whether or not the panel is scrolling, so the columns are the same width either
+   * way. Without this the scrollbar narrows the columns, the perks wrap, the content grows and
+   * the scrollbar stays: the layout feeds itself */
+  --scrollbar: 16px;
+
+  /* The rail holds one item or two, never more, so it has exactly two widths. Both are the
+   * label column plus that many socket runs, since perks are the widest thing either state
+   * has to show and they are not allowed to wrap */
+  --rail: calc(
+    var(--compare-labels) + var(--socket-run) + var(--space-6) * 3 +
+      var(--scrollbar)
+  );
+  --rail-compare: calc(
+    var(--compare-labels) + var(--socket-run) * 2 + var(--space-6) * 4 +
+      var(--scrollbar)
+  );
 }
 
 *:focus-visible {

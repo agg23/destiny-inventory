@@ -5,6 +5,7 @@ import type {
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import {
+  createEffect,
   createMemo,
   createSignal,
   For,
@@ -31,6 +32,7 @@ interface Props {
   onHover: (item: DimItem, anchor: DOMRect) => void;
   onLeave: (item: DimItem) => void;
   pinned: DimItem[];
+  comparing: boolean;
   active: DimStore | undefined;
   onSelectStore: (store: DimStore) => void;
 }
@@ -148,6 +150,15 @@ export const Inventory = (props: Props) => {
   };
 
   onMount(measure);
+
+  // The rail widens on the second pin, which resizes this box without firing a window resize.
+  // Driven off the state that causes it rather than a ResizeObserver, which only delivers as
+  // part of the rendering steps and so never arrives in a tab that is not painting
+  createEffect(() => {
+    props.comparing;
+    measure();
+  });
+
   window.addEventListener("resize", measure);
   onCleanup(() => window.removeEventListener("resize", measure));
 
