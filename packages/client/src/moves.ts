@@ -1,7 +1,10 @@
 import { accountsLoaded, setCurrentAccount } from "app/accounts/actions";
 import type { DestinyAccount } from "app/accounts/destiny-account";
 import { update } from "app/inventory/actions";
-import { createMoveSession, executeMoveItem } from "app/inventory/item-move-service";
+import {
+  createMoveSession,
+  executeMoveItem,
+} from "app/inventory/item-move-service";
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import store from "app/store/store";
@@ -26,9 +29,11 @@ const toAccount = (membership: Membership): DestinyAccount => ({
   lastPlayed: new Date(0),
 });
 
-// The move engine reads its world through Redux, so the stores it reasons about have to be
-// the ones on screen. Seeding happens once per load; the reducer keeps them current after
-export const seedInventory = async (stores: DimStore[], membership: Membership): Promise<void> => {
+// The move engine reads its world through Redux, so it has to be seeded with the live stores
+export const seedInventory = async (
+  stores: DimStore[],
+  membership: Membership,
+): Promise<void> => {
   const { apiKey } = await loadConfig();
 
   configureBungieApi({
@@ -52,14 +57,14 @@ export const seedInventory = async (stores: DimStore[], membership: Membership):
   dispatch(update({ stores, currencies: [] }));
 };
 
-export const currentStores = (): DimStore[] => store.getState().inventory.stores;
+export const currentStores = (): DimStore[] =>
+  store.getState().inventory.stores;
 
-// A move dispatches more than once, and not all of it lands before the promise resolves.
-// Reading the state on a subscription rather than sampling it is what keeps the grid honest
-export const subscribeStores = (listener: (stores: DimStore[]) => void): (() => void) =>
-  store.subscribe(() => listener(currentStores()));
+// A move dispatches more than once, and not all of it lands before the promise resolves
+export const subscribeStores = (
+  listener: (stores: DimStore[]) => void,
+): (() => void) => store.subscribe(() => listener(currentStores()));
 
-// Smart move: the engine makes space, de-equips, and cascades move-asides as needed
 export const moveItem = async (
   item: DimItem,
   target: DimStore,
@@ -67,5 +72,7 @@ export const moveItem = async (
 ): Promise<DimItem> => {
   const session = createMoveSession(neverCanceled, [item]);
 
-  return dispatch(executeMoveItem(item, target, { equip, amount: item.amount }, session));
+  return dispatch(
+    executeMoveItem(item, target, { equip, amount: item.amount }, session),
+  );
 };

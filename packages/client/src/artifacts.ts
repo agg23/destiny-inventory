@@ -27,7 +27,10 @@ export const hasArtifact = (index: ArtifactIndex, name: string): boolean =>
   Boolean(index.files[name]?.length);
 
 // Large tables ship sharded, since a single static asset is size capped
-export const fetchRecords = async <T>(index: ArtifactIndex, name: string): Promise<T[]> => {
+export const fetchRecords = async <T>(
+  index: ArtifactIndex,
+  name: string,
+): Promise<T[]> => {
   const chunks = await Promise.all(
     filesFor(index, name).map((file) => fetchChunk<T[]>(file)),
   );
@@ -35,7 +38,10 @@ export const fetchRecords = async <T>(index: ArtifactIndex, name: string): Promi
   return chunks.flat();
 };
 
-export const fetchTable = async <T>(index: ArtifactIndex, name: string): Promise<T> => {
+export const fetchTable = async <T>(
+  index: ArtifactIndex,
+  name: string,
+): Promise<T> => {
   const [file] = filesFor(index, name);
 
   return fetchChunk<T>(file!);

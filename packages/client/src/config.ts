@@ -6,6 +6,7 @@ export interface ArtifactIndex {
 export interface ClientConfig {
   apiKey: string;
   clientId: string;
+  authOrigin?: string;
   artifacts: ArtifactIndex;
 }
 

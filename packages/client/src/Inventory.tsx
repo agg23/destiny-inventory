@@ -1,51 +1,54 @@
-import type { InventoryBucket, InventoryBuckets } from "app/inventory/inventory-buckets";
+import type {
+  InventoryBucket,
+  InventoryBuckets,
+} from "app/inventory/inventory-buckets";
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
-import { createMemo, For, Show } from "solid-js";
+import {
+  createMemo,
+  createSignal,
+  For,
+  onCleanup,
+  onMount,
+  Show,
+} from "solid-js";
 
+import { CharacterPicker } from "./CharacterPicker.tsx";
 import { ItemIcon } from "./ItemIcon.tsx";
 
 const CATEGORIES = ["Postmaster", "Weapons", "Armor", "General", "Inventory"];
+
+const LABEL = 140;
+const CHARACTER = 320;
+const TILE = 48;
+const GAPS = 16;
 
 interface Props {
   stores: DimStore[];
   buckets: InventoryBuckets;
   matches: (item: DimItem) => boolean;
   onSelect: (item: DimItem) => void;
-  selected: DimItem | undefined;
+  onHover: (item: DimItem, anchor: DOMRect) => void;
+  onLeave: (item: DimItem) => void;
+  pinned: DimItem[];
   active: DimStore | undefined;
+  onSelectStore: (store: DimStore) => void;
 }
 
-// store.name comes from DIM's i18n, which the bridge shims down to the raw key
-const CharacterHeader = (props: { store: DimStore; active: boolean }) => (
-  <div
-    class="store-head"
-    classList={{ active: props.active }}
-    style={{ "background-image": `url(${props.store.background})` }}
-  >
+const VaultHeader = (props: { store: DimStore }) => (
+  <div class="store-head">
     <img src={props.store.icon} alt="" width="40" height="40" />
-    <Show
-      when={!props.store.isVault}
-      fallback={
-        <div>
-          <div class="name">Vault</div>
-          <div class="meta">{props.store.items.length} items</div>
-        </div>
-      }
-    >
-      <div>
-        <div class="name">{props.store.className}</div>
-        <div class="meta">
-          {props.store.genderRace} · {props.store.powerLevel}
-        </div>
-      </div>
-    </Show>
+    <div>
+      <div class="name">Vault</div>
+      <div class="meta">{props.store.items.length} items</div>
+    </div>
   </div>
 );
 
-// Equipped first, then heaviest, which is the order the game shows and the eye expects
 const ordered = (items: DimItem[]): DimItem[] =>
-  [...items].sort((a, b) => Number(b.equipped) - Number(a.equipped) || b.power - a.power);
+  [...items].sort(
+    (a, b) => Number(b.equipped) - Number(a.equipped) || b.power - a.power,
+  );
 
 export const Inventory = (props: Props) => {
   const byStore = createMemo(() => {
@@ -68,16 +71,35 @@ export const Inventory = (props: Props) => {
     return table;
   });
 
-  const occupied = (bucket: InventoryBucket) =>
-    props.stores.some((store) => byStore().get(store.id)?.has(bucket.hash));
+  const characters = () => props.stores.filter((store) => !store.isVault);
+  const vault = () => props.stores.find((store) => store.isVault);
 
-  // Quests, Orders and friends carry no sort, so they belong to no category. Collecting them
-  // rather than dropping them is the difference between a view and an accurate one
+  const shown = createMemo(() => {
+    const columns: DimStore[] = [];
+    const character = props.active ?? characters()[0];
+
+    if (character) {
+      columns.push(character);
+    }
+
+    const held = vault();
+
+    if (held) {
+      columns.push(held);
+    }
+
+    return columns;
+  });
+
+  const occupied = (bucket: InventoryBucket) =>
+    shown().some((store) => byStore().get(store.id)?.has(bucket.hash));
+
+  // Quests and Orders carry no sort, so they belong to no category
   const uncategorised = createMemo(() => {
     const known = new Set(
-      CATEGORIES.flatMap((category) => props.buckets.byCategory[category] ?? []).map(
-        (bucket) => bucket.hash,
-      ),
+      CATEGORIES.flatMap(
+        (category) => props.buckets.byCategory[category] ?? [],
+      ).map((bucket) => bucket.hash),
     );
 
     const found = new Map<number, InventoryBucket>();
@@ -90,10 +112,11 @@ export const Inventory = (props: Props) => {
       }
     }
 
-    return [...found.values()].sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+    return [...found.values()].sort((a, b) =>
+      (a.name ?? "").localeCompare(b.name ?? ""),
+    );
   });
 
-  // A bucket with nothing in it anywhere is noise, especially while filtering
   const rows = createMemo(() =>
     [
       ...CATEGORIES.map((category) => ({
@@ -102,22 +125,53 @@ export const Inventory = (props: Props) => {
       })),
       { category: "Other", buckets: uncategorised() },
     ]
-      .map((section) => ({ ...section, buckets: section.buckets.filter(occupied) }))
+      .map((section) => ({
+        ...section,
+        buckets: section.buckets.filter(occupied),
+      }))
       .filter((section) => section.buckets.length > 0),
   );
 
-  const columns = () => `140px repeat(${props.stores.length}, minmax(0, 1fr))`;
+  const [width, setWidth] = createSignal(0);
+
+  let scroller: HTMLDivElement | undefined = undefined;
+
+  // ResizeObserver delivers during rendering, so a background tab never gets a first measure
+  const measure = () => {
+    const box = scroller;
+
+    if (box) {
+      setWidth(
+        box.clientWidth - parseFloat(getComputedStyle(box).paddingLeft) * 2,
+      );
+    }
+  };
+
+  onMount(measure);
+  window.addEventListener("resize", measure);
+  onCleanup(() => window.removeEventListener("resize", measure));
+
+  const vaultWidth = () => {
+    const spare = width() - LABEL - CHARACTER - GAPS;
+
+    return Math.max(TILE, Math.floor(spare / TILE) * TILE);
+  };
+
+  const columns = () => `${LABEL}px ${CHARACTER}px ${vaultWidth()}px`;
 
   const cell = (store: DimStore, bucket: InventoryBucket) =>
     ordered(byStore().get(store.id)?.get(bucket.hash) ?? []);
 
   return (
-    <div class="inventory">
+    <div class="inventory" ref={(el) => (scroller = el)}>
       <div class="stores" style={{ "grid-template-columns": columns() }}>
         <div />
-        <For each={props.stores}>
-          {(store) => <CharacterHeader store={store} active={props.active?.id === store.id} />}
-        </For>
+        <CharacterPicker
+          characters={characters()}
+          selected={props.active}
+          onSelect={props.onSelectStore}
+        />
+        <Show when={vault()}>{(store) => <VaultHeader store={store()} />}</Show>
       </div>
 
       <For each={rows()}>
@@ -127,16 +181,22 @@ export const Inventory = (props: Props) => {
             <For each={section.buckets}>
               {(bucket) => (
                 <div class="row" style={{ "grid-template-columns": columns() }}>
-                  <div class="bucket">{bucket.name || `Bucket ${bucket.hash}`}</div>
-                  <For each={props.stores}>
+                  <div class="bucket">
+                    {bucket.name || `Bucket ${bucket.hash}`}
+                  </div>
+                  <For each={shown()}>
                     {(store) => (
                       <div class="cell">
                         <For each={cell(store, bucket)}>
                           {(item) => (
                             <ItemIcon
                               item={item}
-                              selected={props.selected?.id === item.id}
+                              selected={props.pinned.some(
+                                (pin) => pin.id === item.id,
+                              )}
                               onSelect={props.onSelect}
+                              onHover={props.onHover}
+                              onLeave={props.onLeave}
                             />
                           )}
                         </For>

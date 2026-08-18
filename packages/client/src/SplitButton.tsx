@@ -20,7 +20,12 @@ interface Props {
  */
 export const SplitButton = (props: Props) => (
   <div class="split">
-    <button type="button" class="split-main" disabled={props.disabled} onClick={props.onPrimary}>
+    <button
+      type="button"
+      class="split-main"
+      disabled={props.disabled}
+      onClick={props.onPrimary}
+    >
       {props.label}
     </button>
     <Show when={props.choices.length > 0}>
@@ -38,7 +43,10 @@ export const SplitButton = (props: Props) => (
           <DropdownMenu.Content class="split-menu">
             <For each={props.choices}>
               {(choice) => (
-                <DropdownMenu.Item class="split-choice" onSelect={choice.onChoose}>
+                <DropdownMenu.Item
+                  class="split-choice"
+                  onSelect={choice.onChoose}
+                >
                   {choice.label}
                 </DropdownMenu.Item>
               )}

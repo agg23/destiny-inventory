@@ -12,7 +12,10 @@ interface Options {
  * rather than running on a fixed schedule, which keeps the gap between calls honest when a
  * refresh takes a while, and it only runs while the tab is visible and online.
  */
-export const startAutoRefresh = ({ onRefresh, busy }: Options): (() => void) => {
+export const startAutoRefresh = ({
+  onRefresh,
+  busy,
+}: Options): (() => void) => {
   let timer: number | undefined = undefined;
   let last = 0;
   let stopped = false;
@@ -26,15 +29,14 @@ export const startAutoRefresh = ({ onRefresh, busy }: Options): (() => void) => 
   };
 
   const attempt = () => {
-    // A refresh that lands during a move would rebuild the stores under it
+    // A refresh landing mid-move would rebuild the stores under it
     if (stopped || document.hidden || !navigator.onLine || busy()) {
       schedule();
 
       return;
     }
 
-    // Visibility and the timer can both fire at once, and the throttle is what stops a poll
-    // from becoming two
+    // Visibility and the timer can fire together, and the throttle stops one poll becoming two
     if (Date.now() - last < MINIMUM) {
       schedule();
 

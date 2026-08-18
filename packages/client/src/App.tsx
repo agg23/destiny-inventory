@@ -1,25 +1,49 @@
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
-import { createEffect, createResource, createSignal, For, onCleanup, Show } from "solid-js";
+import {
+  createEffect,
+  createResource,
+  createSignal,
+  For,
+  onCleanup,
+  onMount,
+  Show,
+} from "solid-js";
 
 import { activeStore, NOBODY, observe, prefer, type Active } from "./active.ts";
 import { beginLogin, signedIn, signOut } from "./auth.ts";
+import { acquired } from "./arrivals.ts";
+import { Arrivals } from "./Arrivals.tsx";
+import { Compare } from "./Compare.tsx";
+import { HoverCard } from "./HoverCard.tsx";
 import { Inventory } from "./Inventory.tsx";
-import { ItemDetail } from "./ItemDetail.tsx";
 import { load, NotSignedIn, refreshProfile, type LoadResult } from "./load.ts";
 import { moveItem, subscribeStores } from "./moves.ts";
 import { startAutoRefresh } from "./refresh.ts";
 
+const HOVER_DELAY = 120;
+const PINS = 2;
+
+interface Hovered {
+  item: DimItem;
+  anchor: DOMRect;
+}
+
 export const App = () => {
   const [query, setQuery] = createSignal("");
-  const [upgraded, setUpgraded] = createSignal<LoadResult | undefined>(undefined);
+  const [upgraded, setUpgraded] = createSignal<LoadResult | undefined>(
+    undefined,
+  );
   const [authError, setAuthError] = createSignal<string | undefined>(undefined);
-  const [selected, setSelected] = createSignal<DimItem | undefined>(undefined);
+  const [pinned, setPinned] = createSignal<DimItem[]>([]);
+  const [hovered, setHovered] = createSignal<Hovered | undefined>(undefined);
   const [moved, setMoved] = createSignal<DimStore[] | undefined>(undefined);
   const [moving, setMoving] = createSignal<string | undefined>(undefined);
   const [moveError, setMoveError] = createSignal<string | undefined>(undefined);
   const [stale, setStale] = createSignal(false);
-  const [refreshedAt, setRefreshedAt] = createSignal<number | undefined>(undefined);
+  const [refreshedAt, setRefreshedAt] = createSignal<number | undefined>(
+    undefined,
+  );
   const [active, setActive] = createSignal<Active>(NOBODY);
 
   // Gate the fetcher on a token, since reading an errored resource rethrows
@@ -29,19 +53,48 @@ export const App = () => {
     () => load(setUpgraded),
   );
 
-  // The load reports who the game had in hand, the same as every refresh after it
+  let head: HTMLElement | undefined = undefined;
+
+  const measureHead = () => {
+    if (head) {
+      document.documentElement.style.setProperty(
+        "--header-h",
+        `${head.offsetHeight}px`,
+      );
+    }
+  };
+
+  onMount(measureHead);
+
+  // Reads what the header renders so a grown header remeasures
+  createEffect(() => {
+    current();
+    failures();
+    measureHead();
+  });
+  window.addEventListener("resize", measureHead);
+  onCleanup(() => window.removeEventListener("resize", measureHead));
+
+  const feed = () => acquired(stores());
+
   createEffect(() => setActive((was) => observe(was, current()?.playing)));
 
   const error = () => result.error as Error | undefined;
-  const current = () => (error() ? undefined : (upgraded() ?? result()));
+  const current = () => (error() ? undefined : upgraded() ?? result());
   const needsSignIn = () => !authed() || error() instanceof NotSignedIn;
 
   // Skipped items never rendered; degraded ones did, with something missing
   const failures = () => {
     const loaded = current();
     const groups = [
-      ...(loaded?.skipped ?? []).map((group) => ({ ...group, kind: "skipped" })),
-      ...(loaded?.degraded ?? []).map((group) => ({ ...group, kind: "degraded" })),
+      ...(loaded?.skipped ?? []).map((group) => ({
+        ...group,
+        kind: "skipped",
+      })),
+      ...(loaded?.degraded ?? []).map((group) => ({
+        ...group,
+        kind: "degraded",
+      })),
     ];
 
     return groups.length > 0 ? groups : undefined;
@@ -57,14 +110,66 @@ export const App = () => {
     );
   };
 
-  const shown = () => stores().reduce((total, store) => total + store.items.filter(matches).length, 0);
+  const shown = () =>
+    stores().reduce(
+      (total, store) => total + store.items.filter(matches).length,
+      0,
+    );
 
-  // The engine mutates its own state as it moves, so afterwards it is the truth, not the load
+  // The engine mutates its own stores, so after a move they outrank the load
   const stores = () => moved() ?? current()?.stores ?? [];
 
   onCleanup(subscribeStores((next) => setMoved([...next])));
 
-  // Refreshing rebuilds every store, so it has to wait for a move rather than race it
+  let hoverTimer: number | undefined = undefined;
+
+  const onHover = (item: DimItem, anchor: DOMRect) => {
+    window.clearTimeout(hoverTimer);
+    hoverTimer = window.setTimeout(
+      () => setHovered({ item, anchor }),
+      HOVER_DELAY,
+    );
+  };
+
+  const onLeave = (item: DimItem) => {
+    window.clearTimeout(hoverTimer);
+
+    if (hovered()?.item.id === item.id) {
+      setHovered(undefined);
+    }
+  };
+
+  // A third pin replaces the second, so the left stays a fixed reference
+  const pin = (item: DimItem) =>
+    setPinned((was) => {
+      if (was.some((already) => already.id === item.id)) {
+        return was.filter((already) => already.id !== item.id);
+      }
+
+      if (was.length < PINS) {
+        return [...was, item];
+      }
+
+      return [...was.slice(0, PINS - 1), item];
+    });
+
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      setPinned([]);
+    }
+  };
+
+  const onBackground = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+
+    if (!target.closest(".item, .compare, .split-menu, header")) {
+      setPinned([]);
+    }
+  };
+
+  window.addEventListener("keydown", onKeyDown);
+  onCleanup(() => window.removeEventListener("keydown", onKeyDown));
+
   const refresh = async () => {
     const session = current()?.session;
 
@@ -87,7 +192,8 @@ export const App = () => {
 
   onCleanup(
     startAutoRefresh({
-      onRefresh: () => refresh().catch((e: unknown) => console.warn("Refresh failed", e)),
+      onRefresh: () =>
+        refresh().catch((e: unknown) => console.warn("Refresh failed", e)),
       busy: () => Boolean(moving()),
     }),
   );
@@ -97,14 +203,20 @@ export const App = () => {
     setMoving(`${equip ? "Equipping" : "Moving"} ${item.name}`);
 
     moveItem(item, target, equip)
-      .then((result) => setSelected(result))
-      // A failed move still moves things: the engine may have made space before it gave up
-      .catch((e: unknown) => setMoveError(e instanceof Error ? e.message : String(e)))
+      // The engine hands back a new item object, so the pin has to follow it
+      .then((result) =>
+        setPinned((was) =>
+          was.map((already) => (already.id === item.id ? result : already)),
+        ),
+      )
+      .catch((e: unknown) =>
+        setMoveError(e instanceof Error ? e.message : String(e)),
+      )
       .finally(() => setMoving(undefined));
   };
 
   return (
-    <main>
+    <main on:click={{ handleEvent: onBackground, capture: true }}>
       <Show
         when={!needsSignIn()}
         fallback={
@@ -121,11 +233,13 @@ export const App = () => {
             >
               Sign in with Bungie
             </button>
-            <Show when={authError()}>{(message) => <p class="error">{message()}</p>}</Show>
+            <Show when={authError()}>
+              {(message) => <p class="error">{message()}</p>}
+            </Show>
           </div>
         }
       >
-        <header>
+        <header ref={(el) => (head = el)}>
           <input
             type="search"
             placeholder="Filter"
@@ -152,18 +266,29 @@ export const App = () => {
           <Show when={current()}>
             {(loaded) => (
               <div class="timings">
-                {shown()} of {loaded().items.length} items · {loaded().stores.length} stores · tier{" "}
-                {loaded().tier} · paint {Math.round(result()?.timings.total ?? 0)}ms · profile{" "}
+                {shown()} of {loaded().items.length} items ·{" "}
+                {loaded().stores.length} stores · tier {loaded().tier} · paint{" "}
+                {Math.round(result()?.timings.total ?? 0)}ms · profile{" "}
                 {Math.round(loaded().timings.profile)}ms · defs{" "}
                 {Math.round(loaded().timings.defs)}ms · build{" "}
                 {Math.round(loaded().timings.items)}ms
                 <Show when={upgraded()}>
-                  {(done) => <> · complete {Math.round(done().timings.total)}ms</>}
+                  {(done) => (
+                    <> · complete {Math.round(done().timings.total)}ms</>
+                  )}
                 </Show>
-                <Show when={loaded().counts.hidden > 0}> · {loaded().counts.hidden} hidden</Show>
-                <Show when={loaded().counts.skipped > 0}> · {loaded().counts.skipped} skipped</Show>
+                <Show when={loaded().counts.hidden > 0}>
+                  {" "}
+                  · {loaded().counts.hidden} hidden
+                </Show>
+                <Show when={loaded().counts.skipped > 0}>
+                  {" "}
+                  · {loaded().counts.skipped} skipped
+                </Show>
                 <Show when={refreshedAt()}>
-                  {(at) => <> · refreshed {new Date(at()).toLocaleTimeString()}</>}
+                  {(at) => (
+                    <> · refreshed {new Date(at()).toLocaleTimeString()}</>
+                  )}
                 </Show>
               </div>
             )}
@@ -189,32 +314,50 @@ export const App = () => {
           <p class="error">Loading</p>
         </Show>
 
-        <Show when={current()}>
-          {(loaded) => (
-            <Inventory
-              stores={stores()}
-              buckets={loaded().buckets}
-              matches={matches}
-              selected={selected()}
-              active={activeStore(active(), stores())}
-              onSelect={(item) => setSelected(selected()?.id === item.id ? undefined : item)}
-            />
-          )}
-        </Show>
+        <div class="body">
+          <Show when={current()}>
+            {(loaded) => (
+              <Inventory
+                stores={stores()}
+                buckets={loaded().buckets}
+                matches={matches}
+                active={activeStore(active(), stores())}
+                pinned={pinned()}
+                onSelectStore={(store) =>
+                  setActive((was) => prefer(was, store.id))
+                }
+                onSelect={pin}
+                onHover={onHover}
+                onLeave={onLeave}
+              />
+            )}
+          </Show>
 
-        <Show when={selected()}>
-          {(item) => (
-            <ItemDetail
-              item={item()}
-              stores={stores()}
-              active={activeStore(active(), stores())}
-              onPrefer={(target) => setActive((was) => prefer(was, target.id))}
-              moving={moving()}
-              moveError={moveError()}
-              onMove={(target, equip) => onMove(item(), target, equip)}
-              onClose={() => setSelected(undefined)}
-            />
-          )}
+          <aside class="rail">
+            <Show
+              when={pinned().length > 0}
+              fallback={
+                <Arrivals items={feed()} stores={stores()} onSelect={pin} />
+              }
+            >
+              <Compare
+                items={pinned()}
+                stores={stores()}
+                active={activeStore(active(), stores())}
+                onMove={onMove}
+                onPrefer={(target) =>
+                  setActive((was) => prefer(was, target.id))
+                }
+                onUnpin={pin}
+                moving={moving()}
+                moveError={moveError()}
+              />
+            </Show>
+          </aside>
+        </div>
+
+        <Show when={hovered()}>
+          {(card) => <HoverCard item={card().item} anchor={card().anchor} />}
         </Show>
       </Show>
     </main>

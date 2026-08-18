@@ -109,7 +109,7 @@ const main = async () => {
   const vaultCandidates = Object.values(tables.items)
     .filter(
       (item) =>
-        item.inventory?.tierType >= LEGENDARY &&
+        (item.inventory?.tierType ?? 0) >= LEGENDARY &&
         (item.itemType === WEAPON || item.itemType === ARMOR),
     )
     .map((item) => item.hash);
@@ -126,10 +126,11 @@ const main = async () => {
     }
 
     const vaultClosure = resolveClosure(vault, tables);
-    const payload = [...vaultClosure.items]
-      .map((hash) => tables.items[hash])
-      .filter(Boolean)
-      .map(slimItem);
+    const payload = [...vaultClosure.items].flatMap((hash) => {
+      const item = tables.items[hash];
+
+      return item ? [slimItem(item)] : [];
+    });
 
     const raw = Buffer.from(JSON.stringify(payload));
     const compressed = brotliCompressSync(raw);

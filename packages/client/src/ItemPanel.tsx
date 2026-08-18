@@ -1,4 +1,9 @@
-import type { DimItem, DimSocketCategory, DimSockets, DimStat } from "app/inventory/item-types";
+import type {
+  DimItem,
+  DimSocketCategory,
+  DimSockets,
+  DimStat,
+} from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { getSocketsByIndexes } from "app/utils/socket-utils";
 import { itemCanBeEquippedBy } from "app/utils/item-utils";
@@ -6,9 +11,9 @@ import { For, Show } from "solid-js";
 
 import { SplitButton, type Choice } from "./SplitButton.tsx";
 
-const BUNGIE = "https://www.bungie.net";
+export const BUNGIE = "https://www.bungie.net";
 
-interface Props {
+export interface MoveProps {
   item: DimItem;
   stores: DimStore[];
   active: DimStore | undefined;
@@ -16,7 +21,6 @@ interface Props {
   onPrefer: (target: DimStore) => void;
   moving: string | undefined;
   moveError: string | undefined;
-  onClose: () => void;
 }
 
 const label = (store: DimStore) => (store.isVault ? "Vault" : store.className);
@@ -26,13 +30,12 @@ const label = (store: DimStore) => (store.isVault ? "Vault" : store.className);
  * the rest. Transferring away always means the vault, since that is what it almost always
  * means; everything else follows the active character.
  */
-const Moves = (props: Props) => {
+export const Moves = (props: MoveProps) => {
   const vault = () => props.stores.find((store) => store.isVault);
   const characters = () => props.stores.filter((store) => !store.isVault);
 
   const canTransfer = () => !props.item.notransfer;
 
-  // Away from a character is the vault, into a character is whoever is active
   const transferTo = () => {
     const home = props.stores.find((store) => store.id === props.item.owner);
 
@@ -43,17 +46,6 @@ const Moves = (props: Props) => {
     return vault();
   };
 
-  const equipOn = () => {
-    const targets = equippable();
-
-    if (props.active && targets.some((store) => store.id === props.active?.id)) {
-      return props.active;
-    }
-
-    return targets[0];
-  };
-
-  // An item already equipped where it is cannot be equipped there again
   const equippable = () =>
     characters().filter(
       (store) =>
@@ -61,8 +53,21 @@ const Moves = (props: Props) => {
         !(props.item.equipped && props.item.owner === store.id),
     );
 
+  const equipOn = () => {
+    const targets = equippable();
+
+    if (
+      props.active &&
+      targets.some((store) => store.id === props.active?.id)
+    ) {
+      return props.active;
+    }
+
+    return targets[0];
+  };
+
   const act = (target: DimStore, equip: boolean, manual: boolean) => {
-    // Reaching past the default is the signal that the user wants a different character
+    // Reaching past the default is the signal that a different character is wanted
     if (manual && !target.isVault) {
       props.onPrefer(target);
     }
@@ -70,7 +75,11 @@ const Moves = (props: Props) => {
     props.onMove(target, equip);
   };
 
-  const others = (targets: DimStore[], primary: DimStore | undefined, equip: boolean): Choice[] =>
+  const others = (
+    targets: DimStore[],
+    primary: DimStore | undefined,
+    equip: boolean,
+  ): Choice[] =>
     targets
       .filter((store) => store.id !== primary?.id)
       .map((store) => ({
@@ -80,7 +89,9 @@ const Moves = (props: Props) => {
       }));
 
   const transferTargets = () =>
-    props.stores.filter((store) => store.id !== props.item.owner && canTransfer());
+    props.stores.filter(
+      (store) => store.id !== props.item.owner && canTransfer(),
+    );
 
   return (
     <div class="moves">
@@ -104,13 +115,17 @@ const Moves = (props: Props) => {
           />
         )}
       </Show>
-      <Show when={props.moving}>{(status) => <p class="meta">{status()}</p>}</Show>
-      <Show when={props.moveError}>{(message) => <p class="error">{message()}</p>}</Show>
+      <Show when={props.moving}>
+        {(status) => <p class="meta">{status()}</p>}
+      </Show>
+      <Show when={props.moveError}>
+        {(message) => <p class="error">{message()}</p>}
+      </Show>
     </div>
   );
 };
 
-const Bar = (props: { stat: DimStat }) => {
+export const Bar = (props: { stat: DimStat }) => {
   const fraction = () =>
     props.stat.maximumValue > 0
       ? Math.min(1, Math.abs(props.stat.value) / props.stat.maximumValue)
@@ -129,8 +144,10 @@ const Bar = (props: { stat: DimStat }) => {
   );
 };
 
-// Only what is actually plugged, since an empty socket says nothing about the roll
-const Category = (props: { sockets: DimSockets; category: DimSocketCategory }) => {
+const Category = (props: {
+  sockets: DimSockets;
+  category: DimSocketCategory;
+}) => {
   const plugged = () =>
     getSocketsByIndexes(props.sockets, props.category.socketIndexes)
       .map((socket) => socket.plugged)
@@ -159,43 +176,38 @@ const Category = (props: { sockets: DimSockets; category: DimSocketCategory }) =
   );
 };
 
-export const ItemDetail = (props: Props) => (
-  <aside class="detail">
-    <header class="detail-head">
-      <img src={`${BUNGIE}${props.item.icon}`} alt="" width="56" height="56" />
-      <div>
-        <div class="name">{props.item.name}</div>
-        <div class="meta">
-          {props.item.typeName}
-          <Show when={props.item.power > 0}> · {props.item.power}</Show>
-          <Show when={props.item.element}>{(element) => <> · {element().displayProperties.name}</>}</Show>
-        </div>
+export const Perks = (props: { item: DimItem }) => (
+  <Show when={props.item.sockets}>
+    {(sockets) => (
+      <For each={sockets().categories}>
+        {(category) => <Category sockets={sockets()} category={category} />}
+      </For>
+    )}
+  </Show>
+);
+
+export const Stats = (props: { item: DimItem }) => (
+  <Show when={props.item.stats?.length}>
+    <div class="stats">
+      <For each={[...(props.item.stats ?? [])].sort((a, b) => a.sort - b.sort)}>
+        {(stat) => <Bar stat={stat} />}
+      </For>
+    </div>
+  </Show>
+);
+
+export const ItemHead = (props: { item: DimItem }) => (
+  <div class="item-head">
+    <img src={`${BUNGIE}${props.item.icon}`} alt="" width="40" height="40" />
+    <div>
+      <div class="name">{props.item.name}</div>
+      <div class="meta">
+        {props.item.typeName}
+        <Show when={props.item.power > 0}> · {props.item.power}</Show>
+        <Show when={props.item.element}>
+          {(element) => <> · {element().displayProperties.name}</>}
+        </Show>
       </div>
-      <button type="button" onClick={props.onClose}>
-        Close
-      </button>
-    </header>
-
-    <Moves {...props} />
-
-    <Show when={props.item.stats?.length}>
-      <div class="stats">
-        <For each={[...(props.item.stats ?? [])].sort((a, b) => a.sort - b.sort)}>
-          {(stat) => <Bar stat={stat} />}
-        </For>
-      </div>
-    </Show>
-
-    <Show when={props.item.sockets}>
-      {(sockets) => (
-        <For each={sockets().categories}>
-          {(category) => <Category sockets={sockets()} category={category} />}
-        </For>
-      )}
-    </Show>
-
-    <Show when={props.item.description}>
-      <p class="description">{props.item.description}</p>
-    </Show>
-  </aside>
+    </div>
+  </div>
 );

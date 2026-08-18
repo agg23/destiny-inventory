@@ -9,5 +9,8 @@
     "bungie-api-ts": "^5.10.0",
     "es-toolkit": "^1.50.0",
     "reselect": "^5.2.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
   }
 }

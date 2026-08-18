@@ -66,6 +66,7 @@ const handler = createHandler({
   clientId: process.env.BUNGIE_CLIENT_ID ?? "",
   clientSecret: process.env.BUNGIE_CLIENT_SECRET ?? "",
   allowedOrigin: process.env.ALLOWED_ORIGIN ?? "*",
+  authOrigin: process.env.AUTH_ORIGIN ?? "",
   loader: diskLoader(),
 });
 

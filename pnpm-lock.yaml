@@ -122,6 +122,10 @@ importers:
       reselect:
         specifier: ^5.2.0
         version: 5.2.0
+    devDependencies:
+      esbuild:
+        specifier: 0.25.12
+        version: 0.25.12
 
   packages/pipeline:
     dependencies:

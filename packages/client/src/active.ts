@@ -7,13 +7,20 @@ export interface Active {
   witnessed: string | undefined;
 }
 
-export const NOBODY: Active = { playing: undefined, override: undefined, witnessed: undefined };
+export const NOBODY: Active = {
+  playing: undefined,
+  override: undefined,
+  witnessed: undefined,
+};
 
 /**
  * The override loses to reality rather than to a clock. Any change in who the game reports
  * drops it, which covers switching characters and closing the game with one rule.
  */
-export const observe = (active: Active, playing: string | undefined): Active => {
+export const observe = (
+  active: Active,
+  playing: string | undefined,
+): Active => {
   if (active.override !== undefined && playing !== active.witnessed) {
     return { playing, override: undefined, witnessed: undefined };
   }
@@ -27,8 +34,10 @@ export const prefer = (active: Active, storeId: string): Active => ({
   witnessed: active.playing,
 });
 
-// Whoever was asked for, else whoever is in the game, else whoever played last
-export const activeStore = (active: Active, stores: DimStore[]): DimStore | undefined => {
+export const activeStore = (
+  active: Active,
+  stores: DimStore[],
+): DimStore | undefined => {
   const characters = stores.filter((store) => !store.isVault);
   const withId = (id: string | undefined) =>
     id === undefined ? undefined : characters.find((store) => store.id === id);

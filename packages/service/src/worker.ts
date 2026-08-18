@@ -52,6 +52,7 @@ export default {
       clientId: env.BUNGIE_CLIENT_ID,
       clientSecret: env.BUNGIE_CLIENT_SECRET,
       allowedOrigin: env.ALLOWED_ORIGIN ?? url.origin,
+      authOrigin: url.origin,
       loader: assetLoader(env, url.origin),
     });
 

@@ -14,7 +14,12 @@ import { buildStoresFrom, storeItems, type Failure } from "./stores.ts";
 import { seedInventory } from "./moves.ts";
 import { fetchRecords, fetchTable, hasArtifact } from "./artifacts.ts";
 import { loadConfig, type ArtifactIndex } from "./config.ts";
-import { currentMemberships, fetchProfile, pickMembership, type Membership } from "./bungie.ts";
+import {
+  currentMemberships,
+  fetchProfile,
+  pickMembership,
+  type Membership,
+} from "./bungie.ts";
 import { CORE, DETAIL, openStore, PLUG_SETS, type DefStore } from "./store.ts";
 
 const SUPPORT = [
@@ -80,7 +85,9 @@ export class NotSignedIn extends Error {
   }
 }
 
-const byHash = <T extends { hash: number }>(records: T[]): Record<number, T> => {
+const byHash = <T extends { hash: number }>(
+  records: T[],
+): Record<number, T> => {
   const table: Record<number, T> = {};
 
   for (const record of records) {
@@ -96,7 +103,10 @@ const fetchSupport = async (index: ArtifactIndex) => {
   await Promise.all(
     SUPPORT.map(async (name) => {
       if (hasArtifact(index, name)) {
-        tables.set(name, await fetchTable<Record<string, unknown>>(index, name));
+        tables.set(
+          name,
+          await fetchTable<Record<string, unknown>>(index, name),
+        );
       }
     }),
   );
@@ -105,7 +115,10 @@ const fetchSupport = async (index: ArtifactIndex) => {
 };
 
 // Tier 1 and tier 2 are separate stores, so a def is whole only once both are merged
-const readMerged = async (store: DefStore, hashes: number[]): Promise<ItemDef[]> => {
+const readMerged = async (
+  store: DefStore,
+  hashes: number[],
+): Promise<ItemDef[]> => {
   const [core, detail] = await Promise.all([
     store.getMany<ItemDef>(CORE, hashes),
     store.getMany<ItemDef>(DETAIL, hashes),
@@ -143,21 +156,20 @@ const cachedMembership = async (token: string): Promise<Membership> => {
   return membership;
 };
 
-// Bungie serves its own cached profile, so a poll can hand back a response older than the one
-// already on screen. This is the only field that says which is newer
+// Bungie serves a cached profile, and this is the only field that says which response is newer
 const mintedAt = (profile: DestinyProfileResponse): number =>
   new Date(profile.responseMintedTimestamp ?? 0).getTime();
 
 const LIVE_WINDOW = 10 * 60_000;
 
-// currentActivityHash is set for orbit and the tower as well as for activities, so it is a
-// decent proxy for being in the game at all. It can also sit stale after a logout, which is
-// what pairing it with dateLastPlayed guards against
+// currentActivityHash covers orbit and the tower too, but sits stale after a logout
 const playingNow = (profile: DestinyProfileResponse): string | undefined => {
   const characters = profile.characters?.data ?? {};
   const now = Date.now();
 
-  for (const [id, activity] of Object.entries(profile.characterActivities?.data ?? {})) {
+  for (const [id, activity] of Object.entries(
+    profile.characterActivities?.data ?? {},
+  )) {
     const lastPlayed = new Date(characters[id]?.dateLastPlayed ?? 0).getTime();
 
     if (activity.currentActivityHash !== 0 && now - lastPlayed < LIVE_WINDOW) {
@@ -170,17 +182,21 @@ const playingNow = (profile: DestinyProfileResponse): string | undefined => {
 
 const profileItems = (profile: DestinyProfileResponse) => [
   ...(profile.profileInventory?.data?.items ?? []),
-  ...Object.values(profile.characterInventories?.data ?? {}).flatMap((i) => i.items),
-  ...Object.values(profile.characterEquipment?.data ?? {}).flatMap((e) => e.items),
+  ...Object.values(profile.characterInventories?.data ?? {}).flatMap(
+    (i) => i.items,
+  ),
+  ...Object.values(profile.characterEquipment?.data ?? {}).flatMap(
+    (e) => e.items,
+  ),
 ];
 
-// What is actually plugged is live data, and the definition graph does not always reach it.
-// Crafted and enhanced perks in particular sit outside the socket's own plug set, so seeding
-// the walk from owned hashes alone leaves buildSockets looking up definitions we never loaded
+// Crafted and enhanced perks sit outside the socket's own plug set, so the graph misses them
 const liveReferences = (profile: DestinyProfileResponse): number[] => {
   const hashes: number[] = [];
 
-  for (const item of Object.values(profile.itemComponents?.sockets?.data ?? {})) {
+  for (const item of Object.values(
+    profile.itemComponents?.sockets?.data ?? {},
+  )) {
     for (const socket of item.sockets) {
       if (socket.plugHash !== undefined) {
         hashes.push(socket.plugHash);
@@ -188,7 +204,9 @@ const liveReferences = (profile: DestinyProfileResponse): number[] => {
     }
   }
 
-  for (const item of Object.values(profile.itemComponents?.reusablePlugs?.data ?? {})) {
+  for (const item of Object.values(
+    profile.itemComponents?.reusablePlugs?.data ?? {},
+  )) {
     for (const plugs of Object.values(item.plugs)) {
       for (const plug of plugs) {
         hashes.push(plug.plugItemHash);
@@ -224,7 +242,9 @@ export interface Session {
   minted: number;
 }
 
-export const load = async (onUpgrade?: (result: LoadResult) => void): Promise<LoadResult> => {
+export const load = async (
+  onUpgrade?: (result: LoadResult) => void,
+): Promise<LoadResult> => {
   const started = performance.now();
   const token = await accessToken();
 
@@ -239,7 +259,8 @@ export const load = async (onUpgrade?: (result: LoadResult) => void): Promise<Lo
 
   // A version marker alone can outlive its data, so an empty store counts as stale too
   const stored = await store.manifestVersion();
-  const fresh = stored !== index.manifestVersion || (await store.count(CORE)) === 0;
+  const fresh =
+    stored !== index.manifestVersion || (await store.count(CORE)) === 0;
 
   if (fresh && stored !== undefined) {
     await store.clear();
@@ -394,7 +415,6 @@ const populate = async ({
   // Tier 2 rebuilds every store, so the engine has to be pointed at the new objects
   await seedInventory(built.stores, membership);
 
-  // The session caches what a refresh rebuilds from, and tier 2 is what finally fills it in
   first.session.plugSets = plugSets;
 
   onUpgrade({
@@ -402,7 +422,11 @@ const populate = async ({
     stores: built.stores,
     buckets: built.buckets,
     items: storeItems(built.stores),
-    timings: { ...first.timings, items: itemsTime, total: performance.now() - started },
+    timings: {
+      ...first.timings,
+      items: itemsTime,
+      total: performance.now() - started,
+    },
     tier: "detail",
     counts: {
       ...first.counts,
@@ -429,9 +453,11 @@ export interface RefreshOutcome {
   playing: string | undefined;
 }
 
-// New items can reference definitions the load-time closure never reached, so the delta has to
-// be materialised before anything tries to build an item out of it
-const materialiseNew = async (session: Session, profile: DestinyProfileResponse) => {
+// New items can reference definitions the load-time closure never reached
+const materialiseNew = async (
+  session: Session,
+  profile: DestinyProfileResponse,
+) => {
   const wanted = new Set([
     ...profileItems(profile).map((item) => item.itemHash),
     ...liveReferences(profile),
@@ -456,7 +482,9 @@ const materialiseNew = async (session: Session, profile: DestinyProfileResponse)
  * Re-read the profile and rebuild the stores from it. The grid follows through the move
  * engine's own subscription rather than a return value.
  */
-export const refreshProfile = async (session: Session): Promise<RefreshOutcome> => {
+export const refreshProfile = async (
+  session: Session,
+): Promise<RefreshOutcome> => {
   const token = await accessToken();
 
   if (!token) {
@@ -467,16 +495,25 @@ export const refreshProfile = async (session: Session): Promise<RefreshOutcome> 
 
   // Definitions would be wrong for the new manifest, so the caller has to start over
   if (config.artifacts.manifestVersion !== session.index.manifestVersion) {
-    return { status: "manifest-changed", skipped: [], degraded: [], playing: undefined };
+    return {
+      status: "manifest-changed",
+      skipped: [],
+      degraded: [],
+      playing: undefined,
+    };
   }
 
   const profile = await fetchProfile(session.membership, token);
   const minted = mintedAt(profile);
 
-  // Bungie's cache can hand back what we already have, or older. Rebuilding on that would
-  // undo moves we just made and know about
+  // Bungie's cache can hand back stale data, and rebuilding on it would undo known moves
   if (minted <= session.minted) {
-    return { status: "unchanged", skipped: [], degraded: [], playing: playingNow(profile) };
+    return {
+      status: "unchanged",
+      skipped: [],
+      degraded: [],
+      playing: playingNow(profile),
+    };
   }
 
   await materialiseNew(session, profile);

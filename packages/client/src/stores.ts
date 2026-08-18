@@ -26,8 +26,7 @@ export interface BuiltStores {
   hidden: number;
 }
 
-// The factory drops an item it cannot build and logs this; every other failure it logs is
-// partial, leaving a rendered item with something missing
+// The factory drops an item it cannot build; every other failure it logs is partial
 const DROPPED = "Error processing item";
 
 type ItemDef = DestinyInventoryItemDefinition;
@@ -39,7 +38,10 @@ interface Withheld {
 }
 
 // Withheld definitions never reach makeItem, so a surviving failure is always a real defect
-const stripHidden = (profile: DestinyProfileResponse, hidden: Set<number>): Withheld => {
+const stripHidden = (
+  profile: DestinyProfileResponse,
+  hidden: Set<number>,
+): Withheld => {
   let count = 0;
 
   const keep = (items: DestinyItemComponent[]): DestinyItemComponent[] =>
@@ -54,7 +56,10 @@ const stripHidden = (profile: DestinyProfileResponse, hidden: Set<number>): With
     group: Record<string, T> | undefined,
   ): Record<string, T> =>
     Object.fromEntries(
-      Object.entries(group ?? {}).map(([id, entry]) => [id, { ...entry, items: keep(entry.items) }]),
+      Object.entries(group ?? {}).map(([id, entry]) => [
+        id,
+        { ...entry, items: keep(entry.items) },
+      ]),
     );
 
   const stripped: DestinyProfileResponse = {
@@ -68,11 +73,15 @@ const stripHidden = (profile: DestinyProfileResponse, hidden: Set<number>): With
     },
     characterInventories: {
       ...profile.characterInventories,
-      data: profile.characterInventories.data && byCharacter(profile.characterInventories.data),
+      data:
+        profile.characterInventories.data &&
+        byCharacter(profile.characterInventories.data),
     },
     characterEquipment: {
       ...profile.characterEquipment,
-      data: profile.characterEquipment.data && byCharacter(profile.characterEquipment.data),
+      data:
+        profile.characterEquipment.data &&
+        byCharacter(profile.characterEquipment.data),
     },
   };
 
@@ -94,11 +103,17 @@ export const buildStoresFrom = (
   const buckets = getBuckets(defs);
   const withheld = stripHidden(profile, hidden);
 
-  const groups = { skipped: new Map<string, Failure>(), degraded: new Map<string, Failure>() };
+  const groups = {
+    skipped: new Map<string, Failure>(),
+    degraded: new Map<string, Failure>(),
+  };
 
   collectErrors((_tag, message, error) => {
     const into = message === DROPPED ? groups.skipped : groups.degraded;
-    const reason = `${error.name}: ${error.message.replace(/\[\d+\]/, "[hash]")}`;
+    const reason = `${error.name}: ${error.message.replace(
+      /\[\d+\]/,
+      "[hash]",
+    )}`;
 
     const seen = into.get(reason) ?? {
       reason,
@@ -126,7 +141,9 @@ export const buildStoresFrom = (
     const degraded = ranked(groups.degraded);
 
     if (skipped.length > 0 || degraded.length > 0) {
-      console.warn(`Item failures\n${JSON.stringify({ skipped, degraded }, undefined, 2)}`);
+      console.warn(
+        `Item failures\n${JSON.stringify({ skipped, degraded }, undefined, 2)}`,
+      );
     }
 
     return { stores, buckets, skipped, degraded, hidden: withheld.count };
@@ -135,4 +152,5 @@ export const buildStoresFrom = (
   }
 };
 
-export const storeItems = (stores: DimStore[]) => stores.flatMap((store) => store.items);
+export const storeItems = (stores: DimStore[]) =>
+  stores.flatMap((store) => store.items);

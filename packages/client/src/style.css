@@ -23,6 +23,24 @@ header {
   border-bottom: 1px solid var(--line);
 }
 
+/* The page itself scrolls, so there is one scrollbar and it sits at the window edge. The rail
+   is fixed beside it and the grid is what moves */
+.rail {
+  position: fixed;
+  top: var(--header-h, 76px);
+  right: 0;
+  bottom: 0;
+  width: 380px;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  box-shadow: inset 1px 0 0 var(--line-bright);
+}
+
+.body {
+  margin-right: 380px;
+}
+
 input {
   width: 260px;
   padding: var(--space-3) var(--space-4);
@@ -98,6 +116,9 @@ button:disabled {
   display: grid;
   gap: var(--space-4);
   align-items: start;
+  /* The rows have to be as wide as their tracks, or they fill the content box and their
+     overflow spills into the padding instead of making it scrollable */
+  width: max-content;
 }
 
 .stores {
@@ -108,7 +129,42 @@ button:disabled {
   background: var(--bg);
 }
 
+.picker {
+  width: 100%;
+}
+
+.picker .caret {
+  flex: none;
+  margin-left: auto;
+  color: var(--text);
+}
+
+.picker-menu {
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--panel-raised);
+  box-shadow: inset 0 0 0 1px var(--line-bright), 0 8px 24px #000c;
+}
+
+.picker-menu .store-head {
+  cursor: pointer;
+}
+
+.picker-menu .store-head[data-highlighted] {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--line-bright);
+}
+
+/* The header is a button now, so it has to shed everything the button rule imposes */
 .store-head {
+  margin: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  cursor: pointer;
   display: flex;
   gap: var(--space-4);
   align-items: center;
@@ -179,6 +235,7 @@ section h2 {
 
 .item {
   position: relative;
+  z-index: 0;
   margin: 0;
   padding: 0;
   width: var(--tile);
@@ -192,9 +249,8 @@ section h2 {
   background: var(--surface-raised);
 }
 
-.item:hover:not(:disabled)::after {
-  transform: scale(1);
-  box-shadow: 0 0 0 2px var(--line-bright);
+.item:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 2px var(--line-bright);
 }
 
 .item img {
@@ -224,9 +280,8 @@ section h2 {
   box-shadow: inset 0 0 0 1px var(--fg);
 }
 
-.item.selected::after {
-  transform: scale(1);
-  box-shadow: 0 0 0 2px var(--light);
+.item.selected {
+  box-shadow: inset 0 0 0 2px var(--light);
 }
 
 .rarity-exotic {
@@ -245,39 +300,105 @@ section h2 {
   background: var(--uncommon);
 }
 
-.detail {
-  box-shadow: inset 0 0 0 1px var(--line-bright), 0 8px 32px #0008;
+.hover-card {
   position: fixed;
-  right: var(--space-5);
-  bottom: var(--space-5);
-  z-index: 2;
-  width: 340px;
-  max-height: 70vh;
-  overflow-y: auto;
-  padding: var(--space-5);
+  z-index: 4;
+  max-height: 82vh;
+  overflow: hidden;
+  padding: var(--space-4);
   background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--line-bright), 0 8px 24px #0008;
+  pointer-events: none;
 }
 
-.detail-head {
-  position: static;
+.item-head {
   display: flex;
-  gap: var(--space-5);
+  gap: var(--space-4);
   align-items: center;
-  padding: 0 0 var(--space-5);
-  border: 0;
+  padding-bottom: var(--space-4);
 }
 
-.detail-head > div {
+.item-head > div {
+  min-width: 0;
+}
+
+.item-head .name,
+.compare-head .name {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-label);
+  text-transform: uppercase;
+  letter-spacing: var(--track-caps);
+}
+
+.item-head .meta,
+.compare-head .meta {
+  font-size: var(--text-sm);
+}
+
+/* Pinned items share the label column, so a row means the same thing across both */
+.compare {
+  overflow-y: auto;
+  display: grid;
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
+  align-content: start;
+  padding: var(--space-5);
+}
+
+.compare-head {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  padding-bottom: var(--space-2);
+}
+
+.compare-head > div {
   flex: 1;
   min-width: 0;
 }
 
-.detail-head .name {
-  font-size: var(--text-xl);
-  font-weight: var(--weight-label);
-  text-transform: uppercase;
-  letter-spacing: var(--track-caps);
-  line-height: 1.2;
+.compare-head img {
+  width: 32px;
+  height: 32px;
+}
+
+.compare-head .name {
+  font-size: var(--text-md);
+}
+
+.compare-head .unpin {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.compare-stat {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.compare-stat .stat-value.best {
+  color: var(--light);
+}
+
+.compare-stat .dash {
+  color: var(--dim);
+}
+
+.compare .stat-name {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.compare .perk-group h4 {
+  margin-top: var(--space-4);
+}
+
+.compare-perks {
+  align-self: start;
+  min-width: 0;
 }
 
 .moves {
@@ -330,12 +451,6 @@ section h2 {
   background: var(--surface-active);
   color: var(--fg);
   outline: none;
-}
-
-.moves + .stats {
-  margin-top: var(--space-5);
-  padding-top: var(--space-5);
-  border-top: 1px solid var(--line);
 }
 
 .stat {
@@ -430,4 +545,70 @@ section h2 {
 .banner {
   margin-left: var(--space-5);
   color: var(--warning);
+}
+
+.arrivals {
+  overflow: hidden;
+  padding: var(--space-5);
+}
+
+.arrivals-head {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.arrivals h2 {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--dim);
+}
+
+.arrivals-head button {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.arrival {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  width: 100%;
+  margin: 0 0 var(--space-2);
+  padding: var(--space-3);
+  background: var(--surface);
+  box-shadow: none;
+  text-align: left;
+  font: inherit;
+}
+
+.arrival:hover:not(:disabled) {
+  background: var(--surface-raised);
+}
+
+.arrival::after {
+  content: none;
+}
+
+.arrival img {
+  flex: none;
+}
+
+.arrival > div {
+  min-width: 0;
+}
+
+.arrival .meta {
+  font-size: var(--text-sm);
+}
+
+.up {
+  color: #70b36b;
+}
+
+.down {
+  color: #b34d4d;
 }

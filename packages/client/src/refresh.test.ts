@@ -9,7 +9,8 @@ const setHidden = (hidden: boolean) => {
     get hidden() {
       return hidden;
     },
-    addEventListener: (event: string, handler: () => void) => listeners.set(event, handler),
+    addEventListener: (event: string, handler: () => void) =>
+      listeners.set(event, handler),
     removeEventListener: (event: string) => listeners.delete(event),
   });
 };
@@ -23,7 +24,8 @@ describe("auto refresh", () => {
     vi.stubGlobal("window", {
       setTimeout: globalThis.setTimeout,
       clearTimeout: globalThis.clearTimeout,
-      addEventListener: (event: string, handler: () => void) => listeners.set(event, handler),
+      addEventListener: (event: string, handler: () => void) =>
+        listeners.set(event, handler),
       removeEventListener: (event: string) => listeners.delete(event),
     });
   });

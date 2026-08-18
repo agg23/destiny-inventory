@@ -1,7 +1,7 @@
 import { render } from "solid-js/web";
 
 import { App } from "./App.tsx";
-import { completeLogin, markDevLogin } from "./auth.ts";
+import { beginLogin, completeLogin, markDevLogin, signedIn } from "./auth.ts";
 import "./tokens.css";
 import "./style.css";
 
@@ -12,7 +12,11 @@ if (!root) {
 }
 
 const start = async () => {
-  markDevLogin();
+  if (markDevLogin() && !signedIn()) {
+    await beginLogin();
+
+    return;
+  }
 
   if (location.pathname === "/auth/callback") {
     try {

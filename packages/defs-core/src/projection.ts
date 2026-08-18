@@ -1,6 +1,12 @@
-import type { DestinyInventoryItemDefinition } from "bungie-api-ts/destiny2";
+import type {
+  DestinyDisplayPropertiesDefinition,
+  DestinyInventoryItemDefinition,
+} from "bungie-api-ts/destiny2";
 
-export type SlimItem = Partial<DestinyInventoryItemDefinition>;
+// Display properties are projected too, so the shipped shape is narrower than Bungie's
+export type SlimItem = Partial<
+  Omit<DestinyInventoryItemDefinition, "displayProperties">
+> & { displayProperties?: Partial<DestinyDisplayPropertiesDefinition> };
 
 export const slimItem = (item: DestinyInventoryItemDefinition): SlimItem => ({
   hash: item.hash,

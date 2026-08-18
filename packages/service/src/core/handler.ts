@@ -6,6 +6,8 @@ export interface ServiceConfig {
   clientId: string;
   clientSecret: string;
   allowedOrigin: string;
+  /** Where OAuth has to start, which is the one origin Bungie has registered */
+  authOrigin: string;
   loader: ArtifactLoader;
 }
 
@@ -52,6 +54,7 @@ export const createHandler = (config: ServiceConfig) => {
           {
             apiKey: config.apiKey,
             clientId: config.clientId,
+            authOrigin: config.authOrigin,
             artifacts: index,
           },
           config.allowedOrigin,

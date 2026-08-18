@@ -69,9 +69,12 @@ export const openStore = async (): Promise<DefStore> => {
 
   return {
     manifestVersion: () =>
-      run(db.transaction(META, "readonly").objectStore(META).get("manifestVersion")) as Promise<
-        string | undefined
-      >,
+      run(
+        db
+          .transaction(META, "readonly")
+          .objectStore(META)
+          .get("manifestVersion"),
+      ) as Promise<string | undefined>,
 
     setManifestVersion: async (version) => {
       const tx = db.transaction(META, "readwrite");
@@ -80,7 +83,8 @@ export const openStore = async (): Promise<DefStore> => {
       await settled(tx);
     },
 
-    count: (store) => run(db.transaction(store, "readonly").objectStore(store).count()),
+    count: (store) =>
+      run(db.transaction(store, "readonly").objectStore(store).count()),
 
     getMany: async <T>(store: string, hashes: number[]): Promise<T[]> => {
       if (hashes.length === 0) {

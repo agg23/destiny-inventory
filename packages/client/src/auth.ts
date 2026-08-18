@@ -67,7 +67,9 @@ export const signedIn = (): boolean => {
   const tokens = read();
 
   return Boolean(
-    tokens && (tokens.accessExpires > Date.now() || (tokens.refreshExpires ?? 0) > Date.now()),
+    tokens &&
+      (tokens.accessExpires > Date.now() ||
+        (tokens.refreshExpires ?? 0) > Date.now()),
   );
 };
 
@@ -76,10 +78,17 @@ export const signOut = () => {
 };
 
 export const beginLogin = async () => {
-  const { clientId } = await loadConfig();
+  const { clientId, authOrigin } = await loadConfig();
 
   if (!clientId) {
     throw new Error("Service has no Bungie client id configured");
+  }
+
+  // Bungie registers one HTTPS redirect, so a dev origin has to start the flow elsewhere
+  if (authOrigin && authOrigin !== location.origin) {
+    location.assign(`${authOrigin}/?dev=1`);
+
+    return;
   }
 
   const state = crypto.randomUUID();
@@ -110,14 +119,20 @@ export const accessToken = async (): Promise<string | undefined> => {
     return undefined;
   }
 
-  return write(await post("/api/auth/refresh", { refreshToken: tokens.refreshToken }))
-    .accessToken;
+  return write(
+    await post("/api/auth/refresh", { refreshToken: tokens.refreshToken }),
+  ).accessToken;
 };
 
-export const markDevLogin = () => {
-  if (new URLSearchParams(location.search).get("dev") === "1") {
-    sessionStorage.setItem(DEV_FORWARD, "1");
+// Returns true when this load exists only to start a dev sign in
+export const markDevLogin = (): boolean => {
+  if (new URLSearchParams(location.search).get("dev") !== "1") {
+    return false;
   }
+
+  sessionStorage.setItem(DEV_FORWARD, "1");
+
+  return true;
 };
 
 // Returns true when it has navigated away and the caller should not mount
@@ -126,7 +141,12 @@ export const completeLogin = async (): Promise<boolean> => {
   const forwarded = hash.get("refresh_token");
 
   if (forwarded) {
-    write({ access_token: "", expires_in: 0, refresh_token: forwarded, refresh_expires_in: 7_776_000 });
+    write({
+      access_token: "",
+      expires_in: 0,
+      refresh_token: forwarded,
+      refresh_expires_in: 7_776_000,
+    });
     location.replace("/");
 
     return true;
@@ -149,7 +169,9 @@ export const completeLogin = async (): Promise<boolean> => {
 
   if (sessionStorage.getItem(DEV_FORWARD) === "1" && tokens.refreshToken) {
     sessionStorage.removeItem(DEV_FORWARD);
-    location.assign(`${DEV_ORIGIN}/auth/callback#refresh_token=${tokens.refreshToken}`);
+    location.assign(
+      `${DEV_ORIGIN}/auth/callback#refresh_token=${tokens.refreshToken}`,
+    );
 
     return true;
   }

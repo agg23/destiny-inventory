@@ -7,7 +7,8 @@ const PLATFORM = "https://www.bungie.net/Platform";
 // 100 carries dateLastPlayed, which is how the store factory picks the current character
 // 204 is CharacterActivities, which is how we tell who is in the game right now
 const COMPONENTS = [
-  100, 102, 103, 200, 201, 204, 205, 300, 302, 304, 305, 306, 307, 308, 309, 310,
+  100, 102, 103, 200, 201, 204, 205, 300, 302, 304, 305, 306, 307, 308, 309,
+  310,
 ];
 
 export interface Membership {
@@ -43,7 +44,9 @@ export interface UserMemberships {
   primaryMembershipId?: string;
 }
 
-export const currentMemberships = (accessToken: string): Promise<UserMemberships> =>
+export const currentMemberships = (
+  accessToken: string,
+): Promise<UserMemberships> =>
   call<UserMemberships>("/User/GetMembershipsForCurrentUser/", accessToken);
 
 export const pickMembership = (memberships: UserMemberships): Membership => {
@@ -67,6 +70,8 @@ export const fetchProfile = (
   accessToken: string,
 ): Promise<DestinyProfileResponse> =>
   call<DestinyProfileResponse>(
-    `/Destiny2/${membership.membershipType}/Profile/${membership.membershipId}/?components=${COMPONENTS.join(",")}`,
+    `/Destiny2/${membership.membershipType}/Profile/${
+      membership.membershipId
+    }/?components=${COMPONENTS.join(",")}`,
     accessToken,
   );

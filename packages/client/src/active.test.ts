@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 
 import { activeStore, NOBODY, observe, prefer } from "./active.ts";
 
-const store = (id: string, current = false) => ({ id, current, isVault: false }) as DimStore;
+const store = (id: string, current = false) =>
+  ({ id, current, isVault: false }) as DimStore;
 
 const TITAN = store("titan");
 const HUNTER = store("hunter", true);
@@ -36,13 +37,19 @@ describe("active character", () => {
   });
 
   it("drops the override when the game switches characters", () => {
-    const active = observe(prefer(observe(NOBODY, "titan"), "hunter"), "warlock");
+    const active = observe(
+      prefer(observe(NOBODY, "titan"), "hunter"),
+      "warlock",
+    );
 
     expect(active.override).toBeUndefined();
   });
 
   it("drops the override when the game closes", () => {
-    const active = observe(prefer(observe(NOBODY, "titan"), "hunter"), undefined);
+    const active = observe(
+      prefer(observe(NOBODY, "titan"), "hunter"),
+      undefined,
+    );
 
     expect(active.override).toBeUndefined();
   });

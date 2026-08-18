@@ -7,9 +7,10 @@ interface Props {
   item: DimItem;
   selected: boolean;
   onSelect: (item: DimItem) => void;
+  onHover: (item: DimItem, anchor: DOMRect) => void;
+  onLeave: (item: DimItem) => void;
 }
 
-// Power for gear, stack size for everything else; nothing else earns the corner
 const corner = (item: DimItem): number | undefined => {
   if (item.power > 0) {
     return item.power;
@@ -27,13 +28,29 @@ export const ItemIcon = (props: Props) => (
       selected: props.selected,
       [`rarity-${props.item.rarity.toLowerCase()}`]: true,
     }}
-    title={`${props.item.name}\n${props.item.typeName}`}
     onClick={() => props.onSelect(props.item)}
+    onMouseEnter={(e) =>
+      props.onHover(props.item, e.currentTarget.getBoundingClientRect())
+    }
+    onMouseLeave={() => props.onLeave(props.item)}
   >
-    <img src={`${BUNGIE}${props.item.icon}`} loading="lazy" alt={props.item.name} />
+    <img
+      src={`${BUNGIE}${props.item.icon}`}
+      loading="lazy"
+      alt={props.item.name}
+    />
     <Show when={props.item.iconOverlay}>
-      {(overlay) => <img class="overlay" src={`${BUNGIE}${overlay()}`} loading="lazy" alt="" />}
+      {(overlay) => (
+        <img
+          class="overlay"
+          src={`${BUNGIE}${overlay()}`}
+          loading="lazy"
+          alt=""
+        />
+      )}
     </Show>
-    <Show when={corner(props.item)}>{(value) => <span class="corner">{value()}</span>}</Show>
+    <Show when={corner(props.item)}>
+      {(value) => <span class="corner">{value()}</span>}
+    </Show>
   </button>
 );
