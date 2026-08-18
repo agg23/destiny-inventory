@@ -1,4 +1,5 @@
 import type { DimItem, DimSocketCategory, DimSockets, DimStat } from "app/inventory/item-types";
+import type { DimStore } from "app/inventory/store-types";
 import { getSocketsByIndexes } from "app/utils/socket-utils";
 import { For, Show } from "solid-js";
 
@@ -6,8 +7,41 @@ const BUNGIE = "https://www.bungie.net";
 
 interface Props {
   item: DimItem;
+  stores: DimStore[];
+  onMove: (target: DimStore, equip: boolean) => void;
+  moving: string | undefined;
+  moveError: string | undefined;
   onClose: () => void;
 }
+
+// Equipping is only meaningful on a character, and only for gear that is not already on
+const Moves = (props: Props) => (
+  <div class="moves">
+    <h4>Move to</h4>
+    <div class="targets">
+      <For each={props.stores.filter((store) => store.id !== props.item.owner)}>
+        {(store) => (
+          <button type="button" disabled={Boolean(props.moving)} onClick={() => props.onMove(store, false)}>
+            {store.isVault ? "Vault" : store.className}
+          </button>
+        )}
+      </For>
+    </div>
+    <Show when={props.item.equipment && !props.item.equipped}>
+      <div class="targets">
+        <For each={props.stores.filter((store) => !store.isVault)}>
+          {(store) => (
+            <button type="button" disabled={Boolean(props.moving)} onClick={() => props.onMove(store, true)}>
+              Equip on {store.className}
+            </button>
+          )}
+        </For>
+      </div>
+    </Show>
+    <Show when={props.moving}>{(status) => <p class="meta">{status()}</p>}</Show>
+    <Show when={props.moveError}>{(message) => <p class="error">{message()}</p>}</Show>
+  </div>
+);
 
 const Bar = (props: { stat: DimStat }) => {
   const fraction = () =>
@@ -74,6 +108,8 @@ export const ItemDetail = (props: Props) => (
         Close
       </button>
     </header>
+
+    <Moves {...props} />
 
     <Show when={props.item.stats?.length}>
       <div class="stats">

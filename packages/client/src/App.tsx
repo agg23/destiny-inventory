@@ -1,16 +1,24 @@
 import type { DimItem } from "app/inventory/item-types";
-import { createResource, createSignal, For, Show } from "solid-js";
+import type { DimStore } from "app/inventory/store-types";
+import { createResource, createSignal, For, onCleanup, Show } from "solid-js";
 
 import { beginLogin, signedIn, signOut } from "./auth.ts";
 import { Inventory } from "./Inventory.tsx";
 import { ItemDetail } from "./ItemDetail.tsx";
-import { load, NotSignedIn, type LoadResult } from "./load.ts";
+import { load, NotSignedIn, refreshProfile, type LoadResult } from "./load.ts";
+import { moveItem, subscribeStores } from "./moves.ts";
+import { startAutoRefresh } from "./refresh.ts";
 
 export const App = () => {
   const [query, setQuery] = createSignal("");
   const [upgraded, setUpgraded] = createSignal<LoadResult | undefined>(undefined);
   const [authError, setAuthError] = createSignal<string | undefined>(undefined);
   const [selected, setSelected] = createSignal<DimItem | undefined>(undefined);
+  const [moved, setMoved] = createSignal<DimStore[] | undefined>(undefined);
+  const [moving, setMoving] = createSignal<string | undefined>(undefined);
+  const [moveError, setMoveError] = createSignal<string | undefined>(undefined);
+  const [stale, setStale] = createSignal(false);
+  const [refreshedAt, setRefreshedAt] = createSignal<number | undefined>(undefined);
 
   // Gate the fetcher on a token, since reading an errored resource rethrows
   const [authed] = createSignal(signedIn());
@@ -44,7 +52,49 @@ export const App = () => {
     );
   };
 
-  const shown = () => current()?.items.filter(matches).length ?? 0;
+  const shown = () => stores().reduce((total, store) => total + store.items.filter(matches).length, 0);
+
+  // The engine mutates its own state as it moves, so afterwards it is the truth, not the load
+  const stores = () => moved() ?? current()?.stores ?? [];
+
+  onCleanup(subscribeStores((next) => setMoved([...next])));
+
+  // Refreshing rebuilds every store, so it has to wait for a move rather than race it
+  const refresh = async () => {
+    const session = current()?.session;
+
+    if (!session) {
+      return;
+    }
+
+    const outcome = await refreshProfile(session);
+
+    if (outcome.status === "manifest-changed") {
+      setStale(true);
+
+      return;
+    }
+
+    setRefreshedAt(Date.now());
+  };
+
+  onCleanup(
+    startAutoRefresh({
+      onRefresh: () => refresh().catch((e: unknown) => console.warn("Refresh failed", e)),
+      busy: () => Boolean(moving()),
+    }),
+  );
+
+  const onMove = (item: DimItem, target: DimStore, equip: boolean) => {
+    setMoveError(undefined);
+    setMoving(`${equip ? "Equipping" : "Moving"} ${item.name}`);
+
+    moveItem(item, target, equip)
+      .then((result) => setSelected(result))
+      // A failed move still moves things: the engine may have made space before it gave up
+      .catch((e: unknown) => setMoveError(e instanceof Error ? e.message : String(e)))
+      .finally(() => setMoving(undefined));
+  };
 
   return (
     <main>
@@ -75,6 +125,9 @@ export const App = () => {
             value={query()}
             onInput={(e) => setQuery(e.currentTarget.value)}
           />
+          <button disabled={Boolean(moving())} onClick={() => void refresh()}>
+            Refresh
+          </button>
           <button
             onClick={() => {
               signOut();
@@ -83,6 +136,12 @@ export const App = () => {
           >
             Sign out
           </button>
+          <Show when={stale()}>
+            <span class="banner">
+              New manifest available.{" "}
+              <button onClick={() => location.reload()}>Reload</button>
+            </span>
+          </Show>
           <Show when={current()}>
             {(loaded) => (
               <div class="timings">
@@ -96,6 +155,9 @@ export const App = () => {
                 </Show>
                 <Show when={loaded().counts.hidden > 0}> · {loaded().counts.hidden} hidden</Show>
                 <Show when={loaded().counts.skipped > 0}> · {loaded().counts.skipped} skipped</Show>
+                <Show when={refreshedAt()}>
+                  {(at) => <> · refreshed {new Date(at()).toLocaleTimeString()}</>}
+                </Show>
               </div>
             )}
           </Show>
@@ -123,7 +185,7 @@ export const App = () => {
         <Show when={current()}>
           {(loaded) => (
             <Inventory
-              stores={loaded().stores}
+              stores={stores()}
               buckets={loaded().buckets}
               matches={matches}
               selected={selected()}
@@ -133,7 +195,16 @@ export const App = () => {
         </Show>
 
         <Show when={selected()}>
-          {(item) => <ItemDetail item={item()} onClose={() => setSelected(undefined)} />}
+          {(item) => (
+            <ItemDetail
+              item={item()}
+              stores={stores()}
+              moving={moving()}
+              moveError={moveError()}
+              onMove={(target, equip) => onMove(item(), target, equip)}
+              onClose={() => setSelected(undefined)}
+            />
+          )}
         </Show>
       </Show>
     </main>

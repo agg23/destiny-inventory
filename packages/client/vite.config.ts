@@ -4,7 +4,7 @@ import solid from "vite-plugin-solid";
 import { defineConfig } from "vite";
 
 import { DIM_GLOBALS } from "../dim-bridge/build-globals.ts";
-import { SHIMS } from "../dim-bridge/dim-shims.ts";
+import { dimPathShimsPlugin, SHIMS } from "../dim-bridge/dim-shims.ts";
 
 const root = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 
@@ -14,7 +14,7 @@ const REMOTE = !API_TARGET.includes("localhost");
 
 export default defineConfig(() => {
   return {
-    plugins: [solid()],
+    plugins: [dimPathShimsPlugin(root("../dim-bridge/src/shims")), solid()],
     define: DIM_GLOBALS,
     resolve: {
       alias: [

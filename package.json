@@ -7,7 +7,7 @@
   },
   "scripts": {
     "typecheck": "node scripts/typecheck.ts",
-    "test": "node --test",
+    "test": "NODE_OPTIONS=--max-old-space-size=8192 vitest run",
     "dev:service": "node --env-file-if-exists=.env packages/service/src/node.ts",
     "dev:client": "pnpm --filter @dvm/client dev",
     "build:artifacts": "node --max-old-space-size=8192 packages/build/src/build.ts",
@@ -20,11 +20,17 @@
     "@destinyitemmanager/dim-api-types": "^1.40.0",
     "bungie-api-ts": "^5.10.0",
     "es-toolkit": "^1.50.0",
+    "immer": "^11.1.17",
     "memoize-one": "^6.0.0",
-    "reselect": "^5.2.0"
+    "redux": "^5.0.1",
+    "redux-thunk": "^3.1.0",
+    "reselect": "^5.2.0",
+    "typesafe-actions": "^5.1.0"
   },
   "devDependencies": {
+    "@types/node": "^22.10.0",
     "typescript": "^5.7.0",
-    "@types/node": "^22.10.0"
+    "vite": "^6.0.0",
+    "vitest": "^4.1.10"
   }
 }
