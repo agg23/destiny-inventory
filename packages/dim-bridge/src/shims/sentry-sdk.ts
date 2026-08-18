@@ -34,3 +34,5 @@ export const setTag = (key: string, value: string | undefined): void => {};
 export const setUser = (user: Record<string, unknown> | undefined): void => {};
 
 export const browserTracingIntegration = () => ({ name: "BrowserTracing" });
+
+export const startSpan = <T>(options: { name: string }, callback: () => T): T => callback();

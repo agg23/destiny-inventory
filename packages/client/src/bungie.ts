@@ -4,7 +4,8 @@ import { loadConfig } from "./config.ts";
 
 const PLATFORM = "https://www.bungie.net/Platform";
 
-const COMPONENTS = [102, 103, 200, 201, 205, 300, 302, 304, 305, 306, 307, 308, 309, 310];
+// 100 carries dateLastPlayed, which is how the store factory picks the current character
+const COMPONENTS = [100, 102, 103, 200, 201, 205, 300, 302, 304, 305, 306, 307, 308, 309, 310];
 
 export interface Membership {
   membershipType: number;

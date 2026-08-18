@@ -1,6 +1,5 @@
-import { getBuckets } from "app/destiny2/d2-buckets";
 import type { DimItem } from "app/inventory/item-types";
-import { makeItem } from "app/inventory/store/d2-item-factory";
+import type { InventoryBuckets } from "app/inventory/inventory-buckets";
 import type { DimStore } from "app/inventory/store-types";
 import type {
   DestinyInventoryItemDefinition,
@@ -9,9 +8,9 @@ import type {
 } from "bungie-api-ts/destiny2";
 
 import { materialiseClosure } from "@dvm/defs-core";
-import { buildDefinitions } from "@dvm/dim-bridge";
 
 import { accessToken } from "./auth.ts";
+import { buildStoresFrom, storeItems, type Failure } from "./stores.ts";
 import { fetchRecords, fetchTable, hasArtifact } from "./artifacts.ts";
 import { loadConfig, type ArtifactIndex } from "./config.ts";
 import { currentMemberships, fetchProfile, pickMembership, type Membership } from "./bungie.ts";
@@ -48,8 +47,6 @@ const SUPPORT = [
 
 const MEMBERSHIP = "dvm.membership";
 
-const VAULT_STORE = { id: "vault", name: "Vault" } as DimStore;
-
 type ItemDef = DestinyInventoryItemDefinition;
 type PlugSetDef = DestinyPlugSetDefinition;
 
@@ -61,20 +58,16 @@ export interface Timings {
   total: number;
 }
 
-export interface Skipped {
-  reason: string;
-  count: number;
-  examples: number[];
-  origin?: string;
-}
-
 export interface LoadResult {
+  stores: DimStore[];
+  buckets: InventoryBuckets;
   items: DimItem[];
   timings: Timings;
   manifestVersion: string;
   tier: "core" | "detail";
   counts: { owned: number; defs: number; skipped: number; hidden: number };
-  skipped: Skipped[];
+  skipped: Failure[];
+  degraded: Failure[];
 }
 
 export class NotSignedIn extends Error {
@@ -153,74 +146,42 @@ const profileItems = (profile: DestinyProfileResponse) => [
   ...Object.values(profile.characterEquipment?.data ?? {}).flatMap((e) => e.items),
 ];
 
-const buildItems = (
-  support: Map<string, Record<string, unknown>>,
-  items: Record<number, ItemDef>,
-  plugSets: Record<number, PlugSetDef>,
-  profile: DestinyProfileResponse,
-  hidden: Set<number>,
-): { items: DimItem[]; skipped: Skipped[]; hidden: number } => {
-  const tables = new Map(support);
-  tables.set("InventoryItem", items as unknown as Record<string, unknown>);
-  tables.set("PlugSet", plugSets as unknown as Record<string, unknown>);
+// What is actually plugged is live data, and the definition graph does not always reach it.
+// Crafted and enhanced perks in particular sit outside the socket's own plug set, so seeding
+// the walk from owned hashes alone leaves buildSockets looking up definitions we never loaded
+const liveReferences = (profile: DestinyProfileResponse): number[] => {
+  const hashes: number[] = [];
 
-  const defs = buildDefinitions(tables);
-  const buckets = getBuckets(defs);
-
-  const built: DimItem[] = [];
-  const failures = new Map<string, Omit<Skipped, "reason">>();
-  let withheld = 0;
-
-  // One unexpected definition should cost its own tile, not the whole page. Grouped by
-  // reason rather than counted, because a bare count cannot say what is missing
-  for (const component of profileItems(profile)) {
-    // Dummies and the like, deliberately not shipped and not meant to render
-    if (hidden.has(component.itemHash)) {
-      withheld += 1;
-
-      continue;
-    }
-
-    try {
-      const item = makeItem(
-        { defs, buckets, profileResponse: profile, customStats: [] },
-        component,
-        VAULT_STORE,
-      );
-
-      if (item) {
-        built.push(item);
+  for (const item of Object.values(profile.itemComponents?.sockets?.data ?? {})) {
+    for (const socket of item.sockets) {
+      if (socket.plugHash !== undefined) {
+        hashes.push(socket.plugHash);
       }
-    } catch (e) {
-      const reason =
-        e instanceof Error ? `${e.name}: ${e.message.replace(/\[\d+\]/, "[hash]")}` : String(e);
-
-      const seen = failures.get(reason) ?? {
-        count: 0,
-        examples: [],
-        // The message alone cannot say which table was missing
-        origin: e instanceof Error ? e.stack?.split("\n").slice(1, 4).join(" | ") : undefined,
-      };
-
-      seen.count += 1;
-
-      if (seen.examples.length < 5) {
-        seen.examples.push(component.itemHash);
-      }
-
-      failures.set(reason, seen);
     }
   }
 
-  const skipped = [...failures.entries()]
-    .map(([reason, seen]) => ({ reason, ...seen }))
-    .sort((a, b) => b.count - a.count);
-
-  if (skipped.length > 0) {
-    console.warn(`Skipped items by reason\n${JSON.stringify(skipped, undefined, 2)}`);
+  for (const item of Object.values(profile.itemComponents?.reusablePlugs?.data ?? {})) {
+    for (const plugs of Object.values(item.plugs)) {
+      for (const plug of plugs) {
+        hashes.push(plug.plugItemHash);
+      }
+    }
   }
 
-  return { items: built, skipped, hidden: withheld };
+  const plugSets = [
+    ...Object.values(profile.characterPlugSets?.data ?? {}),
+    profile.profilePlugSets?.data,
+  ];
+
+  for (const component of plugSets) {
+    for (const plugs of Object.values(component?.plugs ?? {})) {
+      for (const plug of plugs) {
+        hashes.push(plug.plugItemHash);
+      }
+    }
+  }
+
+  return hashes;
 };
 
 export const load = async (onUpgrade?: (result: LoadResult) => void): Promise<LoadResult> => {
@@ -250,7 +211,10 @@ export const load = async (onUpgrade?: (result: LoadResult) => void): Promise<Lo
   const profile = await fetchProfile(membership, token);
   const profileTime = performance.now() - profileStart;
 
-  const owned = new Set(profileItems(profile).map((item) => item.itemHash));
+  const owned = new Set([
+    ...profileItems(profile).map((item) => item.itemHash),
+    ...liveReferences(profile),
+  ]);
 
   const defsStart = performance.now();
   let core: ItemDef[] | undefined = undefined;
@@ -279,11 +243,13 @@ export const load = async (onUpgrade?: (result: LoadResult) => void): Promise<Lo
   const hidden = new Set(hiddenHashes);
 
   const itemsStart = performance.now();
-  const built = buildItems(support, items, plugSets, profile, hidden);
+  const built = buildStoresFrom(support, items, plugSets, profile, hidden);
   const itemsTime = performance.now() - itemsStart;
 
   const result: LoadResult = {
-    items: built.items,
+    stores: built.stores,
+    buckets: built.buckets,
+    items: storeItems(built.stores),
     timings: {
       index: indexTime,
       profile: profileTime,
@@ -300,6 +266,7 @@ export const load = async (onUpgrade?: (result: LoadResult) => void): Promise<Lo
       hidden: built.hidden,
     },
     skipped: built.skipped,
+    degraded: built.degraded,
   };
 
   if (fresh && core && onUpgrade) {
@@ -338,12 +305,14 @@ const populate = async (
   }
 
   const itemsStart = performance.now();
-  const built = buildItems(support, items, byHash(plugsets), profile, hidden);
+  const built = buildStoresFrom(support, items, byHash(plugsets), profile, hidden);
   const itemsTime = performance.now() - itemsStart;
 
   onUpgrade({
     ...first,
-    items: built.items,
+    stores: built.stores,
+    buckets: built.buckets,
+    items: storeItems(built.stores),
     timings: { ...first.timings, items: itemsTime, total: performance.now() - started },
     tier: "detail",
     counts: {
@@ -353,6 +322,7 @@ const populate = async (
       hidden: built.hidden,
     },
     skipped: built.skipped,
+    degraded: built.degraded,
   });
 
   await store.putAll(CORE, core);

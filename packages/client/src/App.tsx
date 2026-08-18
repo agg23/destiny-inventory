@@ -1,28 +1,16 @@
 import type { DimItem } from "app/inventory/item-types";
-import { createMemo, createResource, createSignal, For, Show } from "solid-js";
+import { createResource, createSignal, For, Show } from "solid-js";
 
 import { beginLogin, signedIn, signOut } from "./auth.ts";
+import { Inventory } from "./Inventory.tsx";
+import { ItemDetail } from "./ItemDetail.tsx";
 import { load, NotSignedIn, type LoadResult } from "./load.ts";
-
-const BUNGIE = "https://www.bungie.net";
-
-const Tile = (props: { item: DimItem }) => (
-  <div class="tile">
-    <img src={`${BUNGIE}${props.item.icon}`} loading="lazy" alt="" width="48" height="48" />
-    <div class="label">
-      <div class="name">{props.item.name}</div>
-      <div class="meta">
-        {props.item.typeName}
-        <Show when={props.item.power}> · {props.item.power}</Show>
-      </div>
-    </div>
-  </div>
-);
 
 export const App = () => {
   const [query, setQuery] = createSignal("");
   const [upgraded, setUpgraded] = createSignal<LoadResult | undefined>(undefined);
   const [authError, setAuthError] = createSignal<string | undefined>(undefined);
+  const [selected, setSelected] = createSignal<DimItem | undefined>(undefined);
 
   // Gate the fetcher on a token, since reading an errored resource rethrows
   const [authed] = createSignal(signedIn());
@@ -32,29 +20,31 @@ export const App = () => {
   );
 
   const error = () => result.error as Error | undefined;
-
-  const skipped = () => {
-    const groups = current()?.skipped;
-
-    return groups && groups.length > 0 ? groups : undefined;
-  };
   const current = () => (error() ? undefined : (upgraded() ?? result()));
   const needsSignIn = () => !authed() || error() instanceof NotSignedIn;
 
-  const filtered = createMemo(() => {
-    const items = current()?.items ?? [];
+  // Skipped items never rendered; degraded ones did, with something missing
+  const failures = () => {
+    const loaded = current();
+    const groups = [
+      ...(loaded?.skipped ?? []).map((group) => ({ ...group, kind: "skipped" })),
+      ...(loaded?.degraded ?? []).map((group) => ({ ...group, kind: "degraded" })),
+    ];
+
+    return groups.length > 0 ? groups : undefined;
+  };
+
+  const matches = (item: DimItem) => {
     const needle = query().trim().toLowerCase();
 
-    if (!needle) {
-      return items;
-    }
-
-    return items.filter(
-      (item) =>
-        item.name.toLowerCase().includes(needle) ||
-        item.typeName.toLowerCase().includes(needle),
+    return (
+      !needle ||
+      item.name.toLowerCase().includes(needle) ||
+      item.typeName.toLowerCase().includes(needle)
     );
-  });
+  };
+
+  const shown = () => current()?.items.filter(matches).length ?? 0;
 
   return (
     <main>
@@ -96,32 +86,26 @@ export const App = () => {
           <Show when={current()}>
             {(loaded) => (
               <div class="timings">
-                {filtered().length} of {loaded().items.length} items · tier {loaded().tier} ·
-                paint {Math.round(result()?.timings.total ?? 0)}ms · profile{" "}
+                {shown()} of {loaded().items.length} items · {loaded().stores.length} stores · tier{" "}
+                {loaded().tier} · paint {Math.round(result()?.timings.total ?? 0)}ms · profile{" "}
                 {Math.round(loaded().timings.profile)}ms · defs{" "}
                 {Math.round(loaded().timings.defs)}ms · build{" "}
                 {Math.round(loaded().timings.items)}ms
                 <Show when={upgraded()}>
                   {(done) => <> · complete {Math.round(done().timings.total)}ms</>}
                 </Show>
-                <Show when={loaded().counts.hidden > 0}>
-                  {" "}
-                  · {loaded().counts.hidden} hidden
-                </Show>
-                <Show when={loaded().counts.skipped > 0}>
-                  {" "}
-                  · {loaded().counts.skipped} skipped
-                </Show>
+                <Show when={loaded().counts.hidden > 0}> · {loaded().counts.hidden} hidden</Show>
+                <Show when={loaded().counts.skipped > 0}> · {loaded().counts.skipped} skipped</Show>
               </div>
             )}
           </Show>
-          <Show when={skipped()}>
+          <Show when={failures()}>
             {(groups) => (
               <div class="skipped">
                 <For each={groups()}>
                   {(group) => (
                     <div>
-                      {group.count} × {group.reason} (e.g. {group.examples.join(", ")})
+                      {group.count} × {group.kind}: {group.reason}
                     </div>
                   )}
                 </For>
@@ -136,9 +120,21 @@ export const App = () => {
           <p class="error">Loading</p>
         </Show>
 
-        <div class="grid">
-          <For each={filtered()}>{(item) => <Tile item={item} />}</For>
-        </div>
+        <Show when={current()}>
+          {(loaded) => (
+            <Inventory
+              stores={loaded().stores}
+              buckets={loaded().buckets}
+              matches={matches}
+              selected={selected()}
+              onSelect={(item) => setSelected(selected()?.id === item.id ? undefined : item)}
+            />
+          )}
+        </Show>
+
+        <Show when={selected()}>
+          {(item) => <ItemDetail item={item()} onClose={() => setSelected(undefined)} />}
+        </Show>
       </Show>
     </main>
   );

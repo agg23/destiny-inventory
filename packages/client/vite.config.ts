@@ -24,6 +24,7 @@ export default defineConfig(() => {
         })),
         { find: /^app\//, replacement: root("../../vendor/DIM/src/app/") },
         { find: /^data\//, replacement: root("../../vendor/DIM/src/data/") },
+        { find: /^images\//, replacement: root("../../vendor/DIM/src/images/") },
       ],
     },
     server: {
