@@ -7,3 +7,19 @@ compatibility_date = "2026-08-01"
 [assets]
 directory = "packages/client/dist"
 binding = "ASSETS"
+
+# The bonus-drop baseline is only capturable just after a reset, when nobody has played yet.
+# Destiny rolls at 17:00 UTC, so the capture runs a few minutes later
+[triggers]
+crons = ["5 17 * * *"]
+
+# Create with: npx wrangler kv namespace create BASELINE, then paste the id here.
+# Without it the worker still serves, and tiles simply omit what has been spent
+# [[kv_namespaces]]
+# binding = "BASELINE"
+# id = "<paste>"
+
+# Any public Destiny profile, as "<membershipType>/<membershipId>". Component 204 needs no
+# OAuth, so this reads nothing privileged
+# [vars]
+# BASELINE_MEMBERSHIP = "3/4611686018468466126"

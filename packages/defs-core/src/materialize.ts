@@ -31,8 +31,12 @@ export const materializeClosure = async (
 
   while (itemFrontier.length > 0 || plugSetFrontier.length > 0) {
     const [fetchedItems, fetchedPlugSets] = await Promise.all([
-      itemFrontier.length > 0 ? tables.items(itemFrontier) : Promise.resolve([]),
-      plugSetFrontier.length > 0 ? tables.plugSets(plugSetFrontier) : Promise.resolve([]),
+      itemFrontier.length > 0
+        ? tables.items(itemFrontier)
+        : Promise.resolve([]),
+      plugSetFrontier.length > 0
+        ? tables.plugSets(plugSetFrontier)
+        : Promise.resolve([]),
     ]);
 
     const nextItems: number[] = [];

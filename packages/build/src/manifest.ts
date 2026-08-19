@@ -38,6 +38,15 @@ export const TABLES = [
   "DestinyEquipableItemSetDefinition",
   "DestinyInventoryItemConstantsDefinition",
   "DestinyIconDefinition",
+  "DestinyActivityDefinition",
+  "DestinyActivityDifficultyTierCollectionDefinition",
+  "DestinyActivityModeDefinition",
+  "DestinyActivityModifierDefinition",
+  "DestinyActivityTypeDefinition",
+  "DestinyFireteamFinderActivityGraphDefinition",
+  "DestinyFireteamFinderActivitySetDefinition",
+  "DestinyDestinationDefinition",
+  "DestinyPlaceDefinition",
 ] as const;
 
 export type TableName = (typeof TABLES)[number];
@@ -61,7 +70,9 @@ const fetchIndex = async (): Promise<ManifestIndexResponse["Response"]> => {
   const response = await fetch(MANIFEST_INDEX);
 
   if (!response.ok) {
-    throw new Error(`Manifest index failed: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `Manifest index failed: ${response.status} ${response.statusText}`,
+    );
   }
 
   const body = (await response.json()) as ManifestIndexResponse;
@@ -69,7 +80,10 @@ const fetchIndex = async (): Promise<ManifestIndexResponse["Response"]> => {
   return body.Response;
 };
 
-const fetchTable = async (path: string, destination: string): Promise<RawTable> => {
+const fetchTable = async (
+  path: string,
+  destination: string,
+): Promise<RawTable> => {
   const response = await fetch(`${BUNGIE_ROOT}${path}`);
 
   if (!response.ok) {

@@ -1,3 +1,4 @@
+import { readBaseline, type Reference, type Store } from "./baseline.ts";
 import type { ArtifactLoader } from "./loader.ts";
 import { exchangeCode, refreshTokens, type OAuthConfig } from "./oauth.ts";
 
@@ -9,6 +10,8 @@ export interface ServiceConfig {
   /** Where OAuth has to start, which is the one origin Bungie has registered */
   authOrigin: string;
   loader: ArtifactLoader;
+  /** Absent until a KV namespace is bound, in which case tiles simply omit what was spent */
+  baseline?: { store: Store; reference: Reference };
 }
 
 // Content-hashed names only, so a request can never walk out of the artifact directory
@@ -37,7 +40,10 @@ export const createHandler = (config: ServiceConfig) => {
     const { pathname } = new URL(request.url);
 
     if (request.method === "OPTIONS") {
-      return new Response(undefined, { status: 204, headers: cors(config.allowedOrigin) });
+      return new Response(undefined, {
+        status: 204,
+        headers: cors(config.allowedOrigin),
+      });
     }
 
     try {
@@ -61,13 +67,26 @@ export const createHandler = (config: ServiceConfig) => {
         );
       }
 
+      // What the week held before anyone spent it, captured by the cron just after reset
+      if (pathname === "/baseline") {
+        const held = config.baseline
+          ? await readBaseline(config.baseline.store, new Date())
+          : undefined;
+
+        return json(held ?? { rows: {} }, config.allowedOrigin);
+      }
+
       // Only the Node adapter reaches this. On Workers the files are static assets, served
       // and compressed by the platform, because re-wrapping them broke Content-Encoding
       if (pathname.startsWith("/artifacts/")) {
         const file = pathname.slice("/artifacts/".length);
 
         if (!ARTIFACT_NAME.test(file)) {
-          return json({ error: "Bad artifact name" }, config.allowedOrigin, 400);
+          return json(
+            { error: "Bad artifact name" },
+            config.allowedOrigin,
+            400,
+          );
         }
 
         const body = await config.loader.raw(file);
@@ -92,9 +111,14 @@ export const createHandler = (config: ServiceConfig) => {
       }
 
       if (pathname === "/auth/refresh" && request.method === "POST") {
-        const { refreshToken } = (await request.json()) as { refreshToken: string };
+        const { refreshToken } = (await request.json()) as {
+          refreshToken: string;
+        };
 
-        return json(await refreshTokens(oauth, refreshToken), config.allowedOrigin);
+        return json(
+          await refreshTokens(oauth, refreshToken),
+          config.allowedOrigin,
+        );
       }
 
       return json({ error: "Not found" }, config.allowedOrigin, 404);

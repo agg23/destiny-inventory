@@ -115,6 +115,7 @@
   --space-5: 12px;
   --space-6: 16px;
   --space-7: 24px;
+  --space-8: 32px;
 
   --text: color-mix(in srgb, var(--fg) 80%, transparent);
   --muted: color-mix(in srgb, var(--fg) 60%, transparent);

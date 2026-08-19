@@ -8,7 +8,9 @@ export interface ItemReferences {
   plugSets: number[];
 }
 
-export const itemReferences = (item: DestinyInventoryItemDefinition): ItemReferences => {
+export const itemReferences = (
+  item: DestinyInventoryItemDefinition,
+): ItemReferences => {
   const items: number[] = [];
   const plugSets: number[] = [];
 
@@ -41,5 +43,6 @@ export const itemReferences = (item: DestinyInventoryItemDefinition): ItemRefere
   return { items, plugSets };
 };
 
-export const plugSetReferences = (plugSet: DestinyPlugSetDefinition): number[] =>
-  plugSet.reusablePlugItems.map((plug) => plug.plugItemHash);
+export const plugSetReferences = (
+  plugSet: DestinyPlugSetDefinition,
+): number[] => plugSet.reusablePlugItems.map((plug) => plug.plugItemHash);

@@ -49,4 +49,6 @@ export const detailItem = (item: DestinyInventoryItemDefinition): SlimItem => ({
 });
 
 export const hasDetail = (item: DestinyInventoryItemDefinition): boolean =>
-  item.sockets !== undefined || item.plug !== undefined || item.perks !== undefined;
+  item.sockets !== undefined ||
+  item.plug !== undefined ||
+  item.perks !== undefined;

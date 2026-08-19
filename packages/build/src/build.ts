@@ -7,10 +7,24 @@ import {
   hasDetail,
   isShipped,
   resolveClosure,
+  slimActivity,
+  type ArtSource,
+  slimActivitySet,
+  slimActivityType,
+  slimChallenge,
+  slimDifficulty,
+  slimGraphNode,
   slimItem,
+  slimModifier,
+  slimPlace,
+  slimReward,
   type Tables,
 } from "@dvm/defs-core";
-import type { DestinyInventoryItemDefinition } from "bungie-api-ts/destiny2";
+import type {
+  DestinyActivityDefinition,
+  DestinyInventoryItemDefinition,
+  DestinyObjectiveDefinition,
+} from "bungie-api-ts/destiny2";
 
 import { loadManifest, type RawTable } from "./manifest.ts";
 
@@ -24,6 +38,75 @@ const VENDORS = "DestinyVendorDefinition";
 
 // getBuckets reads one vendor for the vault bucket mappings
 const VAULT_VENDOR = 1037843411;
+const ACTIVITIES = "DestinyActivityDefinition";
+const MODES = "DestinyActivityModeDefinition";
+const OBJECTIVES = "DestinyObjectiveDefinition";
+
+// Activity content ships for a few display fields each, so it is projected on the way out
+const SLIM: Record<string, (record: never) => { hash: number }> = {
+  DestinyActivityDifficultyTierCollectionDefinition: slimDifficulty,
+  DestinyActivityModifierDefinition: slimModifier,
+  DestinyActivityTypeDefinition: slimActivityType,
+  DestinyFireteamFinderActivityGraphDefinition: slimGraphNode,
+  DestinyFireteamFinderActivitySetDefinition: slimActivitySet,
+  DestinyDestinationDefinition: slimPlace,
+  DestinyPlaceDefinition: slimPlace,
+};
+
+const project = (
+  table: string,
+  contents: RawTable,
+  source: ArtSource,
+): RawTable => {
+  // Activities alone need the rest of the manifest to fill in the art a playlist lacks
+  if (table === ACTIVITIES) {
+    const projected: RawTable = {};
+
+    for (const [hash, record] of Object.entries(contents)) {
+      projected[hash] = slimActivity(
+        record as DestinyActivityDefinition,
+        source,
+      );
+    }
+
+    return projected;
+  }
+
+  const slim = SLIM[table];
+
+  if (!slim) {
+    return contents;
+  }
+
+  const projected: RawTable = {};
+
+  for (const [hash, record] of Object.entries(contents)) {
+    projected[hash] = slim(record as never);
+  }
+
+  return projected;
+};
+
+// The game falls back from an activity's own art to whatever its playlist or its mode carries
+const artSource = (tables: Map<string, RawTable>): ArtSource => {
+  const activities = (tables.get(ACTIVITIES) ?? {}) as Record<
+    string,
+    DestinyActivityDefinition
+  >;
+
+  const modes = (tables.get(MODES) ?? {}) as Record<
+    string,
+    { pgcrImage?: string }
+  >;
+
+  const usable = (image: string | undefined): string | undefined =>
+    image && !image.includes("placeholder") ? image : undefined;
+
+  return {
+    playlist: (hash: number) => usable(activities[hash]?.pgcrImage),
+    mode: (hash: number) => usable(modes[hash]?.pgcrImage),
+  };
+};
 
 const mb = (n: number): string => `${(n / 1_048_576).toFixed(2)} MB`;
 
@@ -33,7 +116,12 @@ const contentHash = (body: Buffer): string =>
 // Static assets cap a single file, and the edge compresses on the way out
 const CHUNK_BYTES = 15 * 1_048_576;
 
-const writeOne = async (dir: string, name: string, value: unknown, part?: number) => {
+const writeOne = async (
+  dir: string,
+  name: string,
+  value: unknown,
+  part?: number,
+) => {
   const raw = Buffer.from(JSON.stringify(value));
   const suffix = part === undefined ? "" : `-${part}`;
   const file = `${name}${suffix}.${contentHash(raw)}.json`;
@@ -43,8 +131,7 @@ const writeOne = async (dir: string, name: string, value: unknown, part?: number
   return { file, raw: raw.length };
 };
 
-// Serving these ourselves is what broke on Workers: the edge re-compresses a body that
-// already carries Content-Encoding, so they ship plain and the platform handles encoding
+// Ship plain: the edge re-compresses a body that already carries Content-Encoding
 const writeArtifact = async (
   dir: string,
   name: string,
@@ -56,15 +143,24 @@ const writeArtifact = async (
     return { files: [only.file], raw: only.raw };
   }
 
-  const perRecord = Buffer.byteLength(JSON.stringify(value)) / Math.max(value.length, 1);
-  const perChunk = Math.max(1, Math.floor(CHUNK_BYTES / Math.max(perRecord, 1)));
+  const perRecord =
+    Buffer.byteLength(JSON.stringify(value)) / Math.max(value.length, 1);
+  const perChunk = Math.max(
+    1,
+    Math.floor(CHUNK_BYTES / Math.max(perRecord, 1)),
+  );
 
   const files: string[] = [];
   let raw = 0;
   let part = 0;
 
   for (let start = 0; start < value.length; start += perChunk) {
-    const written = await writeOne(dir, name, value.slice(start, start + perChunk), part);
+    const written = await writeOne(
+      dir,
+      name,
+      value.slice(start, start + perChunk),
+      part,
+    );
 
     files.push(written.file);
     raw += written.raw;
@@ -92,7 +188,9 @@ const main = async () => {
 
   // A dangling ref here is a missing perk at runtime
   if (closure.missing.length > 0) {
-    throw new Error(`Universal closure has ${closure.missing.length} dangling references`);
+    throw new Error(
+      `Universal closure has ${closure.missing.length} dangling references`,
+    );
   }
 
   console.log(`\n${all.length} items, ${shipped.length} shipped`);
@@ -113,12 +211,14 @@ const main = async () => {
       }),
   ];
 
-  const plugsets = [...closure.plugSets].map((hash) => tables.plugSets[hash]).filter(Boolean);
+  const plugsets = [...closure.plugSets]
+    .map((hash) => tables.plugSets[hash])
+    .filter(Boolean);
 
-  // Profiles reference these, so the client needs to tell a withheld definition from a
-  // missing one. validate() walks definitions and cannot see a reference arriving from a
-  // profile, which is how Dummy items reached the client as errors
-  const hidden = all.filter((item) => !shippedHashes.has(item.hash)).map((item) => item.hash);
+  // Profiles reference these, and the client must tell a withheld definition from a missing one
+  const hidden = all
+    .filter((item) => !shippedHashes.has(item.hash))
+    .map((item) => item.hash);
 
   console.log("\nWriting artifacts");
 
@@ -136,10 +236,52 @@ const main = async () => {
     return result;
   };
 
+  // Activity loot items would otherwise be withheld along with the rest of the dummies
+  const rewardHashes = new Set<number>();
+  const challengeHashes = new Set<number>();
+
+  for (const activity of Object.values(
+    (manifest.tables.get(ACTIVITIES) ?? {}) as Record<
+      string,
+      DestinyActivityDefinition
+    >,
+  )) {
+    for (const reward of activity.rewards ?? []) {
+      for (const item of reward.rewardItems ?? []) {
+        rewardHashes.add(item.itemHash);
+      }
+    }
+
+    for (const challenge of activity.challenges ?? []) {
+      challengeHashes.add(challenge.objectiveHash);
+    }
+  }
+
+  const rewards = [...rewardHashes].flatMap((hash) => {
+    const item = tables.items[hash];
+
+    return item ? [slimReward(item)] : [];
+  });
+
+  const objectives = (manifest.tables.get(OBJECTIVES) ?? {}) as Record<
+    string,
+    DestinyObjectiveDefinition
+  >;
+
+  const challenges = [...challengeHashes].flatMap((hash) => {
+    const objective = objectives[hash];
+
+    return objective ? [slimChallenge(objective)] : [];
+  });
+
   const coreFile = await emit("core", core);
+  await emit("ActivityReward", rewards);
+  await emit("ActivityChallenge", challenges);
   const detailFile = await emit("detail", detail);
   await emit("plugsets", plugsets);
   await emit("hidden", hidden);
+
+  const source = artSource(manifest.tables);
 
   for (const [table, contents] of manifest.tables) {
     if (table === ITEMS || table === PLUG_SETS) {
@@ -147,7 +289,10 @@ const main = async () => {
     }
 
     const name = table.replace(/^Destiny|Definition$/g, "");
-    const value = table === VENDORS ? { [VAULT_VENDOR]: contents[VAULT_VENDOR] } : contents;
+    const value =
+      table === VENDORS
+        ? { [VAULT_VENDOR]: contents[VAULT_VENDOR] }
+        : project(table, contents, source);
 
     await emit(name, value);
   }
@@ -158,13 +303,21 @@ const main = async () => {
   );
 
   console.log(
-    `  tier 1 core   ${String(core.length).padStart(6)} records ${mb(coreFile.raw).padStart(10)} across ${coreFile.files.length} files`,
+    `  tier 1 core   ${String(core.length).padStart(6)} records ${mb(
+      coreFile.raw,
+    ).padStart(10)} across ${coreFile.files.length} files`,
   );
   console.log(
-    `  tier 2 detail ${String(detail.length).padStart(6)} records ${mb(detailFile.raw).padStart(10)} across ${detailFile.files.length} files`,
+    `  tier 2 detail ${String(detail.length).padStart(6)} records ${mb(
+      detailFile.raw,
+    ).padStart(10)} across ${detailFile.files.length} files`,
   );
   console.log(`  withheld      ${String(hidden.length).padStart(6)} hashes`);
-  console.log(`\nTotal: ${mb(totalRaw)} raw across ${fileCount} files, compressed by the edge`);
+  console.log(
+    `\nTotal: ${mb(
+      totalRaw,
+    )} raw across ${fileCount} files, compressed by the edge`,
+  );
   console.log(`Artifacts in ${dir}`);
 };
 

@@ -2,6 +2,7 @@ import type { DimItem } from "app/inventory/item-types";
 import type { InventoryBuckets } from "app/inventory/inventory-buckets";
 import type { DimStore } from "app/inventory/store-types";
 import type {
+  DestinyCharacterActivitiesComponent,
   DestinyInventoryItemDefinition,
   DestinyPlugSetDefinition,
   DestinyProfileResponse,
@@ -76,7 +77,32 @@ export interface LoadResult {
   degraded: Failure[];
   session: Session;
   playing: string | undefined;
+  activities: CharacterActivities;
+  variables: StringVariables;
 }
+
+export type CharacterActivities = Record<
+  string,
+  DestinyCharacterActivitiesComponent
+>;
+
+// The numbers Bungie leaves out of its own strings, per character
+export type StringVariables = Record<string, Record<number, number>>;
+
+// The character's own copy wins where it disagrees with the profile's
+const stringVariables = (profile: DestinyProfileResponse): StringVariables => {
+  const shared =
+    profile.profileStringVariables?.data?.integerValuesByHash ?? {};
+  const rows: StringVariables = {};
+
+  for (const [id, held] of Object.entries(
+    profile.characterStringVariables?.data ?? {},
+  )) {
+    rows[id] = { ...shared, ...held.integerValuesByHash };
+  }
+
+  return rows;
+};
 
 export class NotSignedIn extends Error {
   constructor() {
@@ -334,6 +360,8 @@ export const load = async (
     manifestVersion: index.manifestVersion,
     tier: fresh ? "core" : "detail",
     playing: playingNow(profile),
+    activities: profile.characterActivities?.data ?? {},
+    variables: stringVariables(profile),
     counts: {
       owned: owned.size,
       defs: Object.keys(items).length,
@@ -451,6 +479,7 @@ export interface RefreshOutcome {
   skipped: Failure[];
   degraded: Failure[];
   playing: string | undefined;
+  activities: CharacterActivities | undefined;
 }
 
 // New items can reference definitions the load-time closure never reached
@@ -497,6 +526,7 @@ export const refreshProfile = async (
       skipped: [],
       degraded: [],
       playing: undefined,
+      activities: undefined,
     };
   }
 
@@ -510,6 +540,7 @@ export const refreshProfile = async (
       skipped: [],
       degraded: [],
       playing: playingNow(profile),
+      activities: profile.characterActivities?.data,
     };
   }
 
@@ -531,5 +562,6 @@ export const refreshProfile = async (
     skipped: built.skipped,
     degraded: built.degraded,
     playing: playingNow(profile),
+    activities: profile.characterActivities?.data,
   };
 };

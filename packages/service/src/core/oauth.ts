@@ -14,7 +14,10 @@ export interface Tokens {
   membership_id: string;
 }
 
-const post = async (config: OAuthConfig, body: URLSearchParams): Promise<Tokens> => {
+const post = async (
+  config: OAuthConfig,
+  body: URLSearchParams,
+): Promise<Tokens> => {
   const credentials = btoa(`${config.clientId}:${config.clientSecret}`);
 
   const response = await fetch(TOKEN, {
@@ -34,11 +37,20 @@ const post = async (config: OAuthConfig, body: URLSearchParams): Promise<Tokens>
   return (await response.json()) as Tokens;
 };
 
-export const exchangeCode = (config: OAuthConfig, code: string): Promise<Tokens> =>
+export const exchangeCode = (
+  config: OAuthConfig,
+  code: string,
+): Promise<Tokens> =>
   post(config, new URLSearchParams({ grant_type: "authorization_code", code }));
 
-export const refreshTokens = (config: OAuthConfig, refreshToken: string): Promise<Tokens> =>
+export const refreshTokens = (
+  config: OAuthConfig,
+  refreshToken: string,
+): Promise<Tokens> =>
   post(
     config,
-    new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken }),
+    new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+    }),
   );

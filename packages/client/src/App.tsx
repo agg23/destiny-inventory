@@ -10,6 +10,7 @@ import {
   Show,
 } from "solid-js";
 
+import { Activities } from "./Activities.tsx";
 import { activeStore, NOBODY, observe, prefer, type Active } from "./active.ts";
 import { beginLogin, signedIn, signOut } from "./auth.ts";
 import { acquired } from "./arrivals.ts";
@@ -25,6 +26,13 @@ import { startAutoRefresh } from "./refresh.ts";
 
 const HOVER_DELAY = 120;
 const PINS = 2;
+
+type Tab = "vault" | "activities";
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "vault", label: "Vault" },
+  { id: "activities", label: "Activities" },
+];
 
 interface Hovered {
   item: DimItem;
@@ -47,6 +55,7 @@ export const App = () => {
     undefined,
   );
   const [active, setActive] = createSignal<Active>(NOBODY);
+  const [tab, setTab] = createSignal<Tab>("vault");
 
   // Gate the fetcher on a token, since reading an errored resource rethrows
   const [authed] = createSignal(signedIn());
@@ -286,6 +295,20 @@ export const App = () => {
         }
       >
         <header ref={(el) => (head = el)}>
+          <nav class="tabs">
+            <For each={TABS}>
+              {(one) => (
+                <button
+                  type="button"
+                  class="tab"
+                  aria-pressed={tab() === one.id}
+                  onClick={() => setTab(one.id)}
+                >
+                  {one.label}
+                </button>
+              )}
+            </For>
+          </nav>
           <input
             type="search"
             placeholder="Filter"
@@ -360,48 +383,63 @@ export const App = () => {
           <p class="error">Loading</p>
         </Show>
 
-        <div class="body">
-          <Show when={current()}>
-            {(loaded) => (
-              <Inventory
-                stores={stores()}
-                buckets={loaded().buckets}
-                matches={matches}
-                active={activeStore(active(), stores())}
-                pinned={pinned()}
-                comparing={pinned().length > 1}
-                onSelectStore={(store) =>
-                  setActive((was) => prefer(was, store.id))
-                }
-                onSelect={pin}
-                onHover={onHover}
-                onLeave={onLeave}
+        <Show
+          when={tab() === "vault"}
+          fallback={
+            <div class="body solo">
+              <Activities
+                activities={current()?.activities ?? {}}
+                variables={current()?.variables ?? {}}
+                character={activeStore(active(), stores())?.id}
+                power={activeStore(active(), stores())?.powerLevel}
+                query={query()}
               />
-            )}
-          </Show>
-
-          <aside class="rail" classList={{ comparing: pinned().length > 1 }}>
-            <Show
-              when={pinned().length > 0}
-              fallback={
-                <Arrivals items={feed()} stores={stores()} onSelect={pin} />
-              }
-            >
-              <Compare
-                items={pinned()}
-                stores={stores()}
-                active={activeStore(active(), stores())}
-                onMove={onMove}
-                onPrefer={(target) =>
-                  setActive((was) => prefer(was, target.id))
-                }
-                onUnpin={pin}
-                moving={moving()}
-                moveError={moveError()}
-              />
+            </div>
+          }
+        >
+          <div class="body">
+            <Show when={current()}>
+              {(loaded) => (
+                <Inventory
+                  stores={stores()}
+                  buckets={loaded().buckets}
+                  matches={matches}
+                  active={activeStore(active(), stores())}
+                  pinned={pinned()}
+                  comparing={pinned().length > 1}
+                  onSelectStore={(store) =>
+                    setActive((was) => prefer(was, store.id))
+                  }
+                  onSelect={pin}
+                  onHover={onHover}
+                  onLeave={onLeave}
+                />
+              )}
             </Show>
-          </aside>
-        </div>
+
+            <aside class="rail" classList={{ comparing: pinned().length > 1 }}>
+              <Show
+                when={pinned().length > 0}
+                fallback={
+                  <Arrivals items={feed()} stores={stores()} onSelect={pin} />
+                }
+              >
+                <Compare
+                  items={pinned()}
+                  stores={stores()}
+                  active={activeStore(active(), stores())}
+                  onMove={onMove}
+                  onPrefer={(target) =>
+                    setActive((was) => prefer(was, target.id))
+                  }
+                  onUnpin={pin}
+                  moving={moving()}
+                  moveError={moveError()}
+                />
+              </Show>
+            </aside>
+          </div>
+        </Show>
 
         <Show when={hovered()}>
           {(card) => (

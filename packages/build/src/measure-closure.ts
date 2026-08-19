@@ -19,17 +19,25 @@ const bytes = (value: unknown): number => JSON.stringify(value).length;
 const mb = (n: number): string => `${(n / 1_048_576).toFixed(2)} MB`;
 
 // Randomized perk columns
-const isRolledLegendaryWeapon = (item: DestinyInventoryItemDefinition): boolean =>
+const isRolledLegendaryWeapon = (
+  item: DestinyInventoryItemDefinition,
+): boolean =>
   item.inventory?.tierType === LEGENDARY &&
   item.itemType === WEAPON &&
-  (item.sockets?.socketEntries ?? []).some((socket) => socket.randomizedPlugSetHash);
+  (item.sockets?.socketEntries ?? []).some(
+    (socket) => socket.randomizedPlugSetHash,
+  );
 
 const main = async () => {
   const manifest = await loadManifest(CACHE_ROOT);
 
   const tables: Tables = {
-    items: manifest.tables.get("DestinyInventoryItemDefinition") as Tables["items"],
-    plugSets: manifest.tables.get("DestinyPlugSetDefinition") as Tables["plugSets"],
+    items: manifest.tables.get(
+      "DestinyInventoryItemDefinition",
+    ) as Tables["items"],
+    plugSets: manifest.tables.get(
+      "DestinyPlugSetDefinition",
+    ) as Tables["plugSets"],
   };
 
   const candidates = Object.values(tables.items)
@@ -39,7 +47,11 @@ const main = async () => {
   const step = Math.max(1, Math.floor(candidates.length / SAMPLE_SIZE));
   const sample: number[] = [];
 
-  for (let i = 0; sample.length < SAMPLE_SIZE && i < candidates.length; i += step) {
+  for (
+    let i = 0;
+    sample.length < SAMPLE_SIZE && i < candidates.length;
+    i += step
+  ) {
     sample.push(candidates[i]!);
   }
 
@@ -95,15 +107,23 @@ const main = async () => {
   const slimBrotli = brotliCompressSync(Buffer.from(slimRaw)).length;
 
   console.log(`Distinct plugs per weapon, median: ${median}`);
-  console.log(`Distinct plugs per weapon, mean:   ${Math.round(naivePlugs / sample.length)}\n`);
+  console.log(
+    `Distinct plugs per weapon, mean:   ${Math.round(
+      naivePlugs / sample.length,
+    )}\n`,
+  );
 
   console.log(`Naive, per-item closures concatenated: ${mb(naiveBytes)}`);
   console.log(`Deduped union, full defs:              ${mb(unionBytes)}`);
-  console.log(`  of which plugs only (${plugOnlyCount}):        ${mb(plugOnlyBytes)}`);
+  console.log(
+    `  of which plugs only (${plugOnlyCount}):        ${mb(plugOnlyBytes)}`,
+  );
   console.log(`Deduped union, slim projection:        ${mb(slimRaw.length)}`);
   console.log(`Deduped union, slim and brotli:        ${mb(slimBrotli)}`);
   console.log(`\nCollapse: ${Math.round(naiveBytes / unionBytes)}x`);
-  console.log(`Union item defs: ${union.items.size}, plug sets: ${union.plugSets.size}`);
+  console.log(
+    `Union item defs: ${union.items.size}, plug sets: ${union.plugSets.size}`,
+  );
 
   // Armor pulls the universal mod pools, weapons alone understate this badly
   const vaultCandidates = Object.values(tables.items)
@@ -121,7 +141,11 @@ const main = async () => {
     const vaultStep = Math.max(1, Math.floor(vaultCandidates.length / size));
     const vault: number[] = [];
 
-    for (let i = 0; vault.length < size && i < vaultCandidates.length; i += vaultStep) {
+    for (
+      let i = 0;
+      vault.length < size && i < vaultCandidates.length;
+      i += vaultStep
+    ) {
       vault.push(vaultCandidates[i]!);
     }
 
@@ -136,7 +160,9 @@ const main = async () => {
     const compressed = brotliCompressSync(raw);
 
     console.log(
-      `${String(vault.length).padEnd(7)} ${String(vaultClosure.items.size).padEnd(9)} ${mb(raw.length).padStart(9)}  ${mb(compressed.length)}`,
+      `${String(vault.length).padEnd(7)} ${String(
+        vaultClosure.items.size,
+      ).padEnd(9)} ${mb(raw.length).padStart(9)}  ${mb(compressed.length)}`,
     );
   }
 

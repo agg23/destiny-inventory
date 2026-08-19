@@ -1,9 +1,17 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import {
+  createServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from "node:http";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 
-import { createHandler, type ArtifactIndex, type ArtifactLoader } from "./core/index.ts";
+import {
+  createHandler,
+  type ArtifactIndex,
+  type ArtifactLoader,
+} from "./core/index.ts";
 
 const REPO_ROOT = new URL("../../../", import.meta.url).pathname;
 const ARTIFACT_ROOT = join(REPO_ROOT, "artifacts");
@@ -32,13 +40,18 @@ const diskLoader = (): ArtifactLoader => ({
   index: async () => {
     const body = await read("index.json");
 
-    return body ? (JSON.parse(new TextDecoder().decode(body)) as ArtifactIndex) : undefined;
+    return body
+      ? (JSON.parse(new TextDecoder().decode(body)) as ArtifactIndex)
+      : undefined;
   },
   raw: (file) => read(file),
 });
 
 const detach = (body: Buffer): ArrayBuffer =>
-  body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as ArrayBuffer;
+  body.buffer.slice(
+    body.byteOffset,
+    body.byteOffset + body.byteLength,
+  ) as ArrayBuffer;
 
 const toRequest = (req: IncomingMessage, body: Buffer): Request =>
   new Request(`http://localhost:${PORT}${req.url}`, {
@@ -46,7 +59,8 @@ const toRequest = (req: IncomingMessage, body: Buffer): Request =>
     headers: Object.entries(req.headers).map(
       ([key, value]) => [key, String(value)] as [string, string],
     ),
-    body: req.method === "GET" || req.method === "HEAD" ? undefined : detach(body),
+    body:
+      req.method === "GET" || req.method === "HEAD" ? undefined : detach(body),
   });
 
 const send = (res: ServerResponse, response: Response) => {
@@ -79,7 +93,9 @@ createServer((req, res) => {
       .then((response) => send(res, response))
       .catch((e: unknown) => {
         res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }));
+        res.end(
+          JSON.stringify({ error: e instanceof Error ? e.message : String(e) }),
+        );
       });
   });
 }).listen(PORT, () => {

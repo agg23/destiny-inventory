@@ -3,7 +3,9 @@ import type { DestinyProfileResponse } from "bungie-api-ts/destiny2";
 const PLATFORM = "https://www.bungie.net/Platform";
 
 // 102 and 201 need OAuth, the rest come back for any profile its owner hasn't hidden
-const COMPONENTS = [102, 103, 200, 201, 205, 300, 302, 304, 305, 306, 307, 308, 309, 310];
+const COMPONENTS = [
+  102, 103, 200, 201, 205, 300, 302, 304, 305, 306, 307, 308, 309, 310,
+];
 
 const ALL_PLATFORMS = -1;
 
@@ -19,7 +21,11 @@ interface BungieEnvelope<T> {
   Message: string;
 }
 
-const call = async <T>(path: string, apiKey: string, init?: RequestInit): Promise<T> => {
+const call = async <T>(
+  path: string,
+  apiKey: string,
+  init?: RequestInit,
+): Promise<T> => {
   const response = await fetch(`${PLATFORM}${path}`, {
     ...init,
     headers: {
@@ -44,7 +50,10 @@ interface GlobalSearchResult {
   destinyMemberships: Membership[];
 }
 
-const searchByPrefix = async (prefix: string, apiKey: string): Promise<Membership> => {
+const searchByPrefix = async (
+  prefix: string,
+  apiKey: string,
+): Promise<Membership> => {
   const response = await call<{ searchResults: GlobalSearchResult[] }>(
     "/User/Search/GlobalName/0/",
     apiKey,
@@ -63,10 +72,15 @@ const searchByPrefix = async (prefix: string, apiKey: string): Promise<Membershi
 
   if (exact.length > 1) {
     const names = exact
-      .map((result) => `${result.bungieGlobalDisplayName}#${result.bungieGlobalDisplayNameCode}`)
+      .map(
+        (result) =>
+          `${result.bungieGlobalDisplayName}#${result.bungieGlobalDisplayNameCode}`,
+      )
       .join(", ");
 
-    throw new Error(`${prefix} is ambiguous. Set BUNGIE_NAME to one of: ${names}`);
+    throw new Error(
+      `${prefix} is ambiguous. Set BUNGIE_NAME to one of: ${names}`,
+    );
   }
 
   const [match] = exact;
@@ -77,7 +91,9 @@ const searchByPrefix = async (prefix: string, apiKey: string): Promise<Membershi
   }
 
   console.log(
-    `Resolved ${prefix} to ${match!.bungieGlobalDisplayName}#${match!.bungieGlobalDisplayNameCode}`,
+    `Resolved ${prefix} to ${match!.bungieGlobalDisplayName}#${
+      match!.bungieGlobalDisplayNameCode
+    }`,
   );
 
   return membership;

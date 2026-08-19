@@ -16,7 +16,10 @@ export interface Closure {
   missing: { table: string; hash: number }[];
 }
 
-export const resolveClosure = (owned: Iterable<number>, tables: Tables): Closure => {
+export const resolveClosure = (
+  owned: Iterable<number>,
+  tables: Tables,
+): Closure => {
   const items = new Set<number>();
   const plugSets = new Set<number>();
   const missing: { table: string; hash: number }[] = [];
@@ -85,7 +88,10 @@ export interface Dangling {
 }
 
 // Must pass before anything renders
-export const validate = (owned: Iterable<number>, tables: Tables): Dangling[] => {
+export const validate = (
+  owned: Iterable<number>,
+  tables: Tables,
+): Dangling[] => {
   const dangling: Dangling[] = [];
   const closure = resolveClosure(owned, tables);
 
