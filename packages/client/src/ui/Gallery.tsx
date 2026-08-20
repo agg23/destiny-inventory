@@ -1,6 +1,6 @@
 import { For } from "solid-js";
 
-import { Button, IconButton, type ButtonProps } from "./Button.tsx";
+import { Button, IconButton } from "./Button.tsx";
 import { SplitButton } from "./SplitButton.tsx";
 import { cn } from "./cn.ts";
 
@@ -34,13 +34,16 @@ const COLORS = [
   ["panel", "bg-panel"],
   ["panel-raised", "bg-panel-raised"],
   ["light", "bg-light"],
+  ["cream", "bg-cream"],
   ["error", "bg-error"],
   ["warning", "bg-warning"],
+  ["good", "bg-good"],
   ["exotic", "bg-exotic"],
   ["legendary", "bg-legendary"],
   ["rare", "bg-rare"],
   ["uncommon", "bg-uncommon"],
   ["common", "bg-common"],
+  ["kinetic", "bg-kinetic"],
   ["solar", "bg-solar"],
   ["arc", "bg-arc"],
   ["void", "bg-void"],
@@ -48,10 +51,18 @@ const COLORS = [
   ["strand", "bg-strand"],
 ] as const;
 
-const CONTROL_HEIGHTS = [
-  ["sm", 24],
-  ["md", 32],
-  ["lg", 40],
+const RARITIES = [
+  "common",
+  "uncommon",
+  "rare",
+  "legendary",
+  "exotic",
+] as const;
+
+const STATS = [
+  ["Impact", 84],
+  ["Range", 46],
+  ["Stability", 55],
 ] as const;
 
 const Section = (props: { title: string; children: unknown }) => (
@@ -61,14 +72,6 @@ const Section = (props: { title: string; children: unknown }) => (
     </h2>
     {props.children as never}
   </section>
-);
-
-// Rendered at a real size next to the control, so a wrong height is visible rather than implied
-const Ruler = (props: { height: number }) => (
-  <div class="flex items-center gap-2 text-xs text-dim">
-    <div class="w-1 bg-light" style={{ height: `${props.height}px` }} />
-    {props.height}px
-  </div>
 );
 
 export const Gallery = () => (
@@ -81,7 +84,7 @@ export const Gallery = () => (
       <div class="flex flex-col gap-4">
         <For each={VARIANTS}>
           {(variant) => (
-            <div class="flex items-center gap-4">
+            <div class="flex flex-wrap items-center gap-4">
               <div class="w-16 text-sm text-dim">{variant}</div>
               <For each={SIZES}>
                 {(size) => (
@@ -100,7 +103,7 @@ export const Gallery = () => (
     </Section>
 
     <Section title="Icon button">
-      <div class="flex items-center gap-4">
+      <div class="flex flex-wrap items-center gap-4">
         <For each={ICON_SIZES}>
           {(size) => (
             <For each={VARIANTS}>
@@ -110,19 +113,6 @@ export const Gallery = () => (
                 </IconButton>
               )}
             </For>
-          )}
-        </For>
-      </div>
-    </Section>
-
-    <Section title="Control heights">
-      <div class="flex items-end gap-6">
-        <For each={CONTROL_HEIGHTS}>
-          {([size, height]) => (
-            <div class="flex flex-col gap-2">
-              <Button size={size as ButtonProps["size"]}>{size}</Button>
-              <Ruler height={height} />
-            </div>
           )}
         </For>
       </div>
@@ -167,7 +157,7 @@ export const Gallery = () => (
       <div class="flex flex-col gap-4">
         <For each={VARIANTS}>
           {(variant) => (
-            <div class="flex items-center gap-4">
+            <div class="flex flex-wrap items-center gap-4">
               <div class="w-16 text-sm text-dim">{variant}</div>
               <For each={SIZES}>
                 {(size) => (
@@ -215,6 +205,68 @@ export const Gallery = () => (
             Kinetic weapons
           </div>
         </div>
+      </div>
+    </Section>
+
+    <Section title="Item tile">
+      <div class="flex flex-wrap items-center gap-4">
+        <For each={RARITIES}>
+          {(rarity) => (
+            <button
+              type="button"
+              class={cn("item-tile small", rarity)}
+              aria-label={rarity}
+            />
+          )}
+        </For>
+        <button
+          type="button"
+          class="item-tile small exotic masterwork"
+          aria-label="exotic masterwork"
+        />
+      </div>
+    </Section>
+
+    <Section title="Item tooltip">
+      <div class="item-tooltip">
+        <div class="tooltip-header exotic">
+          <div class="tooltip-name">Gjallarhorn</div>
+          <div class="tooltip-type">
+            <span>Rocket launcher</span>
+            <span>Exotic</span>
+          </div>
+        </div>
+        <div class="tooltip-body">
+          <div class="tooltip-power">
+            <span class="power-value">1810</span>
+            <span class="power-type">Solar · Heavy</span>
+          </div>
+        </div>
+        <div class="tooltip-body">
+          <div class="tooltip-perk">
+            <span class="perk-icon" />
+            <div class="perk-text">
+              <b>Wolfpack Rounds</b>
+              <span>Rounds split into tracking cluster missiles.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Section>
+
+    <Section title="Stat bars">
+      <div class="stat-list max-w-90">
+        <For each={STATS}>
+          {([name, value]) => (
+            <>
+              <span class="stat-name">{name}</span>
+              <span class="stat-bar">
+                <span class="stat-fill" style={{ width: `${value}%` }} />
+              </span>
+              <span class="stat-value">{value}</span>
+            </>
+          )}
+        </For>
       </div>
     </Section>
   </main>

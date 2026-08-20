@@ -143,7 +143,7 @@ const REALMS: { name: string; sections: number[] }[] = [
     name: "Vanguard",
     sections: [FIRETEAM_OPS, PINNACLE_OPS, SOLO_OPS, ARENA_OPS, STRIKES_OTHER],
   },
-  { name: "Crucible and Gambit", sections: [CRUCIBLE_OPS, GAMBIT_OPS] },
+  { name: "PvP", sections: [CRUCIBLE_OPS, GAMBIT_OPS] },
   {
     name: "Raids and Dungeons",
     sections: [RAIDS, RAIDS_ALT, DUNGEONS, DUNGEONS_ALT, PANTHEON],

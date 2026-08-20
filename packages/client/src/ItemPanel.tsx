@@ -13,10 +13,15 @@ import {
   isEnhancedPerk,
   socketContainsIntrinsicPlug,
 } from "app/utils/socket-utils";
+import {
+  amountOfItem,
+  getCurrentStore,
+  potentialSpaceLeftForItem,
+} from "app/inventory/stores-helpers";
 import { isClassCompatible, itemCanBeEquippedBy } from "app/utils/item-utils";
 import { createMemo, For, Show } from "solid-js";
 
-import { delta, type Delta } from "./compare.ts";
+import { delta, unmovable, type Delta } from "./compare.ts";
 import { archetype, benefits, setBonus, type StatChange } from "./perks.ts";
 import { shortStat } from "./statNames.ts";
 import { Button } from "./ui/Button.tsx";
@@ -26,6 +31,13 @@ export const BUNGIE = "https://www.bungie.net";
 
 // DIM derives the armor total itself rather than reading it off a real stat
 export const TOTAL = -1000;
+
+// BucketHashes.LostItems, inlined rather than pulling in DIM's whole enum table
+const LOST_ITEMS = 215593132;
+
+// SocketCategoryHashes for weapon, armor and ghost cosmetics. Shaders, ornaments and trackers
+// change nothing a player compares, and each category costs a labelled row
+const COSMETIC = new Set([2048875504, 1926152773, 2549160099]);
 
 export interface MoveProps {
   item: DimItem;
@@ -47,6 +59,57 @@ export const Moves = (props: MoveProps) => {
   const characters = () => props.stores.filter((store) => !store.isVault);
 
   const canTransfer = () => !props.item.notransfer;
+
+  // The mover can shuffle items aside to make room, so only a hard wall counts as no room
+  const noRoom = (target: DimStore): string | undefined => {
+    const item = props.item;
+    const space = potentialSpaceLeftForItem(target, item, props.stores);
+
+    if (space.guaranteed > 0) {
+      return undefined;
+    }
+
+    // Unique stacks cap per store, and account-wide buckets live on the current character
+    const holder =
+      item.bucket.accountWide && !target.isVault
+        ? getCurrentStore(props.stores)
+        : target;
+
+    if (
+      item.uniqueStack &&
+      holder &&
+      amountOfItem(holder, item) >= item.maxStackSize
+    ) {
+      return `${label(target)} already holds the maximum`;
+    }
+
+    return space.couldMakeSpace ? undefined : `No room in ${label(target)}`;
+  };
+
+  const blocked = (target: DimStore): string | undefined => {
+    const item = props.item;
+
+    if (unmovable(item)) {
+      return "Cannot be pulled from the Postmaster";
+    }
+
+    if (item.location.hash === LOST_ITEMS) {
+      if (!item.canPullFromPostmaster) {
+        return "Cannot be pulled from the Postmaster";
+      }
+
+      // A pull lands on the owning character regardless of the chosen target
+      const owner = props.stores.find((store) => store.id === item.owner);
+
+      return owner ? noRoom(owner) : undefined;
+    }
+
+    if (item.notransfer) {
+      return "Cannot be transferred";
+    }
+
+    return noRoom(target);
+  };
 
   // A Warlock helmet on a Titan is dead weight, so a class it cannot serve is not a target
   const holders = () =>
@@ -109,6 +172,7 @@ export const Moves = (props: MoveProps) => {
     targets.map((store) => ({
       id: store.id,
       label: label(store),
+      reason: equip ? undefined : blocked(store),
       onChoose: () => act(store, equip, true),
     }));
 
@@ -116,15 +180,17 @@ export const Moves = (props: MoveProps) => {
     holders().filter((store) => store.id !== props.item.owner && canTransfer());
 
   return (
-    <div class="moves">
+    <div class="flex flex-col items-stretch gap-1.5">
       <Show when={transferTo()}>
         {(target) => (
           <SplitButton
             block
+            size="sm"
             label={
               props.compact ? "Transfer" : `Transfer to ${label(target())}`
             }
-            disabled={!!props.moving}
+            disabled={!!props.moving || !!blocked(target())}
+            title={blocked(target())}
             onPrimary={() => act(target(), false, false)}
             choices={choices(transferTargets(), false)}
           />
@@ -134,6 +200,7 @@ export const Moves = (props: MoveProps) => {
         {(target) => (
           <SplitButton
             block
+            size="sm"
             label={props.compact ? "Equip" : `Equip on ${label(target())}`}
             disabled={!!props.moving}
             onPrimary={() => act(target(), true, false)}
@@ -142,10 +209,10 @@ export const Moves = (props: MoveProps) => {
         )}
       </Show>
       <Show when={props.moving}>
-        {(status) => <p class="meta">{status()}</p>}
+        {(status) => <p class="text-muted">{status()}</p>}
       </Show>
       <Show when={props.moveError}>
-        {(message) => <p class="error">{message()}</p>}
+        {(message) => <p class="text-danger">{message()}</p>}
       </Show>
     </div>
   );
@@ -153,9 +220,15 @@ export const Moves = (props: MoveProps) => {
 
 // A bare sign reads as arithmetic; the color is what says whether the number is good news
 export const StatDelta = (props: { delta: Delta | undefined }) => (
-  <Show when={props.delta} fallback={<span />}>
+  <Show when={props.delta}>
     {(change) => (
-      <span class="delta" classList={{ better: change().better }}>
+      <span
+        class="text-sm whitespace-nowrap tabular-nums"
+        classList={{
+          "text-success": change().better,
+          "text-danger": !change().better,
+        }}
+      >
         {change().value > 0 ? "+" : "−"}
         {Math.abs(change().value)}
       </span>
@@ -163,31 +236,72 @@ export const StatDelta = (props: { delta: Delta | undefined }) => (
   </Show>
 );
 
-export const Bar = (props: {
+// The framework's stat list ends in one value cell, so the number and its delta share it
+// rather than the grid growing a fourth column that the compare rail cannot afford
+export const StatValue = (props: {
   stat: DimStat;
   against?: DimStat;
   comparing?: boolean;
-}) => {
+  total?: boolean;
+  best?: boolean;
+}) => (
+  <span
+    class="stat-value flex gap-1 tabular-nums"
+    classList={{
+      total: props.total,
+      "text-gold": props.best,
+      // Rounds per minute has no bar, so its number takes the bar's column and stays beside
+      // its label rather than stranding itself at the far right of an empty row
+      "col-span-2 justify-start": !props.stat.bar,
+      "justify-end": Boolean(props.stat.bar),
+    }}
+  >
+    <span>{props.stat.value}</span>
+    <Show when={props.comparing}>
+      <span class="w-[4ch] text-left">
+        <StatDelta delta={delta(props.stat, props.against)} />
+      </span>
+    </Show>
+  </span>
+);
+
+export const StatBar = (props: { stat: DimStat; total?: boolean }) => {
   const fraction = () =>
     props.stat.maximumValue > 0
       ? Math.min(1, Math.abs(props.stat.value) / props.stat.maximumValue)
       : 0;
 
   return (
-    <div class="stat" classList={{ total: props.stat.statHash === TOTAL }}>
-      <span class="stat-name">
+    <Show when={props.stat.bar}>
+      <span class="stat-bar" classList={{ total: props.total }}>
+        <span class="stat-fill" style={{ width: `${fraction() * 100}%` }} />
+      </span>
+    </Show>
+  );
+};
+
+export const Bar = (props: {
+  stat: DimStat;
+  against?: DimStat;
+  comparing?: boolean;
+}) => {
+  // Cells rather than a row, so every column lines up down the whole block the way the
+  // framework's stat list does it
+  const total = () => props.stat.statHash === TOTAL;
+
+  return (
+    <>
+      <span class="stat-name" classList={{ total: total() }}>
         {shortStat(props.stat.displayProperties.name)}
       </span>
-      <span class="stat-value">{props.stat.value}</span>
-      <Show when={props.comparing}>
-        <StatDelta delta={delta(props.stat, props.against)} />
-      </Show>
-      <Show when={props.stat.bar} fallback={<span />}>
-        <span class="stat-bar">
-          <span style={{ width: `${fraction() * 100}%` }} />
-        </span>
-      </Show>
-    </div>
+      <StatBar stat={props.stat} total={total()} />
+      <StatValue
+        stat={props.stat}
+        against={props.against}
+        comparing={props.comparing}
+        total={total()}
+      />
+    </>
   );
 };
 
@@ -262,7 +376,7 @@ const Socket = (props: { socket: DimSocket; all?: boolean }) => {
   };
 
   return (
-    <div class="socket">
+    <div class="flex flex-col gap-1">
       <For each={options()}>
         {(plug) => (
           <img
@@ -307,8 +421,9 @@ const Category = (props: {
   return (
     <Show when={sockets().length > 0}>
       <div class="perk-group">
-        <div class="perk-head">
-          <h4>{props.category.category.displayProperties.name}</h4>
+        {/* The framework's label flexes its rule to fill, so the toggle rides in the heading */}
+        <h4 class="section-label mt-3 mb-1.5">
+          {props.category.category.displayProperties.name}
           <Show when={props.onToggleAll && rollable()}>
             <Button
               type="button"
@@ -317,11 +432,11 @@ const Category = (props: {
               aria-pressed={Boolean(props.all)}
               onClick={props.onToggleAll}
             >
-              {props.all ? "Hide all" : "Show all"}
+              {props.all ? "Hide" : "All"}
             </Button>
           </Show>
-        </div>
-        <div class="sockets">
+        </h4>
+        <div class="flex flex-wrap items-start gap-1">
           <For each={sockets()}>
             {(socket) => <Socket socket={socket} all={props.all} />}
           </For>
@@ -339,7 +454,9 @@ export const Perks = (props: {
   // The archetype reads above the stats now, and its category holds nothing else
   const shown = () => {
     const archetypeSocket = getArmorArchetypeSocket(props.item);
-    const categories = props.item.sockets?.categories ?? [];
+    const categories = (props.item.sockets?.categories ?? []).filter(
+      (category) => !COSMETIC.has(category.category.hash),
+    );
 
     if (!archetypeSocket) {
       return categories;
@@ -369,6 +486,24 @@ export const Perks = (props: {
   );
 };
 
+// The framework draws the perk disc itself, so a missing icon still leaves the row aligned
+const PerkIcon = (props: { icon: string | undefined; enhanced?: boolean }) => (
+  <Show
+    when={props.icon}
+    fallback={<span class="perk-icon" classList={{ enhanced: props.enhanced }} />}
+  >
+    {(icon) => (
+      <img
+        class="perk-icon"
+        classList={{ enhanced: props.enhanced }}
+        src={`${BUNGIE}${icon()}`}
+        alt=""
+        loading="lazy"
+      />
+    )}
+  </Show>
+);
+
 // Armor's identity rather than a plug, so it sits with the stats it decides
 export const Archetype = (props: { item: DimItem }) => {
   const found = createMemo(() => archetype(props.item));
@@ -376,18 +511,11 @@ export const Archetype = (props: { item: DimItem }) => {
   return (
     <Show when={found()}>
       {(plug) => (
-        <div class="archetype" title={plug().description}>
-          <Show when={plug().icon} fallback={<span class="perk-icon" />}>
-            {(icon) => (
-              <img
-                class="perk-icon"
-                src={`${BUNGIE}${icon()}`}
-                alt=""
-                loading="lazy"
-              />
-            )}
-          </Show>
-          <span class="benefit-name">{plug().name}</span>
+        <div class="tooltip-perk" title={plug().description}>
+          <PerkIcon icon={plug().icon} />
+          <div class="perk-text">
+            <b>{plug().name}</b>
+          </div>
         </div>
       )}
     </Show>
@@ -403,7 +531,7 @@ export const Stats = (props: { item: DimItem; against?: DimItem }) => {
 
   return (
     <Show when={props.item.stats?.length}>
-      <div class="stats" classList={{ comparing: Boolean(props.against) }}>
+      <div class="stat-list">
         <For each={sorted()}>
           {(stat) => (
             <Bar
@@ -425,31 +553,22 @@ export const SetBonus = (props: { item: DimItem }) => {
   return (
     <Show when={bonus()}>
       {(set) => (
-        <div class="set-bonus">
-          <h4>{set().name}</h4>
+        <>
+          <h4 class="section-label">{set().name}</h4>
           <For each={set().perks}>
             {(perk) => (
-              <div class="set-perk">
-                <Show when={perk.icon} fallback={<span class="perk-icon" />}>
-                  {(icon) => (
-                    <img
-                      class="perk-icon"
-                      src={`${BUNGIE}${icon()}`}
-                      alt=""
-                      loading="lazy"
-                    />
-                  )}
-                </Show>
-                <div>
-                  <div class="set-perk-name">
+              <div class="tooltip-perk items-start">
+                <PerkIcon icon={perk.icon} />
+                <div class="perk-text">
+                  <b>
                     {perk.requiredSetCount} piece · {perk.name}
-                  </div>
-                  <p class="description">{perk.description}</p>
+                  </b>
+                  <span class="block whitespace-pre-wrap">{perk.description}</span>
                 </div>
               </div>
             )}
           </For>
-        </div>
+        </>
       )}
     </Show>
   );
@@ -457,10 +576,16 @@ export const SetBonus = (props: { item: DimItem }) => {
 
 const Changes = (props: { stats: StatChange[] }) => (
   <Show when={props.stats.length > 0}>
-    <div class="benefit-stats">
+    <div class="flex flex-wrap gap-1 gap-x-2 pt-1">
       <For each={props.stats}>
         {(stat) => (
-          <span class="delta" classList={{ better: stat.better }}>
+          <span
+            class="text-sm whitespace-nowrap tabular-nums"
+            classList={{
+              "text-success": stat.better,
+              "text-danger": !stat.better,
+            }}
+          >
             {stat.value > 0 ? "+" : "−"}
             {Math.abs(stat.value)} {stat.name}
           </span>
@@ -476,40 +601,28 @@ export const Benefits = (props: { item: DimItem }) => {
 
   return (
     <Show when={list().length > 0}>
-      <div class="benefits">
-        <For each={list()}>
-          {(benefit) => (
-            <div class="benefit">
-              <div class="benefit-head">
-                <Show when={benefit.icon} fallback={<span class="perk-icon" />}>
-                  {(icon) => (
-                    <img
-                      class="perk-icon"
-                      classList={{ enhanced: benefit.enhanced }}
-                      src={`${BUNGIE}${icon()}`}
-                      alt=""
-                      loading="lazy"
-                    />
-                  )}
-                </Show>
-                <span
-                  class="benefit-name"
-                  classList={{ enhanced: benefit.enhanced }}
-                >
-                  {benefit.name}
-                </span>
+      <For each={list()}>
+        {(benefit) => (
+          <div class="tooltip-perk items-start">
+            <PerkIcon icon={benefit.icon} enhanced={benefit.enhanced} />
+            <div class="perk-text">
+              <b classList={{ "text-light": benefit.enhanced }}>
+                {benefit.name}
                 <Show when={benefit.enhanced}>
+                  {" "}
                   <span class="tag">Enhanced</span>
                 </Show>
-              </div>
+              </b>
               <Changes stats={benefit.stats} />
               <Show when={benefit.description}>
-                <p class="description">{benefit.description}</p>
+                <span class="block whitespace-pre-wrap">
+                  {benefit.description}
+                </span>
               </Show>
             </div>
-          )}
-        </For>
-      </div>
+          </div>
+        )}
+      </For>
     </Show>
   );
 };
@@ -529,18 +642,56 @@ export const typeName = (item: DimItem): string => {
   return `${owner} ${item.typeName}`;
 };
 
-export const ItemHead = (props: { item: DimItem }) => (
-  <div class="item-head">
-    <img src={`${BUNGIE}${props.item.icon}`} alt="" width="40" height="40" />
-    <div>
-      <div class="name">{props.item.name}</div>
-      <div class="meta">
-        {typeName(props.item)}
-        <Show when={props.item.power > 0}> · {props.item.power}</Show>
-        <Show when={props.item.element}>
-          {(element) => <> · {element().displayProperties.name}</>}
-        </Show>
+// The game's own inspection header: the rarity carries the color, so the tier needs no words
+export const ItemHead = (props: { item: DimItem; compact?: boolean }) => (
+  <div
+    class={`tooltip-header ${props.item.rarity.toLowerCase()}`}
+    classList={{ "h-(--item-head) p-0": props.compact }}
+  >
+    <div class="flex h-full items-stretch gap-2">
+      {/* Flush and square to the tinted block, the way the game draws it. The hover card needs
+          no icon at all: the tile it came from is under the pointer */}
+      <Show when={props.compact}>
+        <img
+          class="aspect-square h-full shrink-0"
+          src={`${BUNGIE}${props.item.icon}`}
+          alt=""
+        />
+      </Show>
+      <div
+        class="min-w-0 flex-1"
+        classList={{ "flex flex-col justify-center pr-4": props.compact }}
+      >
+        {/* Wraps rather than ellipsizes: the header is the one place the whole name matters.
+            Two to a rail leaves room for two lines and no more */}
+        <div
+          class="tooltip-name"
+          classList={{
+            "line-clamp-2 pr-6 text-md leading-5 whitespace-normal": props.compact,
+          }}
+        >
+          {props.item.name}
+        </div>
+        <div class="tooltip-type">
+          <span class="max-w-full truncate">{typeName(props.item)}</span>
+        </div>
       </div>
     </div>
   </div>
+);
+
+// Power is the headline number in the game's own inspect screen, not a footnote on the type row
+export const ItemPower = (props: { item: DimItem }) => (
+  <Show when={props.item.power > 0 || props.item.element}>
+    <div class="tooltip-power">
+      <Show when={props.item.power > 0}>
+        <span class="power-value">{props.item.power}</span>
+      </Show>
+      <Show when={props.item.element}>
+        {(element) => (
+          <span class="power-type">{element().displayProperties.name}</span>
+        )}
+      </Show>
+    </div>
+  </Show>
 );

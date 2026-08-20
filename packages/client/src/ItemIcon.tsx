@@ -11,6 +11,8 @@ interface Props {
   onLeave: (item: DimItem) => void;
 }
 
+// The framework's own power slot hangs below the tile, which a grid of them has no room for,
+// so power rides in the stack-size badge instead: one number, bottom right, either way
 const corner = (item: DimItem): number | undefined => {
   if (item.power > 0) {
     return item.power;
@@ -22,11 +24,11 @@ const corner = (item: DimItem): number | undefined => {
 export const ItemIcon = (props: Props) => (
   <button
     type="button"
-    class="item"
+    class="item-tile small"
     classList={{
       equipped: props.item.equipped,
       selected: props.selected,
-      [`rarity-${props.item.rarity.toLowerCase()}`]: true,
+      [props.item.rarity.toLowerCase()]: true,
     }}
     onClick={() => props.onSelect(props.item)}
     onMouseEnter={(e) =>
@@ -50,7 +52,7 @@ export const ItemIcon = (props: Props) => (
       )}
     </Show>
     <Show when={corner(props.item)}>
-      {(value) => <span class="corner">{value()}</span>}
+      {(value) => <span class="item-quantity">{value()}</span>}
     </Show>
   </button>
 );

@@ -17,6 +17,14 @@ export default defineConfig(() => {
   return {
     plugins: [dimPathShimsPlugin(root("../dim-bridge/src/shims")), tailwind(), solid()],
     define: DIM_GLOBALS,
+    css: {
+      preprocessorOptions: {
+        // destiny-ui-css still uses @import; silenced the same way its own build does
+        scss: {
+          silenceDeprecations: ["import", "color-functions", "global-builtin"],
+        },
+      },
+    },
     resolve: {
       alias: [
         ...SHIMS.map(({ match, shim }) => ({

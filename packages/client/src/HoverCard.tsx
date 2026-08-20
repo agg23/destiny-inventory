@@ -1,10 +1,18 @@
 import type { DimItem } from "app/inventory/item-types";
 import { createEffect, createMemo, createSignal } from "solid-js";
 
-import { Archetype, ItemHead, Perks, SetBonus, Stats } from "./ItemPanel.tsx";
+import {
+  Archetype,
+  ItemHead,
+  ItemPower,
+  Perks,
+  SetBonus,
+  Stats,
+} from "./ItemPanel.tsx";
 
 const GAP = 8;
-const WIDTH = 260;
+// The framework's own tooltip width, since the card is now one of theirs
+const WIDTH = 352;
 
 interface Props {
   item: DimItem;
@@ -44,12 +52,21 @@ export const HoverCard = (props: Props) => {
   });
 
   return (
-    <aside class="hover-card" ref={(el) => (card = el)} style={position()}>
+    <aside
+      class="item-tooltip hover-card"
+      ref={(el) => (card = el)}
+      style={position()}
+    >
       <ItemHead item={props.item} />
-      <Archetype item={props.item} />
-      <Stats item={props.item} against={props.against} />
-      <Perks item={props.item} />
-      <SetBonus item={props.item} />
+      <div class="tooltip-body">
+        <ItemPower item={props.item} />
+        <Archetype item={props.item} />
+        <Stats item={props.item} against={props.against} />
+      </div>
+      <div class="tooltip-body">
+        <Perks item={props.item} />
+        <SetBonus item={props.item} />
+      </div>
     </aside>
   );
 };

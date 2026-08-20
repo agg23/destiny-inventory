@@ -2,17 +2,18 @@ import type { DimItem, DimStat } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { createMemo, createSignal, For, Show } from "solid-js";
 
-import { best, delta } from "./compare.ts";
+import { best } from "./compare.ts";
 import {
   Archetype,
   Benefits,
-  BUNGIE,
+  ItemHead,
+  ItemPower,
   Moves,
   Perks,
   SetBonus,
-  StatDelta,
+  StatBar,
+  StatValue,
   TOTAL,
-  typeName,
 } from "./ItemPanel.tsx";
 import { shortStat } from "./statNames.ts";
 import { IconButton } from "./ui/Button.tsx";
@@ -79,30 +80,20 @@ export const Compare = (props: Props) => {
 
   return (
     <Show when={props.items.length > 0}>
-      <aside class="compare">
+      {/* The framework's inspection card, so its header, bodies and perk rows all apply in
+          here the same way they do in the hover card */}
+      <aside class="item-tooltip compare overflow-y-auto p-4 [scrollbar-gutter:stable]">
         <div
-          class="compare-grid"
+          class="stat-list compare-grid grid items-center content-start gap-1.5 gap-x-4"
           style={{ "grid-template-columns": columns() }}
         >
           <For each={props.items}>
             {(item, column) => (
               <div
-                class="compare-head"
+                class="compare-head relative self-stretch pb-3"
                 style={{ "grid-column": start(column()) }}
               >
-                <img
-                  src={`${BUNGIE}${item.icon}`}
-                  alt=""
-                  width="40"
-                  height="40"
-                />
-                <div>
-                  <div class="name">{item.name}</div>
-                  <div class="meta">
-                    {typeName(item)}
-                    <Show when={item.power > 0}> · {item.power}</Show>
-                  </div>
-                </div>
+                <ItemHead item={item} compact />
                 <IconButton
                   type="button"
                   variant="ghost"
@@ -121,7 +112,7 @@ export const Compare = (props: Props) => {
           <For each={props.items}>
             {(item, column) => (
               <div
-                class="moves-cell"
+                class="min-w-0 self-start"
                 style={{ "grid-column": start(column()) }}
               >
                 <Moves
@@ -141,6 +132,7 @@ export const Compare = (props: Props) => {
           <For each={props.items}>
             {(item, column) => (
               <div style={{ "grid-column": start(column()) }}>
+                <ItemPower item={item} />
                 <Archetype item={item} />
               </div>
             )}
@@ -164,34 +156,15 @@ export const Compare = (props: Props) => {
                       <Show when={stat} fallback={<span class="dash">·</span>}>
                         {(own) => (
                           <>
-                            <span
-                              class="stat-value"
-                              classList={{
-                                best: own().value === best(row.values),
-                              }}
-                            >
-                              {own().value}
-                            </span>
-                            {/* The left item is the one the comparison is against, so it
-                              carries no delta of its own */}
-                            <Show when={column() > 0} fallback={<span />}>
-                              <StatDelta delta={delta(own(), row.values[0])} />
-                            </Show>
-                            <Show when={own().bar} fallback={<span />}>
-                              <span class="stat-bar">
-                                <span
-                                  style={{
-                                    width: `${
-                                      Math.min(
-                                        1,
-                                        Math.abs(own().value) /
-                                          own().maximumValue,
-                                      ) * 100
-                                    }%`,
-                                  }}
-                                />
-                              </span>
-                            </Show>
+                            <StatBar stat={own()} />
+                            {/* The left item is what the comparison is against, so it carries
+                              no delta of its own; the column stays reserved either way */}
+                            <StatValue
+                              stat={own()}
+                              against={column() > 0 ? row.values[0] : undefined}
+                              comparing={compact()}
+                              best={own().value === best(row.values)}
+                            />
                           </>
                         )}
                       </Show>
@@ -205,7 +178,7 @@ export const Compare = (props: Props) => {
           <For each={props.items}>
             {(item, column) => (
               <div
-                class="compare-perks"
+                class="min-w-0 self-start"
                 style={{ "grid-column": start(column()) }}
               >
                 <Perks
@@ -220,7 +193,7 @@ export const Compare = (props: Props) => {
           <For each={props.items}>
             {(item, column) => (
               <section
-                class="compare-detail"
+                class="min-w-0 self-start pt-6"
                 style={{ "grid-column": start(column()) }}
               >
                 <SetBonus item={item} />

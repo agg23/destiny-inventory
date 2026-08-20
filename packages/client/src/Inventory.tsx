@@ -4,25 +4,12 @@ import type {
 } from "app/inventory/inventory-buckets";
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  For,
-  onCleanup,
-  onMount,
-  Show,
-} from "solid-js";
+import { createMemo, For, Show } from "solid-js";
 
 import { CharacterPicker } from "./CharacterPicker.tsx";
 import { ItemIcon } from "./ItemIcon.tsx";
 
 const CATEGORIES = ["Postmaster", "Weapons", "Armor", "General", "Inventory"];
-
-const LABEL = 140;
-const CHARACTER = 320;
-const TILE = 48;
-const GAPS = 16;
 
 interface Props {
   stores: DimStore[];
@@ -32,17 +19,18 @@ interface Props {
   onHover: (item: DimItem, anchor: DOMRect) => void;
   onLeave: (item: DimItem) => void;
   pinned: DimItem[];
-  comparing: boolean;
   active: DimStore | undefined;
   onSelectStore: (store: DimStore) => void;
 }
 
 const VaultHeader = (props: { store: DimStore }) => (
-  <div class="store-head">
-    <img src={props.store.icon} alt="" width="40" height="40" />
-    <div>
-      <div class="name">Vault</div>
-      <div class="meta">{props.store.items.length} items</div>
+  <div class="card store-head flex w-(--store-column) items-center gap-2 p-2">
+    <img class="size-(--icon-xl) shrink-0" src={props.store.icon} alt="" />
+    <div class="min-w-0">
+      <div class="header general truncate">Vault</div>
+      <div class="truncate text-sm text-fg/75">
+        {props.store.items.length} items
+      </div>
     </div>
   </div>
 );
@@ -134,48 +122,12 @@ export const Inventory = (props: Props) => {
       .filter((section) => section.buckets.length > 0),
   );
 
-  const [width, setWidth] = createSignal(0);
-
-  let scroller: HTMLDivElement | undefined = undefined;
-
-  // ResizeObserver delivers during rendering, so a background tab never gets a first measure
-  const measure = () => {
-    const box = scroller;
-
-    if (box) {
-      setWidth(
-        box.clientWidth - parseFloat(getComputedStyle(box).paddingLeft) * 2,
-      );
-    }
-  };
-
-  onMount(measure);
-
-  // The rail widens on the second pin, which resizes this box without firing a window resize.
-  // Driven off the state that causes it rather than a ResizeObserver, which only delivers as
-  // part of the rendering steps and so never arrives in a tab that is not painting
-  createEffect(() => {
-    props.comparing;
-    measure();
-  });
-
-  window.addEventListener("resize", measure);
-  onCleanup(() => window.removeEventListener("resize", measure));
-
-  const vaultWidth = () => {
-    const spare = width() - LABEL - CHARACTER - GAPS;
-
-    return Math.max(TILE, Math.floor(spare / TILE) * TILE);
-  };
-
-  const columns = () => `${LABEL}px ${CHARACTER}px ${vaultWidth()}px`;
-
   const cell = (store: DimStore, bucket: InventoryBucket) =>
     ordered(byStore().get(store.id)?.get(bucket.hash) ?? []);
 
   return (
-    <div class="inventory" ref={(el) => (scroller = el)}>
-      <div class="stores" style={{ "grid-template-columns": columns() }}>
+    <div class="p-3">
+      <div class="stores">
         <div />
         <CharacterPicker
           characters={characters()}
@@ -188,16 +140,16 @@ export const Inventory = (props: Props) => {
       <For each={rows()}>
         {(section) => (
           <section>
-            <h2>{section.category}</h2>
+            <h2 class="section-label mt-4 mb-1.5">{section.category}</h2>
             <For each={section.buckets}>
               {(bucket) => (
-                <div class="row" style={{ "grid-template-columns": columns() }}>
-                  <div class="bucket">
+                <div class="row">
+                  <div class="pt-1 text-sm text-muted">
                     {bucket.name || `Bucket ${bucket.hash}`}
                   </div>
                   <For each={shown()}>
                     {(store) => (
-                      <div class="cell">
+                      <div class="item-grid wide">
                         <For each={cell(store, bucket)}>
                           {(item) => (
                             <ItemIcon

@@ -217,7 +217,7 @@ export const App = () => {
   const onBackground = (e: MouseEvent) => {
     const target = e.target as HTMLElement;
 
-    if (!target.closest(".item, .compare, [data-menu], header")) {
+    if (!target.closest(".item-tile, .rail, [data-menu], header")) {
       setPinned([]);
     }
   };
@@ -275,10 +275,11 @@ export const App = () => {
       <Show
         when={!needsSignIn()}
         fallback={
-          <div class="signin">
-            <h1>Vault</h1>
+          <div class="max-w-[420px] px-6 py-12">
+            <h1 class="spaced-header">Vault</h1>
             <p>Sign in with your Bungie account to load your inventory.</p>
             <button
+              class="button large"
               onClick={() => {
                 setAuthError(undefined);
                 beginLogin().catch((e: unknown) =>
@@ -289,52 +290,69 @@ export const App = () => {
               Sign in with Bungie
             </button>
             <Show when={authError()}>
-              {(message) => <p class="error">{message()}</p>}
+              {(message) => <p class="pt-3 text-danger">{message()}</p>}
             </Show>
           </div>
         }
       >
         <header ref={(el) => (head = el)}>
-          <nav class="tabs">
+          <nav class="nav-tabs basis-full">
             <For each={TABS}>
               {(one) => (
                 <button
                   type="button"
-                  class="tab"
+                  class="nav-tab"
+                  classList={{ active: tab() === one.id }}
                   aria-pressed={tab() === one.id}
-                  onClick={() => setTab(one.id)}
+                  onClick={() => {
+                    // The tile under the pointer unmounts without a mouseleave, so its
+                    // card would hang around over the new view for good
+                    setHovered(undefined);
+                    setTab(one.id);
+                  }}
                 >
                   {one.label}
                 </button>
               )}
             </For>
           </nav>
-          <input
-            type="search"
-            placeholder="Filter"
-            value={query()}
-            onInput={(e) => setQuery(e.currentTarget.value)}
-          />
-          <button disabled={Boolean(moving())} onClick={() => void refresh()}>
-            Refresh
-          </button>
-          <button
-            onClick={() => {
-              signOut();
-              location.reload();
-            }}
-          >
-            Sign out
-          </button>
-          <Show when={stale()}>
-            <span class="banner">
-              New manifest available.{" "}
-              <button onClick={() => location.reload()}>Reload</button>
-            </span>
-          </Show>
+          <div class="button-row basis-full">
+            <input
+              class="text-input inline"
+              type="search"
+              placeholder="Filter"
+              value={query()}
+              onInput={(e) => setQuery(e.currentTarget.value)}
+            />
+            <button
+              class="button small"
+              disabled={Boolean(moving())}
+              onClick={() => void refresh()}
+            >
+              Refresh
+            </button>
+            <button
+              class="button small ghost"
+              onClick={() => {
+                signOut();
+                location.reload();
+              }}
+            >
+              Sign out
+            </button>
+            <Show when={stale()}>
+              <span class="text-warning">New manifest available.</span>
+              <button
+                class="button small gold"
+                onClick={() => location.reload()}
+              >
+                Reload
+              </button>
+            </Show>
+          </div>
           <Show when={current()}>
             {(loaded) => (
-              <div class="timings">
+              <div class="mt-2 text-sm tabular-nums text-dim">
                 {shown()} of {loaded().items.length} items ·{" "}
                 {loaded().stores.length} stores · tier {loaded().tier} · paint{" "}
                 {Math.round(result()?.timings.total ?? 0)}ms · profile{" "}
@@ -364,7 +382,7 @@ export const App = () => {
           </Show>
           <Show when={failures()}>
             {(groups) => (
-              <div class="skipped">
+              <div class="mt-1.5 text-sm tabular-nums text-warning">
                 <For each={groups()}>
                   {(group) => (
                     <div>
@@ -377,10 +395,12 @@ export const App = () => {
           </Show>
         </header>
 
-        <Show when={error()}>{(e) => <p class="error">{e().message}</p>}</Show>
+        <Show when={error()}>
+          {(e) => <p class="p-3 text-danger">{e().message}</p>}
+        </Show>
 
         <Show when={result.loading}>
-          <p class="error">Loading</p>
+          <p class="p-3 text-muted">Loading</p>
         </Show>
 
         <Show
@@ -406,7 +426,6 @@ export const App = () => {
                   matches={matches}
                   active={activeStore(active(), stores())}
                   pinned={pinned()}
-                  comparing={pinned().length > 1}
                   onSelectStore={(store) =>
                     setActive((was) => prefer(was, store.id))
                   }

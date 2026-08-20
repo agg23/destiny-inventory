@@ -4,72 +4,41 @@ import { splitProps, type ComponentProps } from "solid-js";
 
 import { cn } from "./cn.ts";
 
-// One --accent drives the fill, the ring and the hover ring. Shared with SplitButton, which
-// puts the outline on the pair so the two halves read as a single control
-export const ACCENT = {
-  default: "[--accent:var(--color-fg)] text-text",
-  light: "[--accent:var(--color-light)] text-light",
-  danger: "[--accent:var(--color-error)] text-error",
-  ghost: "[--accent:var(--color-fg)] text-muted",
+// destiny-ui-css variant classes; light keeps its name because exotic gold is what it means
+export const VARIANT = {
+  default: "",
+  light: "gold",
+  danger: "danger",
+  ghost: "ghost",
 } as const;
 
-export const FILL = "bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]";
-
-export const RING =
-  "shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--accent)_20%,transparent)]";
-
-// The doubled outer ring on hover is the game's own control idiom
-export const GLOW = cn(
-  "after:pointer-events-none after:absolute after:-inset-0.5 after:scale-[1.02]",
-  "after:shadow-[0_0_0_2px_transparent] after:transition after:duration-250",
-  "hover:after:scale-100 hover:after:shadow-[0_0_0_2px_var(--accent)]",
-);
-
+/*
+ * Sizing belongs to the framework, not to us. The old fixed 24/32/40 heights and 10px type
+ * squeezed out the padding and the wide tracking that are most of what makes their button look
+ * like the game's, so the size variants now just pick a framework class. Icon buttons drop the
+ * horizontal padding and take a minimum width instead, since a glyph cannot pad itself square
+ */
 export const buttonVariants = cva(
-  cn(
-    "inline-flex shrink-0 items-center justify-center gap-1 whitespace-nowrap",
-    "cursor-pointer font-medium tracking-base transition-colors duration-250",
-    "enabled:hover:bg-[color-mix(in_srgb,var(--accent)_40%,transparent)]",
-    "enabled:hover:text-fg",
-    "disabled:cursor-default disabled:bg-[color-mix(in_srgb,var(--color-fg)_5%,transparent)]",
-    "disabled:text-dim",
-  ),
+  "button inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap",
   {
     variants: {
-      variant: ACCENT,
-      // Off when something outside the button owns the outline, as in a split button
-      ring: {
-        on: cn(
-          RING,
-          "disabled:shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--color-fg)_10%,transparent)]",
-        ),
-        off: "shadow-none",
-      },
-      glow: { on: GLOW, off: "" },
+      variant: VARIANT,
       // The base cannot just assert relative: a caller that needs it out of flow would be
       // fighting a utility in the same layer, where source order decides and nothing is stable
       place: { relative: "relative", absolute: "absolute" },
-      fill: { on: FILL, off: "bg-transparent" },
       size: {
-        sm: "h-6 px-2 text-sm",
-        md: "h-8 px-3 text-md",
-        lg: "h-10 px-4 text-lg",
-        "icon-sm": "size-6 text-sm",
-        "icon-md": "size-8 text-md",
-        "icon-lg": "size-10 text-lg",
+        sm: "small",
+        md: "",
+        lg: "large",
+        "icon-sm": "small px-0 min-w-(--button-sm)",
+        "icon-md": "px-0 min-w-(--button-md)",
+        "icon-lg": "large px-0 min-w-(--button-lg)",
       },
     },
-    compoundVariants: [
-      { variant: "ghost", fill: "on", class: "bg-transparent" },
-      { variant: "ghost", ring: "on", class: "shadow-none" },
-    ],
     defaultVariants: {
       variant: "default",
       size: "md",
       place: "relative",
-      ring: "on",
-      glow: "on",
-      fill: "on",
     },
   },
 );
@@ -83,9 +52,6 @@ export const Button = (props: ButtonProps) => {
     "class",
     "variant",
     "size",
-    "ring",
-    "glow",
-    "fill",
     "place",
   ]);
 
@@ -95,9 +61,6 @@ export const Button = (props: ButtonProps) => {
         buttonVariants({
           variant: local.variant,
           size: local.size,
-          ring: local.ring,
-          glow: local.glow,
-          fill: local.fill,
           place: local.place,
         }),
         local.class,

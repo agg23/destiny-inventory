@@ -1,5 +1,5 @@
-/* Declared before the import so legacy lands under utilities, not after them */
-@layer theme, base, components, legacy, utilities;
+/* Framework above Tailwind's layers, ours above it, so each beats what it replaces */
+@layer theme, base, components, destiny, app, utilities;
 
 @import "tailwindcss";
 
@@ -16,18 +16,115 @@
     U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/*
- * Color is composited rather than enumerated: one foreground, one background, and everything
- * between them mixed by alpha. Braytech works this way and it is why the result reads as one
- * surface instead of a pile of greys. Neue Haas is theirs to license, so the face is Inter
- */
+/* One palette, the framework's: every color here resolves to a --d2-* token */
+:root {
+  color-scheme: dark;
+
+  --fg: var(--d2-header-text);
+  --bg: var(--d2-background);
+
+  --font-body: "Inter", system-ui, sans-serif;
+
+  --weight-body: 400;
+
+  /* A trace of tracking on everything, more on uppercase, both absolute. The framework's own
+   * components carry their own far wider tracking, which is most of why they read as the game */
+  --track-base: 0.2px;
+  --track-caps: 0.6px;
+
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 12px;
+  --space-6: 16px;
+
+  /* Body copy and the two dimmer steps under it, faded from the framework's text color */
+  --text: var(--d2-text);
+  --muted: color-mix(in srgb, var(--d2-text) 75%, transparent);
+  --dim: color-mix(in srgb, var(--d2-text) 50%, transparent);
+
+  --surface: var(--d2-surface);
+  --surface-raised: var(--d2-hover-overlay);
+  --surface-active: color-mix(in srgb, var(--fg) 22%, transparent);
+  /* Anything floating over the grid mixes into the background instead, so it stays opaque */
+  --panel: color-mix(in srgb, var(--fg) 6%, var(--bg));
+  --panel-raised: color-mix(in srgb, var(--fg) 10%, var(--bg));
+
+  --line: var(--d2-border-faint);
+  --line-bright: var(--d2-border);
+
+  /* Gold is the game's "this one is yours"; cream is its header accent */
+  --light: var(--d2-rarity-exotic);
+  --cream: var(--d2-alt-header);
+  --error: var(--d2-danger);
+  --warning: var(--d2-warning);
+  --good: var(--d2-accent-green);
+
+  --exotic: var(--d2-rarity-exotic);
+  --legendary: var(--d2-rarity-legendary);
+  --rare: var(--d2-rarity-rare);
+  --uncommon: var(--d2-rarity-uncommon);
+  --common: var(--d2-rarity-common);
+
+  --kinetic: var(--d2-damage-kinetic);
+  --solar: var(--d2-damage-solar);
+  --arc: var(--d2-damage-arc);
+  --void: var(--d2-damage-void);
+  --stasis: var(--d2-damage-stasis);
+  --strand: var(--d2-damage-strand);
+
+  /* The framework's small tile, since the vault grid is the one place tiles come in hundreds */
+  --tile: 48px;
+
+  /* The two fixed columns of every bucket row; the vault takes whatever is left */
+  --bucket-label: 140px;
+  --store-column: 320px;
+
+  /* Five steps, because the framework has no icon system and the app had grown seven sizes */
+  --icon-xs: 14px;
+  --icon-sm: 18px;
+  --icon-md: 24px;
+  --icon-lg: 32px;
+  --icon-xl: 40px;
+
+  /* The framework's own button heights, so an icon button can be square at the same height */
+  --button-sm: 34px;
+  --button-md: 46px;
+  --button-lg: 58px;
+
+  --plug: 28px;
+  /* What one item needs in the rail. A six-socket perk row is 6 x 28 + 5 x 4 = 188 and must not
+   * wrap, but a name needs more: measured over the inventory, 192px of name holds 90% of them on
+   * one line, every one of them within two, and no single word is wide enough to break. The
+   * header icon takes its bite out of the same run, so this carries it too */
+  --item-run: 272px;
+  /* The tinted header is exactly its icon, so both are pinned here rather than left to the name:
+   * two clamped lines and a type row need 60, and 64 squares off cleanly */
+  --item-head: 64px;
+  --compare-labels: 80px;
+  /* Reserved whether or not the panel is scrolling, so the columns are the same width either
+   * way. Without this the scrollbar narrows the columns, the perks wrap, the content grows and
+   * the scrollbar stays: the layout feeds itself */
+  --scrollbar: 16px;
+
+  /* The rail holds one item or two, never more, so it has exactly two widths: the shared label
+   * column plus that many item runs */
+  --rail: calc(
+    var(--compare-labels) + var(--item-run) + var(--space-6) * 3 +
+      var(--scrollbar)
+  );
+  --rail-compare: calc(
+    var(--compare-labels) + var(--item-run) * 2 + var(--space-6) * 4 +
+      var(--scrollbar)
+  );
+}
 
 /*
  * Tailwind reads its scale from here rather than shipping its own. Static because the game
  * colors are reached by name and Tailwind would otherwise drop the ones no utility mentions.
- * Spacing is a single 4px
- * step multiplied, which is what the old hand-picked 2/4/6/8/12/16/24 list lacked: p-1 is
- * 4px, p-2 is 8px, p-4 is 16px, and nothing in between is available to be picked carelessly
+ * The colors are aliases: the values live in :root above, single-sourced from the framework.
+ * Spacing is a single 4px step multiplied, which is what the old hand-picked 2/4/6/8/12/16/24
+ * list lacked: p-1 is 4px, p-2 is 8px, p-4 is 16px, and nothing between can be picked
  */
 @theme static {
   --spacing: 4px;
@@ -46,143 +143,45 @@
 
   --radius-none: 0;
 
-  --color-fg: #fff;
-  --color-bg: #101312;
+  --color-fg: var(--fg);
+  --color-bg: var(--bg);
 
-  --color-text: color-mix(in srgb, var(--fg) 80%, transparent);
-  --color-muted: color-mix(in srgb, var(--fg) 60%, transparent);
-  --color-dim: color-mix(in srgb, var(--fg) 40%, transparent);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-dim: var(--dim);
 
-  --color-surface: color-mix(in srgb, var(--fg) 5%, transparent);
-  --color-surface-raised: color-mix(in srgb, var(--fg) 10%, transparent);
-  --color-surface-active: color-mix(in srgb, var(--fg) 40%, transparent);
-  --color-panel: color-mix(in srgb, var(--fg) 6%, var(--bg));
-  --color-panel-raised: color-mix(in srgb, var(--fg) 10%, var(--bg));
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-active: var(--surface-active);
+  --color-panel: var(--panel);
+  --color-panel-raised: var(--panel-raised);
 
-  --color-line: color-mix(in srgb, var(--fg) 10%, transparent);
-  --color-line-bright: color-mix(in srgb, var(--fg) 20%, transparent);
+  --color-line: var(--line);
+  --color-line-bright: var(--line-bright);
 
-  --color-light: #e5d163;
-  --color-error: #dc513b;
-  --color-warning: #f3d95c;
+  --color-light: var(--light);
+  --color-cream: var(--cream);
+  --color-error: var(--error);
+  --color-warning: var(--warning);
+  --color-good: var(--good);
 
-  --color-exotic: #cdae32;
-  --color-legendary: #522f65;
-  --color-rare: #5176a4;
-  --color-uncommon: #356e3b;
-  --color-common: #c4bdb5;
+  --color-exotic: var(--exotic);
+  --color-legendary: var(--legendary);
+  --color-rare: var(--rare);
+  --color-uncommon: var(--uncommon);
+  --color-common: var(--common);
 
-  --color-solar: #f1631d;
-  --color-arc: #6de8f1;
-  --color-void: #a777c5;
-  --color-stasis: #427cff;
-  --color-strand: #38e266;
+  --color-kinetic: var(--kinetic);
+  --color-solar: var(--solar);
+  --color-arc: var(--arc);
+  --color-void: var(--void);
+  --color-stasis: var(--stasis);
+  --color-strand: var(--strand);
 
-  /* Controls come in three heights and nothing else, so a one-off X cannot happen again */
-  --size-control-sm: 24px;
-  --size-control-md: 32px;
-  --size-control-lg: 40px;
-
-  --size-tile: 44px;
-}
-
-:root {
-  color-scheme: dark;
-
-  --fg: #fff;
-  --bg: #101312;
-
-  --font-body: "Inter", system-ui, sans-serif;
-
-  --text-xs: 10px;
-  --text-sm: 12px;
-  --text-md: 14px;
-  --text-lg: 16px;
-  --text-xl: 20px;
-  --text-2xl: 24px;
-
-  --weight-body: 400;
-  --weight-label: 500;
-
-  /* A trace of tracking on everything, more on uppercase, both absolute */
-  --track-base: 0.2px;
-  --track-caps: 0.6px;
-
-  --space-1: 2px;
-  --space-2: 4px;
-  --space-3: 6px;
-  --space-4: 8px;
-  --space-5: 12px;
-  --space-6: 16px;
-  --space-7: 24px;
-  --space-8: 32px;
-
-  --text: color-mix(in srgb, var(--fg) 80%, transparent);
-  --muted: color-mix(in srgb, var(--fg) 60%, transparent);
-  --dim: color-mix(in srgb, var(--fg) 40%, transparent);
-
-  --surface: color-mix(in srgb, var(--fg) 5%, transparent);
-  --surface-raised: color-mix(in srgb, var(--fg) 10%, transparent);
-  --surface-active: color-mix(in srgb, var(--fg) 40%, transparent);
-  /* Anything floating over the grid mixes into the background instead, so it stays opaque */
-  --panel: color-mix(in srgb, var(--fg) 6%, var(--bg));
-  --panel-raised: color-mix(in srgb, var(--fg) 10%, var(--bg));
-
-  --line: color-mix(in srgb, var(--fg) 10%, transparent);
-  --line-bright: color-mix(in srgb, var(--fg) 20%, transparent);
-
-  /* Braytech's own values, which are the game's: Light gold, the rarity tiers, the elements */
-  --light: #e5d163;
-  --error: #dc513b;
-  --warning: #f3d95c;
-
-  --exotic: #cdae32;
-  --legendary: #522f65;
-  --rare: #5176a4;
-  --uncommon: #356e3b;
-  --common: #c4bdb5;
-
-  --solar: #f1631d;
-  --arc: #6de8f1;
-  --void: #a777c5;
-  --stasis: #427cff;
-  --strand: #38e266;
-
-  --tile: 44px;
-
-  /* Perks are the widest thing the rail has to hold. Six sockets is the most any weapon in the
-   * inventory carries, and they have to sit on one row: 6 x 28 + 5 x 4 = 188 per item */
-  --plug: 28px;
-  --socket-run: 188px;
-  --compare-labels: 64px;
-  --name-line: 20px;
-  /* Reserved whether or not the panel is scrolling, so the columns are the same width either
-   * way. Without this the scrollbar narrows the columns, the perks wrap, the content grows and
-   * the scrollbar stays: the layout feeds itself */
-  --scrollbar: 16px;
-
-  /* The rail holds one item or two, never more, so it has exactly two widths. Both are the
-   * label column plus that many socket runs, since perks are the widest thing either state
-   * has to show and they are not allowed to wrap */
-  --rail: calc(
-    var(--compare-labels) + var(--socket-run) + var(--space-6) * 3 +
-      var(--scrollbar)
-  );
-  --rail-compare: calc(
-    var(--compare-labels) + var(--socket-run) * 2 + var(--space-6) * 4 +
-      var(--scrollbar)
-  );
+  --size-tile: var(--tile);
 }
 
 *:focus-visible {
   outline: 1px solid var(--light);
   outline-offset: 1px;
-}
-
-.label {
-  font-size: var(--text-sm);
-  font-weight: var(--weight-label);
-  text-transform: uppercase;
-  letter-spacing: var(--track-caps);
-  color: var(--muted);
 }

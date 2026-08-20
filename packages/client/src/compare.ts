@@ -22,8 +22,19 @@ const kind = (item: DimItem): string => {
   return `bucket:${item.bucket.hash}`;
 };
 
+// DIM's THE_FORBIDDEN_BUCKET, home to distorted engrams. The shipped defs drop the category
+// and trait DIM reads for isEngram, so the home bucket is the signal that survives
+const FORBIDDEN = 2422292810;
+
+// Engrams, messages and orders: the postmaster's own stock, which no API call moves
+export const unmovable = (item: DimItem): boolean =>
+  item.isEngram ||
+  item.bucket.hash === FORBIDDEN ||
+  Boolean(item.bucket.inPostmaster);
+
+// Unmovable items also have no stats to line up, so nothing pairs with them
 export const comparable = (a: DimItem, b: DimItem): boolean =>
-  kind(a) === kind(b);
+  !unmovable(a) && !unmovable(b) && kind(a) === kind(b);
 
 // Charge Time and Draw Time count down, so the sign alone cannot say which way is up
 export const delta = (

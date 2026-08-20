@@ -14,7 +14,9 @@ interface Props {
 const Delta = (props: { item: DimItem; stores: DimStore[] }) => (
   <Show when={powerDelta(props.item, props.stores)}>
     {(delta) => (
-      <span classList={{ up: delta() > 0, down: delta() < 0 }}>
+      <span
+        classList={{ "text-success": delta() > 0, "text-danger": delta() < 0 }}
+      >
         {delta() > 0 ? "+" : ""}
         {delta()} vs best
       </span>
@@ -23,35 +25,41 @@ const Delta = (props: { item: DimItem; stores: DimStore[] }) => (
 );
 
 export const Arrivals = (props: Props) => (
-  <div class="arrivals">
-    <h2>Recently acquired</h2>
+  <div class="arrivals overflow-hidden p-3">
+    <h2 class="section-label mb-2">Recently acquired</h2>
     <Show
       when={props.items.length > 0}
       fallback={
-        <p class="meta">Nothing new. Everything here has been marked seen.</p>
+        <p class="text-muted">Nothing new. Everything here has been marked seen.</p>
       }
     >
-      <For each={props.items}>
-        {(item) => (
-          <button
-            type="button"
-            class="arrival"
-            onClick={() => props.onSelect(item)}
-          >
-            <img src={`${BUNGIE}${item.icon}`} alt="" width="32" height="32" />
-            <div>
-              <div class="name">{item.name}</div>
-              <div class="meta">
-                {typeName(item)}
-                <Show when={item.power > 0}> · {item.power}</Show>
-              </div>
-              <div class="meta">
-                <Delta item={item} stores={props.stores} />
-              </div>
-            </div>
-          </button>
-        )}
-      </For>
+      <ul class="menu-list">
+        <For each={props.items}>
+          {(item) => (
+            <li>
+              <button
+                type="button"
+                class="menu-item w-full text-left"
+                onClick={() => props.onSelect(item)}
+              >
+                <span class={`item-tile small ${item.rarity.toLowerCase()}`}>
+                  <img src={`${BUNGIE}${item.icon}`} loading="lazy" alt="" />
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate">{item.name}</span>
+                  <span class="menu-item-note block truncate">
+                    {typeName(item)}
+                    <Show when={item.power > 0}> · {item.power}</Show>
+                  </span>
+                  <span class="menu-item-note block">
+                    <Delta item={item} stores={props.stores} />
+                  </span>
+                </span>
+              </button>
+            </li>
+          )}
+        </For>
+      </ul>
     </Show>
   </div>
 );

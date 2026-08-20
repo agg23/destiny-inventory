@@ -1,0 +1,54 @@
+// Built from source, not dist/: that bundle styles * and body outside the .destiny scope
+
+// Neue Haas is Bungie's to license, so each cut it asks for is aliased onto Inter
+@mixin inter-alias($family, $weight) {
+  @font-face {
+    font-family: $family;
+    font-style: normal;
+    font-display: swap;
+    font-weight: $weight;
+    src: url("@fontsource-variable/inter/files/inter-latin-wght-normal.woff2")
+      format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+      U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+      U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+}
+
+@include inter-alias("Neue Haas Grotesk Display Pro 55 Roman", 400);
+@include inter-alias("Neue Haas Grotesk Display Pro 56 Roman Italic", 400);
+@include inter-alias("Neue Haas Grotesk Display Pro 65 Medium", 500);
+@include inter-alias("Neue Haas Grotesk Display Pro 75 Bold", 700);
+
+@import "../../../vendor/destiny-ui-css/src/variables";
+
+:root {
+  @include destiny-color-tokens;
+}
+
+@layer destiny {
+  .destiny {
+    @import "../../../vendor/destiny-ui-css/src/components/headers";
+    @import "../../../vendor/destiny-ui-css/src/components/hr";
+
+    @import "../../../vendor/destiny-ui-css/src/components/checkbox/checkbox";
+    @import "../../../vendor/destiny-ui-css/src/components/radio";
+    @import "../../../vendor/destiny-ui-css/src/components/forms";
+
+    @import "../../../vendor/destiny-ui-css/src/components/buttons";
+    @import "../../../vendor/destiny-ui-css/src/components/keys";
+    @import "../../../vendor/destiny-ui-css/src/components/menu-list";
+    @import "../../../vendor/destiny-ui-css/src/components/nav";
+
+    @import "../../../vendor/destiny-ui-css/src/components/item";
+    @import "../../../vendor/destiny-ui-css/src/components/tooltip";
+    @import "../../../vendor/destiny-ui-css/src/components/progress";
+    @import "../../../vendor/destiny-ui-css/src/components/stat-bar";
+
+    @import "../../../vendor/destiny-ui-css/src/components/card";
+    @import "../../../vendor/destiny-ui-css/src/components/modal";
+    @import "../../../vendor/destiny-ui-css/src/components/table";
+
+    @import "../../../vendor/destiny-ui-css/src/components/utilities";
+  }
+}

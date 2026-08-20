@@ -9,6 +9,21 @@ const ARMOR = 20;
 const item = (categories: number[], bucket = 1) =>
   ({ itemCategoryHashes: categories, bucket: { hash: bucket } }) as DimItem;
 
+const engram = () =>
+  ({
+    itemCategoryHashes: [],
+    isEngram: true,
+    bucket: { hash: 375726501, inPostmaster: true },
+  }) as unknown as DimItem;
+
+// A distorted engram: the shipped defs carry neither isEngram nor a Postmaster sort
+const distorted = () =>
+  ({
+    itemCategoryHashes: [],
+    isEngram: false,
+    bucket: { hash: 2422292810 },
+  }) as unknown as DimItem;
+
 const stat = (value: number, smallerIsBetter = false) =>
   ({ value, smallerIsBetter }) as DimStat;
 
@@ -33,6 +48,13 @@ describe("comparable", () => {
   it("pairs consumables by bucket when they are neither", () => {
     expect(comparable(item([], 5), item([], 5))).toBe(true);
     expect(comparable(item([], 5), item([], 6))).toBe(false);
+  });
+
+  // Two engrams share a bucket, which would pair them despite having nothing to compare
+  it("refuses engrams even against each other", () => {
+    expect(comparable(engram(), engram())).toBe(false);
+    expect(comparable(engram(), item([WEAPON]))).toBe(false);
+    expect(comparable(distorted(), distorted())).toBe(false);
   });
 });
 

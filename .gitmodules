@@ -1,3 +1,6 @@
 [submodule "vendor/DIM"]
 	path = vendor/DIM
 	url = https://github.com/DestinyItemManager/DIM.git
+[submodule "vendor/destiny-ui-css"]
+	path = vendor/destiny-ui-css
+	url = https://github.com/itssimple/destiny-ui-css

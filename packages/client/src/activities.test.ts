@@ -302,7 +302,7 @@ describe("realms", () => {
     );
 
     expect(realms.map((one) => [one.name, one.bonusDrops])).toEqual([
-      ["Crucible and Gambit", 2],
+      ["PvP", 2],
       ["Raids and Dungeons", 0],
     ]);
   });
