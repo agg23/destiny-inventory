@@ -20,7 +20,7 @@ describe("arrivals", () => {
     ]);
   });
 
-  // Instance ids outgrow any digit count, so they only sort correctly padded
+  // Instance ids outgrow any digit count
   it("orders long ids above short ones", () => {
     const stores = [store([item("9999"), item("10000")])];
 

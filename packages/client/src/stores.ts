@@ -28,7 +28,7 @@ export interface BuiltStores {
   hidden: number;
 }
 
-// The factory drops an item it cannot build; every other failure it logs is partial
+// The factory drops an item it cannot build
 const DROPPED = "Error processing item";
 
 type ItemDef = DestinyInventoryItemDefinition;
@@ -39,7 +39,6 @@ interface Withheld {
   count: number;
 }
 
-// Withheld definitions never reach makeItem, so a surviving failure is always a real defect
 const stripHidden = (
   profile: DestinyProfileResponse,
   hidden: Set<number>,

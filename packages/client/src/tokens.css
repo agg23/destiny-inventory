@@ -1,9 +1,9 @@
-/* Framework above Tailwind's layers, ours above it, so each beats what it replaces */
+/* Framework above Tailwind, ours above that */
 @layer theme, base, components, destiny, app, utilities;
 
 @import "tailwindcss";
 
-/* Latin only, one variable axis, no italics: everything else in the package stays unshipped */
+/* Latin only, one variable axis, no italics */
 @font-face {
   font-family: "Inter";
   font-style: normal;
@@ -16,7 +16,7 @@
     U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* One palette, the framework's: every color here resolves to a --d2-* token */
+/* Every color resolves to a --d2-* token */
 :root {
   color-scheme: dark;
 
@@ -27,8 +27,6 @@
 
   --weight-body: 400;
 
-  /* A trace of tracking on everything, more on uppercase, both absolute. The framework's own
-   * components carry their own far wider tracking, which is most of why they read as the game */
   --track-base: 0.2px;
   --track-caps: 0.6px;
 
@@ -38,7 +36,6 @@
   --space-5: 12px;
   --space-6: 16px;
 
-  /* Body copy and the two dimmer steps under it, faded from the framework's text color */
   --text: var(--d2-text);
   --muted: color-mix(in srgb, var(--d2-text) 75%, transparent);
   --dim: color-mix(in srgb, var(--d2-text) 50%, transparent);
@@ -46,14 +43,12 @@
   --surface: var(--d2-surface);
   --surface-raised: var(--d2-hover-overlay);
   --surface-active: color-mix(in srgb, var(--fg) 22%, transparent);
-  /* Anything floating over the grid mixes into the background instead, so it stays opaque */
   --panel: color-mix(in srgb, var(--fg) 6%, var(--bg));
   --panel-raised: color-mix(in srgb, var(--fg) 10%, var(--bg));
 
   --line: var(--d2-border-faint);
   --line-bright: var(--d2-border);
 
-  /* Gold is the game's "this one is yours"; cream is its header accent */
   --light: var(--d2-rarity-exotic);
   --cream: var(--d2-alt-header);
   --error: var(--d2-danger);
@@ -73,42 +68,34 @@
   --stasis: var(--d2-damage-stasis);
   --strand: var(--d2-damage-strand);
 
-  /* The framework's small tile, since the vault grid is the one place tiles come in hundreds */
+  /* The framework's small tile */
   --tile: 48px;
 
-  /* The two fixed columns of every bucket row; the vault takes whatever is left */
   --bucket-label: 140px;
   --store-column: 320px;
 
-  /* Five steps, because the framework has no icon system and the app had grown seven sizes */
+  /* The framework has no icon system */
   --icon-xs: 14px;
   --icon-sm: 18px;
   --icon-md: 24px;
   --icon-lg: 32px;
   --icon-xl: 40px;
 
-  /* The framework's own button heights, so an icon button can be square at the same height */
+  /* The framework's own button heights; xs is ours */
+  --button-xs: 31px;
   --button-sm: 34px;
   --button-md: 46px;
   --button-lg: 58px;
 
   --plug: 28px;
-  /* What one item needs in the rail. A six-socket perk row is 6 x 28 + 5 x 4 = 188 and must not
-   * wrap, but a name needs more: measured over the inventory, 192px of name holds 90% of them on
-   * one line, every one of them within two, and no single word is wide enough to break. The
-   * header icon takes its bite out of the same run, so this carries it too */
+  /* A six-socket perk row needs 188 */
   --item-run: 272px;
-  /* The tinted header is exactly its icon, so both are pinned here rather than left to the name:
-   * two clamped lines and a type row need 60, and 64 squares off cleanly */
+  /* Two clamped lines and a type row need 60 */
   --item-head: 64px;
   --compare-labels: 80px;
-  /* Reserved whether or not the panel is scrolling, so the columns are the same width either
-   * way. Without this the scrollbar narrows the columns, the perks wrap, the content grows and
-   * the scrollbar stays: the layout feeds itself */
+  /* Reserved always, or the scrollbar feeds itself */
   --scrollbar: 16px;
 
-  /* The rail holds one item or two, never more, so it has exactly two widths: the shared label
-   * column plus that many item runs */
   --rail: calc(
     var(--compare-labels) + var(--item-run) + var(--space-6) * 3 +
       var(--scrollbar)
@@ -119,13 +106,7 @@
   );
 }
 
-/*
- * Tailwind reads its scale from here rather than shipping its own. Static because the game
- * colors are reached by name and Tailwind would otherwise drop the ones no utility mentions.
- * The colors are aliases: the values live in :root above, single-sourced from the framework.
- * Spacing is a single 4px step multiplied, which is what the old hand-picked 2/4/6/8/12/16/24
- * list lacked: p-1 is 4px, p-2 is 8px, p-4 is 16px, and nothing between can be picked
- */
+/* Static: Tailwind drops colors no utility mentions */
 @theme static {
   --spacing: 4px;
 

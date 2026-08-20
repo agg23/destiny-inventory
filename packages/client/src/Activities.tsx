@@ -43,14 +43,12 @@ type Values = Record<number, number>;
 const REMAINING = "Bonus engrams left this week";
 const TAKEN = "Taken this week";
 
-// Nothing for a premade fireteam, the default that says nothing worth the space
 const MATCHMAKING: Record<Matchmaking, string | undefined> = {
   required: "Matchmade",
   optional: "MM optional",
   none: undefined,
 };
 
-// A folded row spans two power levels, and the lower one is what the customized door asks
 const power = (entry: Available): string | undefined => {
   if (entry.power === undefined || entry.topPower === undefined) {
     return undefined;
@@ -61,7 +59,6 @@ const power = (entry: Available): string | undefined => {
     : `${entry.power}–${entry.topPower}`;
 };
 
-// One line, always in the same place, so the eye can skip it when it is looking for loot
 const where = (entry: Available): string =>
   [entry.typeName, entry.location].filter(Boolean).join(" · ");
 
@@ -98,11 +95,9 @@ const Named = (props: { loot: Loot; spent?: boolean }) => (
   </span>
 );
 
-// Every completion pays out once; nothing in the payload says so
+// Nothing in the payload says this
 const BASE_DROPS = 1;
 
-// One sum in one place: what a run pays now, and what it would have paid before you took it.
-// The framework's progress label, so the numbers read as the same kind of text as the title
 const Drops = (props: { entry: Available; glyph: string | undefined }) => (
   <div class="progress-label m-0 w-full items-center justify-start gap-4 tabular-nums">
     <span class="inline-flex items-center gap-1.5">
@@ -126,7 +121,6 @@ const Drops = (props: { entry: Available; glyph: string | undefined }) => (
   </div>
 );
 
-// What a tab still owes you this week, which is what makes you open it
 const BonusCount = (props: { count: number; glyph: string | undefined }) => (
   <Show when={props.count}>
     {(count) => (
@@ -141,7 +135,7 @@ const BonusCount = (props: { count: number; glyph: string | undefined }) => (
   </Show>
 );
 
-// No objective in the manifest carries an icon, so the marker is drawn here
+// No manifest objective carries an icon
 const ChallengeMark = () => (
   <svg class="size-(--icon-xs)" viewBox="0 0 16 16" aria-hidden="true">
     <path
@@ -154,7 +148,6 @@ const ChallengeMark = () => (
   </svg>
 );
 
-// A counted objective is what the game draws as a bar, so it gets the framework's own
 const Challenges = (props: { challenges: Challenge[] }) => (
   <ul class="m-0 flex list-none flex-col gap-1.5 p-0 text-md text-muted">
     <For each={props.challenges}>
@@ -196,7 +189,9 @@ const Bonus = (props: { pieces: number; perk: number; values: Values }) => (
     {(perk) => (
       <div class="flex flex-col gap-0.5">
         <div class="flex items-baseline gap-2">
-          <span class="font-medium text-fg">{perk().displayProperties.name}</span>
+          <span class="font-medium text-fg">
+            {perk().displayProperties.name}
+          </span>
           <span class="text-xs uppercase tracking-caps text-dim">
             {props.pieces} pc
           </span>
@@ -266,13 +261,12 @@ interface DetailProps extends Hovered {
   power: number | undefined;
 }
 
-// One panel the grid moves around: a tooltip per card would be two hundred of them
 const RunDetail = (props: DetailProps) => {
   const [height, setHeight] = createSignal(0);
 
   let panel: HTMLElement | undefined = undefined;
 
-  // A raid with six modifiers is twice the height of a playlist, and the panel cannot scroll
+  // The panel cannot scroll
   createEffect(() => {
     props.entry;
     setHeight(panel?.offsetHeight ?? 0);
@@ -296,79 +290,82 @@ const RunDetail = (props: DetailProps) => {
   });
 
   return (
-    <aside class="card run-detail" ref={(el) => (panel = el)} style={position()}>
+    <aside
+      class="card run-detail"
+      ref={(el) => (panel = el)}
+      style={position()}
+    >
       <div class="card-header flex-col items-start gap-1">
         <span class="card-title">{props.entry.name}</span>
         <span class="card-subtitle">{where(props.entry)}</span>
       </div>
       <div class="card-body flex flex-col gap-4 overflow-hidden">
-      <Show when={props.entry.description}>
-        <p class="m-0 text-md text-muted">{props.entry.description}</p>
-      </Show>
-      {/* First, because it is the one thing here that says you cannot have the drop at all */}
-      <Show when={props.entry.locked.length > 0}>
-        <div class="flex flex-col gap-1.5">
-          <p class="section-label">Locked</p>
-          <ul class="m-0 flex list-none flex-col gap-1 p-0 text-md text-error">
-            <For each={props.entry.locked}>
-              {(one) => <li>{readable(one, props.values)}</li>}
-            </For>
-          </ul>
-        </div>
-      </Show>
-      <Show when={props.entry.challenges.length > 0}>
-        <div class="flex flex-col gap-1.5">
-          <p class="section-label">Challenges</p>
-          <Challenges challenges={props.entry.challenges} />
-        </div>
-      </Show>
-      {/* Names only: Bungie states no per-rung power delta anywhere in the manifest */}
-      <Show when={props.entry.difficulties.length > 0}>
-        <div class="flex flex-col gap-1.5">
-          <p class="section-label">Difficulty</p>
-          <p class="m-0 text-md text-text">
-            <For each={props.entry.difficulties}>
-              {(tier, index) => (
-                <>
-                  <Show when={index() > 0}>
-                    <span class="text-dim"> · </span>
-                  </Show>
-                  <span
-                    class="tier"
-                    classList={{ barred: barred(tier, props.power) }}
-                    title={
-                      barred(tier, props.power)
-                        ? `${tier.power} power to launch`
-                        : undefined
-                    }
-                  >
-                    {tier.name}
-                  </span>
-                </>
-              )}
-            </For>
-          </p>
-        </div>
-      </Show>
-      <Show when={props.entry.modifiers.length > 0}>
-        <div class="flex flex-col gap-1.5">
-          <p class="section-label">Modifiers</p>
-          <ul class="m-0 flex list-none flex-col gap-2 p-0">
-            <For each={props.entry.modifiers}>
-              {(one) => (
-                <li class="min-w-0 text-sm">
-                  <div class="text-text">{one.name}</div>
-                  <Show when={one.description}>
-                    <div class="text-muted">
-                      {readable(one.description, props.values)}
-                    </div>
-                  </Show>
-                </li>
-              )}
-            </For>
-          </ul>
-        </div>
-      </Show>
+        <Show when={props.entry.description}>
+          <p class="m-0 text-md text-muted">{props.entry.description}</p>
+        </Show>
+        <Show when={props.entry.locked.length > 0}>
+          <div class="flex flex-col gap-1.5">
+            <p class="section-label">Locked</p>
+            <ul class="m-0 flex list-none flex-col gap-1 p-0 text-md text-error">
+              <For each={props.entry.locked}>
+                {(one) => <li>{readable(one, props.values)}</li>}
+              </For>
+            </ul>
+          </div>
+        </Show>
+        <Show when={props.entry.challenges.length > 0}>
+          <div class="flex flex-col gap-1.5">
+            <p class="section-label">Challenges</p>
+            <Challenges challenges={props.entry.challenges} />
+          </div>
+        </Show>
+        {/* Bungie states no per-rung power delta */}
+        <Show when={props.entry.difficulties.length > 0}>
+          <div class="flex flex-col gap-1.5">
+            <p class="section-label">Difficulty</p>
+            <p class="m-0 text-md text-text">
+              <For each={props.entry.difficulties}>
+                {(tier, index) => (
+                  <>
+                    <Show when={index() > 0}>
+                      <span class="text-dim"> · </span>
+                    </Show>
+                    <span
+                      class="tier"
+                      classList={{ barred: barred(tier, props.power) }}
+                      title={
+                        barred(tier, props.power)
+                          ? `${tier.power} power to launch`
+                          : undefined
+                      }
+                    >
+                      {tier.name}
+                    </span>
+                  </>
+                )}
+              </For>
+            </p>
+          </div>
+        </Show>
+        <Show when={props.entry.modifiers.length > 0}>
+          <div class="flex flex-col gap-1.5">
+            <p class="section-label">Modifiers</p>
+            <ul class="m-0 flex list-none flex-col gap-2 p-0">
+              <For each={props.entry.modifiers}>
+                {(one) => (
+                  <li class="min-w-0 text-sm">
+                    <div class="text-text">{one.name}</div>
+                    <Show when={one.description}>
+                      <div class="text-muted">
+                        {readable(one.description, props.values)}
+                      </div>
+                    </Show>
+                  </li>
+                )}
+              </For>
+            </ul>
+          </div>
+        </Show>
       </div>
     </aside>
   );
@@ -410,8 +407,6 @@ const Row = (props: RowProps) => (
         {(level) => <span class="run-power">{level()}</span>}
       </Show>
     </div>
-    {/* The card's own header block, at the foot of the art the way the Director draws it. One
-        typographic register per line rather than caps and sentence case sharing one */}
     <div class="card-header flex-col items-start gap-1.5 border-b-0">
       <span class="card-title line-clamp-2 max-w-full">{props.entry.name}</span>
       <span class="card-subtitle">
@@ -421,13 +416,11 @@ const Row = (props: RowProps) => (
         </Show>
       </span>
       <Drops entry={props.entry} glyph={props.glyph} />
-      {/* Loot is proper nouns, so it keeps sentence case and takes a line of its own */}
       <div class="flex flex-wrap items-center gap-2 gap-x-4 text-md">
         <Show when={props.entry.focus}>
           {(focus) => <Named loot={focus()} />}
         </Show>
         <For each={props.entry.bonus}>{(one) => <Named loot={one} />}</For>
-        {/* Kept so the row still says what it is worth to anyone who has not run it */}
         <Show when={props.entry.spentFocus}>
           {(focus) => <Named loot={focus()} spent />}
         </Show>
@@ -439,7 +432,6 @@ const Row = (props: RowProps) => (
   </li>
 );
 
-// Whether the week still owes this activity anything, which is what decides the two lists
 const offering = (entry: Available): boolean =>
   entry.bonusDrops > 0 ||
   entry.dropsTaken > 0 ||
@@ -447,7 +439,6 @@ const offering = (entry: Available): boolean =>
   entry.bonus.length > 0 ||
   entry.spentBonus.length > 0;
 
-// Featured runs above both lists, so neither one repeats it
 const listed = (entry: Available): boolean => !entry.focused && offering(entry);
 
 const quiet = (entry: Available): boolean => !entry.focused && !offering(entry);
@@ -469,13 +460,11 @@ export const Activities = (props: Props) => {
 
   onCleanup(() => window.clearInterval(ticker));
 
-  // Keyed to the hour so the tick redraws one countdown, not seven cards
   const hour = createMemo(() => Math.floor(now() / HOUR));
   const turns = createMemo(() => schedule(hour() * HOUR));
 
   let hoverTimer: number | undefined = undefined;
 
-  // The delay is what keeps the panel from strobing as the pointer crosses the grid
   const onHover = (entry: Available, anchor: DOMRect) => {
     window.clearTimeout(hoverTimer);
     hoverTimer = window.setTimeout(
@@ -501,7 +490,6 @@ export const Activities = (props: Props) => {
     return loaded && entries ? { loaded, entries: [...entries] } : undefined;
   };
 
-  // Reward names live in the activity tables, so the baseline is read once those have landed
   const [baseline] = createResource(tables, (loaded) =>
     fetchBaseline((hash) => loaded.rewards[hash]),
   );
@@ -519,8 +507,6 @@ export const Activities = (props: Props) => {
 
   const shown = createMemo(() => matching(all(), props.query));
 
-  // A filter can empty the realm or the section you were on, and an empty grid explains
-  // nothing, so each level falls back to its first survivor
   const activeRealm = createMemo((): Realm | undefined => {
     const found = shown();
 
@@ -540,19 +526,18 @@ export const Activities = (props: Props) => {
 
   return (
     <div class="flex flex-col gap-3 px-4 pt-3">
-      {/* The director's own two levels: realms lead, the sections inside one follow. Both are
-          the framework's nav components, so the weight difference does the explaining */}
       <nav class="nav-tabs">
         <For each={shown()}>
           {(one) => (
             <button
               type="button"
               class="nav-tab"
-              classList={{ active: !onZones() && one.name === activeRealm()?.name }}
+              classList={{
+                active: !onZones() && one.name === activeRealm()?.name,
+              }}
               aria-pressed={!onZones() && one.name === activeRealm()?.name}
               onClick={() => {
-                // The card under the pointer unmounts without a mouseleave, so its panel
-                // would hang around over the realm you just switched to
+                // The card unmounts without a mouseleave
                 setHovered(undefined);
                 setRealm(one.name);
                 setSection(undefined);
@@ -613,7 +598,6 @@ export const Activities = (props: Props) => {
               </nav>
             </Show>
             <Show when={onZones()}>
-              {/* The live zone and its clock are on the first card, which says it better */}
               <p class="m-0 text-md text-muted">
                 Hourly rotation · every zone once in seven hours
               </p>
@@ -631,7 +615,6 @@ export const Activities = (props: Props) => {
               </ul>
             </Show>
             <Show when={!onZones()}>
-              {/* What the week is pushing, which is the reason to open the tab at all */}
               <Show when={current().entries.filter((one) => one.focused)}>
                 {(picks) => (
                   <Show when={picks().length > 0}>
@@ -663,7 +646,6 @@ export const Activities = (props: Props) => {
                   )}
                 </For>
               </ul>
-              {/* The rest are still here, just not competing with what the week owes you */}
               <Show when={current().entries.filter(quiet)}>
                 {(rest) => (
                   <Show when={rest().length > 0}>

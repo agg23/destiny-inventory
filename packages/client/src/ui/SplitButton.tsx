@@ -7,33 +7,39 @@ import { cn } from "./cn.ts";
 export interface Choice {
   id: string;
   label: string;
-  // A choice that cannot be taken right now, and why; shown in its title
   reason?: string;
   onChoose: () => void;
 }
 
-type Size = "sm" | "md" | "lg";
+type Size = "xs" | "sm" | "md" | "lg";
 
 interface Props {
   label: string;
   disabled?: boolean;
-  // Why the control is disabled; a disabled button still shows its title on hover
   title?: string;
   variant?: keyof typeof VARIANT;
   size?: Size;
-  // Fills its container rather than its label, for a column of controls that line up
   block?: boolean;
   onPrimary: () => void;
   choices: Choice[];
 }
 
-const CARET: Record<Size, "icon-sm" | "icon-md" | "icon-lg"> = {
+const CARET: Record<Size, `icon-${Size}`> = {
+  xs: "icon-xs",
   sm: "icon-sm",
   md: "icon-md",
   lg: "icon-lg",
 };
 
-// The same border tints buttons.scss gives each variant, moved up onto the pair
+// Framework's row is 16.8px on 3.2px tracking
+const ROW: Record<Size, string> = {
+  xs: "px-3 py-2 text-sm tracking-caps",
+  sm: "px-3 py-2 text-sm tracking-caps",
+  md: "",
+  lg: "",
+};
+
+// Border tints from buttons.scss
 const FRAME: Record<keyof typeof VARIANT, string> = {
   default: "border-[var(--d2-border)]",
   light: "border-[color-mix(in_srgb,var(--d2-rarity-exotic)_80%,transparent)]",
@@ -41,24 +47,17 @@ const FRAME: Record<keyof typeof VARIANT, string> = {
   ghost: "border-transparent",
 };
 
-// The frame belongs to the pair, not to either half, or it reads as two controls that happen
-// to touch. The halves keep only their own fill, split by a hairline
 export const SplitButton = (props: Props) => {
   const size = (): Size => props.size ?? "md";
 
-  // The primary is always in the list, so one choice means the menu only repeats the button.
-  // The caret stays put and greys out rather than coming and going between items
   const alone = () => props.choices.length < 2;
 
-  // The pair fades as one; the halves must not fade again inside it
   const half = () => cn("border-0", props.disabled && "disabled:opacity-100");
 
   return (
     <div
       class={cn(
         "relative border",
-        // Block fills its column and lets the label truncate; inline is only ever as wide as
-        // the pair, and must not be squeezed narrower than halves that refuse to shrink
         props.block ? "flex w-full min-w-0" : "inline-flex shrink-0",
         FRAME[props.variant ?? "default"],
         props.disabled && "opacity-35",
@@ -99,8 +98,7 @@ export const SplitButton = (props: Props) => {
             </svg>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
-            {/* The framework's menu rows, on an opaque panel because this one floats over
-                the grid rather than over the game's own background */}
+            {/* Opaque: this floats over the grid, not over game art */}
             <DropdownMenu.Content
               data-menu="split"
               class="menu-list z-4 min-w-40 bg-panel-raised shadow-[inset_0_0_0_1px_var(--color-line-bright),0_8px_24px_#000c]"
@@ -108,7 +106,10 @@ export const SplitButton = (props: Props) => {
               <For each={props.choices}>
                 {(choice) => (
                   <DropdownMenu.Item
-                    class="menu-item outline-none data-[highlighted]:border-fg data-[highlighted]:bg-surface-active data-[highlighted]:text-fg"
+                    class={cn(
+                      "menu-item outline-none data-[highlighted]:border-fg data-[highlighted]:bg-surface-active data-[highlighted]:text-fg",
+                      ROW[size()],
+                    )}
                     classList={{ disabled: Boolean(choice.reason) }}
                     disabled={Boolean(choice.reason)}
                     title={choice.reason}

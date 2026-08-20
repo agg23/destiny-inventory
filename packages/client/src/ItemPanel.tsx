@@ -29,14 +29,13 @@ import { SplitButton, type Choice } from "./ui/SplitButton.tsx";
 
 export const BUNGIE = "https://www.bungie.net";
 
-// DIM derives the armor total itself rather than reading it off a real stat
+// DIM derives the armor total itself
 export const TOTAL = -1000;
 
-// BucketHashes.LostItems, inlined rather than pulling in DIM's whole enum table
+// BucketHashes.LostItems, inlined
 const LOST_ITEMS = 215593132;
 
-// SocketCategoryHashes for weapon, armor and ghost cosmetics. Shaders, ornaments and trackers
-// change nothing a player compares, and each category costs a labelled row
+// SocketCategoryHashes for weapon, armor and ghost cosmetics
 const COSMETIC = new Set([2048875504, 1926152773, 2549160099]);
 
 export interface MoveProps {
@@ -47,20 +46,17 @@ export interface MoveProps {
   onPrefer: (target: DimStore) => void;
   moving: string | undefined;
   moveError: string | undefined;
-  // Two items share the rail, so the target moves into the caret menu to buy back the width
   compact?: boolean;
 }
 
 const label = (store: DimStore) => (store.isVault ? "Vault" : store.className);
 
-// Transferring away always means the vault; everything else follows the active character
 export const Moves = (props: MoveProps) => {
   const vault = () => props.stores.find((store) => store.isVault);
   const characters = () => props.stores.filter((store) => !store.isVault);
 
   const canTransfer = () => !props.item.notransfer;
 
-  // The mover can shuffle items aside to make room, so only a hard wall counts as no room
   const noRoom = (target: DimStore): string | undefined => {
     const item = props.item;
     const space = potentialSpaceLeftForItem(target, item, props.stores);
@@ -69,7 +65,7 @@ export const Moves = (props: MoveProps) => {
       return undefined;
     }
 
-    // Unique stacks cap per store, and account-wide buckets live on the current character
+    // Account-wide buckets live on the current character
     const holder =
       item.bucket.accountWide && !target.isVault
         ? getCurrentStore(props.stores)
@@ -98,7 +94,7 @@ export const Moves = (props: MoveProps) => {
         return "Cannot be pulled from the Postmaster";
       }
 
-      // A pull lands on the owning character regardless of the chosen target
+      // A pull lands on the owning character
       const owner = props.stores.find((store) => store.id === item.owner);
 
       return owner ? noRoom(owner) : undefined;
@@ -111,7 +107,6 @@ export const Moves = (props: MoveProps) => {
     return noRoom(target);
   };
 
-  // A Warlock helmet on a Titan is dead weight, so a class it cannot serve is not a target
   const holders = () =>
     props.stores.filter(
       (store) =>
@@ -159,7 +154,6 @@ export const Moves = (props: MoveProps) => {
   };
 
   const act = (target: DimStore, equip: boolean, manual: boolean) => {
-    // Reaching past the default is the signal that a different character is wanted
     if (manual && !target.isVault) {
       props.onPrefer(target);
     }
@@ -167,7 +161,6 @@ export const Moves = (props: MoveProps) => {
     props.onMove(target, equip);
   };
 
-  // Every target is listed, the default included, so the menu is the whole picture
   const choices = (targets: DimStore[], equip: boolean): Choice[] =>
     targets.map((store) => ({
       id: store.id,
@@ -185,7 +178,7 @@ export const Moves = (props: MoveProps) => {
         {(target) => (
           <SplitButton
             block
-            size="sm"
+            size="xs"
             label={
               props.compact ? "Transfer" : `Transfer to ${label(target())}`
             }
@@ -200,7 +193,7 @@ export const Moves = (props: MoveProps) => {
         {(target) => (
           <SplitButton
             block
-            size="sm"
+            size="xs"
             label={props.compact ? "Equip" : `Equip on ${label(target())}`}
             disabled={!!props.moving}
             onPrimary={() => act(target(), true, false)}
@@ -218,7 +211,6 @@ export const Moves = (props: MoveProps) => {
   );
 };
 
-// A bare sign reads as arithmetic; the color is what says whether the number is good news
 export const StatDelta = (props: { delta: Delta | undefined }) => (
   <Show when={props.delta}>
     {(change) => (
@@ -236,8 +228,7 @@ export const StatDelta = (props: { delta: Delta | undefined }) => (
   </Show>
 );
 
-// The framework's stat list ends in one value cell, so the number and its delta share it
-// rather than the grid growing a fourth column that the compare rail cannot afford
+// The framework's stat list ends in one value cell
 export const StatValue = (props: {
   stat: DimStat;
   against?: DimStat;
@@ -250,8 +241,7 @@ export const StatValue = (props: {
     classList={{
       total: props.total,
       "text-gold": props.best,
-      // Rounds per minute has no bar, so its number takes the bar's column and stays beside
-      // its label rather than stranding itself at the far right of an empty row
+      // Rounds per minute has no bar
       "col-span-2 justify-start": !props.stat.bar,
       "justify-end": Boolean(props.stat.bar),
     }}
@@ -285,8 +275,6 @@ export const Bar = (props: {
   against?: DimStat;
   comparing?: boolean;
 }) => {
-  // Cells rather than a row, so every column lines up down the whole block the way the
-  // framework's stat list does it
   const total = () => props.stat.statHash === TOTAL;
 
   return (
@@ -305,15 +293,13 @@ export const Bar = (props: {
   );
 };
 
-// Name and icon together, since the enhanced variant of a perk shares both with the plain one
 const identity = (plug: DimPlug): string => {
   const { name, icon } = plug.plugDef.displayProperties;
 
   return `${name}|${icon}`;
 };
 
-// The game shows a socket as a column of everything it could hold, with what is plugged lit
-// and the rest dimmed. A fixed roll is a column of one, which is why exotics look like a row
+// The game lights the plugged perk and dims the rest
 const Socket = (props: { socket: DimSocket; all?: boolean }) => {
   const pool = () => {
     const set = props.socket.plugSet;
@@ -328,9 +314,7 @@ const Socket = (props: { socket: DimSocket; all?: boolean }) => {
         ? set.plugs.filter((plug) => rollable.has(plug.plugDef.hash))
         : set.plugs;
 
-    // Bungie lists the enhanced variant of every perk as its own plug, and ships the odd
-    // straight duplicate, both of which would show the column twice over. Two plugs a player
-    // cannot tell apart are one entry
+    // Bungie lists enhanced variants as their own plugs
     const plugged = props.socket.plugged;
     const seen = new Set<string>();
 
@@ -350,8 +334,6 @@ const Socket = (props: { socket: DimSocket; all?: boolean }) => {
       return [plug];
     });
 
-    // An enhanced roll shares its name and icon with the plain version, so leaving it out of
-    // the column would collapse it into that one and light nothing up
     return plugged ? [plugged, ...rest] : rest;
   };
 
@@ -384,7 +366,6 @@ const Socket = (props: { socket: DimSocket; all?: boolean }) => {
             classList={{
               plugged: plug.plugDef.hash === props.socket.plugged?.plugDef.hash,
               disabled: !plug.enabled,
-              // Only the rolled perk columns are circles; an intrinsic is a frame, not a roll
               round:
                 props.socket.isPerk &&
                 !socketContainsIntrinsicPlug(props.socket),
@@ -412,7 +393,6 @@ const Category = (props: {
       (socket) => socket.plugged ?? socket.plugOptions.length > 0,
     );
 
-  // Only a column that could have rolled something else has anything to expand
   const rollable = () =>
     sockets().some(
       (socket) => socket.isPerk && (socket.plugSet?.plugs.length ?? 0) > 1,
@@ -421,7 +401,7 @@ const Category = (props: {
   return (
     <Show when={sockets().length > 0}>
       <div class="perk-group">
-        {/* The framework's label flexes its rule to fill, so the toggle rides in the heading */}
+        {/* The framework's label flexes its rule to fill */}
         <h4 class="section-label mt-3 mb-1.5">
           {props.category.category.displayProperties.name}
           <Show when={props.onToggleAll && rollable()}>
@@ -451,7 +431,6 @@ export const Perks = (props: {
   all?: boolean;
   onToggleAll?: () => void;
 }) => {
-  // The archetype reads above the stats now, and its category holds nothing else
   const shown = () => {
     const archetypeSocket = getArmorArchetypeSocket(props.item);
     const categories = (props.item.sockets?.categories ?? []).filter(
@@ -486,11 +465,13 @@ export const Perks = (props: {
   );
 };
 
-// The framework draws the perk disc itself, so a missing icon still leaves the row aligned
+// The framework draws the perk disc itself
 const PerkIcon = (props: { icon: string | undefined; enhanced?: boolean }) => (
   <Show
     when={props.icon}
-    fallback={<span class="perk-icon" classList={{ enhanced: props.enhanced }} />}
+    fallback={
+      <span class="perk-icon" classList={{ enhanced: props.enhanced }} />
+    }
   >
     {(icon) => (
       <img
@@ -504,7 +485,6 @@ const PerkIcon = (props: { icon: string | undefined; enhanced?: boolean }) => (
   </Show>
 );
 
-// Armor's identity rather than a plug, so it sits with the stats it decides
 export const Archetype = (props: { item: DimItem }) => {
   const found = createMemo(() => archetype(props.item));
 
@@ -546,7 +526,7 @@ export const Stats = (props: { item: DimItem; against?: DimItem }) => {
   );
 };
 
-// Armor only says which set it belongs to; what the set does lives on its sandbox perks
+// Set effects live on the sandbox perks
 export const SetBonus = (props: { item: DimItem }) => {
   const bonus = createMemo(() => setBonus(props.item));
 
@@ -563,7 +543,9 @@ export const SetBonus = (props: { item: DimItem }) => {
                   <b>
                     {perk.requiredSetCount} piece · {perk.name}
                   </b>
-                  <span class="block whitespace-pre-wrap">{perk.description}</span>
+                  <span class="block whitespace-pre-wrap">
+                    {perk.description}
+                  </span>
                 </div>
               </div>
             )}
@@ -595,7 +577,6 @@ const Changes = (props: { stats: StatChange[] }) => (
   </Show>
 );
 
-// Icons say which perks are on; this says what they actually do, which is the part you read
 export const Benefits = (props: { item: DimItem }) => {
   const list = createMemo(() => benefits(props.item));
 
@@ -627,11 +608,10 @@ export const Benefits = (props: { item: DimItem }) => {
   );
 };
 
-// DestinyClass Titan, Hunter and Warlock; anything else is not restricted to one
+// DestinyClass Titan, Hunter and Warlock
 const CLASSES = new Set([0, 1, 2]);
 
-// Every armor piece is locked to one class, and "Helmet" alone does not say which. Bonds,
-// marks and cloaks already carry it in the type name Bungie gives them
+// "Helmet" alone does not say which class
 export const typeName = (item: DimItem): string => {
   const owner = item.classTypeNameLocalized;
 
@@ -642,15 +622,12 @@ export const typeName = (item: DimItem): string => {
   return `${owner} ${item.typeName}`;
 };
 
-// The game's own inspection header: the rarity carries the color, so the tier needs no words
 export const ItemHead = (props: { item: DimItem; compact?: boolean }) => (
   <div
     class={`tooltip-header ${props.item.rarity.toLowerCase()}`}
     classList={{ "h-(--item-head) p-0": props.compact }}
   >
     <div class="flex h-full items-stretch gap-2">
-      {/* Flush and square to the tinted block, the way the game draws it. The hover card needs
-          no icon at all: the tile it came from is under the pointer */}
       <Show when={props.compact}>
         <img
           class="aspect-square h-full shrink-0"
@@ -662,12 +639,11 @@ export const ItemHead = (props: { item: DimItem; compact?: boolean }) => (
         class="min-w-0 flex-1"
         classList={{ "flex flex-col justify-center pr-4": props.compact }}
       >
-        {/* Wraps rather than ellipsizes: the header is the one place the whole name matters.
-            Two to a rail leaves room for two lines and no more */}
         <div
           class="tooltip-name"
           classList={{
-            "line-clamp-2 pr-6 text-md leading-5 whitespace-normal": props.compact,
+            "line-clamp-2 pr-6 text-md leading-5 whitespace-normal":
+              props.compact,
           }}
         >
           {props.item.name}
@@ -680,7 +656,6 @@ export const ItemHead = (props: { item: DimItem; compact?: boolean }) => (
   </div>
 );
 
-// Power is the headline number in the game's own inspect screen, not a footnote on the type row
 export const ItemPower = (props: { item: DimItem }) => (
   <Show when={props.item.power > 0 || props.item.element}>
     <div class="tooltip-power">

@@ -8,7 +8,6 @@ export const PLUG_SETS = "plugSets";
 const META = "meta";
 const STORES = [CORE, DETAIL, PLUG_SETS];
 
-// Small enough that a transaction never holds the main thread long
 const CHUNK = 2000;
 
 interface HashRecord {
@@ -100,7 +99,6 @@ export const openStore = async (): Promise<DefStore> => {
       return rows.filter((row) => row !== undefined);
     },
 
-    // Chunked so a first-load population never blocks a frame for long
     putAll: async (store, records) => {
       for (let start = 0; start < records.length; start += CHUNK) {
         const tx = db.transaction(store, "readwrite");

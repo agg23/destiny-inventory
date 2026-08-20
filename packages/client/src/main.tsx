@@ -13,7 +13,7 @@ if (!root) {
 }
 
 const start = async () => {
-  // Split out, since the gallery is for us and every byte of it would be on the first load
+  // Or the gallery lands on first load
   if (location.pathname === "/ui") {
     const { Gallery } = await import("./ui/Gallery.tsx");
 

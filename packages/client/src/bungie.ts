@@ -4,10 +4,8 @@ import { loadConfig } from "./config.ts";
 
 const PLATFORM = "https://www.bungie.net/Platform";
 
-// 100 carries dateLastPlayed, which is how the store factory picks the current character
-// 204 is CharacterActivities, which is how we tell who is in the game right now
-// 1200 is StringVariables, without which every modifier reads "{var:2189146210}% bonus"
 const COMPONENTS = [
+  // 100 dateLastPlayed, 204 CharacterActivities, 1200 StringVariables
   100, 102, 103, 200, 201, 204, 205, 300, 302, 304, 305, 306, 307, 308, 309,
   310, 1200,
 ];

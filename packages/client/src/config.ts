@@ -12,7 +12,7 @@ export interface ClientConfig {
 
 let pending: Promise<ClientConfig> | undefined = undefined;
 
-// Served rather than built in, so changing credentials never needs a client rebuild
+// Served, so credentials change without a rebuild
 export const loadConfig = (): Promise<ClientConfig> => {
   pending ??= fetch("/api/config").then(async (response) => {
     if (!response.ok) {

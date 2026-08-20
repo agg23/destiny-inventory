@@ -57,7 +57,7 @@ export const App = () => {
   const [active, setActive] = createSignal<Active>(NOBODY);
   const [tab, setTab] = createSignal<Tab>("vault");
 
-  // Gate the fetcher on a token, since reading an errored resource rethrows
+  // Reading an errored resource rethrows
   const [authed] = createSignal(signedIn());
   const [result] = createResource(
     () => authed() || undefined,
@@ -77,7 +77,6 @@ export const App = () => {
 
   onMount(measureHead);
 
-  // Reads what the header renders so a grown header remeasures
   createEffect(() => {
     current();
     failures();
@@ -90,8 +89,7 @@ export const App = () => {
 
   let warmed = false;
 
-  // Perk icons come from a different host than the grid's, so a panel opened cold spends its
-  // first moment blank. Warmed once the full definitions have landed, after first paint
+  // Perk icons come from a different host
   createEffect(() => {
     const loaded = current();
 
@@ -119,7 +117,6 @@ export const App = () => {
   const current = () => (error() ? undefined : upgraded() ?? result());
   const needsSignIn = () => !authed() || error() instanceof NotSignedIn;
 
-  // Skipped items never rendered; degraded ones did, with something missing
   const failures = () => {
     const loaded = current();
     const groups = [
@@ -152,7 +149,7 @@ export const App = () => {
       0,
     );
 
-  // The engine mutates its own stores, so after a move they outrank the load
+  // The engine mutates its own stores
   const stores = () => moved() ?? current()?.stores ?? [];
 
   onCleanup(subscribeStores((next) => setMoved([...next])));
@@ -175,7 +172,6 @@ export const App = () => {
     }
   };
 
-  // A third pin replaces the second, so the left stays a fixed reference
   const pin = (item: DimItem) =>
     setPinned((was) => {
       if (was.some((already) => already.id === item.id)) {
@@ -184,7 +180,6 @@ export const App = () => {
 
       const [reference] = was;
 
-      // Armor and a weapon share no stats, so a mismatched pick starts over instead
       if (reference && !comparable(reference, item)) {
         return [item];
       }
@@ -196,7 +191,6 @@ export const App = () => {
       return [...was.slice(0, PINS - 1), item];
     });
 
-  // Hovering while something is pinned is the same question the compare panel answers
   const against = () => {
     const [reference] = pinned();
     const item = hovered()?.item;
@@ -258,7 +252,7 @@ export const App = () => {
     setMoving(`${equip ? "Equipping" : "Moving"} ${item.name}`);
 
     moveItem(item, target, equip)
-      // The engine hands back a new item object, so the pin has to follow it
+      // The engine hands back a new item object
       .then((result) =>
         setPinned((was) =>
           was.map((already) => (already.id === item.id ? result : already)),
@@ -305,8 +299,7 @@ export const App = () => {
                   classList={{ active: tab() === one.id }}
                   aria-pressed={tab() === one.id}
                   onClick={() => {
-                    // The tile under the pointer unmounts without a mouseleave, so its
-                    // card would hang around over the new view for good
+                    // The tile unmounts without a mouseleave
                     setHovered(undefined);
                     setTab(one.id);
                   }}

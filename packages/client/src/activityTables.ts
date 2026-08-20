@@ -26,7 +26,7 @@ const byHash = <T extends { hash: number }>(records: T[]): Table<T> => {
   return table;
 };
 
-// A quarter of a megabyte only the activities tab uses, so it waits for the tab to open
+// A quarter of a megabyte
 let pending: Promise<ActivityTables> | undefined = undefined;
 
 export const activityTables = (): Promise<ActivityTables> => {

@@ -1,6 +1,6 @@
 import type { Recalled } from "./activities.ts";
 
-// What the week held before anyone spent it; a live profile deletes a taken reward outright
+// A live profile deletes a taken reward outright
 const ENDPOINT = "/api/baseline";
 
 interface Reward {
@@ -28,7 +28,6 @@ export interface Names {
   (itemHash: number): { name: string; icon: string | undefined } | undefined;
 }
 
-// The same reading the live payload gets, so a baseline row and a live row are comparable
 const recall = (rewards: Reward[], named: Names): Recalled => {
   let bonusDrops = 0;
   let focus: Recalled["focus"] = undefined;
@@ -64,7 +63,7 @@ const recall = (rewards: Reward[], named: Names): Recalled => {
     }
   }
 
-  // The flag is not carried across: a baseline row is matched by activity, not by drop flag
+  // A baseline row is matched by activity, not drop flag
   return { flag: "", bonusDrops, focus, bonus };
 };
 
@@ -87,7 +86,6 @@ export const fetchBaseline = async (named: Names): Promise<Baseline> => {
 
     return { week: body.week, capturedAt: body.capturedAt, rows };
   } catch {
-    // No baseline is a tile that simply does not mention what was spent
     return empty;
   }
 };

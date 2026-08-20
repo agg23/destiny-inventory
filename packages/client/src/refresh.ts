@@ -3,12 +3,10 @@ const MINIMUM = 15_000;
 
 interface Options {
   onRefresh: () => Promise<void>;
-  // True while a move is in flight, since refreshing mid move would fight it
   busy: () => boolean;
 }
 
-// Bungie has no push for profile data. The timer restarts after each refresh rather than
-// running on a schedule, so a slow refresh cannot stack calls up behind it
+// Bungie has no push for profile data
 export const startAutoRefresh = ({
   onRefresh,
   busy,
@@ -33,7 +31,7 @@ export const startAutoRefresh = ({
       return;
     }
 
-    // Visibility and the timer can fire together, and the throttle stops one poll becoming two
+    // Visibility and the timer can fire together
     if (Date.now() - last < MINIMUM) {
       schedule();
 

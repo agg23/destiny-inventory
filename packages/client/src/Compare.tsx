@@ -35,7 +35,6 @@ interface Row {
   values: (DimStat | undefined)[];
 }
 
-// Stat labels are shared down one column, so a row means the same thing across both items
 export const Compare = (props: Props) => {
   const [allPerks, setAllPerks] = createSignal(false);
 
@@ -61,15 +60,11 @@ export const Compare = (props: Props) => {
       }));
   });
 
-  // Two items halve the column, so the name takes the row above the icon rather than
-  // sharing it
   const compact = () => props.items.length > 1;
 
   const columns = () =>
     `var(--compare-labels) repeat(${props.items.length}, minmax(0, 1fr))`;
 
-  // Rows that belong to an item rather than to a stat start under that item. A lone item has
-  // nothing to line up against, so it takes the label column too instead of leaving it empty
   const start = (column: number) => {
     if (column > 0) {
       return "auto";
@@ -80,8 +75,6 @@ export const Compare = (props: Props) => {
 
   return (
     <Show when={props.items.length > 0}>
-      {/* The framework's inspection card, so its header, bodies and perk rows all apply in
-          here the same way they do in the hover card */}
       <aside class="item-tooltip compare overflow-y-auto p-4 [scrollbar-gutter:stable]">
         <div
           class="stat-list compare-grid grid items-center content-start gap-1.5 gap-x-4"
@@ -157,8 +150,6 @@ export const Compare = (props: Props) => {
                         {(own) => (
                           <>
                             <StatBar stat={own()} />
-                            {/* The left item is what the comparison is against, so it carries
-                              no delta of its own; the column stays reserved either way */}
                             <StatValue
                               stat={own()}
                               against={column() > 0 ? row.values[0] : undefined}

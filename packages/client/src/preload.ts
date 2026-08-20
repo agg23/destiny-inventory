@@ -1,12 +1,9 @@
 import type { DimItem } from "app/inventory/item-types";
 
-// Enough to keep the pipe busy without crowding the requests the visible grid is making
 const LANES = 6;
 
 const BUNGIE = "https://www.bungie.net";
 
-// What a panel paints without being asked: the roll itself and its column. The full rollable
-// pool behind "Show all" is thousands of icons more and waits to be asked for
 export const plugIcons = (items: DimItem[]): string[] => {
   const icons = new Set<string>();
 
@@ -29,8 +26,7 @@ export const plugIcons = (items: DimItem[]): string[] => {
   return [...icons];
 };
 
-// Warms the HTTP cache so a panel paints its perks rather than filling them in afterwards.
-// Decoding is the browser's problem; this only needs the bytes to be local
+// Decoding is the browser's problem; this wants the bytes local
 export const warmIcons = (urls: string[]): (() => void) => {
   let next = 0;
   let stopped = false;

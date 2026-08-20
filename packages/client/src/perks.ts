@@ -42,17 +42,15 @@ export interface SetBonus {
   perks: SetPerk[];
 }
 
-// Ornaments and shaders change how a piece looks and nothing about what it does
 const COSMETICS = new Set([2048875504, 1926152773]);
 
-// DIM keeps the empty catalyst slot out of isSocketEmpty because it is still a real socket
+// DIM keeps the catalyst slot out of isSocketEmpty
 const EMPTY_EXOTIC_MASTERWORK = 1915962497;
 
 // ItemPerkVisibility.Hidden
 const HIDDEN = 2;
 
 const change = (item: DimItem, hash: number, value: number): StatChange[] => {
-  // The item's own list is already what the game displays, which keeps mod energy costs out
   const own = item.stats?.find((stat) => stat.statHash === hash);
 
   if (!own || value === 0) {
@@ -73,8 +71,7 @@ const changes = (item: DimItem, plug: DimPlug): StatChange[] =>
     change(item, Number(hash), stat.value),
   );
 
-// Some mods write their stat change out as their whole description, which the row above
-// already says. Bungie's own arrow suffixes are part of the string
+// Some mods write their stat change as the whole description
 const restates = (description: string, stats: StatChange[]): boolean =>
   stats.some((stat) => {
     const written = `${stat.value > 0 ? "+" : "-"}${Math.abs(stat.value)} ${
@@ -84,7 +81,7 @@ const restates = (description: string, stats: StatChange[]): boolean =>
     return [written, `${written} ▲`, `${written} ▼`].includes(description);
   });
 
-// Armor mods leave the description empty and put what they do on their sandbox perks instead
+// Armor mods put their effect on sandbox perks
 const describe = (plug: DimPlug): string => {
   const own = plug.plugDef.displayProperties.description;
   const table = defs()?.SandboxPerk;
@@ -104,7 +101,7 @@ const describe = (plug: DimPlug): string => {
     .join("\n\n");
 };
 
-// What the game prints in the tooltip: the intrinsic first, then whatever is plugged after it
+// The game prints the intrinsic first
 export const benefits = (item: DimItem): Benefit[] => {
   const sockets = item.sockets;
 
@@ -125,7 +122,6 @@ export const benefits = (item: DimItem): Benefit[] => {
           return [];
         }
 
-        // The archetype is the piece's own identity rather than something plugged into it
         if (
           isSocketEmpty(socket) ||
           isArmorArchetypePlug(plug) ||
@@ -145,7 +141,7 @@ export const benefits = (item: DimItem): Benefit[] => {
 
         const { icon, hasIcon, name } = plug.plugDef.displayProperties;
 
-        // The archetype's stats hang off a second, nameless plug, which reads as loose numbers
+        // The archetype's stats hang off a second, nameless plug
         if (!name) {
           return [];
         }
@@ -164,7 +160,7 @@ export const benefits = (item: DimItem): Benefit[] => {
   });
 };
 
-// The item carries the set it belongs to; the numbers live on the sandbox perks it points at
+// The numbers live on the sandbox perks
 export const setBonus = (item: DimItem): SetBonus | undefined => {
   const set = item.setBonus;
   const table = defs()?.SandboxPerk;
@@ -202,8 +198,6 @@ export const setBonus = (item: DimItem): SetBonus | undefined => {
   return { name: set.displayProperties.name, perks };
 };
 
-// Armor's archetype is what the piece is, not something plugged into it, so it reads next to
-// the stats it sets rather than down among the mods
 export const archetype = (item: DimItem): Archetype | undefined => {
   const found = getArmorArchetype(item);
 

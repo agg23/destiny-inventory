@@ -1,7 +1,6 @@
-// Bungie ships no live distortion state, but the cycle is fixed arithmetic (BUNGIE-API.md §6)
+// Bungie ships no live distortion state (BUNGIE-API.md §6)
 export interface Zone {
   name: string;
-  // What the tab calls the zone when the full name would crowd it
   short?: string;
   // The reprised armor the zone drops, a DestinyEquipableItemSetDefinition hash
   set: number;
@@ -19,7 +18,7 @@ export const ZONES: Zone[] = [
 
 export const HOUR = 3_600_000;
 
-// Europa held this hour by direct in-game observation, which pins the cycle's phase
+// Europa held this hour by in-game observation
 const ANCHOR = Date.UTC(2026, 6, 26, 13);
 const ANCHOR_ZONE = 5;
 
@@ -29,7 +28,6 @@ export interface Rotation extends Zone {
   start: number;
 }
 
-// One full cycle from the active hour, so every zone's next visit is on it exactly once
 export const schedule = (now: number): Rotation[] => {
   const hours = Math.floor((now - ANCHOR) / HOUR);
 

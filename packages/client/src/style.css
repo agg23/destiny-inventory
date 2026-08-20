@@ -1,4 +1,4 @@
-/* Layout, and what the framework has no component for; above it, so these win */
+/* Above the framework layer, so these win */
 @layer app {
   body {
     margin: 0;
@@ -22,14 +22,12 @@
     border-bottom: 1px solid var(--line);
   }
 
-  /* The framework's field is full-width by default; in the header it is one control in a row */
+  /* Framework's field is full-width by default */
   header .text-input.inline {
     width: 260px;
   }
 
-  /* The page itself scrolls, so there is one scrollbar and it sits at the window edge. The rail
-   is fixed beside it and the grid is what moves */
-  /* Above the sticky character header, which scrolls inside the body */
+  /* Above the sticky character header */
   .rail {
     position: fixed;
     z-index: 2;
@@ -43,8 +41,6 @@
     box-shadow: inset 1px 0 0 var(--line-bright);
   }
 
-  /* Widening on the second pin is a mode change the user asked for, not the layout twitching
-   * while they browse, which is why this is the one reflow that is allowed */
   .rail.comparing {
     width: var(--rail-compare);
   }
@@ -57,16 +53,17 @@
     margin-right: var(--rail-compare);
   }
 
-  /* No rail on this view, so the grid margin the vault reserves would leave a dead strip */
   .body.solo {
     margin-right: 0;
   }
 
-  /* The label column, the character column, and whatever is left for the vault */
   .stores,
   .row {
     display: grid;
-    grid-template-columns: var(--bucket-label) var(--store-column) minmax(0, 1fr);
+    grid-template-columns: var(--bucket-label) var(--store-column) minmax(
+        0,
+        1fr
+      );
     gap: var(--space-4);
     align-items: start;
   }
@@ -84,15 +81,14 @@
     border-top: 1px solid var(--line);
   }
 
-  /* The framework's tile grid is inline and three wide; a bucket column takes what it is given */
+  /* Framework's tile grid is inline and three wide */
   .row .item-grid.wide {
     display: grid;
     grid-template-columns: repeat(auto-fill, var(--tile));
     gap: var(--space-2);
   }
 
-  /* Floating over the grid rather than over game art, so the fill goes opaque and the panel
-   lifts; the framework's own border is left to do the framing */
+  /* Opaque: these float over the grid, not game art */
   .picker-menu,
   .run-detail {
     z-index: 4;
@@ -110,7 +106,6 @@
       0 8px 24px #000c;
   }
 
-  /* The emblem is the panel's fill, and it can be near-white where the name sits */
   .store-head {
     background-image: linear-gradient(
         to right,
@@ -119,14 +114,14 @@
         rgb(0 0 0 / 35%) 100%
       ),
       var(--art, none);
-    /* Or the scrim stops at the padding box and the border ring tiles it, leaving art bare */
+    /* Or the border ring tiles the scrim, leaving art bare */
     background-origin: border-box;
     background-size: cover;
     cursor: pointer;
     text-shadow: 0 1px 2px #000;
   }
 
-  /* The framework's hover tint assumes a background image; ours is a child img */
+  /* Framework's hover tint assumes a background image */
   .item-tile {
     z-index: 0;
   }
@@ -135,7 +130,6 @@
     z-index: 1;
   }
 
-  /* Digits need a line box of their own, not the tile's */
   .item-tile .item-quantity {
     line-height: 1.25;
     font-variant-numeric: tabular-nums;
@@ -151,7 +145,7 @@
     inset: 0;
   }
 
-  /* Gold is the pinned item, cream the equipped one; the framework names neither */
+  /* Gold pinned, cream equipped; the framework names neither */
   .item-tile.equipped {
     border-color: var(--cream);
   }
@@ -160,7 +154,7 @@
     border-color: var(--light);
   }
 
-  /* Opaque: the framework's tooltip assumes game art behind it, not a grid of icons */
+  /* Framework's tooltip assumes game art behind it */
   .hover-card {
     position: fixed;
     z-index: 4;
@@ -170,18 +164,15 @@
     pointer-events: none;
   }
 
-  /* An engram fills neither body, and an empty one still has its padding */
   .tooltip-body:empty {
     display: none;
   }
 
-  /* Nothing to divide when the body above is the hidden one */
   .tooltip-body:empty + .tooltip-body {
     border-top: 0;
     padding-top: 0.9rem;
   }
 
-  /* The rail is already the panel, so the tooltip inside it contributes only its parts */
   .rail .item-tooltip {
     width: auto;
     max-width: none;
@@ -190,19 +181,18 @@
     box-shadow: none;
   }
 
-  /* The framework's label is set for a full-width heading; a rail column is 188px */
+  /* Framework's label is set for a full-width heading */
   .rail .section-label {
     font-size: var(--text-sm);
     gap: var(--space-4);
     letter-spacing: var(--track-caps);
   }
 
-  /* The nowrap child inside would otherwise set this box's min-content width */
+  /* A nowrap child would set min-content width */
   .tooltip-type {
     min-width: 0;
   }
 
-  /* The bar takes what the number does not, the same order the framework's stat list uses */
   .compare-stat {
     display: grid;
     grid-template-columns: minmax(0, 1fr) max-content;
@@ -210,7 +200,6 @@
     align-items: center;
   }
 
-  /* The total is a sum of the rows above it, not another one of them */
   .stat-list .total {
     margin-top: var(--space-3);
     padding-top: var(--space-3);
@@ -221,14 +210,12 @@
     color: var(--dim);
   }
 
-  /* Tighter tracking, or RESILIENCE will not fit the shared label column */
+  /* Or RESILIENCE will not fit the label column */
   .compare-grid .stat-name {
     font-size: var(--text-sm);
     letter-spacing: var(--track-caps);
   }
 
-  /* Fixed, never flexed: six sockets in a narrow column would otherwise each pick their own
-   size and the roll would read as a different shape on every weapon */
   .plug {
     flex: none;
     width: var(--plug);
@@ -242,7 +229,7 @@
     border-radius: 50%;
   }
 
-  /* The game marks an enhanced perk in Light gold, and it is the only thing that colors a plug */
+  /* The game marks enhanced perks in Light gold */
   .plug.enhanced {
     box-shadow: inset 0 0 0 1px var(--light);
   }
@@ -261,12 +248,11 @@
     opacity: 0.25;
   }
 
-  /* The framework's perk disc is drawn for a background image; ours is the img itself */
+  /* Framework's perk disc is drawn for a background image */
   .perk-icon.enhanced {
     border-color: var(--light);
   }
 
-  /* One pill: a matchmaking note, a power range, an enhanced marker */
   .badge,
   .run-power,
   .tag {
@@ -287,7 +273,6 @@
       color-mix(in srgb, var(--light) 40%, transparent);
   }
 
-  /* An item name is not a menu label, so these rows keep sentence case */
   .arrivals .menu-item {
     text-transform: none;
     letter-spacing: var(--track-base);
@@ -301,16 +286,12 @@
     object-fit: contain;
   }
 
-  /* One strip of sections rather than eleven headings down the page. The rules mark where the
-   director's own grouping changes */
-  /* Baseline, since only the tabs carrying a count are the taller ones */
   .sections {
     align-items: baseline;
     border-bottom: 1px solid var(--line);
     padding-bottom: var(--space-4);
   }
 
-  /* A flex row, so the count does not open up the label's line box */
   .sections .nav-tab {
     display: inline-flex;
     align-items: center;
@@ -327,13 +308,11 @@
     color: var(--fg);
   }
 
-  /* Without a rule the featured grid and the one under it read as one continuous set of rows */
   .picks {
     border-bottom: 1px solid var(--line);
     padding-bottom: var(--space-6);
   }
 
-  /* The scrim goes over the art, not the text: on the text it sat right above the title */
   .run {
     background-image: linear-gradient(
         to top,
@@ -347,7 +326,7 @@
       ),
       var(--art, none);
     background-position: center;
-    /* Or the scrim stops at the padding box and the border ring tiles it, leaving art bare */
+    /* Or the border ring tiles the scrim, leaving art bare */
     background-origin: border-box;
     background-size: cover;
     text-shadow: 0 1px 2px #000;
@@ -359,7 +338,6 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Spent this week, kept legible for the sake of a fireteam mate who has not taken theirs */
   .spent,
   .spent .progress-text {
     color: var(--dim);
@@ -372,10 +350,9 @@
     opacity: 0.6;
   }
 
-  /* The vault's hover card, wider: everything in here is prose rather than a stat column */
   .run-detail {
     position: fixed;
-    /* The panel cannot scroll, and a nightfall lists eleven modifiers */
+    /* A nightfall lists eleven modifiers */
     max-height: calc(100vh - 16px);
     overflow: hidden;
     pointer-events: none;

@@ -4,13 +4,12 @@ import type { DimStore } from "app/inventory/store-types";
 const PADDING = 20;
 const SHOWN = 10;
 
-// Instance ids ascend with acquisition, so sorting them sorts by when the item arrived
+// Instance ids ascend with acquisition
 const recency = (item: DimItem) => item.id.padStart(PADDING, "0");
 
-// Stacks all share the id "0", and quests are instanced but are not loot
+// Stacks all share the id "0"
 const dropped = (item: DimItem) => item.id !== "0" && item.equipment;
 
-// Derived from what is held right now, so nothing is stored and every browser agrees
 export const acquired = (stores: DimStore[]): DimItem[] =>
   stores
     .flatMap((store) => store.items)

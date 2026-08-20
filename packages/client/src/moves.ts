@@ -29,7 +29,7 @@ const toAccount = (membership: Membership): DestinyAccount => ({
   lastPlayed: new Date(0),
 });
 
-// The move engine reads its world through Redux, so it has to be seeded with the live stores
+// The move engine reads its world through Redux
 export const seedInventory = async (
   stores: DimStore[],
   membership: Membership,
@@ -51,7 +51,7 @@ export const seedInventory = async (
 
   const account = toAccount(membership);
 
-  // setCurrentAccount resets the inventory slice, so it has to come before the stores
+  // setCurrentAccount resets the inventory slice
   dispatch(accountsLoaded([account]));
   dispatch(setCurrentAccount(account));
   dispatch(update({ stores, currencies: [] }));
@@ -60,7 +60,7 @@ export const seedInventory = async (
 export const currentStores = (): DimStore[] =>
   store.getState().inventory.stores;
 
-// A move dispatches more than once, and not all of it lands before the promise resolves
+// A move dispatches more than once
 export const subscribeStores = (
   listener: (stores: DimStore[]) => void,
 ): (() => void) => store.subscribe(() => listener(currentStores()));

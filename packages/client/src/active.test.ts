@@ -54,7 +54,6 @@ describe("active character", () => {
     expect(active.override).toBeUndefined();
   });
 
-  // Picking a character while nothing is running should not survive the game starting up
   it("drops the override when the game starts", () => {
     const active = observe(prefer(NOBODY, "titan"), "hunter");
 

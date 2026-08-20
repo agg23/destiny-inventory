@@ -6,10 +6,9 @@ const TOKENS = "dvm.tokens";
 const STATE = "dvm.state";
 const DEV_FORWARD = "dvm.devForward";
 
-// Dev has no HTTPS origin of its own, so the deployed callback hands the token back
+// Dev has no HTTPS origin of its own
 const DEV_ORIGIN = "http://localhost:5183";
 
-// Refresh early rather than lose a request to a token that expires mid-flight
 const SKEW_MS = 60_000;
 
 interface Tokens {
@@ -84,7 +83,7 @@ export const beginLogin = async () => {
     throw new Error("Service has no Bungie client id configured");
   }
 
-  // Bungie registers one HTTPS redirect, so a dev origin has to start the flow elsewhere
+  // Bungie registers one HTTPS redirect
   if (authOrigin && authOrigin !== location.origin) {
     location.assign(`${authOrigin}/?dev=1`);
 
@@ -124,7 +123,7 @@ export const accessToken = async (): Promise<string | undefined> => {
   ).accessToken;
 };
 
-// Returns true when this load exists only to start a dev sign in
+// True when this load only starts a dev sign in
 export const markDevLogin = (): boolean => {
   if (new URLSearchParams(location.search).get("dev") !== "1") {
     return false;
@@ -135,7 +134,7 @@ export const markDevLogin = (): boolean => {
   return true;
 };
 
-// Returns true when it has navigated away and the caller should not mount
+// True when it has navigated away
 export const completeLogin = async (): Promise<boolean> => {
   const hash = new URLSearchParams(location.hash.slice(1));
   const forwarded = hash.get("refresh_token");

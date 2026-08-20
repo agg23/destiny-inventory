@@ -11,7 +11,7 @@ import {
 } from "./ItemPanel.tsx";
 
 const GAP = 8;
-// The framework's own tooltip width, since the card is now one of theirs
+// The framework's own tooltip width
 const WIDTH = 352;
 
 interface Props {
@@ -20,14 +20,12 @@ interface Props {
   anchor: DOMRect;
 }
 
-// One card the grid moves around, since a tooltip per tile would be a thousand of them
 export const HoverCard = (props: Props) => {
   const [height, setHeight] = createSignal(0);
 
   let card: HTMLElement | undefined = undefined;
 
-  // The card cannot scroll, so anything hanging off the bottom is lost rather than reachable.
-  // Reads what this item actually rendered, since a set bonus makes some cards much taller
+  // The card cannot scroll
   createEffect(() => {
     props.item;
     props.against;

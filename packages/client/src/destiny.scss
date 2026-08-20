@@ -1,6 +1,6 @@
-// Built from source, not dist/: that bundle styles * and body outside the .destiny scope
+// dist/ styles * and body outside the .destiny scope
 
-// Neue Haas is Bungie's to license, so each cut it asks for is aliased onto Inter
+// Neue Haas is Bungie's to license
 @mixin inter-alias($family, $weight) {
   @font-face {
     font-family: $family;

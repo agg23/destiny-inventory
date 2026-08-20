@@ -8,7 +8,7 @@ const VARIANTS = ["default", "light", "danger", "ghost"] as const;
 const SIZES = ["sm", "md", "lg"] as const;
 const ICON_SIZES = ["icon-sm", "icon-md", "icon-lg"] as const;
 
-// Written out rather than interpolated, since Tailwind only sees class names that appear whole
+// Tailwind only sees class names that appear whole
 const TYPE_SIZES = [
   ["2xl", "text-2xl"],
   ["xl", "text-xl"],
@@ -51,13 +51,7 @@ const COLORS = [
   ["strand", "bg-strand"],
 ] as const;
 
-const RARITIES = [
-  "common",
-  "uncommon",
-  "rare",
-  "legendary",
-  "exotic",
-] as const;
+const RARITIES = ["common", "uncommon", "rare", "legendary", "exotic"] as const;
 
 const STATS = [
   ["Impact", 84],

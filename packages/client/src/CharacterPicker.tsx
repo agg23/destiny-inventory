@@ -8,7 +8,6 @@ interface Props {
   onSelect: (store: DimStore) => void;
 }
 
-// The framework's card, plus the emblem: a banner is a panel whose fill happens to be art
 const BANNER =
   "card selectable store-head flex items-center gap-2 p-2 text-left";
 

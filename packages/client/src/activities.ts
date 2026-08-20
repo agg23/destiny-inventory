@@ -25,14 +25,13 @@ export interface ActivityTables {
   difficulties: Record<number, SlimDifficulty>;
 }
 
-// The quantity is a flag rather than a tally; it says nothing about what you already took
+// Bungie's quantity is a flag, not a tally
 export interface Loot {
   name: string;
   icon: string | undefined;
   quantity: number;
 }
 
-// The progress is live and per character
 export interface Challenge {
   name: string;
   progress: number;
@@ -40,7 +39,6 @@ export interface Challenge {
   complete: boolean;
 }
 
-// Whether the game will find you a fireteam, and whether it insists on it
 export type Matchmaking = "required" | "optional" | "none";
 
 export interface Variant {
@@ -50,7 +48,6 @@ export interface Variant {
   matchmade: boolean;
 }
 
-// Kept per activity so a row keeps its identity after Bungie empties its rewards
 export interface Recalled {
   flag: string;
   bonusDrops: number;
@@ -76,15 +73,13 @@ export interface Available {
   focus: Loot | undefined;
   matchmaking: Matchmaking;
   challenges: Challenge[];
-  // Bungie drops a consumed reward from the payload, so spent counts come from the baseline
+  // Bungie drops consumed rewards from the payload
   dropsTaken: number;
   spentFocus: Loot | undefined;
   spentBonus: Loot[];
   variants: Variant[];
   modifiers: SlimModifier[];
-  // The union across doors, which offer different spans of the ladder
   difficulties: SlimTier[];
-  // Why the game would refuse this character a launch
   locked: string[];
 }
 
@@ -97,7 +92,6 @@ export interface Category {
   bonus: number;
 }
 
-// The director's own top level, which holds several Portal sections apiece
 export interface Realm {
   name: string;
   categories: Category[];
@@ -105,18 +99,16 @@ export interface Realm {
   bonus: number;
 }
 
-// Bungie's uiStyle names are older than the words on screen
+// Bungie's uiStyle names predate the words on screen
 const BONUS_DROP = "extra_engram";
 
-// The engram the game draws for a bonus drop, a better label than the words are
 export const BONUS_DROP_ITEM = 3956025454;
 const FOCUS = "daily_grind_guaranteed";
 
-// Whatever no rule can place, which after the fallbacks below is a handful of oddities
 const OTHER = 0;
 const OTHER_NAME = "Elsewhere";
 
-// The Portal's own sections, by root node. Raids and Dungeons each ship twice
+// Raids and Dungeons each ship twice
 const CAMPAIGN = 230724421;
 const FIRETEAM_OPS = 4038998327;
 const PINNACLE_OPS = 2042336100;
@@ -131,13 +123,10 @@ const DUNGEONS_ALT = 274240080;
 const PANTHEON = 2112123535;
 const WORLD = 3803311165;
 
-// The director's own strikes, distinct from the playlist entries wearing the same names
 const STRIKES_OTHER = -1;
 
-// Sections the Portal does not name for us
 const NAMES = new Map([[STRIKES_OTHER, "Strikes (Other)"]]);
 
-// The director's own shape, which is coarser than the Portal's and is how the game is picked
 const REALMS: { name: string; sections: number[] }[] = [
   {
     name: "Vanguard",
@@ -159,10 +148,9 @@ const REALM_OF = new Map(
   ),
 );
 
-// DestinyActivityModeType Story and Social: not things you pick off a list for loot
+// DestinyActivityModeType Story and Social carry no loot
 const DROPPED_MODES = new Set([2, 40]);
 
-// Strikes, nightfalls and Vanguard playlists are one section in the game, so they are one here
 const BY_MODE = new Map([
   [3, FIRETEAM_OPS],
   [18, FIRETEAM_OPS],
@@ -176,24 +164,20 @@ const BY_MODE = new Map([
   [93, WORLD],
 ]);
 
-// Typed but modeless: cutscenes, narrative beats and the shooting range
 const DROPPED_TYPES = new Set([1838596016, 1686739444, 1299744814, 2694988718]);
 
-// A strike is a strike whichever list it came off
 const STRIKE_TYPES = new Set([3547475498, 4110605575]);
 
-// A raid encounter that ships without a mode is still a raid
 const BY_TYPE = new Map([[2043403989, RAIDS]]);
 
-// Bungie names the two doors into one activity after the fireteam it builds you
+// Bungie names both doors after the fireteam
 const VARIANT = /\s*[:-]\s*(Matchmade|Customize)\s*$/;
 
-// bungie-api-ts 5.10.0 does not model the unlock expression, though the live service returns it
+// bungie-api-ts 5.10.0 does not model the unlock expression
 interface Gated {
   visibilityUnlockExpression?: { steps?: { valueHash?: number }[] };
 }
 
-// Two activities quoting the same unlock hashes are two doors into one reward, spent together
 const flag = (entry: DestinyActivity): string => {
   const hashes = new Set<string>();
 
@@ -212,7 +196,7 @@ const flag = (entry: DestinyActivity): string => {
   return [...hashes].sort().join(".");
 };
 
-// A quantity of zero is how Bungie says the activity does not carry the reward
+// Quantity zero is how Bungie omits a reward
 const loot = (entry: DestinyActivity, tables: ActivityTables): Loot[] => {
   const found = new Map<string, Loot>();
 
@@ -256,7 +240,6 @@ const reward = (entry: DestinyActivity, style: string): number => {
   return total;
 };
 
-// The focus is one named item, so the first one Bungie lists is the whole answer
 const focusOf = (
   entry: DestinyActivity,
   tables: ActivityTables,
@@ -278,7 +261,6 @@ const focusOf = (
   return undefined;
 };
 
-// Sets point at nodes anywhere in the tree, so the walk up to a root is what names the section
 interface Tree {
   byActivity: Map<number, number>;
   tops: SlimGraphNode[];
@@ -330,7 +312,6 @@ const roots = (tables: ActivityTables): Tree => {
     }
   }
 
-  // Only top-level nodes are headings; matching the leaves would invent a section per row
   const tops = Object.values(tables.nodes).filter(
     (node) => node.name && !parent.has(node.hash),
   );
@@ -338,7 +319,7 @@ const roots = (tables: ActivityTables): Tree => {
   return { byActivity, tops };
 };
 
-// "The Crucible in The Crucible" says nothing the type has not already said
+// Avoids "The Crucible in The Crucible"
 const place = (
   definition: SlimActivity,
   tables: ActivityTables,
@@ -351,7 +332,6 @@ const place = (
   return found && found !== type ? found : undefined;
 };
 
-// The Portal's ladder, which is neither alphabetical nor the order Bungie ships
 const TIERS = [
   "normal",
   "standard",
@@ -374,7 +354,6 @@ const tier = (name: string): number => {
   return found === -1 ? TIERS.length : found;
 };
 
-// Quickplay leads on the tier ladder rather than taking its turn among the rewards
 const rank = (a: Available, b: Available): number => {
   const quick = Number(QUICKPLAY.test(b.name)) - Number(QUICKPLAY.test(a.name));
 
@@ -396,16 +375,15 @@ const rank = (a: Available, b: Available): number => {
   );
 };
 
-// The floor is a rule rather than a reading, so it only earns its place while it is unmet
 export const barred = (tier: SlimTier, power: number | undefined): boolean =>
   tier.power !== undefined && (power === undefined || power < tier.power);
 
 const VARIABLE = /\{var:(\d+)\}/g;
 
-// "[Arc] Arc damage": dropping the icon token leaves the sentence whole
+// "[Arc] Arc damage": the icon token is droppable
 const SYMBOL = /\[[^\]]+\]\s*/g;
 
-// Bungie writes the numbers out of its own strings and ships them in the profile instead
+// Bungie ships the numbers in the profile, not the string
 export const readable = (
   text: string,
   values: Record<number, number>,
@@ -414,7 +392,7 @@ export const readable = (
     .replace(VARIABLE, (whole, hash) => String(values[Number(hash)] ?? whole))
     .replace(SYMBOL, "");
 
-// The profile answers with indices of the labels this character fails; the rest are met
+// Profile returns indices of the failed labels
 const refused = (entry: DestinyActivity, definition: SlimActivity): string[] =>
   [
     ...(entry.leaderRequirementFailureIndices ?? []).map(
@@ -423,10 +401,8 @@ const refused = (entry: DestinyActivity, definition: SlimActivity): string[] =>
     ...(entry.fireteamRequirementFailureIndices ?? []).map(
       (at) => definition.fireteamRequirements[at],
     ),
-    // An empty label is a condition the game has no words for
   ].flatMap((label) => (label ? [label] : []));
 
-// One drop reached two ways is one thing to run, so counts are taken rather than added
 const fold = (
   group: { entry: DestinyActivity; definition: SlimActivity }[],
   key: string,
@@ -467,7 +443,7 @@ const fold = (
 
   const wasDrops = Math.max(drops, ...before.map((one) => one.bonusDrops));
 
-  // Bungie ships some modifiers twice under one name; keep the copy with something to say
+  // Bungie ships some modifiers twice under one name
   const modifiers = new Map<string, SlimModifier>();
 
   for (const { entry } of group) {
@@ -527,7 +503,7 @@ const fold = (
   return {
     key,
     hash: first.entry.activityHash,
-    // The shared half of "The Coil: Matchmade" and "The Coil: Customize" is the activity itself
+    // Shared: "The Coil: Matchmade" and "The Coil: Customize"
     name: first.definition.name.replace(VARIANT, ""),
     description: first.definition.description,
     pgcrImage: group.find(({ definition }) => definition.pgcrImage)?.definition
@@ -535,10 +511,8 @@ const fold = (
     typeName: type,
     power: powers.length > 0 ? Math.min(...powers) : undefined,
     topPower: powers.length > 0 ? Math.max(...powers) : undefined,
-    // A fifth of activities carry only the coarser place, so both are consulted
     location: place(first.definition, tables, type),
     focused: group.some(({ entry }) => entry.isFocusedActivity),
-    // One flag, so the loot is the same behind every door rather than the sum of them
     bonus,
     bonusDrops: drops,
     focus,
@@ -551,7 +525,6 @@ const fold = (
         ? []
         : before.map((one) => one.bonus).find((one) => one.length > 0) ?? [],
     matchmaking,
-    // Both doors carry the same challenges, so the further-along copy is the one to keep
     challenges: [...challenged.values()],
     variants: group.map(({ entry, definition }) => ({
       hash: entry.activityHash,
@@ -560,13 +533,11 @@ const fold = (
       matchmade: definition.isMatchmade,
     })),
     modifiers: [...modifiers.values()],
-    // Two ladders can name the same rung, and level is what puts a union of them back in order
     difficulties: [...tiers.values()].sort((a, b) => a.level - b.level),
     locked: [...locked],
   };
 };
 
-// Tree, then name, then mode; undefined means not something you pick off a list at all
 const section = (
   definition: SlimActivity,
   tree: Tree,
@@ -587,19 +558,18 @@ const section = (
     return undefined;
   }
 
-  // A couple of Portal roots ship with no name of their own, which is no use as a heading
   if (claimed !== undefined && tables.nodes[claimed]?.name) {
     return claimed;
   }
 
-  // "Fireteam Ops (Epic)" and "Solo Ops" are the sections themselves, wearing their own names
+  // "Fireteam Ops (Epic)" and "Solo Ops" name themselves
   const named = tree.tops.find((node) => definition.name.startsWith(node.name));
 
   if (named) {
     return named.hash;
   }
 
-  // The mode alone put the Arena and Solo Quickplays in Fireteam Ops; the destination corrects it
+  // Mode alone misfiles Arena and Solo Quickplay
   const from = tables.destinations[definition.destinationHash ?? 0]?.name;
   const belongs = from
     ? tree.tops.find((node) => node.name === from)
@@ -622,7 +592,6 @@ const section = (
   return byMode ?? byType ?? OTHER;
 };
 
-// The Portal files the director's standalone strikes under World, where they read as scenery
 const placed = (definition: SlimActivity, root: number): number =>
   root === WORLD &&
   definition.activityTypeHash !== undefined &&
@@ -630,13 +599,11 @@ const placed = (definition: SlimActivity, root: number): number =>
     ? STRIKES_OTHER
     : root;
 
-// Playlist and director copies share no hash, so name and place are what say they are the same
 const identity = (definition: SlimActivity): string =>
   `${definition.name.replace(VARIANT, "")}|${
     definition.destinationHash ?? definition.placeHash ?? 0
   }`;
 
-// When the doors are filed apart, the section that is not a leftovers bin wins
 const home = (
   group: { definition: SlimActivity }[],
   tree: Tree,
@@ -657,7 +624,6 @@ const home = (
   );
 };
 
-// Sections carrying rewards rise above the ones that do not
 export const categorize = (
   entries: DestinyActivity[],
   tables: ActivityTables,
@@ -685,7 +651,6 @@ export const categorize = (
     kept.push({ entry, definition });
   }
 
-  // A row that offers nothing has nothing to keep apart, whatever unlock hashes it quotes
   const offers = (one: (typeof kept)[number]): boolean =>
     reward(one.entry, BONUS_DROP) > 0 ||
     Boolean(focusOf(one.entry, tables)) ||
@@ -696,13 +661,11 @@ export const categorize = (
       ? flag(one.entry) || recall(one.entry.activityHash)?.flag || ""
       : "";
 
-  // The flag proves two doors are the same thing rather than two activities sharing a name
   for (const one of kept.filter((held) => gate(held))) {
     const key = `${identity(one.definition)}|${gate(one)}`;
     groups.set(key, [...(groups.get(key) ?? []), one]);
   }
 
-  // A duplicate with no flag to prove anything joins the row it shares an activity with
   for (const one of kept.filter((held) => !gate(held))) {
     const mine = identity(one.definition);
     const joined = [...groups.keys()].find(
@@ -753,7 +716,6 @@ export const categorize = (
   return gather(categories);
 };
 
-// The realms keep the director's order, because a player looks for the kind of activity first
 const gather = (categories: Category[]): Realm[] => {
   const held = new Map<string, Category[]>();
 
@@ -784,7 +746,6 @@ const gather = (categories: Category[]): Realm[] => {
   });
 };
 
-// The week's high-water mark, recorded so a later pass can tell what has since been taken
 export const seen = (
   entries: DestinyActivity[],
   tables: ActivityTables,
@@ -810,7 +771,6 @@ export const seen = (
 export const totalDrops = (realms: Realm[]): number =>
   realms.reduce((total, realm) => total + realm.bonusDrops, 0);
 
-// Matches what the row shows, so a search for a modifier or an activity type finds it too
 export const matching = (realms: Realm[], query: string): Realm[] => {
   const needle = query.trim().toLowerCase();
 

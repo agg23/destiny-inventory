@@ -1,5 +1,4 @@
-// Bungie's stat names are written for a full-width screen. In a shared label column they wrap
-// to two lines and cost more height than the numbers they label
+// Bungie's names are written for a full-width screen
 const SHORT: Record<string, string> = {
   "Rounds Per Minute": "RPM",
   "Airborne Effectiveness": "Airborne",
@@ -21,7 +20,7 @@ const SHORT: Record<string, string> = {
   "Ammo Capacity": "Ammo",
   "Heat Generated": "Heat",
   "Cooling Efficiency": "Cooling",
-  // DIM names its derived total through i18n, which this app has no catalog for
+  // DIM names its derived total through i18n
   "Stats.Total": "Total",
 };
 

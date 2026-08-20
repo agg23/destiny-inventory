@@ -60,7 +60,7 @@ describe("schedule", () => {
     ]);
   });
 
-  // The other OSS tracker's formula, floor((epoch_s + 14400) / 3600) mod 7, phrased differently
+  // The other tracker: floor((epoch_s + 14400) / 3600) mod 7
   it("agrees with the independent tracker for a week", () => {
     for (let hour = 0; hour < 168; hour += 1) {
       const now = VERIFIED + hour * HOUR;

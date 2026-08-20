@@ -84,7 +84,7 @@ export const Inventory = (props: Props) => {
   const occupied = (bucket: InventoryBucket) =>
     shown().some((store) => byStore().get(store.id)?.has(bucket.hash));
 
-  // Quests and Orders carry no sort, so they belong to no category
+  // Quests and Orders carry no sort
   const uncategorized = createMemo(() => {
     const known = new Set(
       CATEGORIES.flatMap(

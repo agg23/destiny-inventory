@@ -16,7 +16,7 @@ const engram = () =>
     bucket: { hash: 375726501, inPostmaster: true },
   }) as unknown as DimItem;
 
-// A distorted engram: the shipped defs carry neither isEngram nor a Postmaster sort
+// Shipped defs carry neither isEngram nor a Postmaster sort
 const distorted = () =>
   ({
     itemCategoryHashes: [],
@@ -38,7 +38,6 @@ describe("comparable", () => {
     expect(comparable(item([WEAPON]), item([ARMOR]))).toBe(false);
   });
 
-  // An item sitting in the postmaster still sorts as Postmaster, so the bucket cannot say
   it("pairs a postmaster weapon with an equipped one", () => {
     expect(
       comparable(item([WEAPON], 215593132), item([WEAPON], 1498876634)),
@@ -50,7 +49,6 @@ describe("comparable", () => {
     expect(comparable(item([], 5), item([], 6))).toBe(false);
   });
 
-  // Two engrams share a bucket, which would pair them despite having nothing to compare
   it("refuses engrams even against each other", () => {
     expect(comparable(engram(), engram())).toBe(false);
     expect(comparable(engram(), item([WEAPON]))).toBe(false);

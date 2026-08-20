@@ -86,10 +86,8 @@ export type CharacterActivities = Record<
   DestinyCharacterActivitiesComponent
 >;
 
-// The numbers Bungie leaves out of its own strings, per character
 export type StringVariables = Record<string, Record<number, number>>;
 
-// The character's own copy wins where it disagrees with the profile's
 const stringVariables = (profile: DestinyProfileResponse): StringVariables => {
   const shared =
     profile.profileStringVariables?.data?.integerValuesByHash ?? {};
@@ -140,7 +138,7 @@ const fetchSupport = async (index: ArtifactIndex) => {
   return tables;
 };
 
-// Tier 1 and tier 2 are separate stores, so a def is whole only once both are merged
+// Tier 1 and tier 2 are separate stores
 const readMerged = async (
   store: DefStore,
   hashes: number[],
@@ -182,13 +180,13 @@ const cachedMembership = async (token: string): Promise<Membership> => {
   return membership;
 };
 
-// Bungie serves a cached profile, and this is the only field that says which response is newer
+// Only field that says which response is newer
 const mintedAt = (profile: DestinyProfileResponse): number =>
   new Date(profile.responseMintedTimestamp ?? 0).getTime();
 
 const LIVE_WINDOW = 10 * 60_000;
 
-// currentActivityHash covers orbit and the tower too, but sits stale after a logout
+// currentActivityHash sits stale after a logout
 const playingNow = (profile: DestinyProfileResponse): string | undefined => {
   const characters = profile.characters?.data ?? {};
   const now = Date.now();
@@ -216,7 +214,7 @@ const profileItems = (profile: DestinyProfileResponse) => [
   ),
 ];
 
-// Crafted and enhanced perks sit outside the socket's own plug set, so the graph misses them
+// Crafted and enhanced perks sit outside the plug set
 const liveReferences = (profile: DestinyProfileResponse): number[] => {
   const hashes: number[] = [];
 
@@ -256,7 +254,6 @@ const liveReferences = (profile: DestinyProfileResponse): number[] => {
   return hashes;
 };
 
-// Everything a rebuild needs except the profile itself, so a refresh does not redo the work
 export interface Session {
   store: DefStore;
   index: ArtifactIndex;
@@ -283,7 +280,6 @@ export const load = async (
   const index = config.artifacts;
   const indexTime = performance.now() - indexStart;
 
-  // A version marker alone can outlive its data, so an empty store counts as stale too
   const stored = await store.manifestVersion();
   const fresh =
     stored !== index.manifestVersion || (await store.count(CORE)) === 0;
@@ -406,7 +402,7 @@ interface Populate {
   started: number;
 }
 
-// Runs after first paint; the version marker lands last so a half-written store never looks current
+// The version marker lands last
 const populate = async ({
   store,
   index,
@@ -440,7 +436,6 @@ const populate = async ({
   const built = buildStoresFrom(support, items, plugSets, profile, hidden);
   const itemsTime = performance.now() - itemsStart;
 
-  // Tier 2 rebuilds every store, so the engine has to be pointed at the new objects
   await seedInventory(built.stores, membership);
 
   first.session.plugSets = plugSets;
@@ -507,7 +502,6 @@ const materializeNew = async (
   Object.assign(session.plugSets, closure.plugSets);
 };
 
-// The grid follows through the move engine's subscription rather than a return value
 export const refreshProfile = async (
   session: Session,
 ): Promise<RefreshOutcome> => {
@@ -519,7 +513,6 @@ export const refreshProfile = async (
 
   const config = await loadConfig();
 
-  // Definitions would be wrong for the new manifest, so the caller has to start over
   if (config.artifacts.manifestVersion !== session.index.manifestVersion) {
     return {
       status: "manifest-changed",
@@ -533,7 +526,7 @@ export const refreshProfile = async (
   const profile = await fetchProfile(session.membership, token);
   const minted = mintedAt(profile);
 
-  // Bungie's cache can hand back stale data, and rebuilding on it would undo known moves
+  // Bungie's cache can hand back stale data
   if (minted <= session.minted) {
     return {
       status: "unchanged",

@@ -30,7 +30,9 @@ export const Arrivals = (props: Props) => (
     <Show
       when={props.items.length > 0}
       fallback={
-        <p class="text-muted">Nothing new. Everything here has been marked seen.</p>
+        <p class="text-muted">
+          Nothing new. Everything here has been marked seen.
+        </p>
       }
     >
       <ul class="menu-list">

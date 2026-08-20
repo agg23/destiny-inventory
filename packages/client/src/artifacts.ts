@@ -1,6 +1,5 @@
 import type { ArtifactIndex } from "./config.ts";
 
-// Static assets, so the platform picks the content encoding rather than us
 const BASE = "/artifacts";
 
 const fetchChunk = async <T>(file: string): Promise<T> => {
@@ -26,7 +25,7 @@ const filesFor = (index: ArtifactIndex, name: string): string[] => {
 export const hasArtifact = (index: ArtifactIndex, name: string): boolean =>
   Boolean(index.files[name]?.length);
 
-// Large tables ship sharded, since a single static asset is size capped
+// A single static asset is size capped
 export const fetchRecords = async <T>(
   index: ArtifactIndex,
   name: string,

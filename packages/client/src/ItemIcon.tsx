@@ -11,8 +11,7 @@ interface Props {
   onLeave: (item: DimItem) => void;
 }
 
-// The framework's own power slot hangs below the tile, which a grid of them has no room for,
-// so power rides in the stack-size badge instead: one number, bottom right, either way
+// The framework's power slot hangs below the tile
 const corner = (item: DimItem): number | undefined => {
   if (item.power > 0) {
     return item.power;

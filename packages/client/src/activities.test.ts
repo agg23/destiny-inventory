@@ -13,7 +13,6 @@ import {
   type Realm,
 } from "./activities.ts";
 
-// Every assertion here is about one Portal section, so the realms are flattened away
 const flat = (realms: Realm[]): Category[] =>
   realms.flatMap((realm) => realm.categories);
 
@@ -55,7 +54,6 @@ const tables: ActivityTables = {
     11: definition({ hash: 11, name: "Control", activityTypeHash: 101 }),
     12: definition({ hash: 12, name: "Warlord's Ruin" }),
     13: definition({ hash: 13, name: "" }),
-    // The two doors into one activity: the game builds you a fireteam, or it does not
     20: definition({
       hash: 20,
       name: "The Coil: Matchmade",
@@ -107,11 +105,9 @@ const tables: ActivityTables = {
     600: { hash: 600, name: "Raid Gear", icon: undefined },
     601: { hash: 601, name: "Deepsight Weapon", icon: undefined },
     602: { hash: 602, name: "", icon: undefined },
-    // What the game calls the bonus focus: one named piece, not a generic promise
     603: { hash: 603, name: "Eutechnology Cover", icon: "/cover.png" },
   },
   sets: {
-    // Points at a child rather than the root, so the walk upward is what names the section
     50: {
       hash: 50,
       activityHashes: [10, 20, 21, 30, 31, 32],
@@ -213,8 +209,7 @@ describe("categorize", () => {
     ).toEqual([]);
   });
 
-  // Story ships under three type hashes, and "Excision: Grandmaster" carries the third with no
-  // mode at all, which is how it kept turning up under World
+  // "Excision: Grandmaster" ships with no mode
   it("drops every activity type Bungie files as Story", () => {
     const story = (hash: number) => ({
       ...tables,
@@ -229,7 +224,7 @@ describe("categorize", () => {
     }
   });
 
-  // The Portal files the director's standalone strikes under World, beside patrol zones
+  // The Portal files standalone strikes under World
   it("lifts a strike out of World into its own section", () => {
     const world: ActivityTables = {
       ...tables,
@@ -261,7 +256,6 @@ describe("categorize", () => {
   });
 });
 
-// The director splits the game before the Portal does, and the tabs follow the director
 describe("realms", () => {
   it("keeps the director's order rather than sorting on rewards", () => {
     const realms = categorize(
@@ -314,7 +308,7 @@ describe("realms", () => {
   });
 });
 
-// Two activities quoting the same unlock hashes are one reward reached two ways
+// Same unlock hashes means one reward, two doors
 describe("folding variants onto a shared drop flag", () => {
   const coil = () => [
     entry({
@@ -376,8 +370,7 @@ describe("folding variants onto a shared drop flag", () => {
     ]).toEqual([330, 350]);
   });
 
-  // Bungie's isCompleted survives the weekly reset and reports campaigns you finished years
-  // ago, so a row that still owes bonus drops must not read as spent
+  // Bungie's isCompleted survives the weekly reset
   it("ignores the completion flag, which does not track the week", () => {
     const [one, two] = coil();
     const [category] = sections([{ ...one!, isCompleted: true }, two!], tables);
@@ -416,8 +409,7 @@ describe("folding variants onto a shared drop flag", () => {
     expect(category?.entries).toHaveLength(2);
   });
 
-  // The Portal lists a strike once from the playlist and once from the director. The second
-  // carries no rewards and no flag, so it joins the row rather than doubling it
+  // The Portal lists a strike twice, playlist and director
   it("folds a reward-less duplicate of the same activity into one row", () => {
     const [category] = sections(
       [
@@ -454,7 +446,7 @@ describe("folding variants onto a shared drop flag", () => {
   });
 });
 
-// Raids and dungeons ship their loot with no uiStyle, and the quantity is the live part
+// Raids and dungeons ship loot with no uiStyle
 describe("loot the week still owes", () => {
   const loot = (quantity: number, hash = 600) => [
     {
@@ -603,7 +595,7 @@ describe("the campaign", () => {
       },
     };
 
-    // 230724421 is the Portal's Campaign root, and a set pointing straight at it is dropped
+    // 230724421 is the Portal's Campaign root
     const dropped: ActivityTables = {
       ...story,
       nodes: {
@@ -632,8 +624,7 @@ describe("the campaign", () => {
   });
 });
 
-// Checked against what the game prints: The Coil reads "3 bonus drops. Bonus focus
-// Eutechnology Cover", and The Whisper reads "Bonus focus, The Hothead"
+// Checked against what the game prints
 describe("the game's own vocabulary", () => {
   it("counts bonus drops rather than engrams", () => {
     const [category] = sections(
@@ -688,9 +679,7 @@ describe("the game's own vocabulary", () => {
   });
 });
 
-// The count is what is left, not a cap. Adam ran Quickplay: Master the night of 2026-08-18 and
-// it read 1 the next morning while its untouched siblings read 3. The threshold in the unlock
-// expression tracks it down, which is why the two always agree
+// Observed 2026-08-18: Quickplay: Master read 1
 describe("what the bonus count actually means", () => {
   it("reports what is left, which the expression threshold agrees with", () => {
     const capped = [
@@ -720,8 +709,7 @@ describe("what the bonus count actually means", () => {
   });
 });
 
-// Bungie empties visibleRewards when you spend an activity: Derealize held two bonus drops and
-// exotic gear on 2026-08-18, and returned an empty payload once Adam had run it
+// Bungie empties visibleRewards when you spend
 describe("remembering what a spent week held", () => {
   const memory = { flag: "7000", bonusDrops: 3, focus: undefined, bonus: [] };
 
@@ -791,7 +779,6 @@ describe("remembering what a spent week held", () => {
     expect(category?.entries[0]?.spentFocus).toBeUndefined();
   });
 
-  // The flag goes with the rewards, so without the remembered one the two doors split apart
   it("holds a folded row together after its flag has gone", () => {
     const [category] = sections(
       [
