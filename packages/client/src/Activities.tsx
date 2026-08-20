@@ -4,6 +4,7 @@ import {
   createResource,
   createSignal,
   For,
+  onCleanup,
   Show,
 } from "solid-js";
 
@@ -25,6 +26,8 @@ import {
 } from "./activities.ts";
 import { activityTables } from "./activityTables.ts";
 import { fetchBaseline } from "./baseline.ts";
+import { defs } from "./defs.ts";
+import { clock, HOUR, schedule, type Rotation } from "./distortion.ts";
 import type { CharacterActivities, StringVariables } from "./load.ts";
 import { BUNGIE } from "./ItemPanel.tsx";
 
@@ -132,6 +135,64 @@ const Challenges = (props: { challenges: Challenge[] }) => (
       )}
     </For>
   </ul>
+);
+
+const when = (start: number): string =>
+  new Date(start).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+const Bonus = (props: { pieces: number; perk: number; values: Values }) => (
+  <Show when={defs()?.SandboxPerk.getOptional(props.perk)}>
+    {(perk) => (
+      <div class="bonus">
+        <div class="bonus-head">
+          <span class="bonus-name">{perk().displayProperties.name}</span>
+          <span class="bonus-pieces">{props.pieces} pc</span>
+        </div>
+        <div class="bonus-text">
+          {readable(perk().displayProperties.description, props.values)}
+        </div>
+      </div>
+    )}
+  </Show>
+);
+
+interface ZoneProps {
+  turn: Rotation;
+  active: boolean;
+  now: number;
+  values: Values;
+}
+
+const ZoneCard = (props: ZoneProps) => (
+  <li class="zone" classList={{ active: props.active }}>
+    <div class="zone-top">
+      <span class="zone-name">{props.turn.name}</span>
+      <span class="zone-when">
+        {props.active
+          ? `Now · ${clock(props.turn.start + HOUR - props.now)} left`
+          : when(props.turn.start)}
+      </span>
+    </div>
+    <Show when={defs()?.EquipableItemSet.getOptional(props.turn.set)}>
+      {(set) => (
+        <div class="zone-body">
+          <p class="zone-set">{set().displayProperties.name}</p>
+          <For each={set().setPerks}>
+            {(perk) => (
+              <Bonus
+                pieces={perk.requiredSetCount}
+                perk={perk.sandboxPerkHash}
+                values={props.values}
+              />
+            )}
+          </For>
+        </div>
+      )}
+    </Show>
+  </li>
 );
 
 const GAP = 8;
@@ -331,11 +392,25 @@ interface Tab extends Category {
   realm: string;
 }
 
+// A picked() value no Portal section can collide with
+const DISTORTION = "distortion-schedule";
+
 export const Activities = (props: Props) => {
   const [tables] = createResource(activityTables);
   const [picked, setPicked] = createSignal<string | undefined>(undefined);
   const [showRest, setShowRest] = createSignal(false);
   const [hovered, setHovered] = createSignal<Hovered | undefined>(undefined);
+
+  const onZones = () => picked() === DISTORTION;
+
+  const [now, setNow] = createSignal(Date.now());
+  const ticker = window.setInterval(() => setNow(Date.now()), 1000);
+
+  onCleanup(() => window.clearInterval(ticker));
+
+  // Keyed to the hour so the tick redraws one countdown, not seven cards
+  const hour = createMemo(() => Math.floor(now() / HOUR));
+  const turns = createMemo(() => schedule(hour() * HOUR));
 
   let hoverTimer: number | undefined = undefined;
 
@@ -444,7 +519,7 @@ export const Activities = (props: Props) => {
                     <button
                       type="button"
                       class="section-tab"
-                      aria-pressed={tab.name === current().name}
+                      aria-pressed={!onZones() && tab.name === current().name}
                       onClick={() => setPicked(tab.name)}
                     >
                       {tab.name}
@@ -460,58 +535,47 @@ export const Activities = (props: Props) => {
                   </>
                 )}
               </For>
+              <span class="sections-split" />
+              <button
+                type="button"
+                class="section-tab"
+                aria-pressed={onZones()}
+                onClick={() => setPicked(DISTORTION)}
+              >
+                Distortion · {turns()[0]?.short ?? turns()[0]?.name}
+                <span class="section-drops tab-clock">
+                  {clock((turns()[0]?.start ?? now()) + HOUR - now())}
+                </span>
+              </button>
             </nav>
-            <p class="sections-note">
-              {current().realm} · {current().entries.length} activities
-            </p>
-            {/* What the week is pushing, which is the reason to open the tab at all */}
-            <Show when={current().entries.filter((one) => one.focused)}>
-              {(picks) => (
-                <Show when={picks().length > 0}>
-                  <p class="label">Featured</p>
-                  <ul class="runs picks">
-                    <For each={picks()}>
-                      {(entry) => (
-                        <Row
-                          entry={entry}
-                          glyph={glyph()}
-                          onHover={onHover}
-                          onLeave={onLeave}
-                        />
-                      )}
-                    </For>
-                  </ul>
-                </Show>
-              )}
+            <Show when={onZones()}>
+              <p class="sections-note">
+                Hourly rotation · every zone once in seven hours
+              </p>
+              <ul class="zones">
+                <For each={turns()}>
+                  {(turn, index) => (
+                    <ZoneCard
+                      turn={turn}
+                      active={index() === 0}
+                      now={now()}
+                      values={values()}
+                    />
+                  )}
+                </For>
+              </ul>
             </Show>
-            <ul class="runs">
-              <For each={current().entries.filter(listed)}>
-                {(entry) => (
-                  <Row
-                    entry={entry}
-                    glyph={glyph()}
-                    onHover={onHover}
-                    onLeave={onLeave}
-                  />
-                )}
-              </For>
-            </ul>
-            {/* The rest are still here, just not competing with what the week owes you */}
-            <Show when={current().entries.filter(quiet)}>
-              {(rest) => (
-                <Show when={rest().length > 0}>
-                  <button
-                    type="button"
-                    class="more"
-                    aria-pressed={showRest()}
-                    onClick={() => setShowRest(!showRest())}
-                  >
-                    {showRest() ? "Hide" : "Show"} {rest().length} with nothing
-                    left this week
-                  </button>
-                  <Show when={showRest()}>
-                    <ul class="runs">
-                      <For each={rest()}>
+            <Show when={!onZones()}>
+              <p class="sections-note">
+                {current().realm} · {current().entries.length} activities
+              </p>
+              {/* What the week is pushing, which is the reason to open the tab at all */}
+              <Show when={current().entries.filter((one) => one.focused)}>
+                {(picks) => (
+                  <Show when={picks().length > 0}>
+                    <p class="label">Featured</p>
+                    <ul class="runs picks">
+                      <For each={picks()}>
                         {(entry) => (
                           <Row
                             entry={entry}
@@ -523,8 +587,50 @@ export const Activities = (props: Props) => {
                       </For>
                     </ul>
                   </Show>
-                </Show>
-              )}
+                )}
+              </Show>
+              <ul class="runs">
+                <For each={current().entries.filter(listed)}>
+                  {(entry) => (
+                    <Row
+                      entry={entry}
+                      glyph={glyph()}
+                      onHover={onHover}
+                      onLeave={onLeave}
+                    />
+                  )}
+                </For>
+              </ul>
+              {/* The rest are still here, just not competing with what the week owes you */}
+              <Show when={current().entries.filter(quiet)}>
+                {(rest) => (
+                  <Show when={rest().length > 0}>
+                    <button
+                      type="button"
+                      class="more"
+                      aria-pressed={showRest()}
+                      onClick={() => setShowRest(!showRest())}
+                    >
+                      {showRest() ? "Hide" : "Show"} {rest().length} with
+                      nothing left this week
+                    </button>
+                    <Show when={showRest()}>
+                      <ul class="runs">
+                        <For each={rest()}>
+                          {(entry) => (
+                            <Row
+                              entry={entry}
+                              glyph={glyph()}
+                              onHover={onHover}
+                              onLeave={onLeave}
+                            />
+                          )}
+                        </For>
+                      </ul>
+                    </Show>
+                  </Show>
+                )}
+              </Show>
             </Show>
           </>
         )}

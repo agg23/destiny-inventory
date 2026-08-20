@@ -816,6 +816,97 @@
     letter-spacing: var(--track-base);
   }
 
+  /* Tabular digits so the countdown does not wobble the tab once a second */
+  .tab-clock {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .zones {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--space-5);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .zone {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  .zone.active {
+    border-color: color-mix(in srgb, var(--light) 60%, transparent);
+  }
+
+  .zone-top {
+    display: flex;
+    gap: var(--space-5);
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+    padding: var(--space-5) var(--space-6);
+  }
+
+  .zone-name {
+    color: var(--fg);
+    font-size: var(--text-lg);
+    font-weight: var(--weight-label);
+  }
+
+  .zone-when {
+    color: var(--dim);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .zone.active .zone-when {
+    color: var(--light);
+  }
+
+  .zone-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    padding: var(--space-5) var(--space-6) var(--space-6);
+  }
+
+  .zone-set {
+    margin: 0;
+    color: var(--muted);
+  }
+
+  .bonus {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .bonus-head {
+    display: flex;
+    gap: var(--space-4);
+    align-items: baseline;
+  }
+
+  .bonus-name {
+    font-weight: var(--weight-label);
+  }
+
+  .bonus-pieces {
+    color: var(--dim);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: var(--track-caps);
+  }
+
+  /* Bungie's perk text carries paragraph breaks worth keeping */
+  .bonus-text {
+    color: var(--dim);
+    white-space: pre-line;
+  }
+
   /* One strip of sections rather than eleven headings down the page. The rules mark where the
    director's own grouping changes */
   .sections {
