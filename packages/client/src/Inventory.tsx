@@ -61,9 +61,9 @@ export const Inventory = (props: Props) => {
 
       for (const item of store.items) {
         if (props.matches(item)) {
-          const bucket = buckets.get(item.bucket.hash) ?? [];
+          const bucket = buckets.get(item.location.hash) ?? [];
           bucket.push(item);
-          buckets.set(item.bucket.hash, bucket);
+          buckets.set(item.location.hash, bucket);
         }
       }
 
@@ -108,8 +108,8 @@ export const Inventory = (props: Props) => {
 
     for (const store of props.stores) {
       for (const item of store.items) {
-        if (!known.has(item.bucket.hash)) {
-          found.set(item.bucket.hash, item.bucket);
+        if (!known.has(item.location.hash)) {
+          found.set(item.location.hash, item.location);
         }
       }
     }
