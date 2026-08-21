@@ -107,6 +107,8 @@
   }
 
   .store-head {
+    /* Emblem art is 474x96 */
+    aspect-ratio: 474 / 96;
     background-image: linear-gradient(
         to right,
         rgb(0 0 0 / 80%) 0%,
@@ -119,6 +121,18 @@
     background-size: cover;
     cursor: pointer;
     text-shadow: 0 1px 2px #000;
+  }
+
+  .emblem-head {
+    background-image: var(--art, none);
+    padding: 0 var(--space-2) 0 0;
+  }
+
+  /* The left square of the emblem is its own icon, so leave it uncovered */
+  .emblem-head::before {
+    content: "";
+    align-self: stretch;
+    aspect-ratio: 1;
   }
 
   /* Framework's hover tint assumes a background image */

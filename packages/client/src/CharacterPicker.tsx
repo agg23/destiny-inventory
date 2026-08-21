@@ -9,7 +9,7 @@ interface Props {
 }
 
 const BANNER =
-  "card selectable store-head flex items-center gap-2 p-2 text-left";
+  "card selectable store-head emblem-head flex items-center gap-2 text-left";
 
 export const StoreBanner = (props: {
   icon: string;
@@ -26,11 +26,12 @@ export const StoreBanner = (props: {
 );
 
 const Banner = (props: { store: DimStore }) => (
-  <StoreBanner
-    icon={props.store.icon}
-    title={props.store.className}
-    note={`${props.store.genderRace} · ${props.store.powerLevel}`}
-  />
+  <div class="min-w-0">
+    <div class="header general truncate">{props.store.className}</div>
+    <div class="truncate text-sm text-fg/75">
+      {props.store.genderRace} · {props.store.powerLevel}
+    </div>
+  </div>
 );
 
 export const CharacterPicker = (props: Props) => (
