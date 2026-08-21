@@ -61,7 +61,8 @@ export interface AppState {
   syncing: () => boolean;
   syncError: () => string | undefined;
   timings: () => ReturnType<typeof timingsByHash>;
-  onPin: (item: DimItem) => void;
+  onPin: (item: DimItem, additive?: boolean) => void;
+  onUnpin: (item: DimItem) => void;
   onMove: (item: DimItem, target: DimStore, equip: boolean) => void;
   onCharacter: (store: DimStore) => void;
 }
@@ -317,9 +318,17 @@ export const App = (props: { children?: JSX.Element }) => {
   const awaitingPins = () =>
     url.get("pin").length > 0 && pinned().length === 0 && !current();
 
-  const pin = (item: DimItem) => {
+  const pin = (item: DimItem, additive = false) => {
     const was = pinned();
     const ids = was.map((one) => one.id);
+
+    if (!additive) {
+      url.push({
+        pin: ids.length === 1 && ids[0] === item.id ? [] : [item.id],
+      });
+
+      return;
+    }
 
     if (ids.includes(item.id)) {
       url.push({ pin: ids.filter((id) => id !== item.id) });
@@ -336,6 +345,10 @@ export const App = (props: { children?: JSX.Element }) => {
     }
 
     url.push({ pin: [...ids.slice(0, PINS - 1), item.id].slice(-PINS) });
+  };
+
+  const unpin = (item: DimItem) => {
+    url.push({ pin: url.get("pin").filter((id) => id !== item.id) });
   };
 
   const unpinAll = () => {
@@ -428,6 +441,7 @@ export const App = (props: { children?: JSX.Element }) => {
     syncError,
     timings,
     onPin: pin,
+    onUnpin: unpin,
     onMove,
     onCharacter: (store) => url.push({ character: store.id }),
   };

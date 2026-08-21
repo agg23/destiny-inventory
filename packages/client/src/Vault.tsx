@@ -46,7 +46,7 @@ export const Vault = () => {
             active={app.active()}
             onMove={app.onMove}
             onPrefer={app.onCharacter}
-            onUnpin={app.onPin}
+            onUnpin={app.onUnpin}
             moving={app.moving()}
             moveError={app.moveError()}
           />

@@ -8,7 +8,7 @@ const BUNGIE = "https://www.bungie.net";
 interface Props {
   item: DimItem;
   selected: boolean;
-  onSelect: (item: DimItem) => void;
+  onSelect: (item: DimItem, additive: boolean) => void;
 }
 
 // The framework's power slot hangs below the tile
@@ -29,7 +29,7 @@ export const ItemIcon = (props: Props) => (
       selected: props.selected,
       [props.item.rarity.toLowerCase()]: true,
     }}
-    onClick={() => props.onSelect(props.item)}
+    onClick={(e) => props.onSelect(props.item, e.shiftKey)}
     onMouseEnter={(e) =>
       preview(props.item, e.currentTarget.getBoundingClientRect())
     }

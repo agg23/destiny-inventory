@@ -15,7 +15,7 @@ interface Props {
   stores: DimStore[];
   buckets: InventoryBuckets;
   matches: (item: DimItem) => boolean;
-  onSelect: (item: DimItem) => void;
+  onSelect: (item: DimItem, additive: boolean) => void;
   pinned: DimItem[];
   active: DimStore | undefined;
   onSelectStore: (store: DimStore) => void;
