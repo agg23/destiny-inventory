@@ -57,6 +57,11 @@ export const Moves = (props: MoveProps) => {
 
   const canTransfer = () => !props.item.notransfer;
 
+  const inPostmaster = () => props.item.location.hash === LOST_ITEMS;
+
+  const owner = () =>
+    props.stores.find((store) => store.id === props.item.owner);
+
   const noRoom = (target: DimStore): string | undefined => {
     const item = props.item;
     const space = potentialSpaceLeftForItem(target, item, props.stores);
@@ -82,22 +87,28 @@ export const Moves = (props: MoveProps) => {
     return space.couldMakeSpace ? undefined : `No room in ${label(target)}`;
   };
 
-  const blocked = (target: DimStore): string | undefined => {
-    const item = props.item;
-
-    if (unmovable(item)) {
+  const pullBlocked = (): string | undefined => {
+    if (unmovable(props.item)) {
       return "Cannot be pulled from the Postmaster";
     }
 
-    if (item.location.hash === LOST_ITEMS) {
-      if (!item.canPullFromPostmaster) {
-        return "Cannot be pulled from the Postmaster";
-      }
+    if (inPostmaster() && !props.item.canPullFromPostmaster) {
+      return "Cannot be pulled from the Postmaster";
+    }
 
-      // A pull lands on the owning character
-      const owner = props.stores.find((store) => store.id === item.owner);
+    return undefined;
+  };
 
-      return owner ? noRoom(owner) : undefined;
+  const blocked = (target: DimStore): string | undefined => {
+    const item = props.item;
+    const pull = pullBlocked();
+
+    if (pull) {
+      return pull;
+    }
+
+    if (inPostmaster()) {
+      return noRoom(target);
     }
 
     if (item.notransfer) {
@@ -107,15 +118,42 @@ export const Moves = (props: MoveProps) => {
     return noRoom(target);
   };
 
-  const holders = () =>
-    props.stores.filter(
+  const holders = () => {
+    const compatible = props.stores.filter(
       (store) =>
         store.isVault ||
         isClassCompatible(props.item.classType, store.classType),
     );
 
+    if (!inPostmaster()) {
+      return compatible;
+    }
+
+    return compatible.filter(
+      (store) => store.isVault || store.id === props.active?.id,
+    );
+  };
+
+  const transferTargets = () => {
+    const elsewhere = holders().filter(
+      (store) => store.id !== props.item.owner && canTransfer(),
+    );
+    const home = owner();
+
+    // A pull lands on the owning character, transferable or not
+    if (inPostmaster() && home && home.id === props.active?.id) {
+      return [home, ...elsewhere];
+    }
+
+    return elsewhere;
+  };
+
   const transferTo = () => {
-    const home = props.stores.find((store) => store.id === props.item.owner);
+    const home = owner();
+
+    if (inPostmaster()) {
+      return transferTargets()[0];
+    }
 
     if (!home?.isVault) {
       return vault();
@@ -133,12 +171,19 @@ export const Moves = (props: MoveProps) => {
     return characters[0];
   };
 
-  const equippable = () =>
-    characters().filter(
+  const equippable = () => {
+    const targets = characters().filter(
       (store) =>
-        itemCanBeEquippedBy(props.item, store) &&
+        itemCanBeEquippedBy(props.item, store, true) &&
         !(props.item.equipped && props.item.owner === store.id),
     );
+
+    if (!inPostmaster()) {
+      return targets;
+    }
+
+    return targets.filter((store) => store.id === props.active?.id);
+  };
 
   const equipOn = () => {
     const targets = equippable();
@@ -165,12 +210,9 @@ export const Moves = (props: MoveProps) => {
     targets.map((store) => ({
       id: store.id,
       label: label(store),
-      reason: equip ? undefined : blocked(store),
+      reason: equip ? pullBlocked() : blocked(store),
       onChoose: () => act(store, equip, true),
     }));
-
-  const transferTargets = () =>
-    holders().filter((store) => store.id !== props.item.owner && canTransfer());
 
   return (
     <div class="flex flex-col items-stretch gap-1.5">
@@ -195,7 +237,8 @@ export const Moves = (props: MoveProps) => {
             block
             size="xs"
             label={props.compact ? "Equip" : `Equip on ${label(target())}`}
-            disabled={!!props.moving}
+            disabled={!!props.moving || !!pullBlocked()}
+            title={pullBlocked()}
             onPrimary={() => act(target(), true, false)}
             choices={choices(equippable(), true)}
           />
