@@ -1,5 +1,5 @@
 import type { DimItem } from "app/inventory/item-types";
-import { createEffect, createMemo, createSignal } from "solid-js";
+import { createEffect, createMemo, createSignal, Show } from "solid-js";
 
 import {
   Archetype,
@@ -32,6 +32,9 @@ export const HoverCard = (props: Props) => {
     setHeight(card?.offsetHeight ?? 0);
   });
 
+  // An uninstanced item carries no roll
+  const uninstanced = () => props.item.id === "0";
+
   const position = createMemo(() => {
     const room = window.innerWidth - props.anchor.right;
     const left =
@@ -56,13 +59,24 @@ export const HoverCard = (props: Props) => {
       style={position()}
     >
       <ItemHead item={props.item} />
+      <Show when={uninstanced()}>
+        <div class="tooltip-body">
+          <p class="m-0 text-sm text-warning">
+            <b class="tracking-wide uppercase">Generic roll</b>
+            <span class="block">
+              Stats and perks come from the definition. The weapon that was used
+              may have rolled differently.
+            </span>
+          </p>
+        </div>
+      </Show>
       <div class="tooltip-body">
         <ItemPower item={props.item} />
         <Archetype item={props.item} />
         <Stats item={props.item} against={props.against} />
       </div>
       <div class="tooltip-body">
-        <Perks item={props.item} />
+        <Perks item={props.item} onlyPlugged={uninstanced()} />
         <SetBonus item={props.item} />
       </div>
     </aside>

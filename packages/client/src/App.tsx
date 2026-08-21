@@ -22,6 +22,7 @@ import { accessToken, beginLogin, signedIn, signOut } from "./auth.ts";
 import { fetchCarnageReport } from "./bungie.ts";
 import { acquired } from "./arrivals.ts";
 import { comparable } from "./compare.ts";
+import { HoverCard } from "./HoverCard.tsx";
 import {
   storedRuns,
   syncHistory,
@@ -32,6 +33,7 @@ import {
 import { load, NotSignedIn, refreshProfile, type LoadResult } from "./load.ts";
 import { moveItem, subscribeStores } from "./moves.ts";
 import { plugIcons, warmIcons } from "./preload.ts";
+import { previewed } from "./preview.ts";
 import { startAutoRefresh } from "./refresh.ts";
 import { useUrl } from "./router.ts";
 import { tabHref, TABS, type Tab } from "./url.ts";
@@ -378,6 +380,17 @@ export const App = (props: { children?: JSX.Element }) => {
     }),
   );
 
+  const against = () => {
+    const [reference] = pinned();
+    const item = previewed()?.item;
+
+    if (!reference || !item || reference.id === item.id) {
+      return undefined;
+    }
+
+    return comparable(reference, item) ? reference : undefined;
+  };
+
   const onMove = (item: DimItem, target: DimStore, equip: boolean) => {
     setMoveError(undefined);
     setMoving(`${equip ? "Equipping" : "Moving"} ${item.name}`);
@@ -542,6 +555,16 @@ export const App = (props: { children?: JSX.Element }) => {
             {props.children}
           </AppContext.Provider>
         </div>
+
+        <Show when={previewed()}>
+          {(card) => (
+            <HoverCard
+              item={card().item}
+              against={against()}
+              anchor={card().anchor}
+            />
+          )}
+        </Show>
       </Show>
     </main>
   );

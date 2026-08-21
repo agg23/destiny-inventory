@@ -16,8 +16,6 @@ interface Props {
   buckets: InventoryBuckets;
   matches: (item: DimItem) => boolean;
   onSelect: (item: DimItem) => void;
-  onHover: (item: DimItem, anchor: DOMRect) => void;
-  onLeave: (item: DimItem) => void;
   pinned: DimItem[];
   active: DimStore | undefined;
   onSelectStore: (store: DimStore) => void;
@@ -158,8 +156,6 @@ export const Inventory = (props: Props) => {
                                 (pin) => pin.id === item.id,
                               )}
                               onSelect={props.onSelect}
-                              onHover={props.onHover}
-                              onLeave={props.onLeave}
                             />
                           )}
                         </For>

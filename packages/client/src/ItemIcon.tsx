@@ -1,14 +1,14 @@
 import type { DimItem } from "app/inventory/item-types";
 import { Show } from "solid-js";
 
+import { dismiss, preview } from "./preview.ts";
+
 const BUNGIE = "https://www.bungie.net";
 
 interface Props {
   item: DimItem;
   selected: boolean;
   onSelect: (item: DimItem) => void;
-  onHover: (item: DimItem, anchor: DOMRect) => void;
-  onLeave: (item: DimItem) => void;
 }
 
 // The framework's power slot hangs below the tile
@@ -31,9 +31,9 @@ export const ItemIcon = (props: Props) => (
     }}
     onClick={() => props.onSelect(props.item)}
     onMouseEnter={(e) =>
-      props.onHover(props.item, e.currentTarget.getBoundingClientRect())
+      preview(props.item, e.currentTarget.getBoundingClientRect())
     }
-    onMouseLeave={() => props.onLeave(props.item)}
+    onMouseLeave={() => dismiss(props.item)}
   >
     <img
       src={`${BUNGIE}${props.item.icon}`}

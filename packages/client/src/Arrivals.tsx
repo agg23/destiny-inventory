@@ -4,6 +4,7 @@ import { For, Show } from "solid-js";
 
 import { powerDelta } from "./arrivals.ts";
 import { BUNGIE, typeName } from "./ItemPanel.tsx";
+import { dismiss, preview } from "./preview.ts";
 
 interface Props {
   items: DimItem[];
@@ -43,6 +44,10 @@ export const Arrivals = (props: Props) => (
                 type="button"
                 class="menu-item w-full text-left"
                 onClick={() => props.onSelect(item)}
+                onMouseEnter={(event) =>
+                  preview(item, event.currentTarget.getBoundingClientRect())
+                }
+                onMouseLeave={() => dismiss(item)}
               >
                 <span class={`item-tile small ${item.rarity.toLowerCase()}`}>
                   <img src={`${BUNGIE}${item.icon}`} loading="lazy" alt="" />

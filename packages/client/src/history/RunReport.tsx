@@ -1,3 +1,4 @@
+import type { DimItem } from "app/inventory/item-types";
 import type {
   DestinyPostGameCarnageReportData,
   DestinyPostGameCarnageReportEntry,
@@ -5,12 +6,15 @@ import type {
 import { createResource, createSignal, For, Show } from "solid-js";
 
 import type { ActivityTables } from "../activities.ts";
+import { useApp } from "../App.tsx";
 import { accessToken } from "../auth.ts";
 import { fetchCarnageReport } from "../bungie.ts";
 import { defs } from "../defs.ts";
+import { fakeItems } from "../fakeItems.ts";
 import { duration } from "../history.ts";
 import { BUNGIE } from "../ItemPanel.tsx";
 import type { Session } from "../load.ts";
+import { cursorAnchor, dismiss, preview } from "../preview.ts";
 import { REPORTS } from "../store.ts";
 
 interface StoredReport {
@@ -63,13 +67,50 @@ const nameOf = (entry: DestinyPostGameCarnageReportEntry): string =>
   entry.player.destinyUserInfo.bungieGlobalDisplayName ||
   entry.player.destinyUserInfo.displayName;
 
+// A report names a weapon by hash alone
+const WeaponName = (props: { hash: number; item: DimItem | undefined }) => (
+  <Show
+    when={props.item}
+    fallback={
+      <span class="text-dim">
+        {defs()?.InventoryItem.getOptional(props.hash)?.displayProperties
+          .name ?? "Unknown weapon"}
+      </span>
+    }
+  >
+    {(item) => (
+      <span class="inline-flex items-center gap-2">
+        <img
+          class={`item-tile small size-8 ${item().rarity.toLowerCase()}`}
+          src={`${BUNGIE}${item().icon}`}
+          loading="lazy"
+          alt=""
+        />
+        {item().name}
+      </span>
+    )}
+  </Show>
+);
+
 const Weapons = (props: { entry: DestinyPostGameCarnageReportEntry }) => {
+  const app = useApp();
+
   const weapons = () =>
     [...(props.entry.extended?.weapons ?? [])].sort(
       (a, b) =>
         (b.values.uniqueWeaponKills?.basic.value ?? 0) -
         (a.values.uniqueWeaponKills?.basic.value ?? 0),
     );
+
+  const [items] = createResource(
+    () => {
+      const loaded = app.loaded();
+      const hashes = weapons().map((weapon) => weapon.referenceId);
+
+      return loaded && hashes.length > 0 ? { loaded, hashes } : undefined;
+    },
+    ({ loaded, hashes }) => fakeItems(loaded, hashes),
+  );
 
   const abilities = () => [
     { label: "Melee kills", value: extended(props.entry, "weaponKillsMelee") },
@@ -118,26 +159,45 @@ const Weapons = (props: { entry: DestinyPostGameCarnageReportEntry }) => {
         </thead>
         <tbody>
           <For each={weapons()}>
-            {(weapon) => (
-              <tr>
-                <td>
-                  {defs()?.InventoryItem.getOptional(weapon.referenceId)
-                    ?.displayProperties.name ?? (
-                    <span class="text-dim">Sunset weapon</span>
-                  )}
-                </td>
-                <td class="num">
-                  {weapon.values.uniqueWeaponKills?.basic.value ?? 0}
-                </td>
-                <td class="num">
-                  {weapon.values.uniqueWeaponPrecisionKills?.basic.value ?? 0}
-                </td>
-                <td class="num">
-                  {weapon.values.uniqueWeaponKillsPrecisionKills?.basic
-                    .displayValue ?? "-"}
-                </td>
-              </tr>
-            )}
+            {(weapon) => {
+              const item = () => items()?.get(weapon.referenceId);
+
+              const track = (event: MouseEvent) => {
+                const found = item();
+
+                if (found) {
+                  preview(found, cursorAnchor(event));
+                }
+              };
+
+              return (
+                <tr
+                  onMouseEnter={track}
+                  onMouseMove={track}
+                  onMouseLeave={() => {
+                    const found = item();
+
+                    if (found) {
+                      dismiss(found);
+                    }
+                  }}
+                >
+                  <td>
+                    <WeaponName hash={weapon.referenceId} item={item()} />
+                  </td>
+                  <td class="num">
+                    {weapon.values.uniqueWeaponKills?.basic.value ?? 0}
+                  </td>
+                  <td class="num">
+                    {weapon.values.uniqueWeaponPrecisionKills?.basic.value ?? 0}
+                  </td>
+                  <td class="num">
+                    {weapon.values.uniqueWeaponKillsPrecisionKills?.basic
+                      .displayValue ?? "-"}
+                  </td>
+                </tr>
+              );
+            }}
           </For>
           <For each={abilities()}>
             {(one) => (

@@ -477,30 +477,33 @@ export interface RefreshOutcome {
   activities: CharacterActivities | undefined;
 }
 
-// New items can reference definitions the load-time closure never reached
-const materializeNew = async (
+/** Pulls definitions the load-time closure never reached, such as a weapon nobody owns */
+export const materializeItems = async (
   session: Session,
-  profile: DestinyProfileResponse,
-) => {
-  const wanted = new Set([
-    ...profileItems(profile).map((item) => item.itemHash),
-    ...liveReferences(profile),
-  ]);
-
-  const missing = [...wanted].filter((hash) => !(hash in session.items));
+  hashes: Iterable<number>,
+): Promise<void> => {
+  const missing = [...new Set(hashes)].filter(
+    (hash) => !(hash in session.items),
+  );
 
   if (missing.length === 0) {
     return;
   }
 
   const closure = await materializeClosure(missing, {
-    items: (hashes) => readMerged(session.store, hashes),
-    plugSets: (hashes) => session.store.getMany<PlugSetDef>(PLUG_SETS, hashes),
+    items: (wanted) => readMerged(session.store, wanted),
+    plugSets: (wanted) => session.store.getMany<PlugSetDef>(PLUG_SETS, wanted),
   });
 
   Object.assign(session.items, closure.items);
   Object.assign(session.plugSets, closure.plugSets);
 };
+
+const materializeNew = (session: Session, profile: DestinyProfileResponse) =>
+  materializeItems(session, [
+    ...profileItems(profile).map((item) => item.itemHash),
+    ...liveReferences(profile),
+  ]);
 
 export const refreshProfile = async (
   session: Session,

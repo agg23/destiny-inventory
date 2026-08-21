@@ -386,11 +386,15 @@ const Category = (props: {
   sockets: DimSockets;
   category: DimSocketCategory;
   all?: boolean;
+  onlyPlugged?: boolean;
   onToggleAll?: () => void;
 }) => {
   const sockets = () =>
     getSocketsByIndexes(props.sockets, props.category.socketIndexes).filter(
-      (socket) => socket.plugged ?? socket.plugOptions.length > 0,
+      (socket) =>
+        props.onlyPlugged
+          ? socket.plugged
+          : socket.plugged ?? socket.plugOptions.length > 0,
     );
 
   const rollable = () =>
@@ -429,6 +433,7 @@ const Category = (props: {
 export const Perks = (props: {
   item: DimItem;
   all?: boolean;
+  onlyPlugged?: boolean;
   onToggleAll?: () => void;
 }) => {
   const shown = () => {
@@ -456,6 +461,7 @@ export const Perks = (props: {
               sockets={sockets()}
               category={category}
               all={props.all}
+              onlyPlugged={props.onlyPlugged}
               onToggleAll={props.onToggleAll}
             />
           )}
