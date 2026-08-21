@@ -1,4 +1,4 @@
-import { DAY_MS, dateLabel } from "./runFormat.ts";
+import { DAY_MS, dateLabel, dayTitle } from "./runFormat.ts";
 
 export interface Range {
   id: string;
@@ -19,6 +19,33 @@ export interface Span {
   to: number | undefined;
   label: string;
 }
+
+export const pinnedSpan = (
+  day: string | undefined,
+  days: number | undefined,
+): Span | undefined => {
+  if (day === undefined || days === undefined) {
+    return undefined;
+  }
+
+  const from = new Date(`${day}T00:00:00`).getTime();
+
+  if (Number.isNaN(from)) {
+    return undefined;
+  }
+
+  const to = from + days * DAY_MS;
+
+  if (days === 1) {
+    return { from, to, label: dayTitle(day) };
+  }
+
+  if (days === 7) {
+    return { from, to, label: `Week of ${dayTitle(day)}` };
+  }
+
+  return { from, to, label: `${dateLabel(from)} - ${dateLabel(to)}` };
+};
 
 export const spanOf = (
   id: string,

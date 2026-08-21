@@ -1,12 +1,5 @@
-import {
-  createMemo,
-  createResource,
-  createSignal,
-  For,
-  onCleanup,
-  onMount,
-  Show,
-} from "solid-js";
+import { useNavigate, useParams } from "@solidjs/router";
+import { createMemo, createResource, For, Show } from "solid-js";
 
 import { activityTables } from "../activityTables.ts";
 import {
@@ -15,110 +8,82 @@ import {
   type ActivityRow,
   type HistoryRun,
 } from "../history.ts";
-import type { Session } from "../load.ts";
+import { useApp } from "../App.tsx";
+import { useUrl } from "../router.ts";
+import { activityHref, activityLabel, type HistoryTab } from "../url.ts";
 import { activityLookup } from "./activityLookup.ts";
 import { ActivityMap, type Week } from "./ActivityMap.tsx";
 import { ActivityPage } from "./ActivityPage.tsx";
 import { ActivitySeries } from "./ActivitySeries.tsx";
 import { groupBuckets, groupDays } from "./groups.ts";
 import { HistoryToolbar } from "./HistoryToolbar.tsx";
-import { spanOf, type Span } from "./range.ts";
-import { DAY_MS, dayTitle } from "./runFormat.ts";
+import { pinnedSpan, spanOf, type Span } from "./range.ts";
 import { DURATION, METRICS, type Metric } from "./RunGraph.tsx";
 import { RunLog } from "./RunLog.tsx";
 import { createReport } from "./RunReport.tsx";
 import { bestOf, totalsOf } from "./totals.ts";
 
-interface Props {
-  session: Session | undefined;
-  runs: HistoryRun[];
-  syncing: boolean;
-  syncError: string | undefined;
-  query: string;
-}
-
-type Tab = "recent" | "series" | "map";
-
-type View =
-  | { kind: "feed" }
-  | {
-      kind: "activity";
-      label: string;
-      hash: number;
-      difficulty: string | undefined;
-      opened: string | undefined;
-    };
-
 const PAGE = 40;
 
-const TABS: { id: Tab; label: string }[] = [
+const TABS: { id: HistoryTab; label: string }[] = [
   { id: "recent", label: "Recent" },
   { id: "series", label: "Series" },
   { id: "map", label: "Activity map" },
 ];
 
-export const History = (props: Props) => {
+export const History = () => {
+  const app = useApp();
+  const url = useUrl();
+  const route = useParams<{ label?: string }>();
+  const navigate = useNavigate();
   const [tables] = createResource(activityTables);
-  const [view, setView] = createSignal<View>({ kind: "feed" });
-  const [tab, setTab] = createSignal<Tab>("recent");
-  const [expanded, setExpanded] = createSignal<string[]>([]);
-  const [range, setRange] = createSignal("30d");
-  const [pinned, setPinned] = createSignal<Span | undefined>(undefined);
-  const [metric, setMetric] = createSignal(DURATION.id);
-  const [shown, setShown] = createSignal(PAGE);
+  const tab = () => url.get("view");
+  const expanded = () => url.get("open");
+  const range = () => url.get("range");
+  const pinned = () => pinnedSpan(url.get("from"), url.get("days"));
+  const metric = () => url.get("metric") ?? DURATION.id;
+  const shown = () => url.get("shown") ?? PAGE;
 
   const lookup = createMemo(() => activityLookup(tables()));
 
   const page = () => {
-    const current = view();
+    const label = activityLabel(route.label);
 
-    return current.kind === "activity" ? current : undefined;
+    return label === undefined
+      ? undefined
+      : { label, difficulty: url.get("rung") };
   };
 
   const opened = (): HistoryRun | undefined => {
-    const id = page()?.opened;
+    const id = url.get("run");
 
     return id === undefined
       ? undefined
-      : props.runs.find((one) => one.instanceId === id);
+      : app.runs().find((one) => one.instanceId === id);
   };
 
-  onMount(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || !page()) {
-        return;
-      }
+  const leave = () => navigate("/history");
 
-      if (opened()) {
-        setView((was) =>
-          was.kind === "activity" ? { ...was, opened: undefined } : was,
-        );
+  // The sync may not have reached these runs yet
+  const empty = () => page() !== undefined && forActivity().length === 0;
 
-        return;
-      }
-
-      setView({ kind: "feed" });
-    };
-
-    globalThis.addEventListener("keydown", onKey);
-    onCleanup(() => globalThis.removeEventListener("keydown", onKey));
-  });
+  const awaiting = () => empty() && (app.syncing() || tables.loading);
 
   const oldest = createMemo(() =>
-    props.runs.reduce(
-      (earliest, one) => Math.min(earliest, one.startedAt),
-      Date.now(),
-    ),
+    app
+      .runs()
+      .reduce((earliest, one) => Math.min(earliest, one.startedAt), Date.now()),
   );
 
   const window = (): Span => spanOf(range(), pinned(), oldest());
 
   const filtered = createMemo(() => {
-    const needle = props.query.trim().toLowerCase();
+    const needle = app.query().trim().toLowerCase();
     const { from, to } = window();
     const labelOf = lookup().labelOf;
 
-    return props.runs
+    return app
+      .runs()
       .filter((one) => {
         if (from !== undefined && one.startedAt < from) {
           return false;
@@ -142,7 +107,8 @@ export const History = (props: Props) => {
 
     const { labelOf, rungOf } = lookup();
 
-    return props.runs
+    return app
+      .runs()
       .filter(
         (one) =>
           labelOf(one) === current.label && rungOf(one) === current.difficulty,
@@ -156,7 +122,7 @@ export const History = (props: Props) => {
 
   const [report] = createReport(() => {
     const run = opened();
-    const session = props.session;
+    const session = app.loaded()?.session;
 
     return run && session ? { instanceId: run.instanceId, session } : undefined;
   });
@@ -168,20 +134,12 @@ export const History = (props: Props) => {
   const days = createMemo(() => groupDays(filtered().slice(0, shown())));
   const series = createMemo(() => groupBuckets(tables(), filtered(), lookup()));
   const best = createMemo(() => bestOf(forActivity()));
-  const byDay = createMemo(() => runsByDay(props.runs));
+  const byDay = createMemo(() => runsByDay(app.runs()));
 
   const hero = () => {
-    const current = page();
+    const hash = newestFirst()[0]?.referenceId;
 
-    return current === undefined
-      ? undefined
-      : tables()?.activities[current.hash];
-  };
-
-  const pin = (from: number, to: number, label: string) => {
-    setPinned({ from, to, label });
-    setShown(PAGE);
-    setTab("recent");
+    return hash === undefined ? undefined : tables()?.activities[hash];
   };
 
   const pickRange = (id: string) => {
@@ -189,61 +147,47 @@ export const History = (props: Props) => {
       return;
     }
 
-    setPinned(undefined);
-    setRange(id);
-    setShown(PAGE);
+    url.push({ range: id, from: undefined, days: undefined, shown: undefined });
   };
 
   const pickDay = (day: string) => {
     if (day === "") {
-      setPinned(undefined);
+      url.push({ from: undefined, days: undefined });
 
       return;
     }
 
-    const from = new Date(`${day}T00:00:00`).getTime();
-    pin(from, from + DAY_MS, dayTitle(day));
+    url.push({ from: day, days: 1, shown: undefined, view: "recent" });
   };
 
   const pickWeek = (week: Week) =>
-    pin(
-      week.startedAt,
-      week.startedAt + 7 * DAY_MS,
-      `Week of ${dayTitle(localDay(week.startedAt))}`,
-    );
+    url.push({
+      from: localDay(week.startedAt),
+      days: 7,
+      shown: undefined,
+      view: "recent",
+    });
 
   const openRow = (row: ActivityRow) =>
-    setView({
-      kind: "activity",
-      label: row.label,
-      hash: row.referenceId,
-      difficulty: row.difficulty,
-      opened: undefined,
-    });
+    navigate(activityHref(row.label, row.difficulty));
 
-  const openActivity = (run: HistoryRun) =>
-    setView({
-      kind: "activity",
-      label: lookup().labelOf(run),
-      hash: run.referenceId,
-      difficulty: lookup().rungOf(run),
-      opened: run.instanceId,
-    });
+  const openActivity = (run: HistoryRun) => {
+    const href = activityHref(lookup().labelOf(run), lookup().rungOf(run));
+
+    navigate(`${href}${href.includes("?") ? "&" : "?"}run=${run.instanceId}`);
+  };
 
   const toggleRun = (run: HistoryRun) =>
-    setView((was) =>
-      was.kind === "activity"
-        ? {
-            ...was,
-            opened: was.opened === run.instanceId ? undefined : run.instanceId,
-          }
-        : was,
-    );
+    url.push({
+      run: url.get("run") === run.instanceId ? undefined : run.instanceId,
+    });
 
   const toggleSeries = (id: string) =>
-    setExpanded((was) =>
-      was.includes(id) ? was.filter((one) => one !== id) : [...was, id],
-    );
+    url.push({
+      open: expanded().includes(id)
+        ? expanded().filter((one) => one !== id)
+        : [...expanded(), id],
+    });
 
   return (
     <div class="flex flex-col gap-3 px-4 pt-3">
@@ -251,17 +195,17 @@ export const History = (props: Props) => {
         <button
           type="button"
           class="button small ghost self-start"
-          onClick={() => setView({ kind: "feed" })}
+          onClick={leave}
         >
           &larr; All history
         </button>
       </Show>
 
-      <Show when={props.syncError}>
+      <Show when={app.syncError()}>
         {(message) => <p class="m-0 text-danger">{message()}</p>}
       </Show>
 
-      <Show when={view().kind === "feed"}>
+      <Show when={page() === undefined}>
         <nav class="nav-tabs sections">
           <For each={TABS}>
             {(one) => (
@@ -270,13 +214,13 @@ export const History = (props: Props) => {
                 class="nav-tab"
                 classList={{ active: tab() === one.id }}
                 aria-pressed={tab() === one.id}
-                onClick={() => setTab(one.id)}
+                onClick={() => url.push({ view: one.id })}
               >
                 {one.label}
               </button>
             )}
           </For>
-          <Show when={props.syncing}>
+          <Show when={app.syncing()}>
             <span class="ml-auto self-center text-sm text-dim">Syncing…</span>
           </Show>
         </nav>
@@ -289,7 +233,7 @@ export const History = (props: Props) => {
             totals={totals()}
             onRange={pickRange}
             onDay={pickDay}
-            onClear={() => setPinned(undefined)}
+            onClear={() => url.push({ from: undefined, days: undefined })}
           />
         </Show>
 
@@ -333,19 +277,27 @@ export const History = (props: Props) => {
             <button
               type="button"
               class="button small ghost self-start"
-              onClick={() => setShown(shown() + PAGE)}
+              onClick={() => url.push({ shown: shown() + PAGE })}
             >
               Show more of {filtered().length}
             </button>
           </Show>
 
-          <Show when={filtered().length === 0 && !props.syncing}>
+          <Show when={filtered().length === 0 && !app.syncing()}>
             <p class="m-0 text-muted">Nothing in this range.</p>
           </Show>
         </Show>
       </Show>
 
-      <Show when={page()}>
+      <Show when={awaiting()}>
+        <p class="m-0 text-muted">Loading</p>
+      </Show>
+
+      <Show when={empty() && !awaiting()}>
+        <p class="m-0 text-muted">No runs of this activity.</p>
+      </Show>
+
+      <Show when={empty() ? undefined : page()}>
         {(current) => (
           <ActivityPage
             label={current().label}
@@ -356,7 +308,7 @@ export const History = (props: Props) => {
             oldestFirst={forActivity()}
             newestFirst={newestFirst()}
             metric={chosenMetric()}
-            onMetric={setMetric}
+            onMetric={(id) => url.push({ metric: id })}
             opened={opened()}
             onPick={toggleRun}
             report={report()}

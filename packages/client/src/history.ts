@@ -503,7 +503,7 @@ export const byBucket = (
      * A Portal hash serves every rung and Bungie reissues a hash per season, so
      * the label and the rung together name the thing you actually did.
      */
-    const key = `${label} ${difficulty ?? ""}`;
+    const key = `${label}\u0000${difficulty ?? ""}`;
     const rows = buckets.get(bucket.id) ?? new Map<string, ActivityRow>();
     const row = rows.get(key) ?? {
       label,

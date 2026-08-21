@@ -1,26 +1,27 @@
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
+import { useLocation, useNavigate } from "@solidjs/router";
 import {
+  createContext,
   createEffect,
   createMemo,
   createResource,
   createSignal,
   For,
+  on,
   onCleanup,
   onMount,
   Show,
+  useContext,
+  type JSX,
 } from "solid-js";
 
-import { Activities } from "./Activities.tsx";
 import { activeStore, NOBODY, observe, prefer, type Active } from "./active.ts";
 import { activityTables } from "./activityTables.ts";
 import { accessToken, beginLogin, signedIn, signOut } from "./auth.ts";
 import { fetchCarnageReport } from "./bungie.ts";
 import { acquired } from "./arrivals.ts";
 import { comparable } from "./compare.ts";
-import { Arrivals } from "./Arrivals.tsx";
-import { Compare } from "./Compare.tsx";
-import { History } from "./history/History.tsx";
 import {
   storedRuns,
   syncHistory,
@@ -28,37 +29,54 @@ import {
   timingsByHash,
   type HistoryRun,
 } from "./history.ts";
-import { HoverCard } from "./HoverCard.tsx";
-import { Inventory } from "./Inventory.tsx";
 import { load, NotSignedIn, refreshProfile, type LoadResult } from "./load.ts";
 import { moveItem, subscribeStores } from "./moves.ts";
 import { plugIcons, warmIcons } from "./preload.ts";
 import { startAutoRefresh } from "./refresh.ts";
+import { useUrl } from "./router.ts";
+import { tabHref, TABS, type Tab } from "./url.ts";
 
-const HOVER_DELAY = 120;
 const PINS = 2;
 
-type Tab = "vault" | "activities" | "history";
+const LABELS: Record<Tab, string> = {
+  vault: "Vault",
+  activities: "Activities",
+  history: "History",
+};
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "vault", label: "Vault" },
-  { id: "activities", label: "Activities" },
-  { id: "history", label: "History" },
-];
-
-interface Hovered {
-  item: DimItem;
-  anchor: DOMRect;
+export interface AppState {
+  loaded: () => LoadResult | undefined;
+  stores: () => DimStore[];
+  active: () => DimStore | undefined;
+  matches: (item: DimItem) => boolean;
+  query: () => string;
+  pinned: () => DimItem[];
+  awaitingPins: () => boolean;
+  feed: () => DimItem[];
+  moving: () => string | undefined;
+  moveError: () => string | undefined;
+  runs: () => HistoryRun[];
+  syncing: () => boolean;
+  syncError: () => string | undefined;
+  timings: () => ReturnType<typeof timingsByHash>;
+  onPin: (item: DimItem) => void;
+  onMove: (item: DimItem, target: DimStore, equip: boolean) => void;
+  onCharacter: (store: DimStore) => void;
 }
 
-export const App = () => {
-  const [query, setQuery] = createSignal("");
+const AppContext = createContext<AppState>();
+
+export const useApp = (): AppState => useContext(AppContext)!;
+
+export const App = (props: { children?: JSX.Element }) => {
+  const url = useUrl();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [typed, setTyped] = createSignal(url.get("q"));
   const [upgraded, setUpgraded] = createSignal<LoadResult | undefined>(
     undefined,
   );
   const [authError, setAuthError] = createSignal<string | undefined>(undefined);
-  const [pinned, setPinned] = createSignal<DimItem[]>([]);
-  const [hovered, setHovered] = createSignal<Hovered | undefined>(undefined);
   const [moved, setMoved] = createSignal<DimStore[] | undefined>(undefined);
   const [moving, setMoving] = createSignal<string | undefined>(undefined);
   const [moveError, setMoveError] = createSignal<string | undefined>(undefined);
@@ -66,8 +84,10 @@ export const App = () => {
   const [refreshedAt, setRefreshedAt] = createSignal<number | undefined>(
     undefined,
   );
-  const [active, setActive] = createSignal<Active>(NOBODY);
-  const [tab, setTab] = createSignal<Tab>("vault");
+  const character = () => url.get("character");
+  const [active, setActive] = createSignal<Active>(
+    character() === undefined ? NOBODY : prefer(NOBODY, character() ?? ""),
+  );
   const [runs, setRuns] = createSignal<HistoryRun[]>([]);
   const [syncing, setSyncing] = createSignal(false);
   const [syncError, setSyncError] = createSignal<string | undefined>(undefined);
@@ -126,7 +146,13 @@ export const App = () => {
     });
   });
 
-  createEffect(() => setActive((was) => observe(was, current()?.playing)));
+  createEffect(() => {
+    const next = setActive((was) => observe(was, current()?.playing));
+
+    if (next.override === undefined && character() !== undefined) {
+      url.replace({ character: undefined });
+    }
+  });
 
   const error = () => result.error as Error | undefined;
   const current = () => (error() ? undefined : upgraded() ?? result());
@@ -148,8 +174,35 @@ export const App = () => {
     return groups.length > 0 ? groups : undefined;
   };
 
+  const tab = (): Tab =>
+    TABS.find((one) => location.pathname.startsWith(`/${one}`)) ?? "vault";
+
+  const onQuery = (value: string) => {
+    setTyped(value);
+    url.type({ q: value });
+  };
+
+  createEffect(
+    on(
+      () => url.get("q"),
+      (fromUrl) => setTyped(fromUrl),
+      { defer: true },
+    ),
+  );
+
+  createEffect(
+    on(
+      character,
+      (id) =>
+        setActive((was) =>
+          id === undefined ? { ...was, override: undefined } : prefer(was, id),
+        ),
+      { defer: true },
+    ),
+  );
+
   const matches = (item: DimItem) => {
-    const needle = query().trim().toLowerCase();
+    const needle = typed().trim().toLowerCase();
 
     return (
       !needle ||
@@ -237,57 +290,52 @@ export const App = () => {
 
   onCleanup(subscribeStores((next) => setMoved([...next])));
 
-  let hoverTimer: number | undefined = undefined;
-
-  const onHover = (item: DimItem, anchor: DOMRect) => {
-    window.clearTimeout(hoverTimer);
-    hoverTimer = window.setTimeout(
-      () => setHovered({ item, anchor }),
-      HOVER_DELAY,
+  const pinned = createMemo(() => {
+    const held = new Map(
+      stores().flatMap((store) => store.items.map((one) => [one.id, one])),
     );
-  };
 
-  const onLeave = (item: DimItem) => {
-    window.clearTimeout(hoverTimer);
+    return url.get("pin").flatMap((id) => {
+      const found = held.get(id);
 
-    if (hovered()?.item.id === item.id) {
-      setHovered(undefined);
-    }
-  };
-
-  const pin = (item: DimItem) =>
-    setPinned((was) => {
-      if (was.some((already) => already.id === item.id)) {
-        return was.filter((already) => already.id !== item.id);
-      }
-
-      const [reference] = was;
-
-      if (reference && !comparable(reference, item)) {
-        return [item];
-      }
-
-      if (was.length < PINS) {
-        return [...was, item];
-      }
-
-      return [...was.slice(0, PINS - 1), item];
+      return found === undefined ? [] : [found];
     });
+  });
 
-  const against = () => {
-    const [reference] = pinned();
-    const item = hovered()?.item;
+  // The profile may not have loaded these items yet
+  const awaitingPins = () =>
+    url.get("pin").length > 0 && pinned().length === 0 && !current();
 
-    if (!reference || !item || reference.id === item.id) {
-      return undefined;
+  const pin = (item: DimItem) => {
+    const was = pinned();
+    const ids = was.map((one) => one.id);
+
+    if (ids.includes(item.id)) {
+      url.push({ pin: ids.filter((id) => id !== item.id) });
+
+      return;
     }
 
-    return comparable(reference, item) ? reference : undefined;
+    const [reference] = was;
+
+    if (reference && !comparable(reference, item)) {
+      url.push({ pin: [item.id] });
+
+      return;
+    }
+
+    url.push({ pin: [...ids.slice(0, PINS - 1), item.id].slice(-PINS) });
+  };
+
+  const unpinAll = () => {
+    if (url.get("pin").length > 0) {
+      url.push({ pin: [] });
+    }
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Escape") {
-      setPinned([]);
+      unpinAll();
     }
   };
 
@@ -295,7 +343,7 @@ export const App = () => {
     const target = e.target as HTMLElement;
 
     if (!target.closest(".item-tile, .rail, [data-menu], header")) {
-      setPinned([]);
+      unpinAll();
     }
   };
 
@@ -335,16 +383,30 @@ export const App = () => {
     setMoving(`${equip ? "Equipping" : "Moving"} ${item.name}`);
 
     moveItem(item, target, equip)
-      // The engine hands back a new item object
-      .then((result) =>
-        setPinned((was) =>
-          was.map((already) => (already.id === item.id ? result : already)),
-        ),
-      )
       .catch((e: unknown) =>
         setMoveError(e instanceof Error ? e.message : String(e)),
       )
       .finally(() => setMoving(undefined));
+  };
+
+  const state: AppState = {
+    loaded: current,
+    stores,
+    active: () => activeStore(active(), stores()),
+    matches,
+    query: typed,
+    pinned,
+    awaitingPins,
+    feed,
+    moving,
+    moveError,
+    runs,
+    syncing,
+    syncError,
+    timings,
+    onPin: pin,
+    onMove,
+    onCharacter: (store) => url.push({ character: store.id }),
   };
 
   return (
@@ -379,15 +441,11 @@ export const App = () => {
                 <button
                   type="button"
                   class="nav-tab"
-                  classList={{ active: tab() === one.id }}
-                  aria-pressed={tab() === one.id}
-                  onClick={() => {
-                    // The tile unmounts without a mouseleave
-                    setHovered(undefined);
-                    setTab(one.id);
-                  }}
+                  classList={{ active: tab() === one }}
+                  aria-pressed={tab() === one}
+                  onClick={() => navigate(tabHref(one, typed()))}
                 >
-                  {one.label}
+                  {LABELS[one]}
                 </button>
               )}
             </For>
@@ -397,8 +455,8 @@ export const App = () => {
               class="text-input inline"
               type="search"
               placeholder="Filter"
-              value={query()}
-              onInput={(e) => setQuery(e.currentTarget.value)}
+              value={typed()}
+              onInput={(e) => onQuery(e.currentTarget.value)}
             />
             <button
               class="button small"
@@ -411,7 +469,7 @@ export const App = () => {
               class="button small ghost"
               onClick={() => {
                 signOut();
-                location.reload();
+                globalThis.location.reload();
               }}
             >
               Sign out
@@ -420,7 +478,7 @@ export const App = () => {
               <span class="text-warning">New manifest available.</span>
               <button
                 class="button small gold"
-                onClick={() => location.reload()}
+                onClick={() => globalThis.location.reload()}
               >
                 Reload
               </button>
@@ -479,86 +537,11 @@ export const App = () => {
           <p class="p-3 text-muted">Loading</p>
         </Show>
 
-        <Show
-          when={tab() === "vault"}
-          fallback={
-            <div class="body solo">
-              <Show
-                when={tab() === "activities"}
-                fallback={
-                  <History
-                    session={current()?.session}
-                    runs={runs()}
-                    syncing={syncing()}
-                    syncError={syncError()}
-                    query={query()}
-                  />
-                }
-              >
-                <Activities
-                  activities={current()?.activities ?? {}}
-                  variables={current()?.variables ?? {}}
-                  character={activeStore(active(), stores())?.id}
-                  power={activeStore(active(), stores())?.powerLevel}
-                  timings={timings()}
-                  query={query()}
-                />
-              </Show>
-            </div>
-          }
-        >
-          <div class="body">
-            <Show when={current()}>
-              {(loaded) => (
-                <Inventory
-                  stores={stores()}
-                  buckets={loaded().buckets}
-                  matches={matches}
-                  active={activeStore(active(), stores())}
-                  pinned={pinned()}
-                  onSelectStore={(store) =>
-                    setActive((was) => prefer(was, store.id))
-                  }
-                  onSelect={pin}
-                  onHover={onHover}
-                  onLeave={onLeave}
-                />
-              )}
-            </Show>
-
-            <aside class="rail" classList={{ comparing: pinned().length > 1 }}>
-              <Show
-                when={pinned().length > 0}
-                fallback={
-                  <Arrivals items={feed()} stores={stores()} onSelect={pin} />
-                }
-              >
-                <Compare
-                  items={pinned()}
-                  stores={stores()}
-                  active={activeStore(active(), stores())}
-                  onMove={onMove}
-                  onPrefer={(target) =>
-                    setActive((was) => prefer(was, target.id))
-                  }
-                  onUnpin={pin}
-                  moving={moving()}
-                  moveError={moveError()}
-                />
-              </Show>
-            </aside>
-          </div>
-        </Show>
-
-        <Show when={hovered()}>
-          {(card) => (
-            <HoverCard
-              item={card().item}
-              against={against()}
-              anchor={card().anchor}
-            />
-          )}
-        </Show>
+        <div class="body" classList={{ solo: tab() !== "vault" }}>
+          <AppContext.Provider value={state}>
+            {props.children}
+          </AppContext.Provider>
+        </div>
       </Show>
     </main>
   );

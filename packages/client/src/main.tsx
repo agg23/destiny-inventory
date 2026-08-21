@@ -1,6 +1,10 @@
+import { Navigate, Route, Router } from "@solidjs/router";
 import { render } from "solid-js/web";
 
+import { Activities } from "./Activities.tsx";
 import { App } from "./App.tsx";
+import { History } from "./history/History.tsx";
+import { Vault } from "./Vault.tsx";
 import { beginLogin, completeLogin, markDevLogin, signedIn } from "./auth.ts";
 import "./tokens.css";
 import "./style.css";
@@ -40,7 +44,20 @@ const start = async () => {
     }
   }
 
-  render(() => <App />, root);
+  render(
+    () => (
+      <Router root={App}>
+        <Route path="/vault" component={Vault} />
+        <Route path="/activities" component={Activities} />
+        <Route
+          path={["/history", "/history/activity/:label"]}
+          component={History}
+        />
+        <Route path="*" component={() => <Navigate href="/vault" />} />
+      </Router>
+    ),
+    root,
+  );
 };
 
 void start();

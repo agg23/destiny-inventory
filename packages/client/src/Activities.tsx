@@ -30,15 +30,8 @@ import { clock, HOUR, schedule, type Rotation } from "./distortion.ts";
 import { ago, bestTiming, duration, type ActivityTiming } from "./history.ts";
 import type { CharacterActivities, StringVariables } from "./load.ts";
 import { BUNGIE } from "./ItemPanel.tsx";
-
-interface Props {
-  activities: CharacterActivities;
-  variables: StringVariables;
-  character: string | undefined;
-  power: number | undefined;
-  timings: Map<number, ActivityTiming>;
-  query: string;
-}
+import { useApp } from "./App.tsx";
+import { useUrl } from "./router.ts";
 
 type Values = Record<number, number>;
 
@@ -466,11 +459,15 @@ const quiet = (entry: Available): boolean => !entry.focused && !offering(entry);
 // A picked realm no director realm can collide with
 const DISTORTION = "distortion-schedule";
 
-export const Activities = (props: Props) => {
+export const Activities = () => {
+  const app = useApp();
+  const url = useUrl();
   const [tables] = createResource(activityTables);
-  const [realm, setRealm] = createSignal<string | undefined>(undefined);
-  const [section, setSection] = createSignal<string | undefined>(undefined);
-  const [showRest, setShowRest] = createSignal(false);
+  const character = () => app.active()?.id;
+  const power = () => app.active()?.powerLevel;
+  const realm = () => url.get("realm");
+  const section = () => url.get("section");
+  const showRest = () => url.get("rest");
   const [hovered, setHovered] = createSignal<Hovered | undefined>(undefined);
 
   const onZones = () => realm() === DISTORTION;
@@ -503,9 +500,11 @@ export const Activities = (props: Props) => {
 
   const rows = () => {
     const loaded = tables();
-    const entries = props.character
-      ? props.activities[props.character]?.availableActivities
-      : undefined;
+    const held = character();
+    const entries =
+      held === undefined
+        ? undefined
+        : app.loaded()?.activities[held]?.availableActivities;
 
     return loaded && entries ? { loaded, entries: [...entries] } : undefined;
   };
@@ -525,7 +524,7 @@ export const Activities = (props: Props) => {
     return categorize(found.entries, found.loaded, (hash) => held?.rows[hash]);
   };
 
-  const shown = createMemo(() => matching(all(), props.query));
+  const shown = createMemo(() => matching(all(), app.query()));
 
   const activeRealm = createMemo((): Realm | undefined => {
     const found = shown();
@@ -540,12 +539,14 @@ export const Activities = (props: Props) => {
   });
 
   const values = (): Values =>
-    (props.character ? props.variables[props.character] : undefined) ?? {};
+    (character() === undefined
+      ? undefined
+      : app.loaded()?.variables[character() ?? ""]) ?? {};
 
   const glyph = () => tables()?.rewards[BONUS_DROP_ITEM]?.icon;
 
   const timingFor = (entry: Available): ActivityTiming | undefined =>
-    bestTiming(props.timings, [
+    bestTiming(app.timings(), [
       entry.hash,
       ...entry.variants.map((one) => one.hash),
     ]);
@@ -565,8 +566,7 @@ export const Activities = (props: Props) => {
               onClick={() => {
                 // The card unmounts without a mouseleave
                 setHovered(undefined);
-                setRealm(one.name);
-                setSection(undefined);
+                url.push({ realm: one.name, section: undefined });
               }}
             >
               {one.name}
@@ -581,7 +581,7 @@ export const Activities = (props: Props) => {
           aria-pressed={onZones()}
           onClick={() => {
             setHovered(undefined);
-            setRealm(DISTORTION);
+            url.push({ realm: DISTORTION, section: undefined });
           }}
         >
           Distortion
@@ -613,7 +613,7 @@ export const Activities = (props: Props) => {
                       aria-pressed={one.name === current().name}
                       onClick={() => {
                         setHovered(undefined);
-                        setSection(one.name);
+                        url.push({ section: one.name });
                       }}
                     >
                       {one.name}
@@ -681,7 +681,7 @@ export const Activities = (props: Props) => {
                       type="button"
                       class="button small ghost self-start"
                       aria-pressed={showRest()}
-                      onClick={() => setShowRest(!showRest())}
+                      onClick={() => url.push({ rest: !showRest() })}
                     >
                       {showRest() ? "Hide" : "Show"} {rest().length} with
                       nothing left this week
@@ -714,7 +714,7 @@ export const Activities = (props: Props) => {
             entry={panel().entry}
             anchor={panel().anchor}
             values={values()}
-            power={props.power}
+            power={power()}
           />
         )}
       </Show>
