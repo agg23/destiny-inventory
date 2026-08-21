@@ -30,6 +30,12 @@ export const preview = (item: DimItem, anchor: DOMRect) => {
   timer = window.setTimeout(() => setShown({ item, anchor }), HOVER_DELAY);
 };
 
+/** Closes the card whatever it holds, for a source that left without a mouseleave */
+export const clear = () => {
+  window.clearTimeout(timer);
+  setShown(undefined);
+};
+
 /** Closes the card if this item still owns it */
 export const dismiss = (item: DimItem) => {
   window.clearTimeout(timer);

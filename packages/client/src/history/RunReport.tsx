@@ -3,7 +3,7 @@ import type {
   DestinyPostGameCarnageReportData,
   DestinyPostGameCarnageReportEntry,
 } from "bungie-api-ts/destiny2";
-import { createResource, createSignal, For, Show } from "solid-js";
+import { createResource, createSignal, For, onCleanup, Show } from "solid-js";
 
 import type { ActivityTables } from "../activities.ts";
 import { useApp } from "../App.tsx";
@@ -170,17 +170,22 @@ const Weapons = (props: { entry: DestinyPostGameCarnageReportEntry }) => {
                 }
               };
 
+              const leave = () => {
+                const found = item();
+
+                if (found) {
+                  dismiss(found);
+                }
+              };
+
+              // Picking another player swaps these rows out from under the pointer
+              onCleanup(leave);
+
               return (
                 <tr
                   onMouseEnter={track}
                   onMouseMove={track}
-                  onMouseLeave={() => {
-                    const found = item();
-
-                    if (found) {
-                      dismiss(found);
-                    }
-                  }}
+                  onMouseLeave={leave}
                 >
                   <td>
                     <WeaponName hash={weapon.referenceId} item={item()} />

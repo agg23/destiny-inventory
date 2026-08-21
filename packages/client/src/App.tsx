@@ -33,7 +33,7 @@ import {
 import { load, NotSignedIn, refreshProfile, type LoadResult } from "./load.ts";
 import { moveItem, subscribeStores } from "./moves.ts";
 import { plugIcons, warmIcons } from "./preload.ts";
-import { previewed } from "./preview.ts";
+import { clear, previewed } from "./preview.ts";
 import { startAutoRefresh } from "./refresh.ts";
 import { useUrl } from "./router.ts";
 import { tabHref, TABS, type Tab } from "./url.ts";
@@ -203,6 +203,15 @@ export const App = (props: { children?: JSX.Element }) => {
     ),
   );
 
+  // Navigating away can unmount the hovered element without a mouseleave
+  createEffect(
+    on(
+      () => `${location.pathname}${location.search}`,
+      () => clear(),
+      { defer: true },
+    ),
+  );
+
   const matches = (item: DimItem) => {
     const needle = typed().trim().toLowerCase();
 
@@ -337,6 +346,7 @@ export const App = (props: { children?: JSX.Element }) => {
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Escape") {
+      clear();
       unpinAll();
     }
   };
