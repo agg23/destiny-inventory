@@ -8,6 +8,8 @@ import type {
 
 import { loadConfig } from "./config.ts";
 
+export const BUNGIE = "https://www.bungie.net";
+
 const PLATFORM = "https://www.bungie.net/Platform";
 
 // www.bungie.net answers a PGCR request with a bare 301 and no body

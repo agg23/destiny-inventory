@@ -1,7 +1,8 @@
 import { createMemo, For } from "solid-js";
 
 import { localDay, playedSeconds, span, type HistoryRun } from "../history.ts";
-import { DAY_MS, dayTitle, plural } from "./runFormat.ts";
+import { DAY_MS } from "../history.ts";
+import { dayTitle, plural } from "./runFormat.ts";
 
 const HOUR_SECONDS = 3600;
 const YEAR_WEEKS = 53;

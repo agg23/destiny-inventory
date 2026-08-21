@@ -1,5 +1,5 @@
 import type { DimItem } from "app/inventory/item-types";
-import { createEffect, createMemo, createSignal, Show } from "solid-js";
+import { Show } from "solid-js";
 
 import {
   Archetype,
@@ -9,10 +9,7 @@ import {
   SetBonus,
   Stats,
 } from "./ItemPanel.tsx";
-
-const GAP = 8;
-// The framework's own tooltip width
-const WIDTH = 352;
+import { AnchoredPanel } from "./ui/AnchoredPanel.tsx";
 
 interface Props {
   item: DimItem;
@@ -21,43 +18,11 @@ interface Props {
 }
 
 export const HoverCard = (props: Props) => {
-  const [height, setHeight] = createSignal(0);
-
-  let card: HTMLElement | undefined = undefined;
-
-  // The card cannot scroll
-  createEffect(() => {
-    props.item;
-    props.against;
-    setHeight(card?.offsetHeight ?? 0);
-  });
-
   // An uninstanced item carries no roll
   const uninstanced = () => props.item.id === "0";
 
-  const position = createMemo(() => {
-    const room = window.innerWidth - props.anchor.right;
-    const left =
-      room > WIDTH + GAP
-        ? props.anchor.right + GAP
-        : props.anchor.left - WIDTH - GAP;
-
-    return {
-      left: `${Math.max(GAP, left)}px`,
-      top: `${Math.max(
-        GAP,
-        Math.min(props.anchor.top, window.innerHeight - height() - GAP),
-      )}px`,
-      width: `${WIDTH}px`,
-    };
-  });
-
   return (
-    <aside
-      class="item-tooltip hover-card"
-      ref={(el) => (card = el)}
-      style={position()}
-    >
+    <AnchoredPanel class="item-tooltip hover-card" anchor={props.anchor}>
       <ItemHead item={props.item} />
       <Show when={uninstanced()}>
         <div class="tooltip-body">
@@ -79,6 +44,6 @@ export const HoverCard = (props: Props) => {
         <Perks item={props.item} onlyPlugged={uninstanced()} />
         <SetBonus item={props.item} />
       </div>
-    </aside>
+    </AnchoredPanel>
   );
 };

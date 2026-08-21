@@ -11,11 +11,12 @@ import { accessToken } from "../auth.ts";
 import { fetchCarnageReport } from "../bungie.ts";
 import { defs } from "../defs.ts";
 import { fakeItems } from "../fakeItems.ts";
+import { BUNGIE } from "../bungie.ts";
 import { duration } from "../history.ts";
-import { BUNGIE } from "../ItemPanel.tsx";
 import type { Session } from "../load.ts";
 import { cursorAnchor, dismiss, preview } from "../preview.ts";
 import { REPORTS } from "../store.ts";
+import { Button } from "../ui/Button.tsx";
 
 interface StoredReport {
   instanceId: string;
@@ -259,14 +260,15 @@ export const Report = (props: {
     <div class="flex flex-col gap-3">
       <Show when={named().length > 0}>
         <div class="flex flex-col gap-2">
-          <button
-            type="button"
-            class="button small ghost self-start"
+          <Button
+            size="sm"
+            variant="ghost"
+            class="self-start"
             aria-pressed={modifiers()}
             onClick={() => setModifiers(!modifiers())}
           >
             {modifiers() ? "Hide modifiers" : `Modifiers (${named().length})`}
-          </button>
+          </Button>
           <Show when={modifiers()}>
             <ul class="m-0 flex list-none flex-wrap gap-x-4 gap-y-1 p-0 text-md text-text">
               <For each={named()}>{(name) => <li>{name}</li>}</For>

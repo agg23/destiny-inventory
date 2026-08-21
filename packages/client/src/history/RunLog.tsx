@@ -2,12 +2,8 @@ import { For } from "solid-js";
 
 import { Chevron, Plate, Result, type PlateProps } from "./ActivityRow.tsx";
 import { duration, playedSeconds, span, type HistoryRun } from "../history.ts";
-import { clock, dayTitle, plural } from "./runFormat.ts";
-
-export interface Day {
-  day: string;
-  runs: HistoryRun[];
-}
+import type { Day } from "./groups.ts";
+import { clock, dayTitle, plural, score } from "./runFormat.ts";
 
 export const RunLog = (props: {
   days: Day[];
@@ -64,9 +60,7 @@ export const RunLog = (props: {
                     <td class="num">{duration(run.durationSeconds)}</td>
                     <td class="num">{run.kills}</td>
                     <td class="num">{run.deaths}</td>
-                    <td class="num">
-                      {run.score > 0 ? run.score.toLocaleString() : "-"}
-                    </td>
+                    <td class="num">{score(run.score)}</td>
                     <Result completed={run.completed} />
                     <Chevron />
                   </tr>

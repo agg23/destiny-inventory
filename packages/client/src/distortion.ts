@@ -42,7 +42,7 @@ export const schedule = (now: number): Rotation[] => {
   });
 };
 
-export const clock = (ms: number): string => {
+export const countdown = (ms: number): string => {
   const total = Math.max(0, Math.ceil(ms / 1000));
   const seconds = total % 60;
 

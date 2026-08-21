@@ -1,5 +1,8 @@
 import type { DimItem, DimStat } from "app/inventory/item-types";
 
+// DIM derives the armor total itself
+export const TOTAL = -1000;
+
 // DestinyItemCategoryDefinition hashes, inlined
 const WEAPON = 1;
 const ARMOR = 20;

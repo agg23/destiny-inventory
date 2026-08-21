@@ -11,16 +11,26 @@ interface Props {
 const BANNER =
   "card selectable store-head flex items-center gap-2 p-2 text-left";
 
-const Banner = (props: { store: DimStore }) => (
+export const StoreBanner = (props: {
+  icon: string;
+  title: string;
+  note: string;
+}) => (
   <>
-    <img class="size-(--icon-xl) shrink-0" src={props.store.icon} alt="" />
+    <img class="size-(--icon-xl) shrink-0" src={props.icon} alt="" />
     <div class="min-w-0">
-      <div class="header general truncate">{props.store.className}</div>
-      <div class="truncate text-sm text-fg/75">
-        {props.store.genderRace} · {props.store.powerLevel}
-      </div>
+      <div class="header general truncate">{props.title}</div>
+      <div class="truncate text-sm text-fg/75">{props.note}</div>
     </div>
   </>
+);
+
+const Banner = (props: { store: DimStore }) => (
+  <StoreBanner
+    icon={props.store.icon}
+    title={props.store.className}
+    note={`${props.store.genderRace} · ${props.store.powerLevel}`}
+  />
 );
 
 export const CharacterPicker = (props: Props) => (

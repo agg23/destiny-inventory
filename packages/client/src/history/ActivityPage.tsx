@@ -3,11 +3,11 @@ import { For, Show } from "solid-js";
 
 import type { ActivityTables } from "../activities.ts";
 import { Chevron, Result } from "./ActivityRow.tsx";
+import { BUNGIE } from "../bungie.ts";
 import { duration, type HistoryRun } from "../history.ts";
-import { BUNGIE } from "../ItemPanel.tsx";
 import { Report } from "./RunReport.tsx";
 import { METRICS, RunGraph, type Metric } from "./RunGraph.tsx";
-import { ratio, rungColor, stamp } from "./runFormat.ts";
+import { ratio, rungColor, score, stamp } from "./runFormat.ts";
 import type { Best } from "./totals.ts";
 
 export const ActivityPage = (props: {
@@ -130,9 +130,7 @@ export const ActivityPage = (props: {
                     <td class="num">{run.assists}</td>
                     <td class="num">{run.deaths}</td>
                     <td class="num">{ratio(run)}</td>
-                    <td class="num">
-                      {run.score > 0 ? run.score.toLocaleString() : "-"}
-                    </td>
+                    <td class="num">{score(run.score)}</td>
                     <Result completed={run.completed} />
                     <Chevron
                       open={props.opened?.instanceId === run.instanceId}

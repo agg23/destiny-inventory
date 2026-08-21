@@ -2,8 +2,6 @@ import { DIFFICULTIES } from "@dvm/defs-core";
 
 import type { HistoryRun } from "../history.ts";
 
-export const DAY_MS = 24 * 60 * 60 * 1000;
-
 export const stamp = (at: number): string =>
   new Date(at).toLocaleString([], {
     month: "short",
@@ -17,6 +15,9 @@ export const ratio = (run: HistoryRun): string =>
 
 export const plural = (count: number, noun: string): string =>
   `${count} ${noun}${count === 1 ? "" : "s"}`;
+
+export const score = (value: number): string =>
+  value > 0 ? value.toLocaleString() : "-";
 
 export const shortDay = (at: number): string =>
   new Date(at).toLocaleDateString([], { month: "short", day: "numeric" });

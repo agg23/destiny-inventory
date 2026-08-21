@@ -6,6 +6,7 @@ import { App } from "./App.tsx";
 import { History } from "./history/History.tsx";
 import { Vault } from "./Vault.tsx";
 import { beginLogin, completeLogin, markDevLogin, signedIn } from "./auth.ts";
+import { messageOf } from "./error.ts";
 import "./tokens.css";
 import "./style.css";
 import "./destiny.scss";
@@ -38,7 +39,7 @@ const start = async () => {
         return;
       }
     } catch (e) {
-      root.textContent = e instanceof Error ? e.message : String(e);
+      root.textContent = messageOf(e);
 
       return;
     }

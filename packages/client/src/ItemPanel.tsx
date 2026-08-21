@@ -21,16 +21,12 @@ import {
 import { isClassCompatible, itemCanBeEquippedBy } from "app/utils/item-utils";
 import { createMemo, For, Show } from "solid-js";
 
-import { delta, unmovable, type Delta } from "./compare.ts";
+import { BUNGIE } from "./bungie.ts";
+import { delta, TOTAL, unmovable, type Delta } from "./compare.ts";
 import { archetype, benefits, setBonus, type StatChange } from "./perks.ts";
 import { shortStat } from "./statNames.ts";
 import { Button } from "./ui/Button.tsx";
 import { SplitButton, type Choice } from "./ui/SplitButton.tsx";
-
-export const BUNGIE = "https://www.bungie.net";
-
-// DIM derives the armor total itself
-export const TOTAL = -1000;
 
 // BucketHashes.LostItems, inlined
 const LOST_ITEMS = 215593132;

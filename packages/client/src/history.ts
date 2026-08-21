@@ -182,6 +182,7 @@ export const syncTiers = async (
   }
 };
 
+// Dead: no callers yet
 export interface ActivitySummary {
   referenceId: number;
   runs: number;
@@ -233,6 +234,7 @@ export const summarize = (runs: HistoryRun[]): ActivitySummary[] => {
 
 const SESSION_GAP_MS = 30 * 60 * 1000;
 
+// Dead: no callers yet
 export interface PlaySession {
   startedAt: number;
   endedAt: number;
@@ -548,7 +550,7 @@ export const byBucket = (
   });
 };
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const span = (seconds: number): string => {
   const minutes = Math.round(seconds / 60);

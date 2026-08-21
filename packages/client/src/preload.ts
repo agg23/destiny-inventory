@@ -1,8 +1,8 @@
 import type { DimItem } from "app/inventory/item-types";
 
-const LANES = 6;
+import { BUNGIE } from "./bungie.ts";
 
-const BUNGIE = "https://www.bungie.net";
+const LANES = 6;
 
 export const plugIcons = (items: DimItem[]): string[] => {
   const icons = new Set<string>();

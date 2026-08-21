@@ -1,6 +1,7 @@
 import { For, Show } from "solid-js";
 
 import { span } from "../history.ts";
+import { Button } from "../ui/Button.tsx";
 import { RANGES } from "./range.ts";
 import { plural } from "./runFormat.ts";
 import type { Totals } from "./totals.ts";
@@ -39,9 +40,9 @@ export const HistoryToolbar = (props: {
     />
 
     <Show when={props.pinned}>
-      <button type="button" class="button small ghost" onClick={props.onClear}>
+      <Button size="sm" variant="ghost" onClick={props.onClear}>
         Clear dates
-      </button>
+      </Button>
     </Show>
 
     <span class="ml-auto flex flex-wrap items-baseline gap-x-4 text-md tabular-nums">

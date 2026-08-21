@@ -10,6 +10,8 @@ import {
 } from "../history.ts";
 import { useApp } from "../App.tsx";
 import { useUrl } from "../router.ts";
+import { Button } from "../ui/Button.tsx";
+import { TabButton } from "../ui/TabButton.tsx";
 import { activityHref, activityLabel, type HistoryTab } from "../url.ts";
 import { activityLookup } from "./activityLookup.ts";
 import { ActivityMap, type Week } from "./ActivityMap.tsx";
@@ -192,13 +194,9 @@ export const History = () => {
   return (
     <div class="flex flex-col gap-3 px-4 pt-3">
       <Show when={page()}>
-        <button
-          type="button"
-          class="button small ghost self-start"
-          onClick={leave}
-        >
+        <Button size="sm" variant="ghost" class="self-start" onClick={leave}>
           &larr; All history
-        </button>
+        </Button>
       </Show>
 
       <Show when={app.syncError()}>
@@ -209,15 +207,12 @@ export const History = () => {
         <nav class="nav-tabs sections">
           <For each={TABS}>
             {(one) => (
-              <button
-                type="button"
-                class="nav-tab"
-                classList={{ active: tab() === one.id }}
-                aria-pressed={tab() === one.id}
+              <TabButton
+                active={tab() === one.id}
                 onClick={() => url.push({ view: one.id })}
               >
                 {one.label}
-              </button>
+              </TabButton>
             )}
           </For>
           <Show when={app.syncing()}>
@@ -274,13 +269,14 @@ export const History = () => {
           />
 
           <Show when={filtered().length > shown()}>
-            <button
-              type="button"
-              class="button small ghost self-start"
+            <Button
+              size="sm"
+              variant="ghost"
+              class="self-start"
               onClick={() => url.push({ shown: shown() + PAGE })}
             >
               Show more of {filtered().length}
-            </button>
+            </Button>
           </Show>
 
           <Show when={filtered().length === 0 && !app.syncing()}>

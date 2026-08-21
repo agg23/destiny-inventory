@@ -1,6 +1,6 @@
 import { Show } from "solid-js";
 
-import { BUNGIE } from "../ItemPanel.tsx";
+import { BUNGIE } from "../bungie.ts";
 import { rungColor } from "./runFormat.ts";
 
 export interface PlateProps {

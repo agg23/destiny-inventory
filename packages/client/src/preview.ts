@@ -1,7 +1,7 @@
 import type { DimItem } from "app/inventory/item-types";
 import { createSignal } from "solid-js";
 
-const HOVER_DELAY = 120;
+export const HOVER_DELAY = 120;
 
 export interface Previewed {
   item: DimItem;

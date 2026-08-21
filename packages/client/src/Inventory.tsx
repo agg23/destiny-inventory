@@ -6,7 +6,7 @@ import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { createMemo, For, Show } from "solid-js";
 
-import { CharacterPicker } from "./CharacterPicker.tsx";
+import { CharacterPicker, StoreBanner } from "./CharacterPicker.tsx";
 import { ItemIcon } from "./ItemIcon.tsx";
 
 const CATEGORIES = ["Postmaster", "Weapons", "Armor", "General", "Inventory"];
@@ -23,13 +23,11 @@ interface Props {
 
 const VaultHeader = (props: { store: DimStore }) => (
   <div class="card store-head flex w-(--store-column) items-center gap-2 p-2">
-    <img class="size-(--icon-xl) shrink-0" src={props.store.icon} alt="" />
-    <div class="min-w-0">
-      <div class="header general truncate">Vault</div>
-      <div class="truncate text-sm text-fg/75">
-        {props.store.items.length} items
-      </div>
-    </div>
+    <StoreBanner
+      icon={props.store.icon}
+      title="Vault"
+      note={`${props.store.items.length} items`}
+    />
   </div>
 );
 

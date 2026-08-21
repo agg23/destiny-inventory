@@ -3,7 +3,8 @@ import type { DimStore } from "app/inventory/store-types";
 import { For, Show } from "solid-js";
 
 import { powerDelta } from "./arrivals.ts";
-import { BUNGIE, typeName } from "./ItemPanel.tsx";
+import { BUNGIE } from "./bungie.ts";
+import { typeName } from "./ItemPanel.tsx";
 import { dismiss, preview } from "./preview.ts";
 
 interface Props {

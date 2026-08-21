@@ -1,5 +1,4 @@
 import {
-  createEffect,
   createMemo,
   createResource,
   createSignal,
@@ -25,13 +24,18 @@ import {
 } from "./activities.ts";
 import { activityTables } from "./activityTables.ts";
 import { fetchBaseline } from "./baseline.ts";
+import { BUNGIE } from "./bungie.ts";
 import { defs } from "./defs.ts";
-import { clock, HOUR, schedule, type Rotation } from "./distortion.ts";
+import { countdown, HOUR, schedule, type Rotation } from "./distortion.ts";
 import { ago, bestTiming, duration, type ActivityTiming } from "./history.ts";
+import { clock } from "./history/runFormat.ts";
 import type { CharacterActivities, StringVariables } from "./load.ts";
-import { BUNGIE } from "./ItemPanel.tsx";
+import { HOVER_DELAY } from "./preview.ts";
 import { useApp } from "./App.tsx";
 import { useUrl } from "./router.ts";
+import { AnchoredPanel } from "./ui/AnchoredPanel.tsx";
+import { Button } from "./ui/Button.tsx";
+import { TabButton } from "./ui/TabButton.tsx";
 
 type Values = Record<number, number>;
 
@@ -173,12 +177,6 @@ const Challenges = (props: { challenges: Challenge[] }) => (
   </ul>
 );
 
-const when = (start: number): string =>
-  new Date(start).toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-
 const Bonus = (props: { pieces: number; perk: number; values: Values }) => (
   <Show when={defs()?.SandboxPerk.getOptional(props.perk)}>
     {(perk) => (
@@ -218,8 +216,8 @@ const ZoneCard = (props: ZoneProps) => (
         classList={{ "text-light": props.active }}
       >
         {props.active
-          ? `Now · ${clock(props.turn.start + HOUR - props.now)} left`
-          : when(props.turn.start)}
+          ? `Now · ${countdown(props.turn.start + HOUR - props.now)} left`
+          : clock(props.turn.start)}
       </span>
     </div>
     <Show when={defs()?.EquipableItemSet.getOptional(props.turn.set)}>
@@ -241,11 +239,6 @@ const ZoneCard = (props: ZoneProps) => (
   </li>
 );
 
-const GAP = 8;
-// The framework's own tooltip and card width
-const DETAIL_WIDTH = 352;
-const HOVER_DELAY = 120;
-
 interface Hovered {
   entry: Available;
   anchor: DOMRect;
@@ -256,115 +249,82 @@ interface DetailProps extends Hovered {
   power: number | undefined;
 }
 
-const RunDetail = (props: DetailProps) => {
-  const [height, setHeight] = createSignal(0);
-
-  let panel: HTMLElement | undefined = undefined;
-
-  // The panel cannot scroll
-  createEffect(() => {
-    props.entry;
-    setHeight(panel?.offsetHeight ?? 0);
-  });
-
-  const position = createMemo(() => {
-    const room = window.innerWidth - props.anchor.right;
-    const left =
-      room > DETAIL_WIDTH + GAP
-        ? props.anchor.right + GAP
-        : props.anchor.left - DETAIL_WIDTH - GAP;
-
-    return {
-      left: `${Math.max(GAP, left)}px`,
-      top: `${Math.max(
-        GAP,
-        Math.min(props.anchor.top, window.innerHeight - height() - GAP),
-      )}px`,
-      width: `${DETAIL_WIDTH}px`,
-    };
-  });
-
-  return (
-    <aside
-      class="card run-detail"
-      ref={(el) => (panel = el)}
-      style={position()}
-    >
-      <div class="card-header flex-col items-start gap-1">
-        <span class="card-title">{props.entry.name}</span>
-        <span class="card-subtitle">{where(props.entry)}</span>
-      </div>
-      <div class="card-body flex flex-col gap-4 overflow-hidden">
-        <Show when={props.entry.description}>
-          <p class="m-0 text-md text-muted">{props.entry.description}</p>
-        </Show>
-        <Show when={props.entry.locked.length > 0}>
-          <div class="flex flex-col gap-1.5">
-            <p class="section-label">Locked</p>
-            <ul class="m-0 flex list-none flex-col gap-1 p-0 text-md text-error">
-              <For each={props.entry.locked}>
-                {(one) => <li>{readable(one, props.values)}</li>}
-              </For>
-            </ul>
-          </div>
-        </Show>
-        <Show when={props.entry.challenges.length > 0}>
-          <div class="flex flex-col gap-1.5">
-            <p class="section-label">Challenges</p>
-            <Challenges challenges={props.entry.challenges} />
-          </div>
-        </Show>
-        {/* Bungie states no per-rung power delta */}
-        <Show when={props.entry.difficulties.length > 0}>
-          <div class="flex flex-col gap-1.5">
-            <p class="section-label">Difficulty</p>
-            <p class="m-0 text-md text-text">
-              <For each={props.entry.difficulties}>
-                {(tier, index) => (
-                  <>
-                    <Show when={index() > 0}>
-                      <span class="text-dim"> · </span>
-                    </Show>
-                    <span
-                      class="tier"
-                      classList={{ barred: barred(tier, props.power) }}
-                      title={
-                        barred(tier, props.power)
-                          ? `${tier.power} power to launch`
-                          : undefined
-                      }
-                    >
-                      {tier.name}
-                    </span>
-                  </>
-                )}
-              </For>
-            </p>
-          </div>
-        </Show>
-        <Show when={props.entry.modifiers.length > 0}>
-          <div class="flex flex-col gap-1.5">
-            <p class="section-label">Modifiers</p>
-            <ul class="m-0 flex list-none flex-col gap-2 p-0">
-              <For each={props.entry.modifiers}>
-                {(one) => (
-                  <li class="min-w-0 text-sm">
-                    <div class="text-text">{one.name}</div>
-                    <Show when={one.description}>
-                      <div class="text-muted">
-                        {readable(one.description, props.values)}
-                      </div>
-                    </Show>
-                  </li>
-                )}
-              </For>
-            </ul>
-          </div>
-        </Show>
-      </div>
-    </aside>
-  );
-};
+const RunDetail = (props: DetailProps) => (
+  <AnchoredPanel class="card run-detail" anchor={props.anchor}>
+    <div class="card-header flex-col items-start gap-1">
+      <span class="card-title">{props.entry.name}</span>
+      <span class="card-subtitle">{where(props.entry)}</span>
+    </div>
+    <div class="card-body flex flex-col gap-4 overflow-hidden">
+      <Show when={props.entry.description}>
+        <p class="m-0 text-md text-muted">{props.entry.description}</p>
+      </Show>
+      <Show when={props.entry.locked.length > 0}>
+        <div class="flex flex-col gap-1.5">
+          <p class="section-label">Locked</p>
+          <ul class="m-0 flex list-none flex-col gap-1 p-0 text-md text-error">
+            <For each={props.entry.locked}>
+              {(one) => <li>{readable(one, props.values)}</li>}
+            </For>
+          </ul>
+        </div>
+      </Show>
+      <Show when={props.entry.challenges.length > 0}>
+        <div class="flex flex-col gap-1.5">
+          <p class="section-label">Challenges</p>
+          <Challenges challenges={props.entry.challenges} />
+        </div>
+      </Show>
+      {/* Bungie states no per-rung power delta */}
+      <Show when={props.entry.difficulties.length > 0}>
+        <div class="flex flex-col gap-1.5">
+          <p class="section-label">Difficulty</p>
+          <p class="m-0 text-md text-text">
+            <For each={props.entry.difficulties}>
+              {(tier, index) => (
+                <>
+                  <Show when={index() > 0}>
+                    <span class="text-dim"> · </span>
+                  </Show>
+                  <span
+                    class="tier"
+                    classList={{ barred: barred(tier, props.power) }}
+                    title={
+                      barred(tier, props.power)
+                        ? `${tier.power} power to launch`
+                        : undefined
+                    }
+                  >
+                    {tier.name}
+                  </span>
+                </>
+              )}
+            </For>
+          </p>
+        </div>
+      </Show>
+      <Show when={props.entry.modifiers.length > 0}>
+        <div class="flex flex-col gap-1.5">
+          <p class="section-label">Modifiers</p>
+          <ul class="m-0 flex list-none flex-col gap-2 p-0">
+            <For each={props.entry.modifiers}>
+              {(one) => (
+                <li class="min-w-0 text-sm">
+                  <div class="text-text">{one.name}</div>
+                  <Show when={one.description}>
+                    <div class="text-muted">
+                      {readable(one.description, props.values)}
+                    </div>
+                  </Show>
+                </li>
+              )}
+            </For>
+          </ul>
+        </div>
+      </Show>
+    </div>
+  </AnchoredPanel>
+);
 
 const Played = (props: { timing: ActivityTiming | undefined }) => (
   <Show
@@ -443,6 +403,35 @@ const Row = (props: RowProps) => (
       </div>
     </div>
   </li>
+);
+
+interface GridProps {
+  entries: Available[];
+  glyph: string | undefined;
+  timingFor: (entry: Available) => ActivityTiming | undefined;
+  onHover: (entry: Available, anchor: DOMRect) => void;
+  onLeave: (entry: Available) => void;
+  class?: string;
+}
+
+const RunGrid = (props: GridProps) => (
+  <ul
+    class={`m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(440px,1fr))] gap-3 p-0 ${
+      props.class ?? ""
+    }`}
+  >
+    <For each={props.entries}>
+      {(entry) => (
+        <Row
+          entry={entry}
+          glyph={props.glyph}
+          timing={props.timingFor(entry)}
+          onHover={props.onHover}
+          onLeave={props.onLeave}
+        />
+      )}
+    </For>
+  </ul>
 );
 
 const offering = (entry: Available): boolean =>
@@ -556,13 +545,8 @@ export const Activities = () => {
       <nav class="nav-tabs">
         <For each={shown()}>
           {(one) => (
-            <button
-              type="button"
-              class="nav-tab"
-              classList={{
-                active: !onZones() && one.name === activeRealm()?.name,
-              }}
-              aria-pressed={!onZones() && one.name === activeRealm()?.name}
+            <TabButton
+              active={!onZones() && one.name === activeRealm()?.name}
               onClick={() => {
                 // The card unmounts without a mouseleave
                 setHovered(undefined);
@@ -571,21 +555,18 @@ export const Activities = () => {
             >
               {one.name}
               <BonusCount count={one.bonusDrops} glyph={glyph()} />
-            </button>
+            </TabButton>
           )}
         </For>
-        <button
-          type="button"
-          class="nav-tab"
-          classList={{ active: onZones() }}
-          aria-pressed={onZones()}
+        <TabButton
+          active={onZones()}
           onClick={() => {
             setHovered(undefined);
             url.push({ realm: DISTORTION, section: undefined });
           }}
         >
           Distortion
-        </button>
+        </TabButton>
       </nav>
       <Show when={tables.error}>
         <p class="text-danger">Activity definitions failed to load.</p>
@@ -606,11 +587,8 @@ export const Activities = () => {
               <nav class="nav-subtabs sections">
                 <For each={activeRealm()?.categories}>
                   {(one) => (
-                    <button
-                      type="button"
-                      class="nav-tab"
-                      classList={{ active: one.name === current().name }}
-                      aria-pressed={one.name === current().name}
+                    <TabButton
+                      active={one.name === current().name}
                       onClick={() => {
                         setHovered(undefined);
                         url.push({ section: one.name });
@@ -618,7 +596,7 @@ export const Activities = () => {
                     >
                       {one.name}
                       <BonusCount count={one.bonusDrops} glyph={glyph()} />
-                    </button>
+                    </TabButton>
                   )}
                 </For>
               </nav>
@@ -645,61 +623,46 @@ export const Activities = () => {
                 {(picks) => (
                   <Show when={picks().length > 0}>
                     <p class="section-label">Featured</p>
-                    <ul class="picks m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(440px,1fr))] gap-3 p-0">
-                      <For each={picks()}>
-                        {(entry) => (
-                          <Row
-                            entry={entry}
-                            glyph={glyph()}
-                            timing={timingFor(entry)}
-                            onHover={onHover}
-                            onLeave={onLeave}
-                          />
-                        )}
-                      </For>
-                    </ul>
-                  </Show>
-                )}
-              </Show>
-              <ul class="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(440px,1fr))] gap-3 p-0">
-                <For each={current().entries.filter(listed)}>
-                  {(entry) => (
-                    <Row
-                      entry={entry}
+                    <RunGrid
+                      class="picks"
+                      entries={picks()}
                       glyph={glyph()}
-                      timing={timingFor(entry)}
+                      timingFor={timingFor}
                       onHover={onHover}
                       onLeave={onLeave}
                     />
-                  )}
-                </For>
-              </ul>
+                  </Show>
+                )}
+              </Show>
+              <RunGrid
+                entries={current().entries.filter(listed)}
+                glyph={glyph()}
+                timingFor={timingFor}
+                onHover={onHover}
+                onLeave={onLeave}
+              />
               <Show when={current().entries.filter(quiet)}>
                 {(rest) => (
                   <Show when={rest().length > 0}>
-                    <button
+                    <Button
                       type="button"
-                      class="button small ghost self-start"
+                      size="sm"
+                      variant="ghost"
+                      class="self-start"
                       aria-pressed={showRest()}
                       onClick={() => url.push({ rest: !showRest() })}
                     >
                       {showRest() ? "Hide" : "Show"} {rest().length} with
                       nothing left this week
-                    </button>
+                    </Button>
                     <Show when={showRest()}>
-                      <ul class="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(440px,1fr))] gap-3 p-0">
-                        <For each={rest()}>
-                          {(entry) => (
-                            <Row
-                              entry={entry}
-                              glyph={glyph()}
-                              timing={timingFor(entry)}
-                              onHover={onHover}
-                              onLeave={onLeave}
-                            />
-                          )}
-                        </For>
-                      </ul>
+                      <RunGrid
+                        entries={rest()}
+                        glyph={glyph()}
+                        timingFor={timingFor}
+                        onHover={onHover}
+                        onLeave={onLeave}
+                      />
                     </Show>
                   </Show>
                 )}

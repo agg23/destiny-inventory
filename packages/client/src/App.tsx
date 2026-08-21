@@ -22,6 +22,7 @@ import { accessToken, beginLogin, signedIn, signOut } from "./auth.ts";
 import { fetchCarnageReport } from "./bungie.ts";
 import { acquired } from "./arrivals.ts";
 import { comparable } from "./compare.ts";
+import { messageOf } from "./error.ts";
 import { HoverCard } from "./HoverCard.tsx";
 import {
   storedRuns,
@@ -36,6 +37,8 @@ import { plugIcons, warmIcons } from "./preload.ts";
 import { clear, previewed } from "./preview.ts";
 import { startAutoRefresh } from "./refresh.ts";
 import { useUrl } from "./router.ts";
+import { Button } from "./ui/Button.tsx";
+import { TabButton } from "./ui/TabButton.tsx";
 import { tabHref, TABS, type Tab } from "./url.ts";
 
 const PINS = 2;
@@ -279,7 +282,7 @@ export const App = (props: { children?: JSX.Element }) => {
         (fresh) => setRuns((was) => absorb(was, fresh)),
       );
     } catch (e: unknown) {
-      setSyncError(e instanceof Error ? e.message : String(e));
+      setSyncError(messageOf(e));
     } finally {
       setSyncing(false);
     }
@@ -419,9 +422,7 @@ export const App = (props: { children?: JSX.Element }) => {
     setMoving(`${equip ? "Equipping" : "Moving"} ${item.name}`);
 
     moveItem(item, target, equip)
-      .catch((e: unknown) =>
-        setMoveError(e instanceof Error ? e.message : String(e)),
-      )
+      .catch((e: unknown) => setMoveError(messageOf(e)))
       .finally(() => setMoving(undefined));
   };
 
@@ -454,17 +455,15 @@ export const App = (props: { children?: JSX.Element }) => {
           <div class="max-w-[420px] px-6 py-12">
             <h1 class="spaced-header">Vault</h1>
             <p>Sign in with your Bungie account to load your inventory.</p>
-            <button
-              class="button large"
+            <Button
+              size="lg"
               onClick={() => {
                 setAuthError(undefined);
-                beginLogin().catch((e: unknown) =>
-                  setAuthError(e instanceof Error ? e.message : String(e)),
-                );
+                beginLogin().catch((e: unknown) => setAuthError(messageOf(e)));
               }}
             >
               Sign in with Bungie
-            </button>
+            </Button>
             <Show when={authError()}>
               {(message) => <p class="pt-3 text-danger">{message()}</p>}
             </Show>
@@ -475,15 +474,12 @@ export const App = (props: { children?: JSX.Element }) => {
           <nav class="nav-tabs basis-full">
             <For each={TABS}>
               {(one) => (
-                <button
-                  type="button"
-                  class="nav-tab"
-                  classList={{ active: tab() === one }}
-                  aria-pressed={tab() === one}
+                <TabButton
+                  active={tab() === one}
                   onClick={() => navigate(tabHref(one, typed()))}
                 >
                   {LABELS[one]}
-                </button>
+                </TabButton>
               )}
             </For>
           </nav>
@@ -495,30 +491,32 @@ export const App = (props: { children?: JSX.Element }) => {
               value={typed()}
               onInput={(e) => onQuery(e.currentTarget.value)}
             />
-            <button
-              class="button small"
+            <Button
+              size="sm"
               disabled={Boolean(moving())}
               onClick={() => void refresh()}
             >
               Refresh
-            </button>
-            <button
-              class="button small ghost"
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
               onClick={() => {
                 signOut();
                 globalThis.location.reload();
               }}
             >
               Sign out
-            </button>
+            </Button>
             <Show when={stale()}>
               <span class="text-warning">New manifest available.</span>
-              <button
-                class="button small gold"
+              <Button
+                size="sm"
+                variant="light"
                 onClick={() => globalThis.location.reload()}
               >
                 Reload
-              </button>
+              </Button>
             </Show>
           </div>
           <Show when={current()}>

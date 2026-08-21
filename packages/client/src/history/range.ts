@@ -1,4 +1,5 @@
-import { DAY_MS, dateLabel, dayTitle } from "./runFormat.ts";
+import { DAY_MS } from "../history.ts";
+import { dateLabel, dayTitle } from "./runFormat.ts";
 
 export interface Range {
   id: string;

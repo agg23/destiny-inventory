@@ -1,19 +1,12 @@
+import type { Baseline as Captured, Reward } from "@dvm/service";
+
 import type { Recalled } from "./activities.ts";
 
 // A live profile deletes a taken reward outright
 const ENDPOINT = "/api/baseline";
 
-interface Reward {
-  style: string;
-  itemHash: number;
-  quantity: number;
-}
-
-interface Served {
-  week?: string;
-  capturedAt?: string;
-  rows: Record<string, Reward[]>;
-}
+// The service answers { rows: {} } when nothing is captured
+type Served = Partial<Captured>;
 
 export interface Baseline {
   week: string | undefined;

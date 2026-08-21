@@ -8,6 +8,8 @@ import {
   type ActivityRow,
   type BucketGroup,
 } from "../history.ts";
+import { Button } from "../ui/Button.tsx";
+import { score } from "./runFormat.ts";
 
 const SERIES_ROWS = 10;
 
@@ -67,11 +69,7 @@ export const ActivitySeries = (props: {
                             ? "-"
                             : duration(row.fastestSeconds)}
                         </td>
-                        <td class="num">
-                          {row.bestScore > 0
-                            ? row.bestScore.toLocaleString()
-                            : "-"}
-                        </td>
+                        <td class="num">{score(row.bestScore)}</td>
                         <td class="num">{ago(row.lastRunAt)}</td>
                         <Chevron />
                       </tr>
@@ -80,16 +78,17 @@ export const ActivitySeries = (props: {
                 </tbody>
               </table>
               <Show when={group.rows.length > SERIES_ROWS}>
-                <button
-                  type="button"
-                  class="button small ghost m-3 self-start"
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  class="m-3 self-start"
                   aria-pressed={props.isExpanded(group.bucket.id)}
                   onClick={() => props.onToggle(group.bucket.id)}
                 >
                   {props.isExpanded(group.bucket.id)
                     ? `Show top ${SERIES_ROWS}`
                     : `Show all ${group.rows.length}`}
-                </button>
+                </Button>
               </Show>
             </div>
           </div>

@@ -1,9 +1,8 @@
 import type { DimItem } from "app/inventory/item-types";
 import { Show } from "solid-js";
 
+import { BUNGIE } from "./bungie.ts";
 import { dismiss, preview } from "./preview.ts";
-
-const BUNGIE = "https://www.bungie.net";
 
 interface Props {
   item: DimItem;

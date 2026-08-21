@@ -2,7 +2,7 @@ import type { DimItem, DimStat } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { createMemo, createSignal, For, Show } from "solid-js";
 
-import { best } from "./compare.ts";
+import { best, TOTAL } from "./compare.ts";
 import {
   Archetype,
   Benefits,
@@ -13,7 +13,6 @@ import {
   SetBonus,
   StatBar,
   StatValue,
-  TOTAL,
 } from "./ItemPanel.tsx";
 import { shortStat } from "./statNames.ts";
 import { IconButton } from "./ui/Button.tsx";

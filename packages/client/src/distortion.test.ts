@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { clock, HOUR, schedule, ZONES } from "./distortion.ts";
+import { countdown, HOUR, schedule, ZONES } from "./distortion.ts";
 
 // The window verified in-game: Europa active 2026-07-26 13:00-14:00 UTC
 const VERIFIED = Date.UTC(2026, 6, 26, 13);
@@ -71,13 +71,13 @@ describe("schedule", () => {
   });
 });
 
-describe("clock", () => {
+describe("countdown", () => {
   it("reads as minutes and padded seconds", () => {
-    expect(clock(45 * 60_000)).toBe("45:00");
-    expect(clock(9 * 60_000 + 7_000)).toBe("9:07");
+    expect(countdown(45 * 60_000)).toBe("45:00");
+    expect(countdown(9 * 60_000 + 7_000)).toBe("9:07");
   });
 
   it("never shows negative time", () => {
-    expect(clock(-500)).toBe("0:00");
+    expect(countdown(-500)).toBe("0:00");
   });
 });
