@@ -32,6 +32,7 @@ const definition = (over: Partial<SlimActivity>): SlimActivity => ({
   hash: 0,
   name: "Vault of Glass",
   description: "",
+  difficulty: undefined,
   icon: undefined,
   pgcrImage: undefined,
   activityTypeHash: 100,
@@ -42,6 +43,7 @@ const definition = (over: Partial<SlimActivity>): SlimActivity => ({
   maxPlayers: 6,
   placeHash: undefined,
   modeType: undefined,
+  modeTypes: [],
   difficultyHash: undefined,
   leaderRequirements: [],
   fireteamRequirements: [],
@@ -87,20 +89,22 @@ const tables: ActivityTables = {
     960: {
       hash: 960,
       tiers: [
-        { name: "Normal", level: 31, power: undefined },
-        { name: "Master", level: 40, power: 300 },
+        { index: 0, name: "Normal", level: 31, power: undefined },
+        { index: 1, name: "Master", level: 40, power: 300 },
       ],
     },
     961: {
       hash: 961,
       tiers: [
-        { name: "Master", level: 40, power: 300 },
-        { name: "Grandmaster", level: 45, power: 400 },
+        { index: 1, name: "Master", level: 40, power: 300 },
+        { index: 2, name: "Grandmaster", level: 45, power: 400 },
       ],
     },
   },
   destinations: { 700: { hash: 700, name: "The Dreaming City" } },
   places: { 800: { hash: 800, name: "Earth" } },
+  skulls: {},
+  modes: {},
   rewards: {
     600: { hash: 600, name: "Raid Gear", icon: undefined },
     601: { hash: 601, name: "Deepsight Weapon", icon: undefined },
@@ -1011,9 +1015,9 @@ describe("difficulties", () => {
     );
 
     expect(category?.entries[0]?.difficulties).toEqual([
-      { name: "Normal", level: 31, power: undefined },
-      { name: "Master", level: 40, power: 300 },
-      { name: "Grandmaster", level: 45, power: 400 },
+      { index: 0, name: "Normal", level: 31, power: undefined },
+      { index: 1, name: "Master", level: 40, power: 300 },
+      { index: 2, name: "Grandmaster", level: 45, power: 400 },
     ]);
   });
 
@@ -1073,13 +1077,18 @@ describe("locked", () => {
 
 describe("difficulty floors", () => {
   it("bars a rung whose floor the character has not reached", () => {
-    const grandmaster = { name: "Grandmaster", level: 45, power: 400 };
+    const grandmaster = {
+      index: 2,
+      name: "Grandmaster",
+      level: 45,
+      power: 400,
+    };
 
     expect(barred(grandmaster, 399)).toBe(true);
     expect(barred(grandmaster, 400)).toBe(false);
-    expect(barred({ name: "Normal", level: 31, power: undefined }, 1)).toBe(
-      false,
-    );
+    expect(
+      barred({ index: 0, name: "Normal", level: 31, power: undefined }, 1),
+    ).toBe(false);
   });
 });
 

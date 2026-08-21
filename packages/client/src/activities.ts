@@ -7,7 +7,9 @@ import type {
   SlimGraphNode,
   SlimModifier,
   SlimPlace,
+  SlimMode,
   SlimReward,
+  SlimSkull,
   SlimTier,
 } from "@dvm/defs-core";
 import type { DestinyActivity } from "bungie-api-ts/destiny2";
@@ -23,6 +25,8 @@ export interface ActivityTables {
   rewards: Record<number, SlimReward>;
   challenges: Record<number, SlimChallenge>;
   difficulties: Record<number, SlimDifficulty>;
+  skulls: Record<number, SlimSkull>;
+  modes: Record<number, SlimMode>;
 }
 
 // Bungie's quantity is a flag, not a tally

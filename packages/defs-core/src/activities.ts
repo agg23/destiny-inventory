@@ -4,6 +4,7 @@ import type {
   DestinyDestinationDefinition,
   DestinyInventoryItemDefinition,
   DestinyPlaceDefinition,
+  DestinyActivityModeDefinition,
   DestinyActivityModifierDefinition,
   DestinyActivityTypeDefinition,
   DestinyFireteamFinderActivityGraphDefinition,
@@ -19,6 +20,8 @@ export interface SlimActivity {
   pgcrImage: string | undefined;
   activityTypeHash: number | undefined;
   destinationHash: number | undefined;
+  modeTypes: number[];
+  difficulty: string | undefined;
   isPlaylist: boolean;
   isPvP: boolean;
   isMatchmade: boolean;
@@ -32,9 +35,10 @@ export interface SlimActivity {
 }
 
 export interface SlimTier {
+  // A report's difficultyTier indexes Bungie's unsorted list
+  index: number;
   name: string;
   level: number;
-  // The launch floor, the only requirement Bungie states as a number rather than prose
   power: number | undefined;
 }
 
@@ -140,6 +144,8 @@ export const slimActivity = (
   destinationHash: activity.destinationHash,
   placeHash: activity.placeHash,
   modeType: activity.directActivityModeType,
+  modeTypes: activity.activityModeTypes ?? [],
+  difficulty: difficultyOf(activity.displayProperties.name),
   isPlaylist: activity.isPlaylist,
   isPvP: activity.isPvP,
   isMatchmade: Boolean(activity.matchmaking?.isMatchmade),
@@ -159,9 +165,14 @@ export const slimDifficulty = (
 ): SlimDifficulty => ({
   hash: collection.hash,
   tiers: collection.difficultyTiers
-    .filter((tier) => tier.tierType !== TRAINING && tier.displayProperties.name)
-    .toSorted((a, b) => a.tierRank - b.tierRank)
-    .map((tier) => ({
+    .map((tier, index) => ({ tier, index }))
+    .filter(
+      ({ tier }) =>
+        tier.tierType !== TRAINING && tier.displayProperties.name.length > 0,
+    )
+    .toSorted((a, b) => a.tier.tierRank - b.tier.tierRank)
+    .map(({ tier, index }) => ({
+      index,
       name: tier.displayProperties.name,
       level: tier.activityLevel,
       power:
@@ -171,6 +182,59 @@ export const slimDifficulty = (
     })),
 });
 
+/**
+ * Ordered difficulty tiers in the Bungie API
+ */
+const LADDER: { name: string; pattern: RegExp }[] = [
+  // Anchored, or "Standard Matchmaking" reads as a rung
+  { name: "Standard", pattern: /\bstandard$/i },
+  { name: "Normal", pattern: /\bnormal\b/i },
+  { name: "Adept", pattern: /\badept\b/i },
+  { name: "Hero", pattern: /\bhero\b|\(heroic\)/i },
+  { name: "Advanced", pattern: /\badvanced\b/i },
+  { name: "Expert", pattern: /\bexpert\b/i },
+  { name: "Legend", pattern: /\blegend(ary)?\b/i },
+  { name: "Prestige", pattern: /\bprestige\b/i },
+  { name: "Master", pattern: /\bmaster\b/i },
+  { name: "Grandmaster", pattern: /\bgrandmaster\b/i },
+  { name: "Ultimate", pattern: /\bultimate\b/i },
+];
+
+export const DIFFICULTIES = LADDER.map((rung) => rung.name);
+
+/** Reads the hardest rung a name claims: "Salvage Legend: Master" is Master */
+export const difficultyOf = (name: string): string | undefined => {
+  for (let at = LADDER.length - 1; at >= 0; at -= 1) {
+    const rung = LADDER[at];
+
+    if (rung?.pattern.test(name)) {
+      return rung.name;
+    }
+  }
+
+  return undefined;
+};
+
+const LABELS = new Set(
+  [...DIFFICULTIES, "Legendary", "Heroic", "Customize"].map((one) =>
+    one.toLowerCase(),
+  ),
+);
+
+const TRAILING = /\s*\(([^)]*)\)\s*$/;
+
+/** Reads "Nightfall: The Ordeal: Legend" back as "Nightfall: The Ordeal" */
+export const activityName = (name: string): string => {
+  const kept = name
+    .replace(TRAILING, (whole, inside: string) =>
+      LABELS.has(inside.toLowerCase()) ? "" : whole,
+    )
+    .split(": ")
+    .filter((part) => !LABELS.has(part.toLowerCase()));
+
+  return kept.length > 0 ? kept.join(": ") : name;
+};
+
 export const slimModifier = (
   modifier: DestinyActivityModifierDefinition,
 ): SlimModifier => ({
@@ -179,6 +243,65 @@ export const slimModifier = (
   description: modifier.displayProperties.description,
   icon: named(modifier.displayProperties),
 });
+
+export interface SlimMode {
+  hash: number;
+  modeType: number;
+  name: string;
+  isAggregate: boolean;
+  parentHashes: number[];
+}
+
+export const slimMode = (mode: DestinyActivityModeDefinition): SlimMode => ({
+  hash: mode.hash,
+  modeType: mode.modeType,
+  name: mode.displayProperties.name,
+  isAggregate: mode.isAggregateMode,
+  parentHashes: mode.parentHashes ?? [],
+});
+
+export interface SlimSkull {
+  hash: number;
+  name: string;
+  description: string;
+}
+
+interface SelectableSkullCollection {
+  selectableActivitySkulls?: {
+    activitySkull?: {
+      skullIdentifierHash: number;
+      displayProperties: { name: string; description: string };
+    };
+  }[];
+}
+
+/** Flattens the collections into one table keyed the way a PGCR reports skulls */
+export const skullTable = (
+  collections: Record<string, unknown>,
+): Record<number, SlimSkull> => {
+  const table: Record<number, SlimSkull> = {};
+
+  for (const collection of Object.values(collections)) {
+    const rows =
+      (collection as SelectableSkullCollection).selectableActivitySkulls ?? [];
+
+    for (const row of rows) {
+      const skull = row.activitySkull;
+
+      if (!skull || !skull.displayProperties.name) {
+        continue;
+      }
+
+      table[skull.skullIdentifierHash] = {
+        hash: skull.skullIdentifierHash,
+        name: skull.displayProperties.name,
+        description: skull.displayProperties.description,
+      };
+    }
+  }
+
+  return table;
+};
 
 export const slimActivityType = (
   type: DestinyActivityTypeDefinition,

@@ -42,6 +42,7 @@ export const TABLES = [
   "DestinyActivityDifficultyTierCollectionDefinition",
   "DestinyActivityModeDefinition",
   "DestinyActivityModifierDefinition",
+  "DestinyActivitySelectableSkullCollectionDefinition",
   "DestinyActivityTypeDefinition",
   "DestinyFireteamFinderActivityGraphDefinition",
   "DestinyFireteamFinderActivitySetDefinition",

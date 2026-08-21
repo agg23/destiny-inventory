@@ -332,6 +332,53 @@
     text-shadow: 0 1px 2px #000;
   }
 
+  .plate {
+    background-image: linear-gradient(
+        to right,
+        rgb(0 0 0 / 82%) 0%,
+        rgb(0 0 0 / 64%) 45%,
+        rgb(0 0 0 / 40%) 100%
+      ),
+      var(--art, none);
+    background-position: center;
+    /* Or the border ring tiles the scrim, leaving art bare */
+    background-origin: border-box;
+    background-size: cover;
+    text-shadow: 0 1px 2px #000;
+  }
+
+  .table tbody tr.day,
+  .table tbody tr.day:hover {
+    background: none;
+  }
+
+  .table tbody tr.day td {
+    padding: var(--space-5) var(--space-3) var(--space-2);
+    border-bottom: 0;
+  }
+
+  .table tbody tr.report,
+  .table tbody tr.report:hover {
+    background: none;
+  }
+
+  .table tbody tr.report td {
+    padding: var(--space-4);
+  }
+
+  .hero-art {
+    background-image: linear-gradient(
+        to bottom,
+        rgb(0 0 0 / 62%) 0%,
+        rgb(0 0 0 / 74%) 100%
+      ),
+      var(--art, none);
+    background-position: center;
+    background-origin: border-box;
+    background-size: cover;
+    text-shadow: 0 1px 3px #000;
+  }
+
   .run-power {
     margin-left: auto;
     color: color-mix(in srgb, var(--fg) 75%, transparent);

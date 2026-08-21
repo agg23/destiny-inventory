@@ -27,6 +27,7 @@ import { activityTables } from "./activityTables.ts";
 import { fetchBaseline } from "./baseline.ts";
 import { defs } from "./defs.ts";
 import { clock, HOUR, schedule, type Rotation } from "./distortion.ts";
+import { ago, bestTiming, duration, type ActivityTiming } from "./history.ts";
 import type { CharacterActivities, StringVariables } from "./load.ts";
 import { BUNGIE } from "./ItemPanel.tsx";
 
@@ -35,6 +36,7 @@ interface Props {
   variables: StringVariables;
   character: string | undefined;
   power: number | undefined;
+  timings: Map<number, ActivityTiming>;
   query: string;
 }
 
@@ -371,9 +373,26 @@ const RunDetail = (props: DetailProps) => {
   );
 };
 
+const Played = (props: { timing: ActivityTiming | undefined }) => (
+  <Show
+    when={props.timing}
+    fallback={<span class="card-subtitle text-dim">Never run</span>}
+  >
+    {(timing) => (
+      <span class="card-subtitle tabular-nums">
+        Last {ago(timing().lastRunAt)} · {timing().runs} runs
+        <Show when={timing().fastestSeconds}>
+          {(fastest) => <> · best {duration(fastest())}</>}
+        </Show>
+      </span>
+    )}
+  </Show>
+);
+
 interface RowProps {
   entry: Available;
   glyph: string | undefined;
+  timing: ActivityTiming | undefined;
   onHover: (entry: Available, anchor: DOMRect) => void;
   onLeave: (entry: Available) => void;
 }
@@ -415,6 +434,7 @@ const Row = (props: RowProps) => (
           {(label) => <> · {label()}</>}
         </Show>
       </span>
+      <Played timing={props.timing} />
       <Drops entry={props.entry} glyph={props.glyph} />
       <div class="flex flex-wrap items-center gap-2 gap-x-4 text-md">
         <Show when={props.entry.focus}>
@@ -524,6 +544,12 @@ export const Activities = (props: Props) => {
 
   const glyph = () => tables()?.rewards[BONUS_DROP_ITEM]?.icon;
 
+  const timingFor = (entry: Available): ActivityTiming | undefined =>
+    bestTiming(props.timings, [
+      entry.hash,
+      ...entry.variants.map((one) => one.hash),
+    ]);
+
   return (
     <div class="flex flex-col gap-3 px-4 pt-3">
       <nav class="nav-tabs">
@@ -625,6 +651,7 @@ export const Activities = (props: Props) => {
                           <Row
                             entry={entry}
                             glyph={glyph()}
+                            timing={timingFor(entry)}
                             onHover={onHover}
                             onLeave={onLeave}
                           />
@@ -640,6 +667,7 @@ export const Activities = (props: Props) => {
                     <Row
                       entry={entry}
                       glyph={glyph()}
+                      timing={timingFor(entry)}
                       onHover={onHover}
                       onLeave={onLeave}
                     />
@@ -665,6 +693,7 @@ export const Activities = (props: Props) => {
                             <Row
                               entry={entry}
                               glyph={glyph()}
+                              timing={timingFor(entry)}
                               onHover={onHover}
                               onLeave={onLeave}
                             />

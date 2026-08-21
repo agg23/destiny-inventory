@@ -17,6 +17,7 @@
     "bungie-api-ts": "^5.10.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "echarts": "^6.1.0",
     "es-toolkit": "^1.50.0",
     "reselect": "^5.2.0",
     "solid-js": "^1.9.0"

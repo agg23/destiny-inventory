@@ -15,9 +15,11 @@ import {
   slimDifficulty,
   slimGraphNode,
   slimItem,
+  slimMode,
   slimModifier,
   slimPlace,
   slimReward,
+  skullTable,
   type Tables,
 } from "@dvm/defs-core";
 import type {
@@ -41,10 +43,12 @@ const VAULT_VENDOR = 1037843411;
 const ACTIVITIES = "DestinyActivityDefinition";
 const MODES = "DestinyActivityModeDefinition";
 const OBJECTIVES = "DestinyObjectiveDefinition";
+const SKULLS = "DestinyActivitySelectableSkullCollectionDefinition";
 
 // Activity content ships for a few display fields each, so it is projected on the way out
 const SLIM: Record<string, (record: never) => { hash: number }> = {
   DestinyActivityDifficultyTierCollectionDefinition: slimDifficulty,
+  DestinyActivityModeDefinition: slimMode,
   DestinyActivityModifierDefinition: slimModifier,
   DestinyActivityTypeDefinition: slimActivityType,
   DestinyFireteamFinderActivityGraphDefinition: slimGraphNode,
@@ -70,6 +74,11 @@ const project = (
     }
 
     return projected;
+  }
+
+  // A PGCR names skulls by an identifier nested two levels inside the collections
+  if (table === SKULLS) {
+    return skullTable(contents) as RawTable;
   }
 
   const slim = SLIM[table];

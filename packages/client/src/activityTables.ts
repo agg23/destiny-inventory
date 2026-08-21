@@ -5,9 +5,11 @@ import type {
   SlimChallenge,
   SlimDifficulty,
   SlimGraphNode,
+  SlimMode,
   SlimModifier,
   SlimPlace,
   SlimReward,
+  SlimSkull,
 } from "@dvm/defs-core";
 
 import type { ActivityTables } from "./activities.ts";
@@ -44,6 +46,8 @@ export const activityTables = (): Promise<ActivityTables> => {
       rewards,
       challenges,
       difficulties,
+      skulls,
+      modes,
     ] = await Promise.all([
       fetchTable<Table<SlimActivity>>(artifacts, "Activity"),
       fetchTable<Table<SlimModifier>>(artifacts, "ActivityModifier"),
@@ -64,6 +68,11 @@ export const activityTables = (): Promise<ActivityTables> => {
         artifacts,
         "ActivityDifficultyTierCollection",
       ),
+      fetchTable<Table<SlimSkull>>(
+        artifacts,
+        "ActivitySelectableSkullCollection",
+      ),
+      fetchTable<Table<SlimMode>>(artifacts, "ActivityMode"),
     ]);
 
     return {
@@ -77,6 +86,8 @@ export const activityTables = (): Promise<ActivityTables> => {
       rewards: byHash(rewards),
       challenges: byHash(challenges),
       difficulties,
+      skulls,
+      modes,
     };
   })();
 

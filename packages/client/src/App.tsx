@@ -2,6 +2,7 @@ import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import {
   createEffect,
+  createMemo,
   createResource,
   createSignal,
   For,
@@ -12,11 +13,21 @@ import {
 
 import { Activities } from "./Activities.tsx";
 import { activeStore, NOBODY, observe, prefer, type Active } from "./active.ts";
-import { beginLogin, signedIn, signOut } from "./auth.ts";
+import { activityTables } from "./activityTables.ts";
+import { accessToken, beginLogin, signedIn, signOut } from "./auth.ts";
+import { fetchCarnageReport } from "./bungie.ts";
 import { acquired } from "./arrivals.ts";
 import { comparable } from "./compare.ts";
 import { Arrivals } from "./Arrivals.tsx";
 import { Compare } from "./Compare.tsx";
+import { History } from "./history/History.tsx";
+import {
+  storedRuns,
+  syncHistory,
+  syncTiers,
+  timingsByHash,
+  type HistoryRun,
+} from "./history.ts";
 import { HoverCard } from "./HoverCard.tsx";
 import { Inventory } from "./Inventory.tsx";
 import { load, NotSignedIn, refreshProfile, type LoadResult } from "./load.ts";
@@ -27,11 +38,12 @@ import { startAutoRefresh } from "./refresh.ts";
 const HOVER_DELAY = 120;
 const PINS = 2;
 
-type Tab = "vault" | "activities";
+type Tab = "vault" | "activities" | "history";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "vault", label: "Vault" },
   { id: "activities", label: "Activities" },
+  { id: "history", label: "History" },
 ];
 
 interface Hovered {
@@ -56,6 +68,9 @@ export const App = () => {
   );
   const [active, setActive] = createSignal<Active>(NOBODY);
   const [tab, setTab] = createSignal<Tab>("vault");
+  const [runs, setRuns] = createSignal<HistoryRun[]>([]);
+  const [syncing, setSyncing] = createSignal(false);
+  const [syncError, setSyncError] = createSignal<string | undefined>(undefined);
 
   // Reading an errored resource rethrows
   const [authed] = createSignal(signedIn());
@@ -151,6 +166,74 @@ export const App = () => {
 
   // The engine mutates its own stores
   const stores = () => moved() ?? current()?.stores ?? [];
+
+  const characterIds = () =>
+    stores()
+      .filter((store) => !store.isVault)
+      .map((store) => store.id);
+
+  const absorb = (was: HistoryRun[], next: HistoryRun[]): HistoryRun[] => {
+    const byId = new Map(was.map((run) => [run.instanceId, run]));
+
+    for (const run of next) {
+      byId.set(run.instanceId, run);
+    }
+
+    return [...byId.values()];
+  };
+
+  const syncRuns = async (session: LoadResult["session"]) => {
+    setSyncing(true);
+
+    try {
+      setRuns(await storedRuns(session.store));
+
+      const token = await accessToken();
+
+      if (!token) {
+        return;
+      }
+
+      await syncHistory(
+        session.store,
+        session.membership,
+        characterIds(),
+        token,
+        (fresh) => setRuns((was) => absorb(was, fresh)),
+      );
+
+      const tables = await activityTables();
+
+      await syncTiers(
+        session.store,
+        runs(),
+        (run) =>
+          tables.activities[run.referenceId]?.difficultyHash !== undefined,
+        async (instanceId) =>
+          (await fetchCarnageReport(instanceId, token)).activityDifficultyTier,
+        (fresh) => setRuns((was) => absorb(was, fresh)),
+      );
+    } catch (e: unknown) {
+      setSyncError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  let syncStarted = false;
+
+  createEffect(() => {
+    const loaded = current();
+
+    if (syncStarted || !loaded || characterIds().length === 0) {
+      return;
+    }
+
+    syncStarted = true;
+    void syncRuns(loaded.session);
+  });
+
+  const timings = createMemo(() => timingsByHash(runs()));
 
   onCleanup(subscribeStores((next) => setMoved([...next])));
 
@@ -400,13 +483,27 @@ export const App = () => {
           when={tab() === "vault"}
           fallback={
             <div class="body solo">
-              <Activities
-                activities={current()?.activities ?? {}}
-                variables={current()?.variables ?? {}}
-                character={activeStore(active(), stores())?.id}
-                power={activeStore(active(), stores())?.powerLevel}
-                query={query()}
-              />
+              <Show
+                when={tab() === "activities"}
+                fallback={
+                  <History
+                    session={current()?.session}
+                    runs={runs()}
+                    syncing={syncing()}
+                    syncError={syncError()}
+                    query={query()}
+                  />
+                }
+              >
+                <Activities
+                  activities={current()?.activities ?? {}}
+                  variables={current()?.variables ?? {}}
+                  character={activeStore(active(), stores())?.id}
+                  power={activeStore(active(), stores())?.powerLevel}
+                  timings={timings()}
+                  query={query()}
+                />
+              </Show>
             </div>
           }
         >

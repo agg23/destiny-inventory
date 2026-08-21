@@ -1,18 +1,18 @@
 const DB_NAME = "dvm";
-const DB_VERSION = 2;
+const DB_VERSION = 4;
 
 export const CORE = "core";
 export const DETAIL = "detail";
 export const PLUG_SETS = "plugSets";
+export const RUNS = "runs";
+export const REPORTS = "reports";
+export const PROGRESS = "progress";
 
 const META = "meta";
 const STORES = [CORE, DETAIL, PLUG_SETS];
+const INSTANCE_STORES = [RUNS, REPORTS];
 
 const CHUNK = 2000;
-
-interface HashRecord {
-  hash: number;
-}
 
 const open = (): Promise<IDBDatabase> =>
   new Promise((resolve, reject) => {
@@ -27,10 +27,28 @@ const open = (): Promise<IDBDatabase> =>
         }
       }
 
+      for (const name of INSTANCE_STORES) {
+        if (!db.objectStoreNames.contains(name)) {
+          db.createObjectStore(name, { keyPath: "instanceId" });
+        }
+      }
+
+      if (!db.objectStoreNames.contains(PROGRESS)) {
+        db.createObjectStore(PROGRESS, { keyPath: "characterId" });
+      }
+
       if (!db.objectStoreNames.contains(META)) {
         db.createObjectStore(META);
       }
     };
+
+    // A tab still holding the old version stalls the upgrade indefinitely
+    request.onblocked = () =>
+      reject(
+        new Error(
+          "Another tab is using an older database. Close it and reload",
+        ),
+      );
 
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -59,7 +77,9 @@ export interface DefStore {
   setManifestVersion: (version: string) => Promise<void>;
   count: (store: string) => Promise<number>;
   getMany: <T>(store: string, hashes: number[]) => Promise<T[]>;
-  putAll: (store: string, records: HashRecord[]) => Promise<void>;
+  getAll: <T>(store: string) => Promise<T[]>;
+  getOne: <T>(store: string, key: string) => Promise<T | undefined>;
+  putAll: (store: string, records: object[]) => Promise<void>;
   clear: () => Promise<void>;
 }
 
@@ -99,6 +119,16 @@ export const openStore = async (): Promise<DefStore> => {
       return rows.filter((row) => row !== undefined);
     },
 
+    getAll: <T>(store: string): Promise<T[]> =>
+      run(
+        db.transaction(store, "readonly").objectStore(store).getAll(),
+      ) as Promise<T[]>,
+
+    getOne: <T>(store: string, key: string): Promise<T | undefined> =>
+      run(
+        db.transaction(store, "readonly").objectStore(store).get(key),
+      ) as Promise<T | undefined>,
+
     putAll: async (store, records) => {
       for (let start = 0; start < records.length; start += CHUNK) {
         const tx = db.transaction(store, "readwrite");
@@ -113,6 +143,7 @@ export const openStore = async (): Promise<DefStore> => {
       }
     },
 
+    // Runs and reports outlive the manifest
     clear: async () => {
       const tx = db.transaction([...STORES, META], "readwrite");
 
