@@ -21,6 +21,7 @@ import { activityTables } from "./activityTables.ts";
 import { accessToken, beginLogin, signedIn, signOut } from "./auth.ts";
 import { fetchCarnageReport } from "./bungie.ts";
 import { acquired } from "./arrivals.ts";
+import { chrome } from "./chrome.tsx";
 import { comparable } from "./compare.ts";
 import { defs } from "./defs.ts";
 import { messageOf } from "./error.ts";
@@ -41,6 +42,7 @@ import { useUrl } from "./router.ts";
 import { SearchBar } from "./SearchBar.tsx";
 import { itemFilter } from "./search.ts";
 import { Button } from "./ui/Button.tsx";
+import { RefreshGlyph } from "./ui/RefreshGlyph.tsx";
 import { TabButton } from "./ui/TabButton.tsx";
 import { tabHref, TABS, type Tab } from "./url.ts";
 
@@ -52,11 +54,18 @@ const LABELS: Record<Tab, string> = {
   history: "History",
 };
 
+const SCOPES: Record<Tab, string> = {
+  vault: "Filter items",
+  activities: "Filter activities",
+  history: "Filter runs",
+};
+
 export interface AppState {
   loaded: () => LoadResult | undefined;
   stores: () => DimStore[];
   active: () => DimStore | undefined;
   matches: (item: DimItem) => boolean;
+  shown: () => number;
   query: () => string;
   pinned: () => DimItem[];
   awaitingPins: () => boolean;
@@ -93,6 +102,8 @@ export const App = (props: { children?: JSX.Element }) => {
   const [moving, setMoving] = createSignal<string | undefined>(undefined);
   const [moveError, setMoveError] = createSignal<string | undefined>(undefined);
   const [stale, setStale] = createSignal(false);
+  const [detail, setDetail] = createSignal(false);
+  const [refreshing, setRefreshing] = createSignal(false);
   const [refreshedAt, setRefreshedAt] = createSignal<number | undefined>(
     undefined,
   );
@@ -113,24 +124,26 @@ export const App = (props: { children?: JSX.Element }) => {
 
   let head: HTMLElement | undefined = undefined;
 
-  const measureHead = () => {
-    if (head) {
+  // The slotted subtabs grow after their page's data lands
+  onMount(() => {
+    if (!head) {
+      return;
+    }
+
+    const measure = () =>
       document.documentElement.style.setProperty(
         "--header-h",
-        `${head.offsetHeight}px`,
+        `${head?.offsetHeight ?? 0}px`,
       );
-    }
-  };
 
-  onMount(measureHead);
+    measure();
 
-  createEffect(() => {
-    current();
-    failures();
-    measureHead();
+    const observer = new ResizeObserver(measure);
+
+    observer.observe(head);
+
+    onCleanup(() => observer.disconnect());
   });
-  window.addEventListener("resize", measureHead);
-  onCleanup(() => window.removeEventListener("resize", measureHead));
 
   const feed = () => acquired(stores());
 
@@ -383,6 +396,14 @@ export const App = (props: { children?: JSX.Element }) => {
   window.addEventListener("keydown", onKeyDown);
   onCleanup(() => window.removeEventListener("keydown", onKeyDown));
 
+  const refreshLabel = () => {
+    const at = refreshedAt();
+
+    return at === undefined
+      ? "Refresh"
+      : `Refresh · last at ${new Date(at).toLocaleTimeString()}`;
+  };
+
   const refresh = async () => {
     const session = current()?.session;
 
@@ -390,17 +411,23 @@ export const App = (props: { children?: JSX.Element }) => {
       return;
     }
 
-    const outcome = await refreshProfile(session);
+    setRefreshing(true);
 
-    setActive((was) => observe(was, outcome.playing));
+    try {
+      const outcome = await refreshProfile(session);
 
-    if (outcome.status === "manifest-changed") {
-      setStale(true);
+      setActive((was) => observe(was, outcome.playing));
 
-      return;
+      if (outcome.status === "manifest-changed") {
+        setStale(true);
+
+        return;
+      }
+
+      setRefreshedAt(Date.now());
+    } finally {
+      setRefreshing(false);
     }
-
-    setRefreshedAt(Date.now());
   };
 
   onCleanup(
@@ -436,6 +463,7 @@ export const App = (props: { children?: JSX.Element }) => {
     stores,
     active: () => activeStore(active(), stores()),
     matches,
+    shown,
     query: typed,
     pinned,
     awaitingPins,
@@ -475,27 +503,28 @@ export const App = (props: { children?: JSX.Element }) => {
           </div>
         }
       >
-        <header ref={(el) => (head = el)}>
-          <nav class="nav-tabs basis-full">
-            <For each={TABS}>
-              {(one) => (
-                <TabButton
-                  active={tab() === one}
-                  onClick={() => navigate(tabHref(one))}
-                >
-                  {LABELS[one]}
-                </TabButton>
-              )}
-            </For>
-          </nav>
-          <div class="button-row basis-full">
+        <header class="app-header" ref={(el) => (head = el)}>
+          <div class="header-bar">
+            <nav class="nav-tabs">
+              <For each={TABS}>
+                {(one) => (
+                  <TabButton
+                    active={tab() === one}
+                    onClick={() => navigate(tabHref(one))}
+                  >
+                    {LABELS[one]}
+                  </TabButton>
+                )}
+              </For>
+            </nav>
+
             <Show
               when={tab() === "vault"}
               fallback={
                 <input
-                  class="text-input inline"
+                  class="text-input inline header-filter"
                   type="search"
-                  placeholder="Filter"
+                  placeholder={SCOPES[tab()]}
                   value={typed()}
                   onInput={(e) => onQuery(e.currentTarget.value)}
                 />
@@ -503,82 +532,105 @@ export const App = (props: { children?: JSX.Element }) => {
             >
               <SearchBar
                 query={typed()}
+                placeholder={SCOPES.vault}
                 stores={stores()}
                 onQuery={onQuery}
                 onPreview={setPreviewQuery}
               />
             </Show>
-            <Button
-              size="sm"
-              disabled={Boolean(moving())}
-              onClick={() => void refresh()}
-            >
-              Refresh
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                signOut();
-                globalThis.location.reload();
-              }}
-            >
-              Sign out
-            </Button>
-            <Show when={stale()}>
-              <span class="text-warning">New manifest available.</span>
-              <Button
-                size="sm"
-                variant="light"
-                onClick={() => globalThis.location.reload()}
+
+            <div class="header-session">
+              <Show when={stale()}>
+                <Button
+                  size="xs"
+                  variant="light"
+                  onClick={() => globalThis.location.reload()}
+                >
+                  New manifest - reload
+                </Button>
+              </Show>
+              <button
+                type="button"
+                class="header-action"
+                classList={{ busy: refreshing() }}
+                title={refreshLabel()}
+                aria-label={refreshLabel()}
+                disabled={Boolean(moving()) || refreshing()}
+                onClick={() => void refresh()}
               >
-                Reload
+                <RefreshGlyph />
+              </button>
+              <span class="header-rule" aria-hidden="true" />
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={() => {
+                  signOut();
+                  globalThis.location.reload();
+                }}
+              >
+                Sign out
               </Button>
-            </Show>
+            </div>
           </div>
-          <Show when={current()}>
-            {(loaded) => (
-              <div class="mt-2 text-sm tabular-nums text-dim">
-                {shown()} of {loaded().items.length} items ·{" "}
-                {loaded().stores.length} stores · tier {loaded().tier} · paint{" "}
-                {Math.round(result()?.timings.total ?? 0)}ms · profile{" "}
-                {Math.round(loaded().timings.profile)}ms · defs{" "}
-                {Math.round(loaded().timings.defs)}ms · build{" "}
-                {Math.round(loaded().timings.items)}ms
-                <Show when={upgraded()}>
-                  {(done) => (
-                    <> · complete {Math.round(done().timings.total)}ms</>
-                  )}
-                </Show>
-                <Show when={loaded().counts.hidden > 0}>
-                  {" "}
-                  · {loaded().counts.hidden} hidden
-                </Show>
-                <Show when={loaded().counts.skipped > 0}>
-                  {" "}
-                  · {loaded().counts.skipped} skipped
-                </Show>
-                <Show when={refreshedAt()}>
-                  {(at) => (
-                    <> · refreshed {new Date(at()).toLocaleTimeString()}</>
-                  )}
-                </Show>
-              </div>
-            )}
-          </Show>
-          <Show when={failures()}>
-            {(groups) => (
-              <div class="mt-1.5 text-sm tabular-nums text-warning">
+
+          <div class="header-tools">
+            <div class="header-tools-start">{chrome()?.tabs}</div>
+            <div class="header-tools-end">{chrome()?.tools}</div>
+          </div>
+
+          <div class="header-status">
+            {chrome()?.status}
+
+            <Show when={syncing()}>
+              <span>Syncing history…</span>
+            </Show>
+
+            <Show when={failures()}>
+              {(groups) => (
                 <For each={groups()}>
                   {(group) => (
-                    <div>
+                    <span class="text-warning">
                       {group.count} × {group.kind}: {group.reason}
-                    </div>
+                    </span>
                   )}
                 </For>
-              </div>
-            )}
-          </Show>
+              )}
+            </Show>
+
+            <Show when={syncError()}>
+              {(message) => <span class="text-danger">{message()}</span>}
+            </Show>
+
+            <Show when={current()}>
+              {(loaded) => (
+                <>
+                  <button
+                    type="button"
+                    class="status-toggle"
+                    aria-expanded={detail()}
+                    title="Load timings"
+                    onClick={() => setDetail(!detail())}
+                  >
+                    {loaded().stores.length} stores · tier {loaded().tier}
+                  </button>
+                  <Show when={detail()}>
+                    <span>
+                      paint {Math.round(result()?.timings.total ?? 0)}ms ·
+                      profile {Math.round(loaded().timings.profile)}ms · defs{" "}
+                      {Math.round(loaded().timings.defs)}ms · build{" "}
+                      {Math.round(loaded().timings.items)}ms
+                      <Show when={upgraded()}>
+                        {(done) => (
+                          <> · complete {Math.round(done().timings.total)}ms</>
+                        )}
+                      </Show>
+                    </span>
+                  </Show>
+                </>
+              )}
+            </Show>
+          </div>
         </header>
 
         <Show when={error()}>

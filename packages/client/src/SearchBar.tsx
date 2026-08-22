@@ -7,6 +7,7 @@ import { forgetSearch, recentSearches, rememberSearch } from "./searches.ts";
 
 interface Props {
   query: string;
+  placeholder: string;
   stores: DimStore[];
   onQuery: (value: string) => void;
   onPreview: (value: string | undefined) => void;
@@ -243,9 +244,9 @@ export const SearchBar = (props: Props) => {
     <div class="search-field" data-menu>
       <input
         ref={(el) => (field = el)}
-        class="text-input inline"
+        class="text-input inline header-filter"
         type="search"
-        placeholder={ghost() === "" ? "Filter" : ""}
+        placeholder={ghost() === "" ? props.placeholder : ""}
         autocomplete="off"
         spellcheck={false}
         value={props.query}
@@ -263,7 +264,10 @@ export const SearchBar = (props: Props) => {
       />
 
       <Show when={ghost() !== ""}>
-        <div class="text-input inline search-ghost" aria-hidden="true">
+        <div
+          class="text-input inline header-filter search-ghost"
+          aria-hidden="true"
+        >
           <span>{props.query}</span>
           {ghost()}
         </div>

@@ -6,16 +6,14 @@ import { RANGES } from "./range.ts";
 import { plural } from "./runFormat.ts";
 import type { Totals } from "./totals.ts";
 
-export const HistoryToolbar = (props: {
+export const HistoryRange = (props: {
   range: string;
   pinned: boolean;
-  spanLabel: string;
-  totals: Totals;
   onRange: (id: string) => void;
   onDay: (day: string) => void;
   onClear: () => void;
 }) => (
-  <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+  <>
     <label class="flex items-center gap-2 text-md text-dim">
       Showing
       <select
@@ -34,24 +32,29 @@ export const HistoryToolbar = (props: {
 
     <input
       type="date"
-      class="text-input inline"
+      class="text-input inline w-auto"
       aria-label="Jump to a date"
       onInput={(event) => props.onDay(event.currentTarget.value)}
     />
 
     <Show when={props.pinned}>
-      <Button size="sm" variant="ghost" onClick={props.onClear}>
+      <Button size="xs" variant="ghost" onClick={props.onClear}>
         Clear dates
       </Button>
     </Show>
+  </>
+);
 
-    <span class="ml-auto flex flex-wrap items-baseline gap-x-4 text-md tabular-nums">
-      <span class="text-text">{props.spanLabel}</span>
-      <span class="text-dim">
-        {plural(props.totals.runs, "run")} · {span(props.totals.seconds)} ·{" "}
-        {props.totals.kills.toLocaleString()} kills ·{" "}
-        {props.totals.deaths.toLocaleString()} deaths
-      </span>
+export const HistorySummary = (props: {
+  spanLabel: string;
+  totals: Totals;
+}) => (
+  <div class="flex flex-wrap items-baseline gap-x-4 text-md tabular-nums">
+    <span class="text-text">{props.spanLabel}</span>
+    <span class="text-dim">
+      {plural(props.totals.runs, "run")} · {span(props.totals.seconds)} ·{" "}
+      {props.totals.kills.toLocaleString()} kills ·{" "}
+      {props.totals.deaths.toLocaleString()} deaths
     </span>
   </div>
 );

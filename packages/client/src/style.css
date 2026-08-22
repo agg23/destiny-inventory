@@ -9,22 +9,137 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  header {
+  .app-header {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-4);
-    align-items: center;
+    flex-direction: column;
+    gap: var(--space-5);
     position: sticky;
     top: 0;
-    z-index: 3;
+    z-index: 5;
     background: var(--bg);
-    padding: var(--space-5);
+    padding: var(--space-5) var(--space-5) var(--space-4);
     border-bottom: 1px solid var(--line);
   }
 
-  /* Framework's field is full-width by default */
-  header .text-input.inline {
-    width: 260px;
+  .header-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-5) var(--space-6);
+  }
+
+  .header-bar > .header-filter,
+  .header-bar > .search-field {
+    flex: 1 1 240px;
+    min-width: 0;
+  }
+
+  .header-session {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  .header-rule {
+    width: 1px;
+    height: var(--icon-sm);
+    background: var(--line-bright);
+  }
+
+  .header-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--button-sm);
+    height: var(--button-sm);
+    padding: 0;
+    background: none;
+    border: 0;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 0.12s ease-in-out;
+  }
+
+  .header-action:hover:not(:disabled) {
+    color: var(--fg);
+  }
+
+  .header-action:disabled {
+    cursor: default;
+    opacity: 0.35;
+  }
+
+  .header-action svg {
+    width: var(--icon-md);
+    height: var(--icon-md);
+  }
+
+  .header-action.busy svg {
+    animation: header-spin 900ms linear infinite;
+  }
+
+  @keyframes header-spin {
+    to {
+      transform: rotate(1turn);
+    }
+  }
+
+  .header-tools:not(:has(.header-tools-start > *, .header-tools-end > *)) {
+    display: none;
+  }
+
+  .header-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-5) var(--space-6);
+    min-height: var(--button-sm);
+  }
+
+  .header-tools-start {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    min-width: 0;
+    padding-top: var(--space-2);
+  }
+
+  .header-tools-end {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    margin-left: auto;
+  }
+
+  .header-status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2) var(--space-5);
+    color: var(--dim);
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .status-toggle {
+    margin-left: auto;
+    padding: 0;
+    background: none;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .status-toggle:hover {
+    color: var(--text);
+  }
+
+  .search-field .header-filter,
+  .search-menu {
+    width: 100%;
   }
 
   .search-field {
@@ -52,7 +167,6 @@
     position: absolute;
     top: calc(100% + var(--space-2));
     left: 0;
-    width: 420px;
     max-height: 60vh;
     overflow-y: auto;
     gap: 0;
@@ -101,7 +215,7 @@
   .rail {
     position: fixed;
     z-index: 2;
-    top: var(--header-h, 76px);
+    top: var(--header-h, 132px);
     right: 0;
     bottom: 0;
     width: var(--rail);
@@ -140,7 +254,7 @@
 
   .stores {
     position: sticky;
-    top: 0;
+    top: var(--header-h, 132px);
     z-index: 1;
     padding-bottom: var(--space-4);
     background: var(--bg);
@@ -370,26 +484,61 @@
     object-fit: contain;
   }
 
-  .sections {
-    align-items: baseline;
-    border-bottom: 1px solid var(--line);
-    padding-bottom: var(--space-4);
-  }
-
-  .sections .nav-tab {
+  .nav-tabs > .nav-tab,
+  .nav-subtabs > .nav-tab,
+  .nav-facets > .nav-tab {
     display: inline-flex;
     align-items: center;
+    gap: var(--space-3);
   }
 
   /* The framework's 45% white assumes bright game art behind it */
-  .nav-tabs > .nav-tab:not(.active),
-  .nav-subtabs > .nav-tab:not(.active) {
+  .nav-tabs > .nav-tab:not(.active) {
     color: var(--text);
+  }
+
+  /* A step down from the primary row, which sits directly above it */
+  .nav-subtabs > .nav-tab:not(.active) {
+    color: var(--muted);
   }
 
   .nav-tabs > .nav-tab:not(.active):hover,
   .nav-subtabs > .nav-tab:not(.active):hover {
     color: var(--fg);
+  }
+
+  /* Chips, not a third tab tier: these filter one list rather than navigating */
+  .nav-facets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+  }
+
+  .nav-facets > .nav-tab {
+    padding: var(--space-2) var(--space-5);
+    background: var(--panel);
+    border: 0;
+    box-shadow: inset 0 0 0 1px var(--line);
+    color: var(--muted);
+    font-family: inherit;
+    font-size: var(--text-sm);
+    letter-spacing: var(--track-caps);
+    text-transform: uppercase;
+    cursor: pointer;
+    transition:
+      color 0.12s ease-in-out,
+      box-shadow 0.12s ease-in-out;
+  }
+
+  .nav-facets > .nav-tab:hover {
+    box-shadow: inset 0 0 0 1px var(--line-bright);
+    color: var(--text);
+  }
+
+  .nav-facets > .nav-tab.active {
+    box-shadow: inset 0 0 0 1px
+      color-mix(in srgb, var(--light) 40%, transparent);
+    color: var(--light);
   }
 
   .picks {

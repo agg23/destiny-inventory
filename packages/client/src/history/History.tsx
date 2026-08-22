@@ -2,6 +2,7 @@ import { useNavigate, useParams } from "@solidjs/router";
 import { createMemo, createResource, For, Show } from "solid-js";
 
 import { activityTables } from "../activityTables.ts";
+import { PageChrome } from "../chrome.tsx";
 import {
   localDay,
   runsByDay,
@@ -18,7 +19,7 @@ import { ActivityMap, type Week } from "./ActivityMap.tsx";
 import { ActivityPage } from "./ActivityPage.tsx";
 import { ActivitySeries } from "./ActivitySeries.tsx";
 import { groupBuckets, groupDays } from "./groups.ts";
-import { HistoryToolbar } from "./HistoryToolbar.tsx";
+import { HistoryRange, HistorySummary } from "./HistoryToolbar.tsx";
 import { pinnedSpan, spanOf, type Span } from "./range.ts";
 import { DURATION, METRICS, type Metric } from "./RunGraph.tsx";
 import { RunLog } from "./RunLog.tsx";
@@ -192,44 +193,44 @@ export const History = () => {
     });
 
   return (
-    <div class="flex flex-col gap-3 px-4 pt-3">
+    <div class="flex flex-col gap-3 px-3 pt-3">
       <Show when={page()}>
         <Button size="sm" variant="ghost" class="self-start" onClick={leave}>
           &larr; All history
         </Button>
       </Show>
 
-      <Show when={app.syncError()}>
-        {(message) => <p class="m-0 text-danger">{message()}</p>}
-      </Show>
-
       <Show when={page() === undefined}>
-        <nav class="nav-tabs sections">
-          <For each={TABS}>
-            {(one) => (
-              <TabButton
-                active={tab() === one.id}
-                onClick={() => url.push({ view: one.id })}
-              >
-                {one.label}
-              </TabButton>
-            )}
-          </For>
-          <Show when={app.syncing()}>
-            <span class="ml-auto self-center text-sm text-dim">Syncing…</span>
-          </Show>
-        </nav>
+        <PageChrome
+          tabs={
+            <nav class="nav-subtabs">
+              <For each={TABS}>
+                {(one) => (
+                  <TabButton
+                    active={tab() === one.id}
+                    onClick={() => url.push({ view: one.id })}
+                  >
+                    {one.label}
+                  </TabButton>
+                )}
+              </For>
+            </nav>
+          }
+          tools={
+            <Show when={tab() !== "map"}>
+              <HistoryRange
+                range={range()}
+                pinned={pinned() !== undefined}
+                onRange={pickRange}
+                onDay={pickDay}
+                onClear={() => url.push({ from: undefined, days: undefined })}
+              />
+            </Show>
+          }
+        />
 
         <Show when={tab() !== "map"}>
-          <HistoryToolbar
-            range={range()}
-            pinned={pinned() !== undefined}
-            spanLabel={window().label}
-            totals={totals()}
-            onRange={pickRange}
-            onDay={pickDay}
-            onClear={() => url.push({ from: undefined, days: undefined })}
-          />
+          <HistorySummary spanLabel={window().label} totals={totals()} />
         </Show>
 
         <Show when={tab() === "map"}>

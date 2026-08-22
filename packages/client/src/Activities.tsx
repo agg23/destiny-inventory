@@ -16,7 +16,6 @@ import {
   matching,
   readable,
   type Available,
-  type Category,
   type Challenge,
   type Loot,
   type Matchmaking,
@@ -24,6 +23,7 @@ import {
 } from "./activities.ts";
 import { activityTables } from "./activityTables.ts";
 import { fetchBaseline } from "./baseline.ts";
+import { PageChrome } from "./chrome.tsx";
 import { BUNGIE } from "./bungie.ts";
 import { defs } from "./defs.ts";
 import { countdown, HOUR, schedule, type Rotation } from "./distortion.ts";
@@ -38,6 +38,13 @@ import { Button } from "./ui/Button.tsx";
 import { TabButton } from "./ui/TabButton.tsx";
 
 type Values = Record<number, number>;
+
+interface Section {
+  name: string;
+  entries: Available[];
+}
+
+const ALL = "All";
 
 const REMAINING = "Bonus engrams left this week";
 const TAKEN = "Taken this week";
@@ -124,7 +131,7 @@ const BonusCount = (props: { count: number; glyph: string | undefined }) => (
   <Show when={props.count}>
     {(count) => (
       <span
-        class="ml-2 inline-flex items-center gap-1 text-md tracking-base text-gold"
+        class="ml-2 inline-flex items-center gap-1 text-gold"
         title={REMAINING}
       >
         <Icon icon={props.glyph} alt="" class="size-(--icon-xs)" />
@@ -521,10 +528,21 @@ export const Activities = () => {
     return found.find((one) => one.name === realm()) ?? found[0];
   });
 
-  const active = createMemo((): Category | undefined => {
-    const categories = activeRealm()?.categories ?? [];
+  const active = createMemo((): Section | undefined => {
+    const realm = activeRealm();
 
-    return categories.find((one) => one.name === section()) ?? categories[0];
+    if (!realm) {
+      return undefined;
+    }
+
+    const picked = realm.categories.find((one) => one.name === section());
+
+    return (
+      picked ?? {
+        name: ALL,
+        entries: realm.categories.flatMap((one) => one.entries),
+      }
+    );
   });
 
   const values = (): Values =>
@@ -541,33 +559,70 @@ export const Activities = () => {
     ]);
 
   return (
-    <div class="flex flex-col gap-3 px-4 pt-3">
-      <nav class="nav-tabs">
-        <For each={shown()}>
-          {(one) => (
+    <div class="flex flex-col gap-3 px-3 pt-3">
+      <PageChrome
+        tabs={
+          <>
+            <nav class="nav-subtabs">
+              <For each={shown()}>
+                {(one) => (
+                  <TabButton
+                    active={!onZones() && one.name === activeRealm()?.name}
+                    onClick={() => {
+                      // The card unmounts without a mouseleave
+                      setHovered(undefined);
+                      url.push({ realm: one.name, section: undefined });
+                    }}
+                  >
+                    {one.name}
+                    <BonusCount count={one.bonusDrops} glyph={glyph()} />
+                  </TabButton>
+                )}
+              </For>
+              <TabButton
+                active={onZones()}
+                onClick={() => {
+                  setHovered(undefined);
+                  url.push({ realm: DISTORTION, section: undefined });
+                }}
+              >
+                Distortion
+              </TabButton>
+            </nav>
+          </>
+        }
+      />
+
+      <Show when={!onZones() && activeRealm()}>
+        {(realm) => (
+          <nav class="nav-facets">
             <TabButton
-              active={!onZones() && one.name === activeRealm()?.name}
+              active={active()?.name === ALL}
               onClick={() => {
-                // The card unmounts without a mouseleave
                 setHovered(undefined);
-                url.push({ realm: one.name, section: undefined });
+                url.push({ section: undefined });
               }}
             >
-              {one.name}
-              <BonusCount count={one.bonusDrops} glyph={glyph()} />
+              {ALL}
+              <BonusCount count={realm().bonusDrops} glyph={glyph()} />
             </TabButton>
-          )}
-        </For>
-        <TabButton
-          active={onZones()}
-          onClick={() => {
-            setHovered(undefined);
-            url.push({ realm: DISTORTION, section: undefined });
-          }}
-        >
-          Distortion
-        </TabButton>
-      </nav>
+            <For each={realm().categories}>
+              {(one) => (
+                <TabButton
+                  active={one.name === active()?.name}
+                  onClick={() => {
+                    setHovered(undefined);
+                    url.push({ section: one.name });
+                  }}
+                >
+                  {one.name}
+                  <BonusCount count={one.bonusDrops} glyph={glyph()} />
+                </TabButton>
+              )}
+            </For>
+          </nav>
+        )}
+      </Show>
       <Show when={tables.error}>
         <p class="text-danger">Activity definitions failed to load.</p>
       </Show>
@@ -583,24 +638,6 @@ export const Activities = () => {
       >
         {(current) => (
           <>
-            <Show when={!onZones()}>
-              <nav class="nav-subtabs sections">
-                <For each={activeRealm()?.categories}>
-                  {(one) => (
-                    <TabButton
-                      active={one.name === current().name}
-                      onClick={() => {
-                        setHovered(undefined);
-                        url.push({ section: one.name });
-                      }}
-                    >
-                      {one.name}
-                      <BonusCount count={one.bonusDrops} glyph={glyph()} />
-                    </TabButton>
-                  )}
-                </For>
-              </nav>
-            </Show>
             <Show when={onZones()}>
               <p class="m-0 text-md text-muted">
                 Hourly rotation · every zone once in seven hours
@@ -622,7 +659,6 @@ export const Activities = () => {
               <Show when={current().entries.filter((one) => one.focused)}>
                 {(picks) => (
                   <Show when={picks().length > 0}>
-                    <p class="section-label">Featured</p>
                     <RunGrid
                       class="picks"
                       entries={picks()}
