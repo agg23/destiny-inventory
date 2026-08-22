@@ -47,6 +47,10 @@ export const HISTORY_TABS = ["recent", "series", "map"] as const;
 
 export type HistoryTab = (typeof HISTORY_TABS)[number];
 
+export const LAYOUTS = ["cards", "list"] as const;
+
+export type Layout = (typeof LAYOUTS)[number];
+
 export const PARAMS = {
   q: filled(""),
   character: text(),
@@ -54,6 +58,7 @@ export const PARAMS = {
   realm: text(),
   section: text(),
   rest: flag(),
+  layout: choice(LAYOUTS, "cards"),
   view: choice(HISTORY_TABS, "recent"),
   range: filled("30d"),
   from: text(),

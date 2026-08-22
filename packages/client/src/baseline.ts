@@ -40,6 +40,7 @@ const recall = (rewards: Reward[], named: Names): Recalled => {
 
     if (reward.style === FOCUS) {
       focus ??= {
+        hash: reward.itemHash,
         name: found.name,
         icon: found.icon,
         quantity: reward.quantity,
@@ -49,6 +50,7 @@ const recall = (rewards: Reward[], named: Names): Recalled => {
 
     if (!reward.style && reward.quantity > 0) {
       bonus.push({
+        hash: reward.itemHash,
         name: found.name,
         icon: found.icon,
         quantity: reward.quantity,

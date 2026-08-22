@@ -1,3 +1,4 @@
+import type { DimItem } from "app/inventory/item-types";
 import {
   createMemo,
   createResource,
@@ -7,7 +8,7 @@ import {
   Show,
 } from "solid-js";
 
-import type { SlimTier } from "@dvm/defs-core";
+import { DIFFICULTIES, difficultyOf, type SlimTier } from "@dvm/defs-core";
 
 import {
   barred,
@@ -15,6 +16,7 @@ import {
   categorize,
   matching,
   readable,
+  tileArt,
   type Available,
   type Challenge,
   type Loot,
@@ -30,12 +32,15 @@ import { countdown, HOUR, schedule, type Rotation } from "./distortion.ts";
 import { ago, bestTiming, duration, type ActivityTiming } from "./history.ts";
 import { clock } from "./history/runFormat.ts";
 import type { CharacterActivities, StringVariables } from "./load.ts";
-import { HOVER_DELAY } from "./preview.ts";
+import { fakeItems } from "./fakeItems.ts";
+import { dismiss, HOVER_DELAY, preview } from "./preview.ts";
 import { useApp } from "./App.tsx";
 import { useUrl } from "./router.ts";
 import { AnchoredPanel } from "./ui/AnchoredPanel.tsx";
+import { holdAnchor, releaseAnchor } from "./ui/anchor.ts";
 import { Button } from "./ui/Button.tsx";
 import { TabButton } from "./ui/TabButton.tsx";
+import { LAYOUTS, type Layout } from "./url.ts";
 
 type Values = Record<number, number>;
 
@@ -46,6 +51,15 @@ interface Section {
 
 const ALL = "All";
 
+const LAYOUT_LABELS: Record<Layout, string> = {
+  cards: "Cards",
+  list: "List",
+};
+
+const FEATURED = "Featured";
+const THIS_WEEK = "This week";
+const NOTHING_LEFT = "Nothing left this week";
+
 const REMAINING = "Bonus engrams left this week";
 const TAKEN = "Taken this week";
 
@@ -53,6 +67,12 @@ const MATCHMAKING: Record<Matchmaking, string | undefined> = {
   required: "Matchmade",
   optional: "MM optional",
   none: undefined,
+};
+
+const MM_TITLE: Record<Matchmaking, string> = {
+  required: "Matchmaking required",
+  optional: "Matchmaking optional",
+  none: "No matchmaking",
 };
 
 const power = (entry: Available): string | undefined => {
@@ -87,18 +107,107 @@ const Icon = (props: {
   </Show>
 );
 
-const Named = (props: { loot: Loot; spent?: boolean }) => (
-  <span
-    class="loot inline-flex min-w-0 items-center gap-1.5 text-text"
-    classList={{ spent: props.spent }}
-    title={props.loot.name}
-  >
-    <Icon icon={props.loot.icon} alt="" class="size-(--icon-md)" />
-    <span class="truncate">{props.loot.name}</span>
-    <Show when={props.loot.quantity > 1}>
-      <span class="text-dim">×{props.loot.quantity}</span>
+interface NamedProps {
+  loot: Loot;
+  item?: DimItem;
+  spent?: boolean;
+  class?: string;
+  onHide?: () => void;
+}
+
+const Named = (props: NamedProps) => {
+  // Or the row under it re-anchors the activity panel onto this chip
+  const track = (event: MouseEvent & { currentTarget: HTMLElement }) => {
+    event.stopPropagation();
+
+    if (!props.item) {
+      return;
+    }
+
+    props.onHide?.();
+    preview(props.item, event.currentTarget, event.clientX);
+  };
+
+  const leave = () => {
+    if (props.item) {
+      dismiss(props.item);
+    }
+  };
+
+  onCleanup(leave);
+
+  return (
+    <span
+      class={`loot flex min-w-0 items-center gap-1.5 text-text ${
+        props.class ?? ""
+      }`}
+      classList={{ spent: props.spent }}
+      title={props.loot.name}
+      onMouseEnter={track}
+      onMouseMove={track}
+      onMouseLeave={leave}
+    >
+      <Icon icon={props.loot.icon} alt="" class="size-(--icon-md)" />
+      <span class="truncate">{props.loot.name}</span>
+      <Show when={props.loot.quantity > 1}>
+        <span class="text-dim">×{props.loot.quantity}</span>
+      </Show>
+    </span>
+  );
+};
+
+interface RewardsProps {
+  entry: Available;
+  itemFor: (loot: Loot) => DimItem | undefined;
+  class?: string;
+  onHide: () => void;
+}
+
+const Rewards = (props: RewardsProps) => (
+  <>
+    <Show when={props.entry.focus}>
+      {(focus) => (
+        <Named
+          loot={focus()}
+          item={props.itemFor(focus())}
+          class={props.class}
+          onHide={props.onHide}
+        />
+      )}
     </Show>
-  </span>
+    <For each={props.entry.bonus}>
+      {(one) => (
+        <Named
+          loot={one}
+          item={props.itemFor(one)}
+          class={props.class}
+          onHide={props.onHide}
+        />
+      )}
+    </For>
+    <Show when={props.entry.spentFocus}>
+      {(focus) => (
+        <Named
+          loot={focus()}
+          item={props.itemFor(focus())}
+          spent
+          class={props.class}
+          onHide={props.onHide}
+        />
+      )}
+    </Show>
+    <For each={props.entry.spentBonus}>
+      {(one) => (
+        <Named
+          loot={one}
+          item={props.itemFor(one)}
+          spent
+          class={props.class}
+          onHide={props.onHide}
+        />
+      )}
+    </For>
+  </>
 );
 
 // Nothing in the payload says this
@@ -248,7 +357,7 @@ const ZoneCard = (props: ZoneProps) => (
 
 interface Hovered {
   entry: Available;
-  anchor: DOMRect;
+  cursorX: number | undefined;
 }
 
 interface DetailProps extends Hovered {
@@ -257,7 +366,7 @@ interface DetailProps extends Hovered {
 }
 
 const RunDetail = (props: DetailProps) => (
-  <AnchoredPanel class="card run-detail" anchor={props.anchor}>
+  <AnchoredPanel class="card run-detail" cursorX={props.cursorX}>
     <div class="card-header flex-col items-start gap-1">
       <span class="card-title">{props.entry.name}</span>
       <span class="card-subtitle">{where(props.entry)}</span>
@@ -353,21 +462,16 @@ interface RowProps {
   entry: Available;
   glyph: string | undefined;
   timing: ActivityTiming | undefined;
-  onHover: (entry: Available, anchor: DOMRect) => void;
+  itemFor: (loot: Loot) => DimItem | undefined;
+  onHover: (entry: Available, element: HTMLElement, cursorX?: number) => void;
   onLeave: (entry: Available) => void;
 }
 
 const Row = (props: RowProps) => (
   <li
     class="card selectable run flex min-h-[260px] flex-col justify-between"
-    style={
-      props.entry.pgcrImage
-        ? { "--art": `url(${BUNGIE}${props.entry.pgcrImage})` }
-        : undefined
-    }
-    onMouseEnter={(e) =>
-      props.onHover(props.entry, e.currentTarget.getBoundingClientRect())
-    }
+    style={{ "--art": tileArt(props.entry.pgcrImage, props.entry.typeName) }}
+    onMouseEnter={(e) => props.onHover(props.entry, e.currentTarget)}
     onMouseLeave={() => props.onLeave(props.entry)}
   >
     <div class="flex items-start gap-2 p-3">
@@ -397,16 +501,11 @@ const Row = (props: RowProps) => (
       <Played timing={props.timing} />
       <Drops entry={props.entry} glyph={props.glyph} />
       <div class="flex flex-wrap items-center gap-2 gap-x-4 text-md">
-        <Show when={props.entry.focus}>
-          {(focus) => <Named loot={focus()} />}
-        </Show>
-        <For each={props.entry.bonus}>{(one) => <Named loot={one} />}</For>
-        <Show when={props.entry.spentFocus}>
-          {(focus) => <Named loot={focus()} spent />}
-        </Show>
-        <For each={props.entry.spentBonus}>
-          {(one) => <Named loot={one} spent />}
-        </For>
+        <Rewards
+          entry={props.entry}
+          itemFor={props.itemFor}
+          onHide={() => props.onLeave(props.entry)}
+        />
       </div>
     </div>
   </li>
@@ -416,7 +515,8 @@ interface GridProps {
   entries: Available[];
   glyph: string | undefined;
   timingFor: (entry: Available) => ActivityTiming | undefined;
-  onHover: (entry: Available, anchor: DOMRect) => void;
+  itemFor: (loot: Loot) => DimItem | undefined;
+  onHover: (entry: Available, element: HTMLElement, cursorX?: number) => void;
   onLeave: (entry: Available) => void;
   class?: string;
 }
@@ -433,12 +533,225 @@ const RunGrid = (props: GridProps) => (
           entry={entry}
           glyph={props.glyph}
           timing={props.timingFor(entry)}
+          itemFor={props.itemFor}
           onHover={props.onHover}
           onLeave={props.onLeave}
         />
       )}
     </For>
   </ul>
+);
+
+interface TableSection {
+  name: string;
+  entries: Available[];
+}
+
+const COLUMNS = 10;
+
+const ANY = "Any";
+
+const NORMAL_RANK = DIFFICULTIES.indexOf("Normal");
+const TOP_RANK = DIFFICULTIES.length - 1;
+
+const wholeLadder = (tiers: SlimTier[]): boolean => {
+  const first = DIFFICULTIES.indexOf(tiers[0]?.name ?? "");
+  const last = DIFFICULTIES.indexOf(tiers[tiers.length - 1]?.name ?? "");
+
+  return first >= 0 && first <= NORMAL_RANK && last === TOP_RANK;
+};
+
+const rung = (entry: Available): string | undefined => {
+  const tiers = entry.difficulties;
+
+  if (tiers.length === 0) {
+    return difficultyOf(entry.name);
+  }
+
+  if (tiers.length === 1) {
+    return tiers[0]?.name;
+  }
+
+  if (wholeLadder(tiers)) {
+    return ANY;
+  }
+
+  return `${tiers[0]?.name} - ${tiers[tiers.length - 1]?.name}`;
+};
+
+const TableRow = (props: RowProps) => (
+  <tr
+    class="whitespace-nowrap"
+    onMouseEnter={(e) => props.onHover(props.entry, e.currentTarget, e.clientX)}
+    onMouseMove={(e) => props.onHover(props.entry, e.currentTarget, e.clientX)}
+    onMouseLeave={() => props.onLeave(props.entry)}
+  >
+    <td
+      class="plate"
+      style={{ "--art": tileArt(props.entry.pgcrImage, props.entry.typeName) }}
+    >
+      <span class="block truncate text-lg text-fg">{props.entry.name}</span>
+    </td>
+    <td class="truncate">
+      <Show
+        when={props.entry.typeName}
+        fallback={<span class="text-dim">-</span>}
+      >
+        {(name) => name()}
+      </Show>
+    </td>
+    <td class="truncate">
+      <Show
+        when={props.entry.location}
+        fallback={<span class="text-dim">-</span>}
+      >
+        {(name) => name()}
+      </Show>
+    </td>
+    <td>
+      <span
+        class="mark"
+        classList={{
+          checked: props.entry.matchmaking === "required",
+          indeterminate: props.entry.matchmaking === "optional",
+        }}
+        title={MM_TITLE[props.entry.matchmaking]}
+      />
+    </td>
+    <td>
+      <Show when={rung(props.entry)} fallback={<span class="text-dim">-</span>}>
+        {(name) => (
+          <span class="text-sm uppercase tracking-[0.12em]">{name()}</span>
+        )}
+      </Show>
+    </td>
+    <td class="tabular-nums">{power(props.entry) ?? "-"}</td>
+    <td class="tabular-nums">
+      <span class="inline-flex items-center gap-2">
+        <Icon icon={props.glyph} alt="" class="size-(--icon-xs)" />
+        <b>{BASE_DROPS}</b>
+        <Show when={props.entry.bonusDrops}>
+          {(count) => (
+            <span class="text-gold" title={REMAINING}>
+              +{count()}
+            </span>
+          )}
+        </Show>
+        <Show when={props.entry.dropsTaken}>
+          {(count) => (
+            <span class="spent text-gold" title={TAKEN}>
+              +{count()}
+            </span>
+          )}
+        </Show>
+      </span>
+    </td>
+    <td class="relative p-0">
+      {/* Absolute, or the chips cannot fill a cell whose height the row owns */}
+      <div class="absolute inset-0 flex text-md">
+        <Rewards
+          entry={props.entry}
+          itemFor={props.itemFor}
+          onHide={() => props.onLeave(props.entry)}
+          class="grow basis-0 px-4"
+        />
+      </div>
+    </td>
+    <td class="tabular-nums">
+      <Show
+        when={props.entry.challenges.length}
+        fallback={<span class="text-dim">-</span>}
+      >
+        {(count) => (
+          <span class="inline-flex items-center gap-1.5 text-gold">
+            <ChallengeMark />
+            {props.entry.challenges.filter((one) => !one.complete).length}/
+            {count()}
+          </span>
+        )}
+      </Show>
+    </td>
+    <td>
+      <Show
+        when={props.timing}
+        fallback={<span class="text-sm text-dim">Never run</span>}
+      >
+        {(timing) => (
+          <div class="flex flex-col text-sm tabular-nums">
+            <span>{ago(timing().lastRunAt)}</span>
+            <span class="text-dim">
+              {timing().runs} runs
+              <Show when={timing().fastestSeconds}>
+                {(fastest) => <> · {duration(fastest())}</>}
+              </Show>
+            </span>
+          </div>
+        )}
+      </Show>
+    </td>
+  </tr>
+);
+
+interface TableProps {
+  sections: TableSection[];
+  glyph: string | undefined;
+  timingFor: (entry: Available) => ActivityTiming | undefined;
+  itemFor: (loot: Loot) => DimItem | undefined;
+  onHover: (entry: Available, element: HTMLElement, cursorX?: number) => void;
+  onLeave: (entry: Available) => void;
+}
+
+const RunTable = (props: TableProps) => (
+  <div class="card">
+    <div class="card-body overflow-x-auto p-0">
+      <table class="table activities">
+        <thead>
+          <tr class="whitespace-nowrap">
+            <th class="w-64">Activity</th>
+            <th class="w-36">Type</th>
+            <th class="w-44">Location</th>
+            <th class="w-16" title="Matchmaking">
+              MM
+            </th>
+            <th class="w-32">Difficulty</th>
+            <th class="w-24">Power</th>
+            <th class="w-24">Drops</th>
+            <th>Rewards</th>
+            <th class="w-36">Challenges</th>
+            <th class="w-32">Last run</th>
+          </tr>
+        </thead>
+        <For each={props.sections}>
+          {(section) => (
+            <tbody>
+              <tr class="day">
+                <td colspan={COLUMNS}>
+                  <span class="section-label">
+                    {section.name}
+                    <span class="text-sm normal-case tracking-normal tabular-nums text-dim">
+                      {section.entries.length}
+                    </span>
+                  </span>
+                </td>
+              </tr>
+              <For each={section.entries}>
+                {(entry) => (
+                  <TableRow
+                    entry={entry}
+                    glyph={props.glyph}
+                    timing={props.timingFor(entry)}
+                    itemFor={props.itemFor}
+                    onHover={props.onHover}
+                    onLeave={props.onLeave}
+                  />
+                )}
+              </For>
+            </tbody>
+          )}
+        </For>
+      </table>
+    </div>
+  </div>
 );
 
 const offering = (entry: Available): boolean =>
@@ -462,6 +775,7 @@ export const Activities = () => {
   const character = () => app.active()?.id;
   const power = () => app.active()?.powerLevel;
   const realm = () => url.get("realm");
+  const layout = () => url.get("layout");
   const section = () => url.get("section");
   const showRest = () => url.get("rest");
   const [hovered, setHovered] = createSignal<Hovered | undefined>(undefined);
@@ -478,19 +792,36 @@ export const Activities = () => {
 
   let hoverTimer: number | undefined = undefined;
 
-  const onHover = (entry: Available, anchor: DOMRect) => {
+  const hide = () => {
+    releaseAnchor();
+    setHovered(undefined);
+  };
+
+  const onHover = (
+    entry: Available,
+    element: HTMLElement,
+    cursorX: number | undefined = undefined,
+  ) => {
+    const open = () => {
+      holdAnchor(element, hide);
+      setHovered({ entry, cursorX });
+    };
+
+    if (hovered()?.entry.key === entry.key) {
+      open();
+
+      return;
+    }
+
     window.clearTimeout(hoverTimer);
-    hoverTimer = window.setTimeout(
-      () => setHovered({ entry, anchor }),
-      HOVER_DELAY,
-    );
+    hoverTimer = window.setTimeout(open, HOVER_DELAY);
   };
 
   const onLeave = (entry: Available) => {
     window.clearTimeout(hoverTimer);
 
     if (hovered()?.entry.key === entry.key) {
-      setHovered(undefined);
+      hide();
     }
   };
 
@@ -545,6 +876,28 @@ export const Activities = () => {
     );
   });
 
+  const picks = createMemo(
+    () => active()?.entries.filter((one) => one.focused) ?? [],
+  );
+  const weekly = createMemo(() => active()?.entries.filter(listed) ?? []);
+  const rest = createMemo(() => active()?.entries.filter(quiet) ?? []);
+
+  const sections = createMemo((): TableSection[] => {
+    const built: TableSection[] = [];
+
+    if (picks().length > 0) {
+      built.push({ name: FEATURED, entries: picks() });
+    }
+
+    built.push({ name: THIS_WEEK, entries: weekly() });
+
+    if (showRest() && rest().length > 0) {
+      built.push({ name: NOTHING_LEFT, entries: rest() });
+    }
+
+    return built;
+  });
+
   const values = (): Values =>
     (character() === undefined
       ? undefined
@@ -558,6 +911,39 @@ export const Activities = () => {
       ...entry.variants.map((one) => one.hash),
     ]);
 
+  const rewardHashes = createMemo(() => {
+    const found = new Set<number>();
+
+    for (const entry of active()?.entries ?? []) {
+      const loot = [
+        entry.focus,
+        entry.spentFocus,
+        ...entry.bonus,
+        ...entry.spentBonus,
+      ];
+
+      for (const one of loot) {
+        if (one) {
+          found.add(one.hash);
+        }
+      }
+    }
+
+    return [...found];
+  });
+
+  const [items] = createResource(
+    () => {
+      const loaded = app.loaded();
+      const hashes = rewardHashes();
+
+      return loaded && hashes.length > 0 ? { loaded, hashes } : undefined;
+    },
+    ({ loaded, hashes }) => fakeItems(loaded, hashes),
+  );
+
+  const itemFor = (loot: Loot): DimItem | undefined => items()?.get(loot.hash);
+
   return (
     <div class="flex flex-col gap-3 px-3 pt-3">
       <PageChrome
@@ -570,7 +956,7 @@ export const Activities = () => {
                     active={!onZones() && one.name === activeRealm()?.name}
                     onClick={() => {
                       // The card unmounts without a mouseleave
-                      setHovered(undefined);
+                      hide();
                       url.push({ realm: one.name, section: undefined });
                     }}
                   >
@@ -582,7 +968,7 @@ export const Activities = () => {
               <TabButton
                 active={onZones()}
                 onClick={() => {
-                  setHovered(undefined);
+                  hide();
                   url.push({ realm: DISTORTION, section: undefined });
                 }}
               >
@@ -590,6 +976,25 @@ export const Activities = () => {
               </TabButton>
             </nav>
           </>
+        }
+        tools={
+          <Show when={!onZones()}>
+            <nav class="nav-facets">
+              <For each={LAYOUTS}>
+                {(one) => (
+                  <TabButton
+                    active={layout() === one}
+                    onClick={() => {
+                      hide();
+                      url.push({ layout: one });
+                    }}
+                  >
+                    {LAYOUT_LABELS[one]}
+                  </TabButton>
+                )}
+              </For>
+            </nav>
+          </Show>
         }
       />
 
@@ -599,7 +1004,7 @@ export const Activities = () => {
             <TabButton
               active={active()?.name === ALL}
               onClick={() => {
-                setHovered(undefined);
+                hide();
                 url.push({ section: undefined });
               }}
             >
@@ -611,7 +1016,7 @@ export const Activities = () => {
                 <TabButton
                   active={one.name === active()?.name}
                   onClick={() => {
-                    setHovered(undefined);
+                    hide();
                     url.push({ section: one.name });
                   }}
                 >
@@ -636,76 +1041,81 @@ export const Activities = () => {
           </p>
         }
       >
-        {(current) => (
-          <>
-            <Show when={onZones()}>
-              <p class="m-0 text-md text-muted">
-                Hourly rotation · every zone once in seven hours
-              </p>
-              <ul class="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-3 p-0">
-                <For each={turns()}>
-                  {(turn, index) => (
-                    <ZoneCard
-                      turn={turn}
-                      active={index() === 0}
-                      now={now()}
-                      values={values()}
-                    />
-                  )}
-                </For>
-              </ul>
-            </Show>
-            <Show when={!onZones()}>
-              <Show when={current().entries.filter((one) => one.focused)}>
-                {(picks) => (
-                  <Show when={picks().length > 0}>
-                    <RunGrid
-                      class="picks"
-                      entries={picks()}
-                      glyph={glyph()}
-                      timingFor={timingFor}
-                      onHover={onHover}
-                      onLeave={onLeave}
-                    />
-                  </Show>
+        <>
+          <Show when={onZones()}>
+            <p class="m-0 text-md text-muted">
+              Hourly rotation · every zone once in seven hours
+            </p>
+            <ul class="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-3 p-0">
+              <For each={turns()}>
+                {(turn, index) => (
+                  <ZoneCard
+                    turn={turn}
+                    active={index() === 0}
+                    now={now()}
+                    values={values()}
+                  />
                 )}
-              </Show>
-              <RunGrid
-                entries={current().entries.filter(listed)}
+              </For>
+            </ul>
+          </Show>
+          <Show when={!onZones()}>
+            <Show when={layout() === "list"}>
+              <RunTable
+                sections={sections()}
                 glyph={glyph()}
                 timingFor={timingFor}
+                itemFor={itemFor}
                 onHover={onHover}
                 onLeave={onLeave}
               />
-              <Show when={current().entries.filter(quiet)}>
-                {(rest) => (
-                  <Show when={rest().length > 0}>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      class="self-start"
-                      aria-pressed={showRest()}
-                      onClick={() => url.push({ rest: !showRest() })}
-                    >
-                      {showRest() ? "Hide" : "Show"} {rest().length} with
-                      nothing left this week
-                    </Button>
-                    <Show when={showRest()}>
-                      <RunGrid
-                        entries={rest()}
-                        glyph={glyph()}
-                        timingFor={timingFor}
-                        onHover={onHover}
-                        onLeave={onLeave}
-                      />
-                    </Show>
-                  </Show>
-                )}
+            </Show>
+            <Show when={layout() === "cards"}>
+              <Show when={picks().length > 0}>
+                <RunGrid
+                  class="picks"
+                  entries={picks()}
+                  glyph={glyph()}
+                  timingFor={timingFor}
+                  itemFor={itemFor}
+                  onHover={onHover}
+                  onLeave={onLeave}
+                />
+              </Show>
+              <RunGrid
+                entries={weekly()}
+                glyph={glyph()}
+                timingFor={timingFor}
+                itemFor={itemFor}
+                onHover={onHover}
+                onLeave={onLeave}
+              />
+            </Show>
+            <Show when={rest().length > 0}>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                class="self-start"
+                aria-pressed={showRest()}
+                onClick={() => url.push({ rest: !showRest() })}
+              >
+                {showRest() ? "Hide" : "Show"} {rest().length} with nothing left
+                this week
+              </Button>
+              <Show when={showRest() && layout() === "cards"}>
+                <RunGrid
+                  entries={rest()}
+                  glyph={glyph()}
+                  timingFor={timingFor}
+                  itemFor={itemFor}
+                  onHover={onHover}
+                  onLeave={onLeave}
+                />
               </Show>
             </Show>
-          </>
-        )}
+          </Show>
+        </>
       </Show>
       <Show when={hovered()}>
         {(panel) => (

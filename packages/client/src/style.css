@@ -616,6 +616,20 @@
     text-shadow: 0 1px 2px #000;
   }
 
+  /* Column widths hold and long text truncates instead of stretching a column */
+  .table.activities {
+    table-layout: fixed;
+  }
+
+  /* One height for every row, or the art bands step against each other */
+  .table.activities tbody tr:not(.day) {
+    height: 3.5rem;
+  }
+
+  .table.activities .plate {
+    box-shadow: inset 0 -1px 0 var(--line);
+  }
+
   .table tbody tr.day,
   .table tbody tr.day:hover {
     background: none;
@@ -652,6 +666,27 @@
     margin-left: auto;
     color: color-mix(in srgb, var(--fg) 75%, transparent);
     font-variant-numeric: tabular-nums;
+  }
+
+  /* The framework's checkbox mark, read only */
+  .mark {
+    display: inline-block;
+    box-sizing: border-box;
+    width: 0.85rem;
+    height: 0.85rem;
+    border: 1px solid var(--line-bright);
+    background-image: linear-gradient(var(--text), var(--text));
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 0 0;
+  }
+
+  .mark.checked {
+    background-size: 62% 62%;
+  }
+
+  .mark.indeterminate {
+    background-size: 62% 2px;
   }
 
   .spent,

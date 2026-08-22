@@ -467,7 +467,7 @@ describe("loot the week still owes", () => {
     );
 
     expect(category?.entries[0]?.bonus).toEqual([
-      { name: "Raid Gear", icon: undefined, quantity: 1 },
+      { hash: 600, name: "Raid Gear", icon: undefined, quantity: 1 },
     ]);
   });
 
@@ -646,6 +646,7 @@ describe("the game's own vocabulary", () => {
     );
 
     expect(category?.entries[0]?.focus).toEqual({
+      hash: 603,
       name: "Eutechnology Cover",
       icon: "/cover.png",
       quantity: 1,
@@ -751,8 +752,13 @@ describe("remembering what a spent week held", () => {
   it("surfaces the focus and the loot the payload dropped", () => {
     const held = {
       ...memory,
-      focus: { name: "Eutechnology Cover", icon: undefined, quantity: 1 },
-      bonus: [{ name: "Raid Gear", icon: undefined, quantity: 1 }],
+      focus: {
+        hash: 603,
+        name: "Eutechnology Cover",
+        icon: undefined,
+        quantity: 1,
+      },
+      bonus: [{ hash: 600, name: "Raid Gear", icon: undefined, quantity: 1 }],
     };
 
     const [category] = sections(
@@ -771,7 +777,12 @@ describe("remembering what a spent week held", () => {
   it("keeps a live reward out of the spent slots", () => {
     const held = {
       ...memory,
-      focus: { name: "Eutechnology Cover", icon: undefined, quantity: 1 },
+      focus: {
+        hash: 603,
+        name: "Eutechnology Cover",
+        icon: undefined,
+        quantity: 1,
+      },
     };
 
     const [category] = sections(
