@@ -1,9 +1,8 @@
 import type { DestinyPostGameCarnageReportData } from "bungie-api-ts/destiny2";
 import { For, Show } from "solid-js";
 
-import type { ActivityTables } from "../activities.ts";
+import { tileArt, type ActivityTables } from "../activities.ts";
 import { Chevron, Result } from "./ActivityRow.tsx";
-import { BUNGIE } from "../bungie.ts";
 import { duration, type HistoryRun } from "../history.ts";
 import { Report } from "./RunReport.tsx";
 import { METRICS, RunGraph, type Metric } from "./RunGraph.tsx";
@@ -31,9 +30,7 @@ export const ActivityPage = (props: {
     <div class="card overflow-hidden">
       <div
         class="hero-art flex min-h-[200px] flex-col items-center justify-center gap-1 p-6 text-center"
-        style={
-          props.art ? { "--art": `url(${BUNGIE}${props.art})` } : undefined
-        }
+        style={{ "--art": tileArt(props.art, props.typeName) }}
       >
         <h2 class="m-0 text-2xl leading-tight">
           {props.label}

@@ -1,6 +1,6 @@
 import { activityName, type SlimActivity } from "@dvm/defs-core";
 
-import type { ActivityTables } from "../activities.ts";
+import { activityArt, type ActivityTables } from "../activities.ts";
 import { NO_TIER, type ActivityRow, type HistoryRun } from "../history.ts";
 import type { PlateProps } from "./ActivityRow.tsx";
 
@@ -31,6 +31,11 @@ export const activityLookup = (
     tables?.activities[run.referenceId] ??
     tables?.activities[run.directorActivityHash];
 
+  const art = (activity: SlimActivity | undefined): string | undefined =>
+    activity === undefined || tables === undefined
+      ? undefined
+      : activityArt(activity, tables);
+
   const typeOf = (activity: SlimActivity | undefined): string | undefined =>
     activity?.activityTypeHash === undefined
       ? undefined
@@ -57,7 +62,8 @@ export const activityLookup = (
 
     return {
       name: labelOf(run),
-      art: activity?.pgcrImage,
+      art: art(activity),
+      typeName: typeOf(activity),
       difficulty: rungOf(run),
       note: typeOf(activity),
     };
@@ -68,7 +74,8 @@ export const activityLookup = (
 
     return {
       name: row.label,
-      art: activity?.pgcrImage,
+      art: art(activity),
+      typeName: typeOf(activity),
       difficulty: row.difficulty,
       note: typeOf(activity),
     };

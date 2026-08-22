@@ -94,38 +94,11 @@ const named = (display: {
   icon?: string;
 }): string | undefined => (display.hasIcon ? display.icon : undefined);
 
-// 707 activities point at Bungie's grey placeholder, which is worse than showing nothing
-const PLACEHOLDER = "placeholder";
+// 707 activities point at Bungie's grey placeholder and 10 at an unfilled strike template
+const PLACEHOLDERS = ["placeholder", "template_strike"];
 
 const art = (image: string | undefined): string | undefined =>
-  image && !image.includes(PLACEHOLDER) ? image : undefined;
-
-// A playlist carries no art of its own, so the tile borrows from its first entry or its mode
-export interface ArtSource {
-  playlist: (hash: number) => string | undefined;
-  mode: (hash: number) => string | undefined;
-}
-
-const backdrop = (
-  activity: DestinyActivityDefinition,
-  source: ArtSource,
-): string | undefined => {
-  const own = art(activity.pgcrImage);
-
-  if (own) {
-    return own;
-  }
-
-  const [first] = activity.playlistItems ?? [];
-  const borrowed = first ? source.playlist(first.activityHash) : undefined;
-
-  return (
-    borrowed ??
-    (activity.directActivityModeHash === undefined
-      ? undefined
-      : source.mode(activity.directActivityModeHash))
-  );
-};
+  image && !PLACEHOLDERS.some((one) => image.includes(one)) ? image : undefined;
 
 // Empty labels stay in place so the profile's failure indices still line up
 const labels = (found: { displayString: string }[] | undefined): string[] =>
@@ -133,13 +106,12 @@ const labels = (found: { displayString: string }[] | undefined): string[] =>
 
 export const slimActivity = (
   activity: DestinyActivityDefinition,
-  source: ArtSource,
 ): SlimActivity => ({
   hash: activity.hash,
   name: activity.displayProperties.name,
   description: activity.displayProperties.description,
   icon: named(activity.displayProperties),
-  pgcrImage: backdrop(activity, source),
+  pgcrImage: art(activity.pgcrImage),
   activityTypeHash: activity.activityTypeHash,
   destinationHash: activity.destinationHash,
   placeHash: activity.placeHash,

@@ -1,11 +1,12 @@
 import { Show } from "solid-js";
 
-import { BUNGIE } from "../bungie.ts";
+import { tileArt } from "../activities.ts";
 import { rungColor } from "./runFormat.ts";
 
 export interface PlateProps {
   name: string;
   art: string | undefined;
+  typeName: string | undefined;
   difficulty: string | undefined;
   note: string | undefined;
 }
@@ -23,7 +24,7 @@ export const Difficulty = (props: { name: string | undefined }) => (
 export const Plate = (props: PlateProps) => (
   <div
     class="plate flex h-20 flex-col justify-center gap-0.5 px-3"
-    style={props.art ? { "--art": `url(${BUNGIE}${props.art})` } : undefined}
+    style={{ "--art": tileArt(props.art, props.typeName) }}
   >
     <span class="line-clamp-2 text-md text-fg">{props.name}</span>
     <span class="flex items-baseline gap-2 overflow-hidden text-sm text-text">

@@ -14,6 +14,7 @@ import { useUrl } from "../router.ts";
 import { Button } from "../ui/Button.tsx";
 import { TabButton } from "../ui/TabButton.tsx";
 import { activityHref, activityLabel, type HistoryTab } from "../url.ts";
+import { activityArt } from "../activities.ts";
 import { activityLookup } from "./activityLookup.ts";
 import { ActivityMap, type Week } from "./ActivityMap.tsx";
 import { ActivityPage } from "./ActivityPage.tsx";
@@ -300,7 +301,12 @@ export const History = () => {
             label={current().label}
             difficulty={current().difficulty}
             typeName={lookup().typeOf(hero())}
-            art={hero()?.pgcrImage}
+            art={(() => {
+              const found = hero();
+              const held = tables();
+
+              return found && held ? activityArt(found, held) : undefined;
+            })()}
             best={best()}
             oldestFirst={forActivity()}
             newestFirst={newestFirst()}

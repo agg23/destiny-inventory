@@ -8,7 +8,6 @@ import {
   isShipped,
   resolveClosure,
   slimActivity,
-  type ArtSource,
   slimActivitySet,
   slimActivityType,
   slimChallenge,
@@ -41,12 +40,12 @@ const VENDORS = "DestinyVendorDefinition";
 // getBuckets reads one vendor for the vault bucket mappings
 const VAULT_VENDOR = 1037843411;
 const ACTIVITIES = "DestinyActivityDefinition";
-const MODES = "DestinyActivityModeDefinition";
 const OBJECTIVES = "DestinyObjectiveDefinition";
 const SKULLS = "DestinyActivitySelectableSkullCollectionDefinition";
 
 // Activity content ships for a few display fields each, so it is projected on the way out
 const SLIM: Record<string, (record: never) => { hash: number }> = {
+  DestinyActivityDefinition: slimActivity,
   DestinyActivityDifficultyTierCollectionDefinition: slimDifficulty,
   DestinyActivityModeDefinition: slimMode,
   DestinyActivityModifierDefinition: slimModifier,
@@ -57,25 +56,7 @@ const SLIM: Record<string, (record: never) => { hash: number }> = {
   DestinyPlaceDefinition: slimPlace,
 };
 
-const project = (
-  table: string,
-  contents: RawTable,
-  source: ArtSource,
-): RawTable => {
-  // Activities alone need the rest of the manifest to fill in the art a playlist lacks
-  if (table === ACTIVITIES) {
-    const projected: RawTable = {};
-
-    for (const [hash, record] of Object.entries(contents)) {
-      projected[hash] = slimActivity(
-        record as DestinyActivityDefinition,
-        source,
-      );
-    }
-
-    return projected;
-  }
-
+const project = (table: string, contents: RawTable): RawTable => {
   // A PGCR names skulls by an identifier nested two levels inside the collections
   if (table === SKULLS) {
     return skullTable(contents) as RawTable;
@@ -94,27 +75,6 @@ const project = (
   }
 
   return projected;
-};
-
-// The game falls back from an activity's own art to whatever its playlist or its mode carries
-const artSource = (tables: Map<string, RawTable>): ArtSource => {
-  const activities = (tables.get(ACTIVITIES) ?? {}) as Record<
-    string,
-    DestinyActivityDefinition
-  >;
-
-  const modes = (tables.get(MODES) ?? {}) as Record<
-    string,
-    { pgcrImage?: string }
-  >;
-
-  const usable = (image: string | undefined): string | undefined =>
-    image && !image.includes("placeholder") ? image : undefined;
-
-  return {
-    playlist: (hash: number) => usable(activities[hash]?.pgcrImage),
-    mode: (hash: number) => usable(modes[hash]?.pgcrImage),
-  };
 };
 
 const mb = (n: number): string => `${(n / 1_048_576).toFixed(2)} MB`;
@@ -290,8 +250,6 @@ const main = async () => {
   await emit("plugsets", plugsets);
   await emit("hidden", hidden);
 
-  const source = artSource(manifest.tables);
-
   for (const [table, contents] of manifest.tables) {
     if (table === ITEMS || table === PLUG_SETS) {
       continue;
@@ -301,7 +259,7 @@ const main = async () => {
     const value =
       table === VENDORS
         ? { [VAULT_VENDOR]: contents[VAULT_VENDOR] }
-        : project(table, contents, source);
+        : project(table, contents);
 
     await emit(name, value);
   }

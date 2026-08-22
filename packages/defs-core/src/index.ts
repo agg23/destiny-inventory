@@ -38,7 +38,6 @@ export {
   slimPlace,
   slimReward,
   skullTable,
-  type ArtSource,
   type SlimActivity,
   type SlimActivitySet,
   type SlimActivityType,
