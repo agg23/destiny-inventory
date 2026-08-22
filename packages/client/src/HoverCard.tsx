@@ -14,7 +14,7 @@ import { AnchoredPanel } from "./ui/AnchoredPanel.tsx";
 interface Props {
   item: DimItem;
   against: DimItem | undefined;
-  anchor: DOMRect;
+  cursorX: number | undefined;
 }
 
 export const HoverCard = (props: Props) => {
@@ -22,7 +22,7 @@ export const HoverCard = (props: Props) => {
   const uninstanced = () => props.item.id === "0";
 
   return (
-    <AnchoredPanel class="item-tooltip hover-card" anchor={props.anchor}>
+    <AnchoredPanel class="item-tooltip hover-card" cursorX={props.cursorX}>
       <ItemHead item={props.item} />
       <Show when={uninstanced()}>
         <div class="tooltip-body">

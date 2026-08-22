@@ -352,9 +352,45 @@
     border-color: var(--light);
   }
 
+  .anchored {
+    position: fixed;
+    position-anchor: --hovered;
+    position-area: inline-end span-block-end;
+    position-try-fallbacks:
+      flip-inline,
+      flip-block,
+      flip-inline flip-block;
+    position-visibility: anchors-visible;
+    margin: 8px;
+  }
+
+  /* X follows the pointer across a wide row, Y stays on the row */
+  .anchored.tracking {
+    position-area: none;
+    left: var(--cursor-x);
+    top: anchor(top);
+    position-try-fallbacks: --track-left, --track-up, --track-left-up;
+  }
+
+  @position-try --track-left {
+    left: auto;
+    right: calc(100dvw - var(--cursor-x));
+  }
+
+  @position-try --track-up {
+    top: auto;
+    bottom: anchor(bottom);
+  }
+
+  @position-try --track-left-up {
+    left: auto;
+    right: calc(100dvw - var(--cursor-x));
+    top: auto;
+    bottom: anchor(bottom);
+  }
+
   /* Framework's tooltip assumes game art behind it */
   .hover-card {
-    position: fixed;
     z-index: 4;
     max-height: 82vh;
     overflow: hidden;
@@ -631,9 +667,9 @@
   }
 
   .run-detail {
-    position: fixed;
+    width: 22rem;
     /* A nightfall lists eleven modifiers */
-    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
     overflow: hidden;
     pointer-events: none;
   }

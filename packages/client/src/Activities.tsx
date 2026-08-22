@@ -711,7 +711,7 @@ export const Activities = () => {
         {(panel) => (
           <RunDetail
             entry={panel().entry}
-            anchor={panel().anchor}
+            cursorX={panel().cursorX}
             values={values()}
             power={power()}
           />

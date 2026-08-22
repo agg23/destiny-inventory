@@ -14,7 +14,7 @@ import { fakeItems } from "../fakeItems.ts";
 import { BUNGIE } from "../bungie.ts";
 import { duration } from "../history.ts";
 import type { Session } from "../load.ts";
-import { cursorAnchor, dismiss, preview } from "../preview.ts";
+import { dismiss, preview } from "../preview.ts";
 import { REPORTS } from "../store.ts";
 import { Button } from "../ui/Button.tsx";
 
@@ -163,11 +163,13 @@ const Weapons = (props: { entry: DestinyPostGameCarnageReportEntry }) => {
             {(weapon) => {
               const item = () => items()?.get(weapon.referenceId);
 
-              const track = (event: MouseEvent) => {
+              const track = (
+                event: MouseEvent & { currentTarget: HTMLTableRowElement },
+              ) => {
                 const found = item();
 
                 if (found) {
-                  preview(found, cursorAnchor(event));
+                  preview(found, event.currentTarget, event.clientX);
                 }
               };
 

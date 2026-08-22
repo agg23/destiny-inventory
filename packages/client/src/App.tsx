@@ -652,7 +652,7 @@ export const App = (props: { children?: JSX.Element }) => {
             <HoverCard
               item={card().item}
               against={against()}
-              anchor={card().anchor}
+              cursorX={card().cursorX}
             />
           )}
         </Show>

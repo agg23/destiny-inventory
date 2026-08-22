@@ -45,9 +45,7 @@ export const Arrivals = (props: Props) => (
                 type="button"
                 class="menu-item w-full text-left"
                 onClick={() => props.onSelect(item)}
-                onMouseEnter={(event) =>
-                  preview(item, event.currentTarget.getBoundingClientRect())
-                }
+                onMouseEnter={(event) => preview(item, event.currentTarget)}
                 onMouseLeave={() => dismiss(item)}
               >
                 <span class={`item-tile small ${item.rarity.toLowerCase()}`}>

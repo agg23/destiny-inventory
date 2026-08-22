@@ -29,9 +29,7 @@ export const ItemIcon = (props: Props) => (
       [props.item.rarity.toLowerCase()]: true,
     }}
     onClick={(e) => props.onSelect(props.item, e.shiftKey)}
-    onMouseEnter={(e) =>
-      preview(props.item, e.currentTarget.getBoundingClientRect())
-    }
+    onMouseEnter={(e) => preview(props.item, e.currentTarget)}
     onMouseLeave={() => dismiss(props.item)}
   >
     <img
