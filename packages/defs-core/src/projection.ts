@@ -19,6 +19,7 @@ export const slimItem = (item: DestinyInventoryItemDefinition): SlimItem => ({
   iconWatermark: item.iconWatermark,
   itemType: item.itemType,
   itemSubType: item.itemSubType,
+  itemCategoryHashes: item.itemCategoryHashes,
   classType: item.classType,
   defaultDamageType: item.defaultDamageType,
   damageTypeHashes: item.damageTypeHashes,

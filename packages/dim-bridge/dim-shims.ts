@@ -27,6 +27,7 @@ export const PATH_SHIMS: { vendorPath: string; shim: string }[] = [
   { vendorPath: "app/inventory/dim-item-info.ts", shim: "dim-item-info.ts" },
   { vendorPath: "app/accounts/actions.ts", shim: "accounts-actions.ts" },
   { vendorPath: "app/accounts/reducer.ts", shim: "accounts-reducer.ts" },
+  { vendorPath: "app/search/filter-description.tsx", shim: "filter-description.ts" },
 ];
 
 export const dimPathShimsPlugin = (shimDir: string): VitePlugin => ({

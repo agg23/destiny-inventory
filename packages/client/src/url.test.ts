@@ -88,12 +88,8 @@ describe("writing params", () => {
 });
 
 describe("hrefs", () => {
-  it("carries the filter from one tab to the next", () => {
-    expect(tabHref("history", "rocket")).toBe("/history?q=rocket");
-  });
-
-  it("leaves an empty filter out", () => {
-    expect(tabHref("vault", "")).toBe("/vault");
+  it("leaves the filter behind on a tab change", () => {
+    expect(tabHref("history")).toBe("/history");
   });
 
   it("escapes a label that would otherwise split the path", () => {

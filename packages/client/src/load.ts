@@ -54,6 +54,11 @@ const SUPPORT = [
 
 const MEMBERSHIP = "dvm.membership";
 
+// Bumped whenever the shipped def shape changes, so cached records get refetched
+const SHAPE = 2;
+
+const stamp = (version: string): string => `${version}/${SHAPE}`;
+
 type ItemDef = DestinyInventoryItemDefinition;
 type PlugSetDef = DestinyPlugSetDefinition;
 
@@ -282,7 +287,7 @@ export const load = async (
 
   const stored = await store.manifestVersion();
   const fresh =
-    stored !== index.manifestVersion || (await store.count(CORE)) === 0;
+    stored !== stamp(index.manifestVersion) || (await store.count(CORE)) === 0;
 
   if (fresh && stored !== undefined) {
     await store.clear();
@@ -464,7 +469,7 @@ const populate = async ({
   await store.putAll(CORE, core);
   await store.putAll(DETAIL, detail);
   await store.putAll(PLUG_SETS, plugsets);
-  await store.setManifestVersion(index.manifestVersion);
+  await store.setManifestVersion(stamp(index.manifestVersion));
 };
 
 export type RefreshStatus = "updated" | "unchanged" | "manifest-changed";

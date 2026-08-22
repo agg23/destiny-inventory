@@ -96,9 +96,8 @@ export const TABS = ["vault", "activities", "history"] as const;
 
 export type Tab = (typeof TABS)[number];
 
-// Only the filter follows the reader from one tab to the next
-export const tabHref = (tab: Tab, query: string): string =>
-  query === "" ? `/${tab}` : `/${tab}?q=${encodeURIComponent(query)}`;
+// Each tab starts with a clean filter
+export const tabHref = (tab: Tab): string => `/${tab}`;
 
 // The router hands back the path segment still encoded
 export const activityLabel = (raw: string | undefined): string | undefined => {

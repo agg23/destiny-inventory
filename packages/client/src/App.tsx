@@ -22,6 +22,7 @@ import { accessToken, beginLogin, signedIn, signOut } from "./auth.ts";
 import { fetchCarnageReport } from "./bungie.ts";
 import { acquired } from "./arrivals.ts";
 import { comparable } from "./compare.ts";
+import { defs } from "./defs.ts";
 import { messageOf } from "./error.ts";
 import { HoverCard } from "./HoverCard.tsx";
 import {
@@ -37,6 +38,8 @@ import { plugIcons, warmIcons } from "./preload.ts";
 import { clear, previewed } from "./preview.ts";
 import { startAutoRefresh } from "./refresh.ts";
 import { useUrl } from "./router.ts";
+import { SearchBar } from "./SearchBar.tsx";
+import { itemFilter } from "./search.ts";
 import { Button } from "./ui/Button.tsx";
 import { TabButton } from "./ui/TabButton.tsx";
 import { tabHref, TABS, type Tab } from "./url.ts";
@@ -79,6 +82,9 @@ export const App = (props: { children?: JSX.Element }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [typed, setTyped] = createSignal(url.get("q"));
+  const [previewQuery, setPreviewQuery] = createSignal<string | undefined>(
+    undefined,
+  );
   const [upgraded, setUpgraded] = createSignal<LoadResult | undefined>(
     undefined,
   );
@@ -216,16 +222,6 @@ export const App = (props: { children?: JSX.Element }) => {
     ),
   );
 
-  const matches = (item: DimItem) => {
-    const needle = typed().trim().toLowerCase();
-
-    return (
-      !needle ||
-      item.name.toLowerCase().includes(needle) ||
-      item.typeName.toLowerCase().includes(needle)
-    );
-  };
-
   const shown = () =>
     stores().reduce(
       (total, store) => total + store.items.filter(matches).length,
@@ -234,6 +230,15 @@ export const App = (props: { children?: JSX.Element }) => {
 
   // The engine mutates its own stores
   const stores = () => moved() ?? current()?.stores ?? [];
+
+  // Only the vault runs the item filter, so a stale ?q= cannot skew the counts on another tab
+  const vaultQuery = () => (tab() === "vault" ? typed() : "");
+
+  const filter = createMemo(() =>
+    itemFilter(previewQuery() ?? vaultQuery(), stores(), defs()),
+  );
+
+  const matches = (item: DimItem) => !!filter()(item);
 
   const characterIds = () =>
     stores()
@@ -476,7 +481,7 @@ export const App = (props: { children?: JSX.Element }) => {
               {(one) => (
                 <TabButton
                   active={tab() === one}
-                  onClick={() => navigate(tabHref(one, typed()))}
+                  onClick={() => navigate(tabHref(one))}
                 >
                   {LABELS[one]}
                 </TabButton>
@@ -484,13 +489,25 @@ export const App = (props: { children?: JSX.Element }) => {
             </For>
           </nav>
           <div class="button-row basis-full">
-            <input
-              class="text-input inline"
-              type="search"
-              placeholder="Filter"
-              value={typed()}
-              onInput={(e) => onQuery(e.currentTarget.value)}
-            />
+            <Show
+              when={tab() === "vault"}
+              fallback={
+                <input
+                  class="text-input inline"
+                  type="search"
+                  placeholder="Filter"
+                  value={typed()}
+                  onInput={(e) => onQuery(e.currentTarget.value)}
+                />
+              }
+            >
+              <SearchBar
+                query={typed()}
+                stores={stores()}
+                onQuery={onQuery}
+                onPreview={setPreviewQuery}
+              />
+            </Show>
             <Button
               size="sm"
               disabled={Boolean(moving())}
