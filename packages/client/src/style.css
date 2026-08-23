@@ -306,6 +306,22 @@
       0 8px 24px #000c;
   }
 
+  .setting-toggle {
+    display: flex;
+    align-items: center;
+    margin-right: 0;
+    cursor: pointer;
+  }
+
+  .setting-toggle .section-label {
+    flex: 1;
+  }
+
+  /* The framework's trailing rule would run under the check */
+  .setting-toggle .section-label::after {
+    display: none;
+  }
+
   .settings-actions {
     display: flex;
     justify-content: flex-end;

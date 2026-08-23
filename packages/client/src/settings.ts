@@ -7,14 +7,17 @@ export const TILE_MAX = 96;
 
 export interface Settings {
   tile: number;
+  overlay: boolean;
 }
 
 export const DEFAULTS: Settings = {
   tile: 48,
+  overlay: false,
 };
 
 const clamp = (next: Settings): Settings => ({
   tile: Math.min(TILE_MAX, Math.max(TILE_MIN, Math.round(next.tile))),
+  overlay: next.overlay,
 });
 
 const read = (): Settings => {
@@ -31,9 +34,12 @@ const read = (): Settings => {
       return DEFAULTS;
     }
 
-    const { tile } = parsed as Partial<Settings>;
+    const { tile, overlay } = parsed as Partial<Settings>;
 
-    return clamp({ tile: typeof tile === "number" ? tile : DEFAULTS.tile });
+    return clamp({
+      tile: typeof tile === "number" ? tile : DEFAULTS.tile,
+      overlay: typeof overlay === "boolean" ? overlay : DEFAULTS.overlay,
+    });
   } catch {
     return DEFAULTS;
   }

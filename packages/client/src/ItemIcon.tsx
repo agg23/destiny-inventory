@@ -4,6 +4,7 @@ import { Show } from "solid-js";
 import { BUNGIE } from "./bungie.ts";
 import { dismiss, preview } from "./preview.ts";
 import { assess } from "./rolls.ts";
+import { settings } from "./settings.ts";
 
 interface Props {
   item: DimItem;
@@ -38,7 +39,7 @@ export const ItemIcon = (props: Props) => (
       loading="lazy"
       alt={props.item.name}
     />
-    <Show when={props.item.iconOverlay}>
+    <Show when={settings().overlay && props.item.iconOverlay}>
       {(overlay) => (
         <img
           class="overlay"

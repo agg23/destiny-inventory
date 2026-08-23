@@ -13,6 +13,7 @@ import {
 import { Button } from "./ui/Button.tsx";
 import { CogGlyph } from "./ui/CogGlyph.tsx";
 import { Slider } from "./ui/Slider.tsx";
+import { Toggle } from "./ui/Toggle.tsx";
 
 export const Settings = () => {
   const [open, setOpen] = createSignal(false);
@@ -74,6 +75,12 @@ export const Settings = () => {
               previewSettings({ ...settings(), tile: DEFAULTS.tile })
             }
             onChange={(tile) => previewSettings({ ...settings(), tile })}
+          />
+
+          <Toggle
+            label="Display expansions"
+            checked={settings().overlay}
+            onChange={(overlay) => previewSettings({ ...settings(), overlay })}
           />
 
           <div class="settings-actions">
