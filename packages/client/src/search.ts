@@ -8,6 +8,7 @@ import { getCurrentStore } from "app/inventory/stores-helpers";
 import type { ItemFilter } from "app/search/filter-types";
 import type {
   FilterContext,
+  ItemFilterDefinition,
   ItemSearchConfig,
   SuggestionsContext,
 } from "app/search/items/item-filter-types";
@@ -19,19 +20,53 @@ import simpleRangeFilters from "app/search/items/search-filters/range-numeric";
 import overloadedRangeFilters from "app/search/items/search-filters/range-overload";
 import simpleFilters from "app/search/items/search-filters/simple";
 import socketFilters from "app/search/items/search-filters/sockets";
+import wishlistFilters from "app/search/items/search-filters/wishlist";
 import statFilters from "app/search/items/search-filters/stats";
 import locationFilters from "app/search/items/search-filters/stores";
 import {
   autocompleteTermSuggestions,
   makeFilterComplete,
 } from "app/search/autocomplete";
+
+import { assess, ratingFor, rollFor, rollsByHash } from "./rolls.ts";
 import { buildFiltersMap, buildSearchConfig } from "app/search/search-config";
 import {
   makeSearchFilterFactory,
   parseAndValidateQuery,
 } from "app/search/search-filter";
 
-// Tags, notes, loadouts and wishlists arrive with DIM Sync, so those filter sets are left out
+const RATINGS = ["s", "a", "b", "c", "d", "e", "f"];
+
+// DIM's tier: is a range over Destiny's own gear tiers, so the Aegis rating takes its own keyword
+const ratingFilters: ItemFilterDefinition[] = [
+  {
+    keywords: ["rate", "rating"],
+    description:
+      "Aegis rating for the roll, the weapon's tier stepped down for each perk column that missed",
+    format: "query",
+    suggestions: RATINGS,
+    destinyVersion: 2,
+    filter: ({ filterValue }) => {
+      const wanted = filterValue.toLowerCase();
+
+      return (item) => assess(item)?.overall?.toLowerCase() === wanted;
+    },
+  },
+  {
+    keywords: ["ratebase", "ratingbase"],
+    description: "Aegis rating for the weapon itself, whatever this one rolled",
+    format: "query",
+    suggestions: RATINGS,
+    destinyVersion: 2,
+    filter: ({ filterValue }) => {
+      const wanted = filterValue.toLowerCase();
+
+      return (item) => ratingFor(item.hash)?.tier?.toLowerCase() === wanted;
+    },
+  },
+];
+
+// Tags, notes and loadouts arrive with DIM Sync, so those filter sets are left out
 // and their keywords read as unknown instead of matching nothing
 const FILTERS = [
   ...dupeFilters,
@@ -44,6 +79,8 @@ const FILTERS = [
   ...statFilters,
   ...locationFilters,
   ...advancedFilters,
+  ...wishlistFilters,
+  ...ratingFilters,
 ];
 
 const FILTERS_MAP = buildFiltersMap(2, FILTERS);
@@ -195,8 +232,8 @@ export const itemFilter = (
     allItems: stores.flatMap((store) => store.items),
     currentStore: current,
     loadoutsByItem: {},
-    wishListFunction: () => undefined,
-    wishListsByHash: new Map(),
+    wishListFunction: rollFor,
+    wishListsByHash: rollsByHash(),
     getTag: () => undefined,
     getNotes: () => undefined,
     language: "en",

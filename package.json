@@ -11,6 +11,7 @@
     "dev:service": "node --env-file-if-exists=.env packages/service/src/node.ts",
     "dev:client": "pnpm --filter @dvm/client dev",
     "build:artifacts": "node --max-old-space-size=8192 packages/build/src/build.ts",
+    "build:rolls": "node --max-old-space-size=8192 packages/build/src/aegis.ts",
     "build:client": "pnpm --filter @dvm/client build",
     "stage": "node packages/build/src/stage.ts",
     "build": "pnpm build:artifacts && pnpm build:client && pnpm stage",

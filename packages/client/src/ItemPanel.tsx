@@ -19,11 +19,12 @@ import {
   potentialSpaceLeftForItem,
 } from "app/inventory/stores-helpers";
 import { isClassCompatible, itemCanBeEquippedBy } from "app/utils/item-utils";
-import { createMemo, For, Show } from "solid-js";
+import { createMemo, For, Show, type JSX } from "solid-js";
 
 import { BUNGIE } from "./bungie.ts";
 import { delta, TOTAL, unmovable, type Delta } from "./compare.ts";
 import { archetype, benefits, setBonus, type StatChange } from "./perks.ts";
+import { assess, perkFor, perkRanked, type SlotVerdict } from "./rolls.ts";
 import { shortStat } from "./statNames.ts";
 import { Button } from "./ui/Button.tsx";
 import { SplitButton, type Choice } from "./ui/SplitButton.tsx";
@@ -392,29 +393,39 @@ const Socket = (props: { socket: DimSocket; all?: boolean }) => {
 
   const tip = (plug: DimPlug) => {
     const { name, description } = plug.plugDef.displayProperties;
+    const graded = perkFor(plug.plugDef.hash);
+    const standing = graded?.rank
+      ? `Aegis #${graded.rank} of ${perkRanked(graded.kind)}`
+      : undefined;
 
-    return description ? `${name}\n\n${description}` : name;
+    return [name, standing, description].filter(Boolean).join("\n\n");
   };
 
   return (
     <div class="flex flex-col gap-1">
       <For each={options()}>
         {(plug) => (
-          <img
-            class="plug"
-            classList={{
-              plugged: plug.plugDef.hash === props.socket.plugged?.plugDef.hash,
-              disabled: !plug.enabled,
-              round:
-                props.socket.isPerk &&
-                !socketContainsIntrinsicPlug(props.socket),
-              enhanced: isEnhancedPerk(plug.plugDef),
-            }}
-            src={`${BUNGIE}${plug.plugDef.displayProperties.icon}`}
-            loading="lazy"
-            alt={plug.plugDef.displayProperties.name}
-            title={tip(plug)}
-          />
+          <span class="plug-slot">
+            <img
+              class="plug"
+              classList={{
+                plugged:
+                  plug.plugDef.hash === props.socket.plugged?.plugDef.hash,
+                disabled: !plug.enabled,
+                round:
+                  props.socket.isPerk &&
+                  !socketContainsIntrinsicPlug(props.socket),
+                enhanced: isEnhancedPerk(plug.plugDef),
+              }}
+              src={`${BUNGIE}${plug.plugDef.displayProperties.icon}`}
+              loading="lazy"
+              alt={plug.plugDef.displayProperties.name}
+              title={tip(plug)}
+            />
+            <Show when={perkFor(plug.plugDef.hash)?.rank}>
+              {(rank) => <span class="plug-rank">{rank()}</span>}
+            </Show>
+          </span>
         )}
       </For>
     </div>
@@ -665,6 +676,282 @@ export const typeName = (item: DimItem): string => {
   }
 
   return `${owner} ${item.typeName}`;
+};
+
+// Aegis ranks every weapon it covers, so a base is worth building on only near the top
+const RECOMMENDED_TIERS = new Set(["S", "A", "B"]);
+
+const recommendedBase = (tier: string | undefined): boolean =>
+  tier !== undefined && RECOMMENDED_TIERS.has(tier);
+
+const others = (slot: SlotVerdict): string[] =>
+  slot.picks.filter((name) => name !== slot.rolled?.name);
+
+const AegisMark = (props: { matched: boolean }) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <Show
+      when={props.matched}
+      fallback={
+        <path
+          d="M5 5l14 14M19 5L5 19"
+          stroke="currentColor"
+          stroke-width="1.75"
+        />
+      }
+    >
+      <path d="M4 13l5 7L20 4" stroke="currentColor" stroke-width="1.75" />
+    </Show>
+  </svg>
+);
+
+// The sheet writes the notes lowercase
+const sentence = (text: string): string =>
+  text.replace(/\p{L}/u, (first) => first.toUpperCase());
+
+const listed = (names: string[]): string => {
+  if (names.length < 3) {
+    return names.join(" or ");
+  }
+
+  return `${names.slice(0, -1).join(", ")}, or ${names[names.length - 1]}`;
+};
+
+/** Aegis's standing on the weapon, this roll's perk columns, and the tier they come to */
+export const AegisNote = (props: { item: DimItem }) => {
+  const verdict = () => assess(props.item);
+
+  return (
+    <Show when={verdict()}>
+      {(read) => (
+        <div class="aegis-note">
+          <p class="aegis-line">
+            <span class="aegis-lead">
+              <Show when={read().rating.tier}>
+                {(tier) => (
+                  <span class={`roll-tier tier-${tier().toLowerCase()}`}>
+                    {tier()}
+                  </span>
+                )}
+              </Show>
+              <span>
+                <b class="tracking-wide uppercase">
+                  {recommendedBase(read().rating.tier)
+                    ? "Recommended base"
+                    : "Not a recommended base"}
+                </b>
+                <Show when={read().rating.rank}>
+                  {(rank) => (
+                    <span class="text-dim">
+                      {" "}
+                      #{rank()} of {read().rating.ranked}{" "}
+                      {read().rating.category}
+                    </span>
+                  )}
+                </Show>
+                <Show when={read().rating.notes}>
+                  {(notes) => (
+                    <span class="block text-muted">{sentence(notes())}</span>
+                  )}
+                </Show>
+              </span>
+            </span>
+          </p>
+
+          <Show when={read().slots.length > 0}>
+            <ul class="aegis-slots">
+              <For each={read().slots}>
+                {(slot) => (
+                  <li classList={{ hit: slot.matched, miss: !slot.matched }}>
+                    <span class="aegis-slot-label">Perk {slot.slot}</span>
+                    <span class="aegis-slot-perk">
+                      <AegisMark matched={slot.matched} />
+                      {slot.rolled?.name ?? "Empty"}
+                    </span>
+                    <span class="sr-only">
+                      {slot.matched ? "recommended" : "not recommended"}
+                    </span>
+                    <Show when={others(slot).length > 0}>
+                      <span class="aegis-slot-picks">
+                        <span class="aegis-slot-label">
+                          {slot.matched ? "Also" : "Wants"}
+                        </span>{" "}
+                        {listed(others(slot))}
+                      </span>
+                    </Show>
+                  </li>
+                )}
+              </For>
+            </ul>
+
+            <p class="aegis-overall">
+              <span class="aegis-slot-label">Overall</span>
+              <span class="aegis-lead">
+                <Show when={read().overall}>
+                  {(tier) => (
+                    <span class={`roll-tier tier-${tier().toLowerCase()}`}>
+                      {tier()}
+                    </span>
+                  )}
+                </Show>
+                <span class="text-dim">
+                  {read().score} of {read().of} perks recommended
+                </span>
+              </span>
+            </p>
+          </Show>
+        </div>
+      )}
+    </Show>
+  );
+};
+
+/** One stat's place in the shared grid, worked out across every item on screen */
+export interface StatPlace {
+  hash: number;
+  total: boolean;
+  best: number | undefined;
+  against: DimStat | undefined;
+}
+
+/** Where an item sits when the details are laid out as a grid instead of a column */
+export interface DetailPlace {
+  /** Sections span the label column when nothing is being compared against */
+  column: string;
+  /** Stat cells always sit in the item's own column, beside the shared labels */
+  statColumn: string;
+  comparing: boolean;
+  stats: StatPlace[];
+}
+
+// The grid keeps a row per section so columns line up, and the stats claim one row each
+const LEAD_ROW = 2;
+const SUMMARY_ROW = 3;
+const STATS_ROW = 4;
+
+/**
+ * Everything shown about one item below its header. Given a place it writes itself into the
+ * surrounding grid, and without one it runs top to bottom
+ */
+export const ItemDetails = (props: {
+  item: DimItem;
+  against?: DimItem;
+  place?: DetailPlace;
+  allPerks?: boolean;
+  onToggleAllPerks?: () => void;
+  lead?: JSX.Element;
+  trail?: JSX.Element;
+}) => {
+  // An uninstanced item carries no roll
+  const uninstanced = () => props.item.id === "0";
+  const perksRow = () => STATS_ROW + (props.place?.stats.length ?? 0);
+  const own = (hash: number) =>
+    props.item.stats?.find((stat) => stat.statHash === hash);
+
+  const cell = (row: number) => ({
+    "grid-column": props.place!.column,
+    "grid-row": String(row),
+  });
+
+  const warning = (
+    <Show when={uninstanced()}>
+      <p class="m-0 text-sm text-warning">
+        <b class="tracking-wide uppercase">Generic roll</b>
+        <span class="block">
+          Stats and perks come from the definition. The weapon that was used may
+          have rolled differently.
+        </span>
+      </p>
+    </Show>
+  );
+
+  const perks = (
+    <Perks
+      item={props.item}
+      all={props.allPerks}
+      onlyPlugged={uninstanced()}
+      onToggleAll={props.onToggleAllPerks}
+    />
+  );
+
+  return (
+    <Show
+      when={props.place}
+      fallback={
+        <>
+          <div class="tooltip-body">
+            <AegisNote item={props.item} />
+          </div>
+          <Show when={uninstanced()}>
+            <div class="tooltip-body">{warning}</div>
+          </Show>
+          <div class="tooltip-body">
+            {props.lead}
+            <ItemPower item={props.item} />
+            <Archetype item={props.item} />
+            <Stats item={props.item} against={props.against} />
+          </div>
+          <div class="tooltip-body">
+            {perks}
+            <SetBonus item={props.item} />
+            {props.trail}
+          </div>
+        </>
+      }
+    >
+      {(place) => (
+        <>
+          <Show when={props.lead}>
+            <div class="min-w-0 self-start" style={cell(LEAD_ROW)}>
+              {props.lead}
+            </div>
+          </Show>
+          <div class="min-w-0 self-start" style={cell(SUMMARY_ROW)}>
+            <AegisNote item={props.item} />
+            {warning}
+            <ItemPower item={props.item} />
+            <Archetype item={props.item} />
+          </div>
+          <For each={place().stats}>
+            {(stat, row) => (
+              <div
+                class="compare-stat"
+                classList={{ total: stat.total }}
+                style={{
+                  "grid-column": place().statColumn,
+                  "grid-row": String(STATS_ROW + row()),
+                }}
+              >
+                <Show
+                  when={own(stat.hash)}
+                  fallback={<span class="dash">·</span>}
+                >
+                  {(mine) => (
+                    <>
+                      <StatBar stat={mine()} total={stat.total} />
+                      <StatValue
+                        stat={mine()}
+                        against={stat.against}
+                        comparing={place().comparing}
+                        best={mine().value === stat.best}
+                        total={stat.total}
+                      />
+                    </>
+                  )}
+                </Show>
+              </div>
+            )}
+          </For>
+          <div class="min-w-0 self-start" style={cell(perksRow())}>
+            {perks}
+          </div>
+          <div class="min-w-0 self-start pt-6" style={cell(perksRow() + 1)}>
+            <SetBonus item={props.item} />
+            {props.trail}
+          </div>
+        </>
+      )}
+    </Show>
+  );
 };
 
 export const ItemHead = (props: { item: DimItem; compact?: boolean }) => (

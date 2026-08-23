@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   coreItem,
@@ -32,6 +33,7 @@ import { loadManifest, type RawTable } from "./manifest.ts";
 const REPO_ROOT = new URL("../../../", import.meta.url).pathname;
 const CACHE_ROOT = join(REPO_ROOT, ".cache", "manifest");
 const ARTIFACT_ROOT = join(REPO_ROOT, "artifacts");
+const AEGIS_DATA = join(REPO_ROOT, ".cache", "aegis.json");
 
 const ITEMS = "DestinyInventoryItemDefinition";
 const PLUG_SETS = "DestinyPlugSetDefinition";
@@ -249,6 +251,13 @@ const main = async () => {
   const detailFile = await emit("detail", detail);
   await emit("plugsets", plugsets);
   await emit("hidden", hidden);
+
+  // Refreshed out of band by build:rolls
+  if (existsSync(AEGIS_DATA)) {
+    await emit("rolls", JSON.parse(await readFile(AEGIS_DATA, "utf8")));
+  } else {
+    console.log("  no aegis.json, skipping rolls");
+  }
 
   for (const [table, contents] of manifest.tables) {
     if (table === ITEMS || table === PLUG_SETS) {

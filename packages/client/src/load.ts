@@ -15,6 +15,7 @@ import { buildStoresFrom, storeItems, type Failure } from "./stores.ts";
 import { seedInventory } from "./moves.ts";
 import { fetchRecords, fetchTable, hasArtifact } from "./artifacts.ts";
 import { loadConfig, type ArtifactIndex } from "./config.ts";
+import { loadRolls } from "./rolls.ts";
 import {
   currentMemberships,
   fetchProfile,
@@ -295,6 +296,7 @@ export const load = async (
 
   const profileStart = performance.now();
   const supportPromise = fetchSupport(index);
+  const rollsPromise = loadRolls(index);
   const membership = await cachedMembership(token);
   const profile = await fetchProfile(membership, token);
   const profileTime = performance.now() - profileStart;
@@ -326,6 +328,7 @@ export const load = async (
   const [support, hiddenHashes] = await Promise.all([
     supportPromise,
     fetchRecords<number>(index, "hidden"),
+    rollsPromise,
   ]);
 
   const hidden = new Set(hiddenHashes);

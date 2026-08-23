@@ -4,15 +4,10 @@ import { createMemo, createSignal, For, Show } from "solid-js";
 
 import { best, TOTAL } from "./compare.ts";
 import {
-  Archetype,
   Benefits,
+  ItemDetails,
   ItemHead,
-  ItemPower,
   Moves,
-  Perks,
-  SetBonus,
-  StatBar,
-  StatValue,
 } from "./ItemPanel.tsx";
 import { shortStat } from "./statNames.ts";
 import { IconButton } from "./ui/Button.tsx";
@@ -64,13 +59,9 @@ export const Compare = (props: Props) => {
   const columns = () =>
     `var(--compare-labels) repeat(${props.items.length}, minmax(0, 1fr))`;
 
-  const start = (column: number) => {
-    if (column > 0) {
-      return "auto";
-    }
-
-    return compact() ? "2" : "1 / 3";
-  };
+  // Every section is placed by row, so the column has to be explicit too
+  const start = (column: number) =>
+    compact() ? String(column + 2) : "1 / 3";
 
   return (
     <Show when={props.items.length > 0}>
@@ -83,7 +74,7 @@ export const Compare = (props: Props) => {
             {(item, column) => (
               <div
                 class="compare-head relative self-stretch pb-3"
-                style={{ "grid-column": start(column()) }}
+                style={{ "grid-column": start(column()), "grid-row": "1" }}
               >
                 <ItemHead item={item} compact />
                 <IconButton
@@ -101,96 +92,52 @@ export const Compare = (props: Props) => {
             )}
           </For>
 
-          <For each={props.items}>
-            {(item, column) => (
-              <div
-                class="min-w-0 self-start"
-                style={{ "grid-column": start(column()) }}
-              >
-                <Moves
-                  compact={compact()}
-                  item={item}
-                  stores={props.stores}
-                  active={props.active}
-                  onMove={(target, equip) => props.onMove(item, target, equip)}
-                  onPrefer={props.onPrefer}
-                  moving={props.moving}
-                  moveError={props.moveError}
-                />
-              </div>
-            )}
-          </For>
-
-          <For each={props.items}>
-            {(item, column) => (
-              <div style={{ "grid-column": start(column()) }}>
-                <ItemPower item={item} />
-                <Archetype item={item} />
-              </div>
-            )}
-          </For>
-
           <For each={rows()}>
-            {(row) => (
-              <>
-                <div
-                  class="stat-name"
-                  classList={{ total: row.hash === TOTAL }}
-                >
-                  {row.name}
-                </div>
-                <For each={row.values}>
-                  {(stat, column) => (
-                    <div
-                      class="compare-stat"
-                      classList={{ total: row.hash === TOTAL }}
-                    >
-                      <Show when={stat} fallback={<span class="dash">·</span>}>
-                        {(own) => (
-                          <>
-                            <StatBar stat={own()} />
-                            <StatValue
-                              stat={own()}
-                              against={column() > 0 ? row.values[0] : undefined}
-                              comparing={compact()}
-                              best={own().value === best(row.values)}
-                            />
-                          </>
-                        )}
-                      </Show>
-                    </div>
-                  )}
-                </For>
-              </>
-            )}
-          </For>
-
-          <For each={props.items}>
-            {(item, column) => (
+            {(row, index) => (
               <div
-                class="min-w-0 self-start"
-                style={{ "grid-column": start(column()) }}
+                class="stat-name"
+                classList={{ total: row.hash === TOTAL }}
+                style={{ "grid-column": "1", "grid-row": String(4 + index()) }}
               >
-                <Perks
-                  item={item}
-                  all={allPerks()}
-                  onToggleAll={() => setAllPerks((was) => !was)}
-                />
+                {row.name}
               </div>
             )}
           </For>
 
           <For each={props.items}>
             {(item, column) => (
-              <section
-                class="min-w-0 self-start pt-6"
-                style={{ "grid-column": start(column()) }}
-              >
-                <SetBonus item={item} />
-                <Benefits item={item} />
-              </section>
+              <ItemDetails
+                item={item}
+                allPerks={allPerks()}
+                onToggleAllPerks={() => setAllPerks((was) => !was)}
+                place={{
+                  column: start(column()),
+                  statColumn: String(column() + 2),
+                  comparing: compact(),
+                  stats: rows().map((row) => ({
+                    hash: row.hash,
+                    total: row.hash === TOTAL,
+                    best: best(row.values),
+                    against: column() > 0 ? row.values[0] : undefined,
+                  })),
+                }}
+                lead={
+                  <Moves
+                    compact={compact()}
+                    item={item}
+                    stores={props.stores}
+                    active={props.active}
+                    onMove={(target, equip) => props.onMove(item, target, equip)}
+                    onPrefer={props.onPrefer}
+                    moving={props.moving}
+                    moveError={props.moveError}
+                  />
+                }
+                trail={<Benefits item={item} />}
+              />
             )}
           </For>
+
         </div>
       </aside>
     </Show>

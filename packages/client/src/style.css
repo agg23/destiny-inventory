@@ -333,6 +333,220 @@
     font-variant-numeric: tabular-nums;
   }
 
+  .item-tile .item-tier {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 2;
+    min-width: 13px;
+    padding: 0 var(--space-2);
+    background: var(--tier);
+    color: #000;
+    font-size: var(--text-xs);
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: var(--track-caps);
+    text-align: center;
+  }
+
+  .tier-s {
+    --tier: var(--tier-s);
+  }
+
+  .tier-a {
+    --tier: var(--tier-a);
+  }
+
+  .tier-b {
+    --tier: var(--tier-b);
+  }
+
+  .tier-c {
+    --tier: var(--tier-c);
+  }
+
+  .tier-d {
+    --tier: var(--tier-d);
+  }
+
+  .tier-e {
+    --tier: var(--tier-e);
+  }
+
+  .tier-f {
+    --tier: var(--tier-f);
+  }
+
+  .plug-slot {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .plug-rank {
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    min-width: 12px;
+    padding: 0 1px;
+    background: var(--panel-raised);
+    color: var(--text);
+    font-size: var(--text-xs);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    text-align: center;
+  }
+
+  .aegis-note {
+    color: var(--muted);
+    font-size: var(--text-sm);
+  }
+
+  .aegis-note.matched {
+    color: var(--good);
+  }
+
+  .aegis-line {
+    margin: 0;
+  }
+
+  .aegis-line,
+  .aegis-slots li,
+  .aegis-overall {
+    display: grid;
+    grid-template-columns: 3.5rem minmax(0, 1fr);
+    align-items: baseline;
+    column-gap: var(--space-4);
+    row-gap: 0;
+    line-height: 1.5;
+  }
+
+  .aegis-lead {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-4);
+    grid-column: 2;
+  }
+
+  .aegis-line .aegis-lead {
+    grid-column: 1 / -1;
+  }
+
+  .item-tile .item-score {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 2;
+    min-width: 13px;
+    padding: 0 var(--space-2);
+    color: var(--bg);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+  }
+
+  .item-score.hit {
+    background: var(--good);
+  }
+
+  .item-score.part {
+    background: var(--warning);
+  }
+
+  .item-score.miss {
+    background: var(--error);
+  }
+
+  .aegis-slots {
+    margin: var(--space-3) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .aegis-slots li + li {
+    margin-top: var(--space-3);
+  }
+
+  .aegis-slots li.hit .aegis-slot-perk,
+  .aegis-slots li.hit .aegis-slot-mark {
+    color: var(--good);
+  }
+
+  .aegis-slots li.miss .aegis-slot-perk,
+  .aegis-slots li.miss .aegis-slot-mark {
+    color: var(--error);
+  }
+
+  .aegis-slot-label {
+    color: var(--dim);
+    font-size: var(--text-xs);
+    letter-spacing: var(--track-caps);
+    text-transform: uppercase;
+  }
+
+  .aegis-slots li > .aegis-slot-label,
+  .aegis-overall > .aegis-slot-label {
+    grid-column: 1;
+  }
+
+  .aegis-slot-perk {
+    display: flex;
+    grid-column: 2;
+    align-items: baseline;
+    gap: var(--space-3);
+  }
+
+  /* Baseline aligning an svg sits its box on the baseline, not its ink */
+  .aegis-slot-perk svg {
+    flex: none;
+    width: 1em;
+    height: 1em;
+    transform: translateY(0.167em);
+  }
+
+  .aegis-slot-picks {
+    grid-column: 2;
+    color: var(--muted);
+    font-size: var(--text-sm);
+    line-height: 1.35;
+  }
+
+  .aegis-overall {
+    margin: var(--space-4) 0 0;
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--line);
+  }
+
+  .aegis-perks {
+    margin: var(--space-3) 0 0;
+    padding: 0;
+    list-style: none;
+    color: var(--text);
+  }
+
+  .aegis-perks li {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-4);
+    line-height: 1.5;
+  }
+
+  .aegis-perk-rank {
+    flex: none;
+    color: var(--dim);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .aegis-note .roll-tier {
+    flex: none;
+    padding: 0 var(--space-3);
+    background: var(--tier);
+    color: #000;
+    font-weight: 700;
+    letter-spacing: var(--track-caps);
+  }
+
   .item-tile img {
     width: 100%;
     height: 100%;

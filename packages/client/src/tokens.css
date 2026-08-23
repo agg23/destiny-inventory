@@ -55,6 +55,14 @@
   --warning: var(--d2-warning);
   --good: var(--d2-accent-green);
 
+  --tier-s: var(--d2-rarity-exotic);
+  --tier-a: var(--d2-accent-green);
+  --tier-b: color-mix(in srgb, var(--d2-rarity-rare) 75%, white);
+  --tier-c: var(--d2-text);
+  --tier-d: color-mix(in srgb, var(--d2-text) 90%, black);
+  --tier-e: color-mix(in srgb, var(--d2-text) 78%, black);
+  --tier-f: color-mix(in srgb, var(--d2-danger) 66%, white);
+
   --exotic: var(--d2-rarity-exotic);
   --legendary: var(--d2-rarity-legendary);
   --rare: var(--d2-rarity-rare);

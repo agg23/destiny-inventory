@@ -27,9 +27,13 @@ const lookup = (key: string): string | undefined =>
     (whole, nested: string) => read(nested) ?? whole,
   );
 
+// Our own filters carry their help text literally, with no catalogue entry to find
+const literal = (key: string): string | undefined =>
+  key.startsWith("Filter.") ? undefined : key;
+
 const text = (description: FilterDescriptionInfo): string | undefined => {
   if (typeof description === "string") {
-    return lookup(description);
+    return lookup(description) ?? literal(description);
   }
 
   if (Array.isArray(description)) {

@@ -3,6 +3,7 @@ import { Show } from "solid-js";
 
 import { BUNGIE } from "./bungie.ts";
 import { dismiss, preview } from "./preview.ts";
+import { assess } from "./rolls.ts";
 
 interface Props {
   item: DimItem;
@@ -49,6 +50,13 @@ export const ItemIcon = (props: Props) => (
     </Show>
     <Show when={corner(props.item)}>
       {(value) => <span class="item-quantity">{value()}</span>}
+    </Show>
+    <Show when={assess(props.item)?.overall}>
+      {(overall) => (
+        <span class={`item-tier tier-${overall().toLowerCase()}`}>
+          {overall()}
+        </span>
+      )}
     </Show>
   </button>
 );

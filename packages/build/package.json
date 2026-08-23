@@ -6,6 +6,7 @@
   "main": "src/index.ts",
   "scripts": {
     "build": "node src/build.ts",
+    "rolls": "node --max-old-space-size=8192 src/aegis.ts",
     "parity": "node src/parity.ts",
     "measure": "node src/measure-closure.ts"
   },
