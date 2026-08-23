@@ -41,6 +41,8 @@ import { startAutoRefresh } from "./refresh.ts";
 import { useUrl } from "./router.ts";
 import { SearchBar } from "./SearchBar.tsx";
 import { itemFilter } from "./search.ts";
+import { Settings } from "./Settings.tsx";
+import { settings } from "./settings.ts";
 import { Button } from "./ui/Button.tsx";
 import { RefreshGlyph } from "./ui/RefreshGlyph.tsx";
 import { TabButton } from "./ui/TabButton.tsx";
@@ -144,6 +146,13 @@ export const App = (props: { children?: JSX.Element }) => {
 
     onCleanup(() => observer.disconnect());
   });
+
+  createEffect(() =>
+    document.documentElement.style.setProperty(
+      "--tile",
+      `${settings().tile}px`,
+    ),
+  );
 
   const feed = () => acquired(stores());
 
@@ -560,6 +569,7 @@ export const App = (props: { children?: JSX.Element }) => {
               >
                 <RefreshGlyph />
               </button>
+              <Settings />
               <span class="header-rule" aria-hidden="true" />
               <Button
                 size="xs"

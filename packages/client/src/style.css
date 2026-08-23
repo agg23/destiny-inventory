@@ -272,12 +272,119 @@
     gap: var(--space-2);
   }
 
+  .row .item-grid .item-tile.small {
+    width: var(--tile);
+    height: var(--tile);
+  }
+
   /* Opaque: these float over the grid, not game art */
   .picker-menu,
   .run-detail {
     z-index: 4;
     background: var(--panel);
     box-shadow: 0 8px 24px #000c;
+  }
+
+  .settings-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 6;
+    background: rgb(0 0 0 / 55%);
+  }
+
+  /* Above the sticky header and its own scrim */
+  .settings-panel {
+    z-index: 7;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    min-width: 280px;
+    padding: var(--space-5);
+    background: var(--panel);
+    box-shadow:
+      inset 0 0 0 1px var(--line-bright),
+      0 8px 24px #000c;
+  }
+
+  .settings-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-4);
+  }
+
+  .slider {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    touch-action: none;
+  }
+
+  .slider-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-5);
+  }
+
+  .slider-readout {
+    font-size: var(--text-sm);
+  }
+
+  .slider-value {
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* No line box, so the baseline is the bottom edge and vertical-align is exact */
+  .slider-reset {
+    display: inline-block;
+    margin-left: var(--space-3);
+    padding: 0;
+    background: none;
+    border: 0;
+    color: var(--muted);
+    font-size: inherit;
+    line-height: 0;
+    vertical-align: -0.25em;
+    cursor: pointer;
+    transition: color 0.12s ease-in-out;
+  }
+
+  .slider-reset svg {
+    display: block;
+    width: 1.2em;
+    height: 1.2em;
+  }
+
+  .slider-reset:hover:not(:disabled) {
+    color: var(--fg);
+  }
+
+  .slider-reset:disabled {
+    cursor: default;
+    opacity: 0.35;
+  }
+
+  .slider-track {
+    position: relative;
+    height: 2px;
+    margin: var(--space-4) 0;
+    background: var(--line-bright);
+  }
+
+  .slider-fill {
+    position: absolute;
+    height: 100%;
+    background: var(--light);
+  }
+
+  /* Kobalte sets the thumb's inline transform, so center it with top */
+  .slider-thumb {
+    top: -6px;
+    width: 14px;
+    height: 14px;
+    background: var(--light);
+    cursor: pointer;
   }
 
   .picker-menu {
