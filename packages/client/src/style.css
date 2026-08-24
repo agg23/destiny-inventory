@@ -1049,4 +1049,44 @@
   .tier.barred {
     color: var(--dim);
   }
+
+  /* Above the settings panel */
+  .toast-stack {
+    position: fixed;
+    left: 50%;
+    bottom: 2.5rem;
+    transform: translateX(-50%);
+    z-index: 8;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
+    pointer-events: none;
+  }
+
+  .toast {
+    max-width: min(36rem, calc(100dvw - 2rem));
+    padding: 0.7rem 1.6rem;
+    font: inherit;
+    font-size: var(--text-sm);
+    text-align: center;
+    color: var(--fg);
+    background: rgb(8 11 15 / 90%);
+    border: 1px solid var(--line-bright);
+    cursor: pointer;
+    pointer-events: auto;
+    animation: toast-in 0.2s ease-out;
+  }
+
+  .toast.danger {
+    color: var(--error);
+    border-color: var(--error);
+  }
+
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(1rem);
+    }
+  }
 }

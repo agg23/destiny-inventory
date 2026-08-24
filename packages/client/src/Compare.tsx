@@ -20,7 +20,6 @@ interface Props {
   onPrefer: (target: DimStore) => void;
   onUnpin: (item: DimItem) => void;
   moving: string | undefined;
-  moveError: string | undefined;
 }
 
 interface Row {
@@ -130,7 +129,6 @@ export const Compare = (props: Props) => {
                     onMove={(target, equip) => props.onMove(item, target, equip)}
                     onPrefer={props.onPrefer}
                     moving={props.moving}
-                    moveError={props.moveError}
                   />
                 }
                 trail={<Benefits item={item} />}

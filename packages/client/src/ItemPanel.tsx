@@ -42,7 +42,6 @@ export interface MoveProps {
   onMove: (target: DimStore, equip: boolean) => void;
   onPrefer: (target: DimStore) => void;
   moving: string | undefined;
-  moveError: string | undefined;
   compact?: boolean;
 }
 
@@ -243,9 +242,6 @@ export const Moves = (props: MoveProps) => {
       </Show>
       <Show when={props.moving}>
         {(status) => <p class="text-muted">{status()}</p>}
-      </Show>
-      <Show when={props.moveError}>
-        {(message) => <p class="text-danger">{message()}</p>}
       </Show>
     </div>
   );

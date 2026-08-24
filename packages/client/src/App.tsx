@@ -43,6 +43,7 @@ import { SearchBar } from "./SearchBar.tsx";
 import { itemFilter } from "./search.ts";
 import { Settings } from "./Settings.tsx";
 import { settings } from "./settings.ts";
+import { showToast, Toasts } from "./toast.tsx";
 import { Button } from "./ui/Button.tsx";
 import { RefreshGlyph } from "./ui/RefreshGlyph.tsx";
 import { TabButton } from "./ui/TabButton.tsx";
@@ -73,7 +74,6 @@ export interface AppState {
   awaitingPins: () => boolean;
   feed: () => DimItem[];
   moving: () => string | undefined;
-  moveError: () => string | undefined;
   runs: () => HistoryRun[];
   syncing: () => boolean;
   syncError: () => string | undefined;
@@ -102,7 +102,6 @@ export const App = (props: { children?: JSX.Element }) => {
   const [authError, setAuthError] = createSignal<string | undefined>(undefined);
   const [moved, setMoved] = createSignal<DimStore[] | undefined>(undefined);
   const [moving, setMoving] = createSignal<string | undefined>(undefined);
-  const [moveError, setMoveError] = createSignal<string | undefined>(undefined);
   const [stale, setStale] = createSignal(false);
   const [detail, setDetail] = createSignal(false);
   const [refreshing, setRefreshing] = createSignal(false);
@@ -459,11 +458,10 @@ export const App = (props: { children?: JSX.Element }) => {
   };
 
   const onMove = (item: DimItem, target: DimStore, equip: boolean) => {
-    setMoveError(undefined);
     setMoving(`${equip ? "Equipping" : "Moving"} ${item.name}`);
 
     moveItem(item, target, equip)
-      .catch((e: unknown) => setMoveError(messageOf(e)))
+      .catch((e: unknown) => showToast(messageOf(e), "danger"))
       .finally(() => setMoving(undefined));
   };
 
@@ -478,7 +476,6 @@ export const App = (props: { children?: JSX.Element }) => {
     awaitingPins,
     feed,
     moving,
-    moveError,
     runs,
     syncing,
     syncError,
@@ -667,6 +664,8 @@ export const App = (props: { children?: JSX.Element }) => {
           )}
         </Show>
       </Show>
+
+      <Toasts />
     </main>
   );
 };
