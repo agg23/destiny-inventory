@@ -981,6 +981,9 @@ export const ItemHead = (props: { item: DimItem; compact?: boolean }) => (
         </div>
       </div>
     </div>
+    <Show when={props.item.tier > 0}>
+      <span class="gear-tier">Tier {props.item.tier}</span>
+    </Show>
   </div>
 );
 

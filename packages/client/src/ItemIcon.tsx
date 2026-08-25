@@ -49,6 +49,9 @@ export const ItemIcon = (props: Props) => (
         />
       )}
     </Show>
+    <Show when={props.item.tier > 0}>
+      <span class="gear-tier">{props.item.tier}</span>
+    </Show>
     <Show when={corner(props.item)}>
       {(value) => <span class="item-quantity">{value()}</span>}
     </Show>

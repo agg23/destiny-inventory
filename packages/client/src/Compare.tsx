@@ -81,7 +81,7 @@ export const Compare = (props: Props) => {
                   variant="ghost"
                   size="icon-sm"
                   place="absolute"
-                  class="right-0 top-0"
+                  class="right-[5px] top-0"
                   label={`Unpin ${item.name}`}
                   onClick={() => props.onUnpin(item)}
                 >

@@ -491,20 +491,50 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .item-tile .item-tier {
+  .gear-tier {
+    background: color-mix(in srgb, var(--bg) 80%, transparent);
+    color: var(--cream);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: var(--track-caps);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+  }
+
+  .item-tile .item-tier,
+  .item-tile .gear-tier {
     position: absolute;
     top: 0;
-    right: 0;
     z-index: 2;
-    min-width: 13px;
-    padding: 0 var(--space-2);
-    background: var(--tier);
-    color: #000;
+    width: 17px;
+    padding: 0;
     font-size: var(--text-xs);
     font-weight: 700;
     line-height: 1.4;
     letter-spacing: var(--track-caps);
     text-align: center;
+  }
+
+  .item-tile .item-tier {
+    right: 0;
+    background: var(--tier);
+    color: #000;
+  }
+
+  .item-tile .gear-tier {
+    left: 0;
+  }
+
+  .tooltip-header {
+    position: relative;
+  }
+
+  .tooltip-header .gear-tier {
+    position: absolute;
+    right: var(--space-6);
+    bottom: var(--space-5);
+    padding: 0 var(--space-3);
   }
 
   .tier-s {
