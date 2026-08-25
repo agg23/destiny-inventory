@@ -17,10 +17,10 @@ export const StoreBanner = (props: {
   note: string;
 }) => (
   <>
-    <img class="size-(--icon-xl) shrink-0" src={props.icon} alt="" />
+    <img class="size-(--icon-lg) shrink-0" src={props.icon} alt="" />
     <div class="min-w-0">
       <div class="header general truncate">{props.title}</div>
-      <div class="truncate text-sm text-fg/75">{props.note}</div>
+      <div class="store-note truncate text-fg/75">{props.note}</div>
     </div>
   </>
 );
@@ -28,7 +28,7 @@ export const StoreBanner = (props: {
 const Banner = (props: { store: DimStore }) => (
   <div class="min-w-0">
     <div class="header general truncate">{props.store.className}</div>
-    <div class="truncate text-sm text-fg/75">
+    <div class="store-note truncate text-fg/75">
       {props.store.genderRace} · {props.store.powerLevel}
     </div>
   </div>
@@ -58,7 +58,7 @@ export const CharacterPicker = (props: Props) => (
         <For each={props.characters}>
           {(store) => (
             <DropdownMenu.Item
-              class={`${BANNER} outline-none data-[highlighted]:border-fg`}
+              class={`${BANNER} outline-none`}
               classList={{ "accent-exotic": store.id === props.selected?.id }}
               style={{ "--art": `url(${store.background})` }}
               onSelect={() => props.onSelect(store)}

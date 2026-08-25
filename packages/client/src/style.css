@@ -244,10 +244,7 @@
   .stores,
   .row {
     display: grid;
-    grid-template-columns: var(--bucket-label) var(--store-column) minmax(
-        0,
-        1fr
-      );
+    grid-template-columns: var(--store-column) minmax(0, 1fr);
     gap: var(--space-4);
     align-items: start;
   }
@@ -265,11 +262,30 @@
     border-top: 1px solid var(--line);
   }
 
+  .row .bucket-label {
+    grid-column: 1 / -1;
+    margin-bottom: var(--space-2);
+    font-size: var(--text-sm);
+    letter-spacing: var(--track-caps);
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
   /* Framework's tile grid is inline and three wide */
   .row .item-grid.wide {
     display: grid;
     grid-template-columns: repeat(auto-fill, var(--tile));
     gap: var(--space-2);
+  }
+
+  .row .item-grid.character {
+    grid-template-columns: repeat(3, var(--tile));
+    justify-content: center;
+  }
+
+  /* Remainder splits between the middle gutter and the rail */
+  .row .item-grid.wide:not(.character) {
+    justify-content: center;
   }
 
   .row .item-grid .item-tile.small {
@@ -414,8 +430,9 @@
   }
 
   .store-head {
-    /* Emblem art is 474x96 */
-    aspect-ratio: 474 / 96;
+    height: var(--banner);
+    /* The framework's card brings a border */
+    border: 0;
     background-image: linear-gradient(
         to right,
         rgb(0 0 0 / 80%) 0%,
@@ -426,13 +443,29 @@
     /* Or the border ring tiles the scrim, leaving art bare */
     background-origin: border-box;
     background-size: cover;
+    /* Emblem art is 474x96, so its icon square has to stay uncropped */
+    background-position: left center;
     cursor: pointer;
     text-shadow: 0 1px 2px #000;
   }
 
+  /* Border is gone, so the highlight needs its own edge */
+  .picker-menu .store-head[data-highlighted] {
+    box-shadow: inset 0 0 0 2px var(--fg);
+  }
+
+  .store-head .header.general {
+    font-size: var(--text-md);
+    letter-spacing: var(--track-base);
+  }
+
+  .store-head .store-note {
+    font-size: var(--text-xs);
+  }
+
   .emblem-head {
     background-image: var(--art, none);
-    padding: 0 var(--space-2) 0 0;
+    padding: 0 var(--space-4) 0 0;
   }
 
   /* The left square of the emblem is its own icon, so leave it uncovered */

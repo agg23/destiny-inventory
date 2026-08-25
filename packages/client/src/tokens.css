@@ -79,8 +79,10 @@
   /* The framework's small tile */
   --tile: 48px;
 
-  --bucket-label: 140px;
-  --store-column: 320px;
+  /* Three tiles, but the emblem reads at half of its 474 */
+  --store-column: max(237px, calc(var(--tile) * 3 + var(--space-2) * 2));
+  /* Emblem art is 474x96, and the whole strip sets the banner height */
+  --banner: calc(var(--store-column) * 96 / 474);
 
   /* The framework has no icon system */
   --icon-xs: 14px;
@@ -104,10 +106,8 @@
   /* Reserved always, or the scrollbar feeds itself */
   --scrollbar: 16px;
 
-  --rail: calc(
-    var(--compare-labels) + var(--item-run) + var(--space-6) * 3 +
-      var(--scrollbar)
-  );
+  /* The framework's tooltip is 22rem */
+  --rail: 22rem;
   --rail-compare: calc(
     var(--compare-labels) + var(--item-run) * 2 + var(--space-6) * 4 +
       var(--scrollbar)

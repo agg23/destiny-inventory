@@ -22,7 +22,7 @@ interface Props {
 }
 
 const VaultHeader = (props: { store: DimStore }) => (
-  <div class="card store-head flex w-(--store-column) items-center gap-2 p-2">
+  <div class="card store-head flex items-center gap-2 p-2">
     <StoreBanner
       icon={props.store.icon}
       title="Vault"
@@ -124,7 +124,6 @@ export const Inventory = (props: Props) => {
   return (
     <div class="p-3">
       <div class="stores">
-        <div />
         <CharacterPicker
           characters={characters()}
           selected={props.active}
@@ -140,12 +139,15 @@ export const Inventory = (props: Props) => {
             <For each={section.buckets}>
               {(bucket) => (
                 <div class="row">
-                  <div class="pt-1 text-sm text-muted">
+                  <h3 class="bucket-label">
                     {bucket.name || `Bucket ${bucket.hash}`}
-                  </div>
+                  </h3>
                   <For each={shown()}>
                     {(store) => (
-                      <div class="item-grid wide">
+                      <div
+                        class="item-grid wide"
+                        classList={{ character: !store.isVault }}
+                      >
                         <For each={cell(store, bucket)}>
                           {(item) => (
                             <ItemIcon
