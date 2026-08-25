@@ -37,6 +37,7 @@ import { load, NotSignedIn, refreshProfile, type LoadResult } from "./load.ts";
 import { moveItem, subscribeStores } from "./moves.ts";
 import { plugIcons, warmIcons } from "./preload.ts";
 import { clear, previewed } from "./preview.ts";
+import { collapseRail, railCollapsed } from "./rail.ts";
 import { startAutoRefresh } from "./refresh.ts";
 import { useUrl } from "./router.ts";
 import { SearchBar } from "./SearchBar.tsx";
@@ -45,6 +46,7 @@ import { Settings } from "./Settings.tsx";
 import { settings } from "./settings.ts";
 import { showToast, Toasts } from "./toast.tsx";
 import { Button } from "./ui/Button.tsx";
+import { PanelGlyph } from "./ui/PanelGlyph.tsx";
 import { RefreshGlyph } from "./ui/RefreshGlyph.tsx";
 import { TabButton } from "./ui/TabButton.tsx";
 import { tabHref, TABS, type Tab } from "./url.ts";
@@ -427,6 +429,9 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
       : `Refresh · last at ${new Date(at).toLocaleTimeString()}`;
   };
 
+  const panelLabel = () =>
+    railCollapsed() ? "Show side panel" : "Hide side panel";
+
   const refresh = async () => {
     const session = current()?.session;
 
@@ -589,6 +594,17 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
               >
                 <RefreshGlyph />
               </button>
+              <Show when={tab() === "vault"}>
+                <button
+                  type="button"
+                  class="header-action"
+                  title={panelLabel()}
+                  aria-label={panelLabel()}
+                  onClick={() => collapseRail(!railCollapsed())}
+                >
+                  <PanelGlyph slashed={!railCollapsed()} />
+                </button>
+              </Show>
               <Settings />
               <span class="header-rule" aria-hidden="true" />
               <Button
@@ -674,7 +690,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
           </div>
         </Show>
 
-        <div class="body" classList={{ solo: tab() !== "vault" }}>
+        <div class="body">
           <AppContext.Provider value={state}>
             {props.children}
           </AppContext.Provider>
