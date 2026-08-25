@@ -4,11 +4,14 @@ import {
   getInventoryWishListRoll,
   type InventoryWishListRoll,
 } from "app/wishlists/wishlists";
+import { createSignal } from "solid-js";
 
 import { fetchTable, hasArtifact } from "./artifacts.ts";
 import type { ArtifactIndex } from "./config.ts";
+import { PROFILE, type DefStore } from "./store.ts";
 
 const ARTIFACT = "rolls";
+const ROLLS = "rolls";
 
 const TIERS = ["S", "A", "B", "C", "D", "E", "F"] as const;
 
@@ -53,12 +56,26 @@ export interface Rating {
   season: string | undefined;
 }
 
-let slotsByHash = new Map<number, number[][]>();
-let byHash = new Map<number, WishListRoll[]>();
-let ratings = new Map<number, Rating>();
-let perkRanks = new Map<number, AegisPerk>();
+interface Sheet {
+  byHash: Map<number, WishListRoll[]>;
+  ratings: Map<number, Rating>;
+  perkRanks: Map<number, AegisPerk>;
+  slotsByHash: Map<number, number[][]>;
+  captured: string | undefined;
+}
+
+const EMPTY_SHEET: Sheet = {
+  byHash: new Map(),
+  ratings: new Map(),
+  perkRanks: new Map(),
+  slotsByHash: new Map(),
+  captured: undefined,
+};
+
+// A signal, so lookups made during render update when a sheet loads later
+const [sheet, setSheet] = createSignal<Sheet>(EMPTY_SHEET);
+
 let matched = new Map<string, InventoryWishListRoll | undefined>();
-let captured: string | undefined = undefined;
 
 const rankOf = (perk: AegisPerk): number =>
   perk.rank ?? Number.MAX_SAFE_INTEGER;
@@ -145,32 +162,81 @@ export const setRolls = (data: AegisData) => {
     }
   }
 
-  byHash = rolls;
-  ratings = rated;
-  perkRanks = graded;
-  slotsByHash = slotted;
   matched = new Map();
-  captured = data.captured;
+
+  setSheet({
+    byHash: rolls,
+    ratings: rated,
+    perkRanks: graded,
+    slotsByHash: slotted,
+    captured: data.captured,
+  });
 };
 
-/** Load the Aegis roll artifact. Absent from the index it leaves lookups empty */
-export const loadRolls = async (index: ArtifactIndex): Promise<void> => {
-  if (!hasArtifact(index, ARTIFACT)) {
+let loadedFrom: string | undefined = undefined;
+
+/** The sheet as persisted for the next boot's first render */
+export interface CachedRolls {
+  source: string;
+  data: AegisData;
+}
+
+const sourceOf = (index: ArtifactIndex): string | undefined =>
+  hasArtifact(index, ARTIFACT) ? index.files[ARTIFACT]!.join() : undefined;
+
+/** The persisted sheet, for boots that bypass the inline prefetch */
+export const readCachedRolls = (
+  store: DefStore,
+): Promise<CachedRolls | undefined> =>
+  store.getOne<CachedRolls>(PROFILE, ROLLS);
+
+/** Applies a cached sheet when it still matches the index, ahead of the first render */
+export const primeRolls = (
+  cached: CachedRolls | undefined,
+  index: ArtifactIndex,
+): void => {
+  const source = sourceOf(index);
+
+  if (!cached || source === undefined || cached.source !== source) {
     return;
   }
 
-  setRolls(await fetchTable<AegisData>(index, ARTIFACT));
+  loadedFrom = source;
+  setRolls(cached.data);
+};
+
+/** Load the Aegis roll artifact once per source file. Absent from the index it leaves lookups empty */
+export const loadRolls = async (
+  index: ArtifactIndex,
+  store?: DefStore,
+): Promise<void> => {
+  const source = sourceOf(index);
+
+  if (source === undefined || source === loadedFrom) {
+    return;
+  }
+
+  loadedFrom = source;
+
+  const data = await fetchTable<AegisData>(index, ARTIFACT);
+
+  setRolls(data);
+  store?.putOne(PROFILE, ROLLS, { source, data }).catch((e: unknown) => {
+    console.warn("Rolls cache failed", e);
+  });
 };
 
 /** The Aegis rating for an item hash, whether or not the instance rolled well */
 export const ratingFor = (hash: number): Rating | undefined =>
-  ratings.get(hash);
+  sheet().ratings.get(hash);
 
 /**
  * The matching Aegis roll for this instance. DIM counts a perk it could select as present, so
  * the columns have to have actually rolled it
  */
 export const rollFor = (item: DimItem): InventoryWishListRoll | undefined => {
+  const { byHash } = sheet();
+
   if (byHash.size === 0 || !item.sockets || item.sockets.fromDefinitions) {
     return undefined;
   }
@@ -268,6 +334,7 @@ const namePicks = (
  * one of its picks, and the tier those two together come to
  */
 export const assess = (item: DimItem): Assessment | undefined => {
+  const { ratings, slotsByHash, perkRanks } = sheet();
   const rating = ratings.get(item.hash);
 
   if (!rating) {
@@ -310,13 +377,13 @@ export const assess = (item: DimItem): Assessment | undefined => {
 
 /** Aegis's standing on a perk or origin trait, apart from the weapon carrying it */
 export const perkFor = (hash: number): AegisPerk | undefined =>
-  perkRanks.get(hash);
+  sheet().perkRanks.get(hash);
 
 /** How many perks of a kind Aegis ranks, so a rank reads as "4 of 120" */
 export const perkRanked = (kind: AegisPerk["kind"]): number => {
   let count = 0;
 
-  for (const perk of new Set(perkRanks.values())) {
+  for (const perk of new Set(sheet().perkRanks.values())) {
     if (perk.kind === kind && perk.rank !== undefined) {
       count += 1;
     }
@@ -325,6 +392,6 @@ export const perkRanked = (kind: AegisPerk["kind"]): number => {
   return count;
 };
 
-export const rollsByHash = (): Map<number, WishListRoll[]> => byHash;
+export const rollsByHash = (): Map<number, WishListRoll[]> => sheet().byHash;
 
-export const rollsCaptured = (): string | undefined => captured;
+export const rollsCaptured = (): string | undefined => sheet().captured;

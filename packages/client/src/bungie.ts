@@ -81,6 +81,29 @@ export const pickMembership = (memberships: UserMemberships): Membership => {
   return chosen;
 };
 
+const MEMBERSHIP = "dvm.membership";
+
+/** Membership from the last sign-in, without a network round trip */
+export const storedMembership = (): Membership | undefined => {
+  const held = localStorage.getItem(MEMBERSHIP);
+
+  return held ? (JSON.parse(held) as Membership) : undefined;
+};
+
+/** Stored membership, or the account's primary one fetched and stored */
+export const cachedMembership = async (token: string): Promise<Membership> => {
+  const cached = storedMembership();
+
+  if (cached) {
+    return cached;
+  }
+
+  const membership = pickMembership(await currentMemberships(token));
+  localStorage.setItem(MEMBERSHIP, JSON.stringify(membership));
+
+  return membership;
+};
+
 export const fetchProfile = (
   membership: Membership,
   accessToken: string,

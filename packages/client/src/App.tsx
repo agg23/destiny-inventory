@@ -88,7 +88,7 @@ const AppContext = createContext<AppState>();
 
 export const useApp = (): AppState => useContext(AppContext)!;
 
-export const App = (props: { children?: JSX.Element }) => {
+export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   const url = useUrl();
   const location = useLocation();
   const navigate = useNavigate();
@@ -115,12 +115,26 @@ export const App = (props: { children?: JSX.Element }) => {
   const [runs, setRuns] = createSignal<HistoryRun[]>([]);
   const [syncing, setSyncing] = createSignal(false);
   const [syncError, setSyncError] = createSignal<string | undefined>(undefined);
+  const [liveFailed, setLiveFailed] = createSignal(false);
+  const [expired, setExpired] = createSignal(false);
+
+  const onLiveError = (e: unknown) => {
+    if (e instanceof NotSignedIn) {
+      setExpired(true);
+
+      return;
+    }
+
+    setLiveFailed(true);
+    showToast(messageOf(e), "danger");
+  };
 
   // Reading an errored resource rethrows
   const [authed] = createSignal(signedIn());
   const [result] = createResource(
     () => authed() || undefined,
-    () => load(setUpgraded),
+    () => load(setUpgraded, onLiveError, props.primed),
+    { initialValue: props.primed },
   );
 
   let head: HTMLElement | undefined = undefined;
@@ -189,7 +203,8 @@ export const App = (props: { children?: JSX.Element }) => {
 
   const error = () => result.error as Error | undefined;
   const current = () => (error() ? undefined : upgraded() ?? result());
-  const needsSignIn = () => !authed() || error() instanceof NotSignedIn;
+  const needsSignIn = () =>
+    !authed() || expired() || error() instanceof NotSignedIn;
 
   const failures = () => {
     const loaded = current();
@@ -442,7 +457,7 @@ export const App = (props: { children?: JSX.Element }) => {
     startAutoRefresh({
       onRefresh: () =>
         refresh().catch((e: unknown) => console.warn("Refresh failed", e)),
-      busy: () => Boolean(moving()),
+      busy: () => Boolean(moving()) || current()?.source === "cache",
     }),
   );
 
@@ -558,10 +573,18 @@ export const App = (props: { children?: JSX.Element }) => {
               <button
                 type="button"
                 class="header-action"
-                classList={{ busy: refreshing() }}
+                classList={{
+                  busy:
+                    refreshing() ||
+                    (current()?.source === "cache" && !liveFailed()),
+                }}
                 title={refreshLabel()}
                 aria-label={refreshLabel()}
-                disabled={Boolean(moving()) || refreshing()}
+                disabled={
+                  Boolean(moving()) ||
+                  refreshing() ||
+                  current()?.source === "cache"
+                }
                 onClick={() => void refresh()}
               >
                 <RefreshGlyph />
@@ -644,8 +667,11 @@ export const App = (props: { children?: JSX.Element }) => {
           {(e) => <p class="p-3 text-danger">{e().message}</p>}
         </Show>
 
-        <Show when={result.loading}>
-          <p class="p-3 text-muted">Loading</p>
+        <Show when={result.loading && !current()}>
+          <div class="loading">
+            <span class="spinner" aria-hidden="true" />
+            <p class="text-muted">Loading inventory</p>
+          </div>
         </Show>
 
         <div class="body" classList={{ solo: tab() !== "vault" }}>

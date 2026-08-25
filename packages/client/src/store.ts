@@ -1,5 +1,5 @@
 const DB_NAME = "dvm";
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 export const CORE = "core";
 export const DETAIL = "detail";
@@ -7,6 +7,7 @@ export const PLUG_SETS = "plugSets";
 export const RUNS = "runs";
 export const REPORTS = "reports";
 export const PROGRESS = "progress";
+export const PROFILE = "profile";
 
 const META = "meta";
 const STORES = [CORE, DETAIL, PLUG_SETS];
@@ -35,6 +36,10 @@ const open = (): Promise<IDBDatabase> =>
 
       if (!db.objectStoreNames.contains(PROGRESS)) {
         db.createObjectStore(PROGRESS, { keyPath: "characterId" });
+      }
+
+      if (!db.objectStoreNames.contains(PROFILE)) {
+        db.createObjectStore(PROFILE);
       }
 
       if (!db.objectStoreNames.contains(META)) {
@@ -79,6 +84,7 @@ export interface DefStore {
   getMany: <T>(store: string, hashes: number[]) => Promise<T[]>;
   getAll: <T>(store: string) => Promise<T[]>;
   getOne: <T>(store: string, key: string) => Promise<T | undefined>;
+  putOne: (store: string, key: string, value: object) => Promise<void>;
   putAll: (store: string, records: object[]) => Promise<void>;
   clear: () => Promise<void>;
 }
@@ -128,6 +134,13 @@ export const openStore = async (): Promise<DefStore> => {
       run(
         db.transaction(store, "readonly").objectStore(store).get(key),
       ) as Promise<T | undefined>,
+
+    putOne: async (store, key, value) => {
+      const tx = db.transaction(store, "readwrite");
+      tx.objectStore(store).put(value, key);
+
+      await settled(tx);
+    },
 
     putAll: async (store, records) => {
       for (let start = 0; start < records.length; start += CHUNK) {

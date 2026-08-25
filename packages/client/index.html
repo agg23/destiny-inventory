@@ -7,6 +7,43 @@
   </head>
   <body class="destiny">
     <div id="root"></div>
+    <script>
+      // This allows us to instantly start loading profile data, before even the primary bundle is ready
+      // Mirrors store.ts
+      window.__snapshot = new Promise((resolve) => {
+        const request = indexedDB.open("dvm");
+
+        request.onerror = () => resolve(undefined);
+        request.onsuccess = () => {
+          const db = request.result;
+
+          db.onversionchange = () => db.close();
+
+          try {
+            const tx = db.transaction(["profile", "meta"], "readonly");
+            const built = tx.objectStore("profile").get("built");
+            const rolls = tx.objectStore("profile").get("rolls");
+            const version = tx.objectStore("meta").get("manifestVersion");
+
+            tx.oncomplete = () => {
+              db.close();
+              resolve({
+                snapshot: built.result,
+                stored: version.result,
+                rolls: rolls.result,
+              });
+            };
+            tx.onerror = () => {
+              db.close();
+              resolve(undefined);
+            };
+          } catch (e) {
+            db.close();
+            resolve(undefined);
+          }
+        };
+      });
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

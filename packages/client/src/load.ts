@@ -16,13 +16,21 @@ import { seedInventory } from "./moves.ts";
 import { fetchRecords, fetchTable, hasArtifact } from "./artifacts.ts";
 import { loadConfig, type ArtifactIndex } from "./config.ts";
 import { loadRolls } from "./rolls.ts";
+import { bootFromSnapshot, saveSnapshot } from "./snapshot.ts";
 import {
-  currentMemberships,
+  cachedMembership,
   fetchProfile,
-  pickMembership,
+  storedMembership,
   type Membership,
 } from "./bungie.ts";
-import { CORE, DETAIL, openStore, PLUG_SETS, type DefStore } from "./store.ts";
+import {
+  CORE,
+  DETAIL,
+  openStore,
+  PLUG_SETS,
+  PROFILE,
+  type DefStore,
+} from "./store.ts";
 
 const SUPPORT = [
   "InventoryBucket",
@@ -53,7 +61,7 @@ const SUPPORT = [
   "Vendor",
 ];
 
-const MEMBERSHIP = "dvm.membership";
+const CURRENT = "current";
 
 // Bumped whenever the shipped def shape changes, so cached records get refetched
 const SHAPE = 2;
@@ -78,6 +86,7 @@ export interface LoadResult {
   timings: Timings;
   manifestVersion: string;
   tier: "core" | "detail";
+  source: "cache" | "live";
   counts: { owned: number; defs: number; skipped: number; hidden: number };
   skipped: Failure[];
   degraded: Failure[];
@@ -173,19 +182,6 @@ const readMerged = async (
   return [...merged.values()];
 };
 
-const cachedMembership = async (token: string): Promise<Membership> => {
-  const cached = localStorage.getItem(MEMBERSHIP);
-
-  if (cached) {
-    return JSON.parse(cached) as Membership;
-  }
-
-  const membership = pickMembership(await currentMemberships(token));
-  localStorage.setItem(MEMBERSHIP, JSON.stringify(membership));
-
-  return membership;
-};
-
 // Only field that says which response is newer
 const mintedAt = (profile: DestinyProfileResponse): number =>
   new Date(profile.responseMintedTimestamp ?? 0).getTime();
@@ -273,127 +269,266 @@ export interface Session {
 
 export const load = async (
   onUpgrade?: (result: LoadResult) => void,
+  onLiveError?: (e: unknown) => void,
+  primed?: LoadResult,
 ): Promise<LoadResult> => {
   const started = performance.now();
-  const token = await accessToken();
-
-  if (!token) {
-    throw new NotSignedIn();
-  }
 
   const indexStart = performance.now();
-  const [store, config] = await Promise.all([openStore(), loadConfig()]);
-  const index = config.artifacts;
-  const indexTime = performance.now() - indexStart;
+  const store = primed?.session.store ?? (await openStore());
 
-  const stored = await store.manifestVersion();
-  const fresh =
-    stored !== stamp(index.manifestVersion) || (await store.count(CORE)) === 0;
+  const finish = async (useCachedProfile: boolean): Promise<LoadResult> => {
+    const config = await loadConfig();
+    const index = config.artifacts;
+    const indexTime = performance.now() - indexStart;
 
-  if (fresh && stored !== undefined) {
-    await store.clear();
-  }
+    const stored = await store.manifestVersion();
+    const fresh =
+      stored !== stamp(index.manifestVersion) ||
+      (await store.count(CORE)) === 0;
 
-  const profileStart = performance.now();
-  const supportPromise = fetchSupport(index);
-  const rollsPromise = loadRolls(index);
-  const membership = await cachedMembership(token);
-  const profile = await fetchProfile(membership, token);
-  const profileTime = performance.now() - profileStart;
+    if (fresh && stored !== undefined) {
+      await store.clear();
+    }
 
-  const owned = new Set([
-    ...profileItems(profile).map((item) => item.itemHash),
-    ...liveReferences(profile),
-  ]);
+    const profileStart = performance.now();
+    const supportPromise = fetchSupport(index);
+    const rollsPromise = loadRolls(index, store);
 
-  const defsStart = performance.now();
-  let core: ItemDef[] | undefined = undefined;
-  let items: Record<number, ItemDef>;
-  let plugSets: Record<number, PlugSetDef> = {};
+    // The cached path paints without touching Bungie, even for auth
+    let membership = storedMembership();
+    const cached =
+      !useCachedProfile || fresh || membership === undefined
+        ? undefined
+        : await store.getOne<DestinyProfileResponse>(PROFILE, CURRENT);
 
-  if (fresh) {
-    core = await fetchRecords<ItemDef>(index, "core");
-    items = byHash(core);
-  } else {
-    const closure = await materializeClosure(owned, {
-      items: (hashes) => readMerged(store, hashes),
-      plugSets: (hashes) => store.getMany<PlugSetDef>(PLUG_SETS, hashes),
-    });
+    let profile: DestinyProfileResponse;
+    let live: Promise<DestinyProfileResponse> | undefined = undefined;
 
-    items = closure.items;
-    plugSets = closure.plugSets;
-  }
+    if (cached && membership) {
+      profile = cached;
 
-  const defsTime = performance.now() - defsStart;
-  const [support, hiddenHashes] = await Promise.all([
-    supportPromise,
-    fetchRecords<number>(index, "hidden"),
-    rollsPromise,
-  ]);
+      const held = membership;
 
-  const hidden = new Set(hiddenHashes);
+      live = (async () => {
+        const token = await accessToken();
 
-  const itemsStart = performance.now();
-  const built = buildStoresFrom(support, items, plugSets, profile, hidden);
-  const itemsTime = performance.now() - itemsStart;
+        if (!token) {
+          throw new NotSignedIn();
+        }
 
-  await seedInventory(built.stores, membership);
+        return fetchProfile(held, token);
+      })();
 
-  const session: Session = {
-    store,
-    index,
-    membership,
-    support,
-    items,
-    plugSets,
-    hidden,
-    minted: mintedAt(profile),
-  };
+      // Handled by revive after the cached build
+      live.catch(() => undefined);
+    } else {
+      const token = await accessToken();
 
-  const result: LoadResult = {
-    stores: built.stores,
-    buckets: built.buckets,
-    items: storeItems(built.stores),
-    timings: {
-      index: indexTime,
-      profile: profileTime,
-      defs: defsTime,
-      items: itemsTime,
-      total: performance.now() - started,
-    },
-    manifestVersion: index.manifestVersion,
-    tier: fresh ? "core" : "detail",
-    playing: playingNow(profile),
-    activities: profile.characterActivities?.data ?? {},
-    variables: stringVariables(profile),
-    counts: {
-      owned: owned.size,
-      defs: Object.keys(items).length,
-      skipped: built.skipped.reduce((total, group) => total + group.count, 0),
-      hidden: built.hidden,
-    },
-    skipped: built.skipped,
-    degraded: built.degraded,
-    session,
-  };
+      if (!token) {
+        throw new NotSignedIn();
+      }
 
-  if (fresh && core && onUpgrade) {
-    void populate({
+      membership = await cachedMembership(token);
+      profile = await fetchProfile(membership, token);
+      void store.putOne(PROFILE, CURRENT, profile);
+    }
+
+    const profileTime = performance.now() - profileStart;
+
+    const owned = new Set([
+      ...profileItems(profile).map((item) => item.itemHash),
+      ...liveReferences(profile),
+    ]);
+
+    const defsStart = performance.now();
+    let core: ItemDef[] | undefined = undefined;
+    let items: Record<number, ItemDef>;
+    let plugSets: Record<number, PlugSetDef> = {};
+
+    if (fresh) {
+      core = await fetchRecords<ItemDef>(index, "core");
+      items = byHash(core);
+    } else {
+      const closure = await materializeClosure(owned, {
+        items: (hashes) => readMerged(store, hashes),
+        plugSets: (hashes) => store.getMany<PlugSetDef>(PLUG_SETS, hashes),
+      });
+
+      items = closure.items;
+      plugSets = closure.plugSets;
+    }
+
+    const defsTime = performance.now() - defsStart;
+    const [support, hiddenHashes] = await Promise.all([
+      supportPromise,
+      fetchRecords<number>(index, "hidden"),
+      rollsPromise,
+    ]);
+
+    const hidden = new Set(hiddenHashes);
+
+    const itemsStart = performance.now();
+    const built = buildStoresFrom(support, items, plugSets, profile, hidden);
+    const itemsTime = performance.now() - itemsStart;
+
+    await seedInventory(built.stores, membership);
+
+    const session: Session = {
       store,
       index,
-      core,
+      membership,
       support,
       items,
-      profile,
+      plugSets,
       hidden,
-      membership,
-      onUpgrade,
-      first: result,
-      started,
-    });
+      minted: mintedAt(profile),
+    };
+
+    const result: LoadResult = {
+      stores: built.stores,
+      buckets: built.buckets,
+      items: storeItems(built.stores),
+      timings: {
+        index: indexTime,
+        profile: profileTime,
+        defs: defsTime,
+        items: itemsTime,
+        total: performance.now() - started,
+      },
+      manifestVersion: index.manifestVersion,
+      tier: fresh ? "core" : "detail",
+      source: cached ? "cache" : "live",
+      playing: playingNow(profile),
+      activities: profile.characterActivities?.data ?? {},
+      variables: stringVariables(profile),
+      counts: {
+        owned: owned.size,
+        defs: Object.keys(items).length,
+        skipped: built.skipped.reduce((total, group) => total + group.count, 0),
+        hidden: built.hidden,
+      },
+      skipped: built.skipped,
+      degraded: built.degraded,
+      session,
+    };
+
+    if (fresh && core && onUpgrade) {
+      void populate({
+        store,
+        index,
+        core,
+        support,
+        items,
+        profile,
+        hidden,
+        membership,
+        onUpgrade,
+        first: result,
+        started,
+      });
+    }
+
+    if (live && onUpgrade) {
+      void revive(result, live, onUpgrade, onLiveError);
+    }
+
+    saveSnapshot(store, result, stamp(index.manifestVersion));
+
+    return result;
+  };
+
+  // The primed snapshot is already on screen, so a live failure must not blank it
+  if (primed) {
+    try {
+      return await finish(false);
+    } catch (e: unknown) {
+      onLiveError?.(e);
+
+      return primed;
+    }
   }
 
-  return result;
+  if (onUpgrade) {
+    const painted = await bootFromSnapshot(
+      store,
+      storedMembership(),
+      performance.now() - indexStart,
+      started,
+    );
+
+    if (painted) {
+      finish(false)
+        .then(onUpgrade)
+        .catch((e: unknown) => onLiveError?.(e));
+
+      return painted;
+    }
+  }
+
+  return finish(true);
+};
+
+// Swaps the cached paint for the live profile once Bungie answers
+const revive = async (
+  first: LoadResult,
+  live: Promise<DestinyProfileResponse>,
+  onUpgrade: (result: LoadResult) => void,
+  onLiveError?: (e: unknown) => void,
+) => {
+  try {
+    const profile = await live;
+    const session = first.session;
+    const minted = mintedAt(profile);
+
+    if (minted <= session.minted) {
+      onUpgrade({
+        ...first,
+        source: "live",
+        playing: playingNow(profile),
+        activities: profile.characterActivities?.data ?? first.activities,
+      });
+
+      return;
+    }
+
+    void session.store.putOne(PROFILE, CURRENT, profile);
+    await materializeNew(session, profile);
+
+    const built = buildStoresFrom(
+      session.support,
+      session.items,
+      session.plugSets,
+      profile,
+      session.hidden,
+    );
+
+    session.minted = minted;
+    await seedInventory(built.stores, session.membership);
+
+    const next: LoadResult = {
+      ...first,
+      stores: built.stores,
+      buckets: built.buckets,
+      items: storeItems(built.stores),
+      source: "live",
+      playing: playingNow(profile),
+      activities: profile.characterActivities?.data ?? {},
+      variables: stringVariables(profile),
+      counts: {
+        ...first.counts,
+        skipped: built.skipped.reduce((total, group) => total + group.count, 0),
+        hidden: built.hidden,
+      },
+      skipped: built.skipped,
+      degraded: built.degraded,
+    };
+
+    onUpgrade(next);
+    saveSnapshot(session.store, next, stamp(first.manifestVersion));
+  } catch (e: unknown) {
+    onLiveError?.(e);
+  }
 };
 
 interface Populate {
@@ -448,7 +583,7 @@ const populate = async ({
 
   first.session.plugSets = plugSets;
 
-  onUpgrade({
+  const upgraded: LoadResult = {
     ...first,
     stores: built.stores,
     buckets: built.buckets,
@@ -467,7 +602,10 @@ const populate = async ({
     },
     skipped: built.skipped,
     degraded: built.degraded,
-  });
+  };
+
+  onUpgrade(upgraded);
+  saveSnapshot(store, upgraded, stamp(index.manifestVersion));
 
   await store.putAll(CORE, core);
   await store.putAll(DETAIL, detail);
@@ -547,6 +685,8 @@ export const refreshProfile = async (
       activities: profile.characterActivities?.data,
     };
   }
+
+  void session.store.putOne(PROFILE, CURRENT, profile);
 
   await materializeNew(session, profile);
 

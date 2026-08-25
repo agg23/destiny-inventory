@@ -7,6 +7,7 @@ import { History } from "./history/History.tsx";
 import { Vault } from "./Vault.tsx";
 import { beginLogin, completeLogin, markDevLogin, signedIn } from "./auth.ts";
 import { messageOf } from "./error.ts";
+import { primeBoot } from "./snapshot.ts";
 import "./tokens.css";
 import "./style.css";
 import "./destiny.scss";
@@ -45,9 +46,12 @@ const start = async () => {
     }
   }
 
+  // Read before the first render, so the vault is in it
+  const primed = signedIn() ? await primeBoot() : undefined;
+
   render(
     () => (
-      <Router root={App}>
+      <Router root={(props) => <App primed={primed}>{props.children}</App>}>
         <Route path="/vault" component={Vault} />
         <Route path="/activities" component={Activities} />
         <Route
