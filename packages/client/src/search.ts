@@ -28,7 +28,13 @@ import {
   makeFilterComplete,
 } from "app/search/autocomplete";
 
-import { assess, ratingFor, rollFor, rollsByHash } from "./rolls.ts";
+import {
+  assess,
+  ratingFor,
+  rollFor,
+  rollsByHash,
+  setRatings,
+} from "./rolls.ts";
 import { buildFiltersMap, buildSearchConfig } from "app/search/search-config";
 import {
   makeSearchFilterFactory,
@@ -37,31 +43,71 @@ import {
 
 const RATINGS = ["s", "a", "b", "c", "d", "e", "f"];
 
+const PIECES: Record<string, number> = { "2pc": 2, "4pc": 4 };
+
+const SET_SUGGESTIONS = [
+  ...RATINGS,
+  ...Object.keys(PIECES).flatMap((size) =>
+    RATINGS.map((rating) => `${size}:${rating}`),
+  ),
+];
+
+const setRated = (item: DimItem, value: string): boolean => {
+  const [head, tail] = value.split(":");
+  const pieces = PIECES[head!];
+  const wanted = pieces === undefined ? head : tail;
+
+  return setRatings(item).some(
+    (bonus) =>
+      bonus.tier?.toLowerCase() === wanted &&
+      (pieces === undefined || bonus.pieces === pieces),
+  );
+};
+
 // DIM's tier: is a range over Destiny's own gear tiers, so the Aegis rating takes its own keyword
 const ratingFilters: ItemFilterDefinition[] = [
   {
     keywords: ["rate", "rating"],
     description:
-      "Aegis rating for the roll, the weapon's tier stepped down for each perk column that missed",
+      "Aegis rating for the roll, the weapon's tier stepped down for each perk column that missed, or either of an armor set's bonuses",
     format: "query",
     suggestions: RATINGS,
     destinyVersion: 2,
     filter: ({ filterValue }) => {
       const wanted = filterValue.toLowerCase();
 
-      return (item) => assess(item)?.overall?.toLowerCase() === wanted;
+      return (item) =>
+        assess(item)?.overall?.toLowerCase() === wanted ||
+        setRated(item, wanted);
     },
   },
   {
     keywords: ["ratebase", "ratingbase"],
-    description: "Aegis rating for the weapon itself, whatever this one rolled",
+    description:
+      "Aegis rating for the weapon itself, whatever this one rolled. Armor rates the same either way",
     format: "query",
     suggestions: RATINGS,
     destinyVersion: 2,
     filter: ({ filterValue }) => {
       const wanted = filterValue.toLowerCase();
 
-      return (item) => ratingFor(item.hash)?.tier?.toLowerCase() === wanted;
+      return (item) =>
+        ratingFor(item.hash)?.tier?.toLowerCase() === wanted ||
+        setRated(item, wanted);
+    },
+  },
+  {
+    // The query lexer only takes letters before the colon, so the size is an argument
+    keywords: ["setbonus"],
+    description:
+      "Aegis rating for an armor set bonus, either of them or setbonus:2pc: and setbonus:4pc: for one",
+    format: "query",
+    suggestions: SET_SUGGESTIONS,
+    destinyVersion: 2,
+    filter: ({ filterValue }) => {
+      const wanted = filterValue.toLowerCase();
+
+      return (item) => setRated(item, wanted);
     },
   },
 ];

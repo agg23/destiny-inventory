@@ -522,6 +522,19 @@
     color: #000;
   }
 
+  /* A set grades in two halves, so the corner carries a chip each */
+  .item-tile .set-tier {
+    display: flex;
+    gap: 2px;
+    width: auto;
+    background: var(--bg);
+  }
+
+  .item-tile .set-tier span {
+    width: 14px;
+    background: var(--tier);
+  }
+
   .item-tile .gear-tier {
     left: 0;
   }
@@ -726,7 +739,21 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .aegis-note .roll-tier {
+  .set-bonus-note {
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--line);
+  }
+
+  .set-bonus-rating {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-4);
+    font-size: var(--text-sm);
+  }
+
+  .aegis-note .roll-tier,
+  .set-bonus-rating .roll-tier {
     flex: none;
     padding: 0 var(--space-3);
     background: var(--tier);

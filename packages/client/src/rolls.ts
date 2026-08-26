@@ -39,11 +39,25 @@ export interface AegisPerk {
   effect: string | undefined;
 }
 
+export interface AegisSetBonus {
+  name: string;
+  hash: number;
+  set: string;
+  pieces: number;
+  rank: number | undefined;
+  tier: Tier | undefined;
+  tags: string | undefined;
+  trigger: string | undefined;
+  effect: string | undefined;
+  notes: string | undefined;
+}
+
 export interface AegisData {
   source: string;
   captured: string;
   rolls: AegisRoll[];
   perks: AegisPerk[];
+  setBonuses: AegisSetBonus[];
 }
 
 export interface Rating {
@@ -60,6 +74,7 @@ interface Sheet {
   byHash: Map<number, WishListRoll[]>;
   ratings: Map<number, Rating>;
   perkRanks: Map<number, AegisPerk>;
+  setBonuses: Map<number, AegisSetBonus>;
   slotsByHash: Map<number, number[][]>;
   captured: string | undefined;
 }
@@ -68,6 +83,7 @@ const EMPTY_SHEET: Sheet = {
   byHash: new Map(),
   ratings: new Map(),
   perkRanks: new Map(),
+  setBonuses: new Map(),
   slotsByHash: new Map(),
   captured: undefined,
 };
@@ -162,12 +178,19 @@ export const setRolls = (data: AegisData) => {
     }
   }
 
+  const bonuses = new Map<number, AegisSetBonus>();
+
+  for (const bonus of data.setBonuses ?? []) {
+    bonuses.set(bonus.hash, bonus);
+  }
+
   matched = new Map();
 
   setSheet({
     byHash: rolls,
     ratings: rated,
     perkRanks: graded,
+    setBonuses: bonuses,
     slotsByHash: slotted,
     captured: data.captured,
   });
@@ -385,6 +408,36 @@ export const perkRanked = (kind: AegisPerk["kind"]): number => {
 
   for (const perk of new Set(sheet().perkRanks.values())) {
     if (perk.kind === kind && perk.rank !== undefined) {
+      count += 1;
+    }
+  }
+
+  return count;
+};
+
+/** Aegis's standing on one set bonus, found by the sandbox perk the set confers */
+export const setBonusFor = (hash: number): AegisSetBonus | undefined =>
+  sheet().setBonuses.get(hash);
+
+/** Both of an armor piece's set bonuses as Aegis rates them, the 2 piece first */
+export const setRatings = (item: DimItem): AegisSetBonus[] => {
+  const { setBonuses } = sheet();
+
+  return (item.setBonus?.setPerks ?? [])
+    .flatMap((perk) => {
+      const found = setBonuses.get(perk.sandboxPerkHash);
+
+      return found ? [found] : [];
+    })
+    .sort((a, b) => a.pieces - b.pieces);
+};
+
+/** How many set bonuses Aegis ranks, so a rank reads as "7 of 112" */
+export const setBonusesRanked = (): number => {
+  let count = 0;
+
+  for (const bonus of sheet().setBonuses.values()) {
+    if (bonus.rank !== undefined) {
       count += 1;
     }
   }

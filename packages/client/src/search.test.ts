@@ -214,4 +214,10 @@ describe("valid", () => {
   it("rejects a filter we do not carry", () => {
     expect(valid("tag:junk")).toBe(false);
   });
+
+  it("accepts a set bonus rating, whole or by size", () => {
+    expect(valid("setbonus:s")).toBe(true);
+    expect(valid("setbonus:4pc:s")).toBe(true);
+    expect(valid("setbonus:3pc:s")).toBe(false);
+  });
 });

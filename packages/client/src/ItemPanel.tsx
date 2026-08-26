@@ -24,7 +24,14 @@ import { createMemo, For, Show, type JSX } from "solid-js";
 import { BUNGIE } from "./bungie.ts";
 import { delta, TOTAL, unmovable, type Delta } from "./compare.ts";
 import { archetype, benefits, setBonus, type StatChange } from "./perks.ts";
-import { assess, perkFor, perkRanked, type SlotVerdict } from "./rolls.ts";
+import {
+  assess,
+  perkFor,
+  perkRanked,
+  setBonusFor,
+  setBonusesRanked,
+  type SlotVerdict,
+} from "./rolls.ts";
 import { shortStat } from "./statNames.ts";
 import { Button } from "./ui/Button.tsx";
 import { SplitButton, type Choice } from "./ui/SplitButton.tsx";
@@ -588,19 +595,54 @@ export const SetBonus = (props: { item: DimItem }) => {
         <>
           <h4 class="section-label">{set().name}</h4>
           <For each={set().perks}>
-            {(perk) => (
-              <div class="tooltip-perk items-start">
-                <PerkIcon icon={perk.icon} />
-                <div class="perk-text">
-                  <b>
-                    {perk.requiredSetCount} piece · {perk.name}
-                  </b>
-                  <span class="block whitespace-pre-wrap">
-                    {perk.description}
-                  </span>
+            {(perk) => {
+              const rated = () => setBonusFor(perk.hash);
+
+              return (
+                <div class="tooltip-perk items-start">
+                  <PerkIcon icon={perk.icon} />
+                  <div class="perk-text">
+                    <b>
+                      {perk.requiredSetCount} piece · {perk.name}
+                    </b>
+                    <span class="block whitespace-pre-wrap">
+                      {perk.description}
+                    </span>
+                    <Show when={rated()}>
+                      {(rating) => (
+                        <div class="set-bonus-note">
+                          <span class="set-bonus-rating">
+                            <Show when={rating().tier}>
+                              {(tier) => (
+                                <span
+                                  class={`roll-tier tier-${tier().toLowerCase()}`}
+                                >
+                                  {tier()}
+                                </span>
+                              )}
+                            </Show>
+                            <Show when={rating().rank}>
+                              {(rank) => (
+                                <span class="text-dim">
+                                  #{rank()} of {setBonusesRanked()}
+                                </span>
+                              )}
+                            </Show>
+                          </span>
+                          <Show when={rating().notes}>
+                            {(notes) => (
+                              <span class="block text-muted">
+                                {sentence(notes())}
+                              </span>
+                            )}
+                          </Show>
+                        </div>
+                      )}
+                    </Show>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            }}
           </For>
         </>
       )}

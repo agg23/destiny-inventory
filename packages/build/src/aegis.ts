@@ -2,8 +2,10 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type {
+  DestinyEquipableItemSetDefinition,
   DestinyInventoryItemDefinition,
   DestinyPlugSetDefinition,
+  DestinySandboxPerkDefinition,
 } from "bungie-api-ts/destiny2";
 
 import { loadManifest } from "./manifest.ts";
@@ -61,6 +63,8 @@ const RANK_TABS: Record<string, { rank: string; tier?: string }> = {
   "Origin Traits": { rank: "Rank", tier: "Tier" },
 };
 
+const SET_BONUS_TAB = "Set Bonuses";
+
 const TIERS = ["S", "A", "B", "C", "D", "E", "F"] as const;
 
 export type Tier = (typeof TIERS)[number];
@@ -91,11 +95,27 @@ export interface AegisPerk {
   effect: string | undefined;
 }
 
+export interface AegisSetBonus {
+  name: string;
+  /** The DestinySandboxPerkDefinition the set definition points at */
+  hash: number;
+  set: string;
+  pieces: number;
+  /** Position across every set bonus of either size, best first */
+  rank: number | undefined;
+  tier: Tier | undefined;
+  tags: string | undefined;
+  trigger: string | undefined;
+  effect: string | undefined;
+  notes: string | undefined;
+}
+
 export interface AegisData {
   source: string;
   captured: string;
   rolls: AegisRoll[];
   perks: AegisPerk[];
+  setBonuses: AegisSetBonus[];
 }
 
 interface Tab {
@@ -166,9 +186,9 @@ const fetchTabs = async (): Promise<Tab[]> => {
   return tabs;
 };
 
-const headerRow = (rows: string[][]): number => {
+const headerRow = (rows: string[][], label: string): number => {
   for (let index = 0; index < Math.min(rows.length, 8); index += 1) {
-    if (rows[index]?.includes("Name")) {
+    if (rows[index]?.includes(label)) {
       return index;
     }
   }
@@ -266,6 +286,12 @@ const main = async () => {
   const plugSets = manifest.tables.get(
     "DestinyPlugSetDefinition",
   ) as unknown as Record<string, DestinyPlugSetDefinition>;
+  const itemSets = manifest.tables.get(
+    "DestinyEquipableItemSetDefinition",
+  ) as unknown as Record<string, DestinyEquipableItemSetDefinition>;
+  const sandboxPerks = manifest.tables.get(
+    "DestinySandboxPerkDefinition",
+  ) as unknown as Record<string, DestinySandboxPerkDefinition>;
 
   const byName = new Map<string, DestinyInventoryItemDefinition[]>();
 
@@ -313,6 +339,7 @@ const main = async () => {
       (ROLL_TABS.has(tab.name) || RATING_ONLY.has(tab.name)),
   );
   const rankTabs = discovered.filter((tab) => RANK_TABS[tab.name]);
+  const setTabs = discovered.filter((tab) => tab.name === SET_BONUS_TAB);
 
   console.log(`  ${tabs.length} tabs`);
 
@@ -324,7 +351,7 @@ const main = async () => {
 
   for (const tab of tabs) {
     const rows = parseRows(await fetchText(sheetUrl(tab.gid)));
-    const header = headerRow(rows);
+    const header = headerRow(rows, "Name");
 
     if (header < 0) {
       throw new Error(`Tab ${tab.name} has no header row`);
@@ -432,7 +459,7 @@ const main = async () => {
   for (const tab of rankTabs) {
     const spec = RANK_TABS[tab.name]!;
     const rows = parseRows(await fetchText(sheetUrl(tab.gid)));
-    const header = headerRow(rows);
+    const header = headerRow(rows, "Name");
 
     if (header < 0) {
       throw new Error(`Tab ${tab.name} has no header row`);
@@ -478,11 +505,97 @@ const main = async () => {
     console.log(`  ${tab.name.padEnd(16)} ${String(kept).padStart(4)} ranked`);
   }
 
+  const bonusPerks = new Map<
+    string,
+    { hash: number; pieces: number; set: string }[]
+  >();
+
+  for (const set of Object.values(itemSets)) {
+    for (const perk of set.setPerks) {
+      const name = sandboxPerks[perk.sandboxPerkHash]?.displayProperties?.name
+        ?.trim()
+        .toLowerCase();
+
+      if (!name) {
+        continue;
+      }
+
+      const entry = {
+        hash: perk.sandboxPerkHash,
+        pieces: perk.requiredSetCount,
+        set: set.displayProperties.name,
+      };
+      const existing = bonusPerks.get(name);
+
+      if (existing) {
+        existing.push(entry);
+      } else {
+        bonusPerks.set(name, [entry]);
+      }
+    }
+  }
+
+  const setBonuses: AegisSetBonus[] = [];
+  const unresolvedBonuses: string[] = [];
+
+  for (const tab of setTabs) {
+    const rows = parseRows(await fetchText(sheetUrl(tab.gid)));
+    const header = headerRow(rows, "Bonus");
+
+    if (header < 0) {
+      throw new Error(`Tab ${tab.name} has no header row`);
+    }
+
+    const columns = rows[header]!;
+    const column = (row: string[], label: string): string | undefined => {
+      const index = columns.indexOf(label);
+
+      return index < 0 ? undefined : row[index];
+    };
+
+    for (const row of rows.slice(header + 1)) {
+      const name = cleanName(column(row, "Bonus") ?? "");
+
+      if (!name) {
+        continue;
+      }
+
+      const found = bonusPerks.get(name.toLowerCase());
+
+      if (!found) {
+        unresolvedBonuses.push(name);
+        continue;
+      }
+
+      for (const perk of found) {
+        setBonuses.push({
+          name,
+          hash: perk.hash,
+          set: perk.set,
+          pieces: perk.pieces,
+          rank: numberOf(column(row, "#")),
+          tier: tierOf(column(row, "Tier")),
+          tags: column(row, "Tags")?.replaceAll("\n", ", ") || undefined,
+          trigger: column(row, "Trigger") || undefined,
+          effect: column(row, "Effect") || undefined,
+          notes: column(row, "Description") || undefined,
+        });
+      }
+    }
+
+    console.log(
+      `  ${tab.name.padEnd(16)} ${String(setBonuses.length).padStart(
+        4,
+      )} bonuses`,
+    );
+  }
+
   const data: AegisData = {
     source: INDEX_URL,
     captured: new Date().toISOString().slice(0, 10),
     rolls,
     perks,
+    setBonuses,
   };
 
   await mkdir(DATA_ROOT, { recursive: true });
@@ -526,6 +639,16 @@ const main = async () => {
   console.log(
     `${perks.length} perks and origin traits, ${ranked} of them ranked`,
   );
+
+  console.log(`${setBonuses.length} of ${bonusPerks.size} set bonuses rated`);
+
+  if (unresolvedBonuses.length > 0) {
+    console.log(`\nUnresolved set bonuses (${unresolvedBonuses.length}):`);
+
+    for (const entry of unresolvedBonuses) {
+      console.log(`  ${entry}`);
+    }
+  }
 
   if (unresolvedRanked.length > 0) {
     console.log(`\nUnresolved perk names (${unresolvedRanked.length}):`);

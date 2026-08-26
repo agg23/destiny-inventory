@@ -57,10 +57,22 @@ const perk = (overrides: Partial<AegisPerk>): AegisPerk => ({
 });
 
 const load = (...rolls: AegisRoll[]) =>
-  setRolls({ source: "test", captured: "2026-08-22", rolls, perks: [] });
+  setRolls({
+    source: "test",
+    captured: "2026-08-22",
+    rolls,
+    perks: [],
+    setBonuses: [],
+  });
 
 const loadPerks = (rolls: AegisRoll[], perks: AegisPerk[]) =>
-  setRolls({ source: "test", captured: "2026-08-22", rolls, perks });
+  setRolls({
+    source: "test",
+    captured: "2026-08-22",
+    rolls,
+    perks,
+    setBonuses: [],
+  });
 
 beforeAll(async () => {
   defs = await getTestDefinitions();
@@ -83,7 +95,14 @@ beforeEach(() => {
 
 describe("setRolls", () => {
   it("expands the slots into one roll per combination", () => {
-    load(roll({ slots: [[1, 2], [3, 4, 5]] }));
+    load(
+      roll({
+        slots: [
+          [1, 2],
+          [3, 4, 5],
+        ],
+      }),
+    );
 
     expect(rollsByHash().get(ALL_OR_NOTHING)?.length).toBe(6);
   });
@@ -375,4 +394,3 @@ describe("the wishlist search filter", () => {
     expect(found("is:wishlist").length).toBe(0);
   });
 });
-

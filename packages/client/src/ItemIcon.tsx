@@ -1,9 +1,9 @@
 import type { DimItem } from "app/inventory/item-types";
-import { Show } from "solid-js";
+import { For, Show } from "solid-js";
 
 import { BUNGIE } from "./bungie.ts";
 import { dismiss, preview } from "./preview.ts";
-import { assess } from "./rolls.ts";
+import { assess, setRatings, type AegisSetBonus } from "./rolls.ts";
 import { settings } from "./settings.ts";
 
 interface Props {
@@ -19,6 +19,14 @@ const corner = (item: DimItem): number | undefined => {
   }
 
   return item.amount > 1 ? item.amount : undefined;
+};
+
+const rated = (item: DimItem): AegisSetBonus[] | undefined => {
+  const bonuses = setRatings(item);
+
+  return bonuses.length > 0 && bonuses.every((bonus) => bonus.tier)
+    ? bonuses
+    : undefined;
 };
 
 export const ItemIcon = (props: Props) => (
@@ -59,6 +67,19 @@ export const ItemIcon = (props: Props) => (
       {(overall) => (
         <span class={`item-tier tier-${overall().toLowerCase()}`}>
           {overall()}
+        </span>
+      )}
+    </Show>
+    <Show when={rated(props.item)}>
+      {(pair) => (
+        <span class="item-tier set-tier">
+          <For each={pair()}>
+            {(bonus) => (
+              <span class={`tier-${bonus.tier!.toLowerCase()}`}>
+                {bonus.tier}
+              </span>
+            )}
+          </For>
         </span>
       )}
     </Show>
