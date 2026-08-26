@@ -35,6 +35,7 @@ import {
 } from "./history.ts";
 import { load, NotSignedIn, refreshProfile, type LoadResult } from "./load.ts";
 import { moveItem, subscribeStores } from "./moves.ts";
+import { warmNames } from "./names.ts";
 import { plugIcons, warmIcons } from "./preload.ts";
 import { clear, previewed } from "./preview.ts";
 import { collapseRail, railCollapsed } from "./rail.ts";
@@ -55,12 +56,14 @@ const PINS = 2;
 
 const LABELS: Record<Tab, string> = {
   vault: "Vault",
+  collections: "Collections",
   activities: "Activities",
   history: "History",
 };
 
 const SCOPES: Record<Tab, string> = {
   vault: "Filter items",
+  collections: "Filter collections",
   activities: "Filter activities",
   history: "Filter runs",
 };
@@ -186,6 +189,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     let stop: (() => void) | undefined = undefined;
 
     const idle = requestIdleCallback(() => {
+      warmNames(loaded.session.index);
       stop = warmIcons(plugIcons(loaded.items));
     });
 
@@ -560,8 +564,10 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
                 query={typed()}
                 placeholder={SCOPES.vault}
                 stores={stores()}
+                loaded={current()}
                 onQuery={onQuery}
                 onPreview={setPreviewQuery}
+                onOpenItem={(hash) => navigate(`/collections?item=${hash}`)}
               />
             </Show>
 
@@ -594,7 +600,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
               >
                 <RefreshGlyph />
               </button>
-              <Show when={tab() === "vault"}>
+              <Show when={tab() === "vault" || tab() === "collections"}>
                 <button
                   type="button"
                   class="header-action"

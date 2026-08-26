@@ -53,3 +53,17 @@ export const hasDetail = (item: DestinyInventoryItemDefinition): boolean =>
   item.sockets !== undefined ||
   item.plug !== undefined ||
   item.perks !== undefined;
+
+export interface NameEntry {
+  hash: number;
+  name: string;
+  tier: number;
+  type: number;
+}
+
+export const nameEntry = (item: DestinyInventoryItemDefinition): NameEntry => ({
+  hash: item.hash,
+  name: item.displayProperties.name,
+  tier: item.inventory?.tierType ?? 0,
+  type: item.itemType,
+});

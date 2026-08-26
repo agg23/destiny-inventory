@@ -57,6 +57,8 @@ export const PARAMS = {
   pin: ids(),
   realm: text(),
   section: text(),
+  node: text(),
+  item: text(),
   rest: flag(),
   layout: choice(LAYOUTS, "cards"),
   view: choice(HISTORY_TABS, "recent"),
@@ -97,7 +99,7 @@ export const writeParams = (
   return written;
 };
 
-export const TABS = ["vault", "activities", "history"] as const;
+export const TABS = ["vault", "collections", "activities", "history"] as const;
 
 export type Tab = (typeof TABS)[number];
 

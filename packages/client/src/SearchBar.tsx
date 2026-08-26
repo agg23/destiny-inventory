@@ -2,6 +2,9 @@ import type { DimStore } from "app/inventory/store-types";
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 
 import { defs } from "./defs.ts";
+import { ItemMatches } from "./ItemMatches.tsx";
+import type { LoadResult } from "./load.ts";
+import { isName } from "./names.ts";
 import { completion, suggest, valid } from "./search.ts";
 import { forgetSearch, recentSearches, rememberSearch } from "./searches.ts";
 
@@ -9,8 +12,10 @@ interface Props {
   query: string;
   placeholder: string;
   stores: DimStore[];
+  loaded: LoadResult | undefined;
   onQuery: (value: string) => void;
   onPreview: (value: string | undefined) => void;
+  onOpenItem: (hash: number) => void;
 }
 
 interface Row {
@@ -273,12 +278,18 @@ export const SearchBar = (props: Props) => {
         </div>
       </Show>
 
-      <Show when={open() && rows().length > 0}>
+      <Show when={open() && (rows().length > 0 || isName(props.query))}>
         <ul
           class="picker-menu search-menu"
           role="listbox"
           onMouseLeave={() => setHighlight(-1)}
         >
+          <ItemMatches
+            query={props.query}
+            loaded={props.loaded}
+            onOpen={props.onOpenItem}
+          />
+
           <For each={rows()}>
             {(row, index) => (
               <li

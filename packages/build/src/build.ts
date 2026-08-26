@@ -7,17 +7,20 @@ import {
   detailItem,
   hasDetail,
   isShipped,
+  nameEntry,
   resolveClosure,
   slimActivity,
   slimActivitySet,
   slimActivityType,
   slimChallenge,
+  slimCollectible,
   slimDifficulty,
   slimGraphNode,
   slimItem,
   slimMode,
   slimModifier,
   slimPlace,
+  slimPresentationNode,
   slimReward,
   skullTable,
   type Tables,
@@ -56,6 +59,8 @@ const SLIM: Record<string, (record: never) => { hash: number }> = {
   DestinyFireteamFinderActivitySetDefinition: slimActivitySet,
   DestinyDestinationDefinition: slimPlace,
   DestinyPlaceDefinition: slimPlace,
+  DestinyCollectibleDefinition: slimCollectible,
+  DestinyPresentationNodeDefinition: slimPresentationNode,
 };
 
 const project = (table: string, contents: RawTable): RawTable => {
@@ -246,6 +251,7 @@ const main = async () => {
   });
 
   const coreFile = await emit("core", core);
+  await emit("names", shipped.map(nameEntry));
   await emit("ActivityReward", rewards);
   await emit("ActivityChallenge", challenges);
   const detailFile = await emit("detail", detail);

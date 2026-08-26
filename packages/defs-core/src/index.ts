@@ -14,9 +14,17 @@ export {
   coreItem,
   detailItem,
   hasDetail,
+  nameEntry,
   slimItem,
+  type NameEntry,
   type SlimItem,
 } from "./projection.ts";
+export {
+  slimCollectible,
+  slimPresentationNode,
+  type SlimCollectible,
+  type SlimPresentationNode,
+} from "./collections.ts";
 export { isShipped } from "./shipped.ts";
 export {
   materializeClosure,

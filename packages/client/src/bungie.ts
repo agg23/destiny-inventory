@@ -1,3 +1,4 @@
+import type { CoreSettingsConfiguration } from "bungie-api-ts/core";
 import type {
   DestinyActivityHistoryResults,
   DestinyAggregateActivityResults,
@@ -22,6 +23,9 @@ const COMPONENTS = [
   100, 102, 103, 200, 201, 204, 205, 300, 302, 304, 305, 306, 307, 308, 309,
   310, 1200,
 ];
+
+// Left out of the inventory load - collections are opened rarely
+const COLLECTIONS_COMPONENTS = [700, 800, 900, 1300];
 
 export interface Membership {
   membershipType: number;
@@ -114,6 +118,23 @@ export const fetchProfile = (
     }/?components=${COMPONENTS.join(",")}`,
     accessToken,
   );
+
+export const fetchCollectionsProfile = (
+  membership: Membership,
+  accessToken: string,
+): Promise<DestinyProfileResponse> =>
+  call<DestinyProfileResponse>(
+    `/Destiny2/${membership.membershipType}/Profile/${
+      membership.membershipId
+    }/?components=${COLLECTIONS_COMPONENTS.join(",")}`,
+    accessToken,
+  );
+
+/** Bungie's pointer table for the collections root nodes */
+export const fetchCoreSettings = (
+  accessToken: string,
+): Promise<CoreSettingsConfiguration> =>
+  call<CoreSettingsConfiguration>("/Settings/", accessToken);
 
 const character = (membership: Membership, characterId: string): string =>
   `/Destiny2/${membership.membershipType}/Account/${membership.membershipId}/Character/${characterId}`;
