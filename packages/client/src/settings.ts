@@ -2,7 +2,7 @@ import { createSignal } from "solid-js";
 
 const KEY = "dvm.settings";
 
-export const TILE_MIN = 32;
+export const TILE_MIN = 48;
 export const TILE_MAX = 96;
 
 export interface Settings {
@@ -11,7 +11,7 @@ export interface Settings {
 }
 
 export const DEFAULTS: Settings = {
-  tile: 48,
+  tile: 60,
   overlay: false,
 };
 
