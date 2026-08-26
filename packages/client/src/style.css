@@ -482,6 +482,11 @@
     z-index: 0;
   }
 
+  /* A nested tile is decoration; the row around it owns the hover */
+  span.item-tile {
+    pointer-events: none;
+  }
+
   .item-tile::before {
     z-index: 1;
   }

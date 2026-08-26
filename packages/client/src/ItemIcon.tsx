@@ -8,8 +8,10 @@ import { settings } from "./settings.ts";
 
 interface Props {
   item: DimItem;
-  selected: boolean;
-  onSelect: (item: DimItem, additive: boolean) => void;
+  selected?: boolean;
+  onSelect?: (item: DimItem, additive: boolean) => void;
+  badges?: boolean;
+  class?: string;
 }
 
 // The framework's power slot hangs below the tile
@@ -29,59 +31,84 @@ const rated = (item: DimItem): AegisSetBonus[] | undefined => {
     : undefined;
 };
 
-export const ItemIcon = (props: Props) => (
-  <button
-    type="button"
-    class="item-tile small"
-    classList={{
-      equipped: props.item.equipped,
-      selected: props.selected,
-      [props.item.rarity.toLowerCase()]: true,
-    }}
-    onClick={(e) => props.onSelect(props.item, e.shiftKey)}
-    onMouseEnter={(e) => preview(props.item, e.currentTarget)}
-    onMouseLeave={() => dismiss(props.item)}
-  >
+const tileClass = (props: Props): string =>
+  [
+    "item-tile small",
+    props.item.rarity.toLowerCase(),
+    props.item.equipped ? "equipped" : "",
+    props.selected ? "selected" : "",
+    props.class ?? "",
+  ]
+    .filter((part) => part.length > 0)
+    .join(" ");
+
+const Face = (props: Props) => (
+  <>
     <img
       src={`${BUNGIE}${props.item.icon}`}
       loading="lazy"
       alt={props.item.name}
     />
-    <Show when={settings().overlay && props.item.iconOverlay}>
-      {(overlay) => (
-        <img
-          class="overlay"
-          src={`${BUNGIE}${overlay()}`}
-          loading="lazy"
-          alt=""
-        />
-      )}
+    <Show when={props.badges !== false}>
+      <Show when={settings().overlay && props.item.iconOverlay}>
+        {(overlay) => (
+          <img
+            class="overlay"
+            src={`${BUNGIE}${overlay()}`}
+            loading="lazy"
+            alt=""
+          />
+        )}
+      </Show>
+      <Show when={props.item.tier > 0}>
+        <span class="gear-tier">{props.item.tier}</span>
+      </Show>
+      <Show when={corner(props.item)}>
+        {(value) => <span class="item-quantity">{value()}</span>}
+      </Show>
+      <Show when={assess(props.item)?.overall}>
+        {(overall) => (
+          <span class={`item-tier tier-${overall().toLowerCase()}`}>
+            {overall()}
+          </span>
+        )}
+      </Show>
+      <Show when={rated(props.item)}>
+        {(pair) => (
+          <span class="item-tier set-tier">
+            <For each={pair()}>
+              {(bonus) => (
+                <span class={`tier-${bonus.tier!.toLowerCase()}`}>
+                  {bonus.tier}
+                </span>
+              )}
+            </For>
+          </span>
+        )}
+      </Show>
     </Show>
-    <Show when={props.item.tier > 0}>
-      <span class="gear-tier">{props.item.tier}</span>
-    </Show>
-    <Show when={corner(props.item)}>
-      {(value) => <span class="item-quantity">{value()}</span>}
-    </Show>
-    <Show when={assess(props.item)?.overall}>
-      {(overall) => (
-        <span class={`item-tier tier-${overall().toLowerCase()}`}>
-          {overall()}
-        </span>
-      )}
-    </Show>
-    <Show when={rated(props.item)}>
-      {(pair) => (
-        <span class="item-tier set-tier">
-          <For each={pair()}>
-            {(bonus) => (
-              <span class={`tier-${bonus.tier!.toLowerCase()}`}>
-                {bonus.tier}
-              </span>
-            )}
-          </For>
-        </span>
-      )}
-    </Show>
-  </button>
+  </>
+);
+
+export const ItemIcon = (props: Props) => (
+  <Show
+    when={props.onSelect}
+    fallback={
+      <span class={tileClass(props)}>
+        <Face {...props} />
+      </span>
+    }
+  >
+    {(onSelect) => (
+      <button
+        type="button"
+        class={tileClass(props)}
+        onClick={(e) => onSelect()(props.item, e.shiftKey)}
+        onMouseEnter={(e) => preview(props.item, e.currentTarget)}
+        onMouseLeave={() => dismiss(props.item)}
+      >
+        <Face {...props} />
+      </button>
+    )}
+  </Show>
 );

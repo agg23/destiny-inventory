@@ -8,11 +8,11 @@ import { createResource, createSignal, For, onCleanup, Show } from "solid-js";
 import type { ActivityTables } from "../activities.ts";
 import { useApp } from "../App.tsx";
 import { accessToken } from "../auth.ts";
-import { fetchCarnageReport } from "../bungie.ts";
+import { BUNGIE, fetchCarnageReport } from "../bungie.ts";
 import { defs } from "../defs.ts";
 import { fakeItems } from "../fakeItems.ts";
-import { BUNGIE } from "../bungie.ts";
 import { duration } from "../history.ts";
+import { ItemIcon } from "../ItemIcon.tsx";
 import type { Session } from "../load.ts";
 import { dismiss, preview } from "../preview.ts";
 import { REPORTS } from "../store.ts";
@@ -81,12 +81,7 @@ const WeaponName = (props: { hash: number; item: DimItem | undefined }) => (
   >
     {(item) => (
       <span class="inline-flex items-center gap-2">
-        <img
-          class={`item-tile small size-8 ${item().rarity.toLowerCase()}`}
-          src={`${BUNGIE}${item().icon}`}
-          loading="lazy"
-          alt=""
-        />
+        <ItemIcon item={item()} class="size-8" badges={false} />
         {item().name}
       </span>
     )}

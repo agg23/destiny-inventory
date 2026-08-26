@@ -3,7 +3,7 @@ import type { DimStore } from "app/inventory/store-types";
 import { For, Show } from "solid-js";
 
 import { powerDelta } from "./arrivals.ts";
-import { BUNGIE } from "./bungie.ts";
+import { ItemIcon } from "./ItemIcon.tsx";
 import { typeName } from "./ItemPanel.tsx";
 import { dismiss, preview } from "./preview.ts";
 
@@ -48,9 +48,7 @@ export const Arrivals = (props: Props) => (
                 onMouseEnter={(event) => preview(item, event.currentTarget)}
                 onMouseLeave={() => dismiss(item)}
               >
-                <span class={`item-tile small ${item.rarity.toLowerCase()}`}>
-                  <img src={`${BUNGIE}${item.icon}`} loading="lazy" alt="" />
-                </span>
+                <ItemIcon item={item} />
                 <span class="min-w-0 flex-1">
                   <span class="block truncate">{item.name}</span>
                   <span class="menu-item-note block truncate">
