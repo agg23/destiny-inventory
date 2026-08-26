@@ -790,11 +790,17 @@
     position-anchor: --hovered;
     position-area: inline-end span-block-end;
     position-try-fallbacks:
+      --pin-bottom,
       flip-inline,
-      flip-block,
-      flip-inline flip-block;
+      flip-inline --pin-bottom;
     position-visibility: anchors-visible;
     margin: 8px;
+  }
+
+  /* Top-aligned until the bottom runs out, then held at the viewport bottom */
+  @position-try --pin-bottom {
+    position-area: inline-end span-all;
+    align-self: end;
   }
 
   /* X follows the pointer across a wide row, Y stays on the row */
@@ -802,7 +808,7 @@
     position-area: none;
     left: var(--cursor-x);
     top: anchor(top);
-    position-try-fallbacks: --track-left, --track-up, --track-left-up;
+    position-try-fallbacks: --track-bottom, --track-left, --track-left-bottom;
   }
 
   @position-try --track-left {
@@ -810,21 +816,21 @@
     right: calc(100dvw - var(--cursor-x));
   }
 
-  @position-try --track-up {
+  @position-try --track-bottom {
     top: auto;
-    bottom: anchor(bottom);
+    bottom: 0;
   }
 
-  @position-try --track-left-up {
+  @position-try --track-left-bottom {
     left: auto;
     right: calc(100dvw - var(--cursor-x));
     top: auto;
-    bottom: anchor(bottom);
+    bottom: 0;
   }
 
-  /* Framework's tooltip assumes game art behind it */
+  /* Framework's tooltip assumes game art behind it. Above the sticky header */
   .hover-card {
-    z-index: 4;
+    z-index: 6;
     max-height: 82vh;
     overflow: hidden;
     background-color: var(--panel);
@@ -1138,6 +1144,8 @@
   }
 
   .run-detail {
+    /* Above the sticky header */
+    z-index: 6;
     width: 22rem;
     /* A nightfall lists eleven modifiers */
     max-height: calc(100dvh - 16px);
