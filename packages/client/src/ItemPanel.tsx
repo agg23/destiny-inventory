@@ -1019,13 +1019,13 @@ export const ItemHead = (props: { item: DimItem; compact?: boolean }) => (
           {props.item.name}
         </div>
         <div class="tooltip-type">
-          <span class="max-w-full truncate">{typeName(props.item)}</span>
+          <span class="truncate">{typeName(props.item)}</span>
+          <Show when={props.item.tier > 0}>
+            <span class="gear-tier">Tier {props.item.tier}</span>
+          </Show>
         </div>
       </div>
     </div>
-    <Show when={props.item.tier > 0}>
-      <span class="gear-tier">Tier {props.item.tier}</span>
-    </Show>
   </div>
 );
 

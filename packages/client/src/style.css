@@ -543,10 +543,9 @@
     position: relative;
   }
 
-  .tooltip-header .gear-tier {
-    position: absolute;
-    right: var(--space-6);
-    bottom: var(--space-5);
+  .tooltip-type .gear-tier {
+    flex-shrink: 0;
+    margin-left: auto;
     padding: 0 var(--space-3);
   }
 
@@ -853,7 +852,10 @@
 
   /* A nowrap child would set min-content width */
   .tooltip-type {
+    display: flex;
     min-width: 0;
+    align-items: center;
+    gap: var(--space-3);
   }
 
   .compare-stat {
