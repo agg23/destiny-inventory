@@ -19,9 +19,9 @@ import {
   potentialSpaceLeftForItem,
 } from "app/inventory/stores-helpers";
 import { isClassCompatible, itemCanBeEquippedBy } from "app/utils/item-utils";
-import ammoHeavy from "destiny-icons/general/ammo-heavy.svg";
-import ammoPrimary from "destiny-icons/general/ammo-primary.svg";
-import ammoSpecial from "destiny-icons/general/ammo-special.svg";
+import ammoHeavy from "destiny-icons/general/ammo-heavy.svg?inline";
+import ammoPrimary from "destiny-icons/general/ammo-primary.svg?inline";
+import ammoSpecial from "destiny-icons/general/ammo-special.svg?inline";
 import { createMemo, For, Show, type JSX } from "solid-js";
 
 import { BUNGIE } from "./bungie.ts";

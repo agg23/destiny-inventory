@@ -4,7 +4,10 @@ import { BUNGIE } from "./bungie.ts";
 
 const LANES = 6;
 
-export const plugIcons = (items: DimItem[]): string[] => {
+const collect = (
+  items: DimItem[],
+  gather: (item: DimItem, take: (icon: string | undefined) => void) => void,
+): string[] => {
   const icons = new Set<string>();
 
   const take = (icon: string | undefined) => {
@@ -14,6 +17,19 @@ export const plugIcons = (items: DimItem[]): string[] => {
   };
 
   for (const item of items) {
+    gather(item, take);
+  }
+
+  return [...icons];
+};
+
+export const elementIcons = (items: DimItem[]): string[] =>
+  collect(items, (item, take) => {
+    take(item.element?.displayProperties.icon);
+  });
+
+export const plugIcons = (items: DimItem[]): string[] =>
+  collect(items, (item, take) => {
     for (const socket of item.sockets?.allSockets ?? []) {
       take(socket.plugged?.plugDef.displayProperties.icon);
 
@@ -21,10 +37,7 @@ export const plugIcons = (items: DimItem[]): string[] => {
         take(plug.plugDef.displayProperties.icon);
       }
     }
-  }
-
-  return [...icons];
-};
+  });
 
 // Decoding is the browser's problem; this wants the bytes local
 export const warmIcons = (urls: string[]): (() => void) => {
