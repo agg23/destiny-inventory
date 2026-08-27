@@ -1155,7 +1155,14 @@ const AMMO: Record<number, { url: string; name: string }> = {
 };
 
 export const ItemPower = (props: { item: DimItem }) => (
-  <Show when={props.item.power > 0 || props.item.element || props.item.energy}>
+  <Show
+    when={
+      props.item.power > 0 ||
+      props.item.element ||
+      props.item.energy ||
+      props.item.breakerType
+    }
+  >
     <div class="tooltip-power">
       <Show when={props.item.power > 0}>
         <span class="power-value">{props.item.power}</span>
@@ -1169,6 +1176,21 @@ export const ItemPower = (props: { item: DimItem }) => (
               )}
             </Show>
             {element().displayProperties.name}
+          </span>
+        )}
+      </Show>
+      <Show when={props.item.breakerType}>
+        {(breaker) => (
+          <span
+            class="power-type"
+            title={breaker().displayProperties.description}
+          >
+            <Show when={breaker().displayProperties.icon}>
+              {(icon) => (
+                <img class="breaker-icon" src={`${BUNGIE}${icon()}`} alt="" />
+              )}
+            </Show>
+            {breaker().displayProperties.name}
           </span>
         )}
       </Show>

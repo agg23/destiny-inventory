@@ -957,7 +957,8 @@
     letter-spacing: 0.1rem;
   }
 
-  .element-icon {
+  .element-icon,
+  .breaker-icon {
     height: 0.875rem;
   }
 
