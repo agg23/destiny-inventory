@@ -710,7 +710,7 @@ export const SetBonus = (props: { item: DimItem }) => {
   );
 };
 
-const Changes = (props: { stats: StatChange[] }) => (
+export const Changes = (props: { stats: StatChange[] }) => (
   <Show when={props.stats.length > 0}>
     <div class="flex flex-wrap gap-1 gap-x-2 pt-1">
       <For each={props.stats}>
@@ -1041,10 +1041,7 @@ export const ItemDetails = (props: {
           <div class="min-w-0 self-start" style={cell(SUMMARY_ROW)}>
             <AegisNote item={props.item} />
             {warning}
-            <div class="flex flex-wrap items-baseline gap-x-3">
-              <ItemPower item={props.item} />
-              <Masterwork item={props.item} />
-            </div>
+            <Masterwork item={props.item} />
             <Archetype item={props.item} />
           </div>
           <For each={place().stats}>
@@ -1130,11 +1127,15 @@ export const ItemHead = (props: { item: DimItem; compact?: boolean }) => (
         </div>
       </div>
     </div>
-    <Show when={!props.compact}>
-      <div class="tooltip-body py-2">
-        <ItemPower item={props.item} />
-      </div>
-    </Show>
+    <div
+      class="py-2 empty:hidden"
+      classList={{
+        "tooltip-body": !props.compact,
+        "border-b border-line": props.compact,
+      }}
+    >
+      <ItemPower item={props.item} />
+    </div>
   </>
 );
 

@@ -84,7 +84,7 @@ export const Compare = (props: Props) => {
           <For each={props.items}>
             {(item, column) => (
               <div
-                class="compare-head relative self-stretch pb-3"
+                class="compare-head relative self-stretch pb-1.5"
                 style={{ "grid-column": start(column()), "grid-row": "1" }}
               >
                 <Show when={ages()[column()]}>
