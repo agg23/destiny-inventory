@@ -882,6 +882,11 @@
     border-top: 1px solid var(--line);
   }
 
+  /* The game paints a masterworked stat gold */
+  .stat-fill.masterwork {
+    background-color: var(--light);
+  }
+
   .compare-stat .dash {
     color: var(--dim);
   }

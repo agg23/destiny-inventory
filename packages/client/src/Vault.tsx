@@ -68,6 +68,7 @@ export const Vault = () => {
                   items={app.feed()}
                   stores={app.stores()}
                   onSelect={app.onPin}
+                  onCompare={app.onCompare}
                 />
               </Show>
             }

@@ -298,7 +298,11 @@ export const StatValue = (props: {
   </span>
 );
 
-export const StatBar = (props: { stat: DimStat; total?: boolean }) => {
+export const StatBar = (props: {
+  stat: DimStat;
+  total?: boolean;
+  masterworked?: boolean;
+}) => {
   const fraction = () =>
     props.stat.maximumValue > 0
       ? Math.min(1, Math.abs(props.stat.value) / props.stat.maximumValue)
@@ -307,7 +311,11 @@ export const StatBar = (props: { stat: DimStat; total?: boolean }) => {
   return (
     <Show when={props.stat.bar}>
       <span class="stat-bar" classList={{ total: props.total }}>
-        <span class="stat-fill" style={{ width: `${fraction() * 100}%` }} />
+        <span
+          class="stat-fill"
+          classList={{ masterwork: props.masterworked }}
+          style={{ width: `${fraction() * 100}%` }}
+        />
       </span>
     </Show>
   );
@@ -317,6 +325,7 @@ export const Bar = (props: {
   stat: DimStat;
   against?: DimStat;
   comparing?: boolean;
+  masterworked?: boolean;
 }) => {
   const total = () => props.stat.statHash === TOTAL;
 
@@ -325,7 +334,11 @@ export const Bar = (props: {
       <span class="stat-name" classList={{ total: total() }}>
         {shortStat(props.stat.displayProperties.name)}
       </span>
-      <StatBar stat={props.stat} total={total()} />
+      <StatBar
+        stat={props.stat}
+        total={total()}
+        masterworked={props.masterworked}
+      />
       <StatValue
         stat={props.stat}
         against={props.against}
@@ -561,12 +574,57 @@ export const Archetype = (props: { item: DimItem }) => {
   );
 };
 
+const masterworkHashes = (item: DimItem): Set<number> =>
+  new Set(
+    (item.masterworkInfo?.stats ?? [])
+      .filter((stat) => stat.isPrimary)
+      .map((stat) => stat.hash),
+  );
+
+const Masterwork = (props: { item: DimItem }) => {
+  const primary = () =>
+    (props.item.masterworkInfo?.stats ?? []).filter(
+      (stat) => stat.isPrimary && stat.name && stat.value > 0,
+    );
+
+  const tier = () => props.item.masterworkInfo?.tier;
+
+  // Unmasterworked armor still carries a masterworkInfo at tier 0
+  const worth = () =>
+    props.item.masterwork || !!tier() || primary().length > 0;
+
+  return (
+    <Show when={worth()}>
+      <p
+        class="m-0 text-sm"
+        classList={{
+          "text-light": props.item.masterwork,
+          "text-dim": !props.item.masterwork,
+        }}
+      >
+        <b class="tracking-wide uppercase">Masterwork</b>
+        <Show when={tier()}>{(level) => <> {level()}</>}</Show>
+        <For each={primary()}>
+          {(stat) => (
+            <>
+              {" "}
+              · {stat.name} +{stat.value}
+            </>
+          )}
+        </For>
+      </p>
+    </Show>
+  );
+};
+
 export const Stats = (props: { item: DimItem; against?: DimItem }) => {
   const sorted = () =>
     [...(props.item.stats ?? [])].sort((a, b) => a.sort - b.sort);
 
   const theirs = (hash: number) =>
     props.against?.stats?.find((stat) => stat.statHash === hash);
+
+  const boosted = createMemo(() => masterworkHashes(props.item));
 
   return (
     <Show when={props.item.stats?.length}>
@@ -577,6 +635,7 @@ export const Stats = (props: { item: DimItem; against?: DimItem }) => {
               stat={stat}
               against={theirs(stat.statHash)}
               comparing={Boolean(props.against)}
+              masterworked={boosted().has(stat.statHash)}
             />
           )}
         </For>
@@ -884,6 +943,7 @@ export const ItemDetails = (props: {
   const perksRow = () => STATS_ROW + (props.place?.stats.length ?? 0);
   const own = (hash: number) =>
     props.item.stats?.find((stat) => stat.statHash === hash);
+  const boosted = createMemo(() => masterworkHashes(props.item));
 
   const cell = (row: number) => ({
     "grid-column": props.place!.column,
@@ -925,6 +985,7 @@ export const ItemDetails = (props: {
           <div class="tooltip-body">
             {props.lead}
             <ItemPower item={props.item} />
+            <Masterwork item={props.item} />
             <Archetype item={props.item} />
             <Stats item={props.item} against={props.against} />
           </div>
@@ -947,6 +1008,7 @@ export const ItemDetails = (props: {
             <AegisNote item={props.item} />
             {warning}
             <ItemPower item={props.item} />
+            <Masterwork item={props.item} />
             <Archetype item={props.item} />
           </div>
           <For each={place().stats}>
@@ -965,7 +1027,11 @@ export const ItemDetails = (props: {
                 >
                   {(mine) => (
                     <>
-                      <StatBar stat={mine()} total={stat.total} />
+                      <StatBar
+                        stat={mine()}
+                        total={stat.total}
+                        masterworked={boosted().has(stat.hash)}
+                      />
                       <StatValue
                         stat={mine()}
                         against={stat.against}
@@ -1030,7 +1096,7 @@ export const ItemHead = (props: { item: DimItem; compact?: boolean }) => (
 );
 
 export const ItemPower = (props: { item: DimItem }) => (
-  <Show when={props.item.power > 0 || props.item.element}>
+  <Show when={props.item.power > 0 || props.item.element || props.item.energy}>
     <div class="tooltip-power">
       <Show when={props.item.power > 0}>
         <span class="power-value">{props.item.power}</span>
@@ -1038,6 +1104,13 @@ export const ItemPower = (props: { item: DimItem }) => (
       <Show when={props.item.element}>
         {(element) => (
           <span class="power-type">{element().displayProperties.name}</span>
+        )}
+      </Show>
+      <Show when={props.item.energy}>
+        {(energy) => (
+          <span class="power-type">
+            Energy {energy().energyUsed}/{energy().energyCapacity}
+          </span>
         )}
       </Show>
     </div>

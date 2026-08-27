@@ -82,6 +82,7 @@ export interface AppState {
   timings: () => ReturnType<typeof timingsByHash>;
   onPin: (item: DimItem, additive?: boolean) => void;
   onUnpin: (item: DimItem) => void;
+  onCompare: (item: DimItem, rival: DimItem) => void;
   onMove: (item: DimItem, target: DimStore, equip: boolean) => void;
   onCharacter: (store: DimStore) => void;
 }
@@ -108,6 +109,9 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   const [detail, setDetail] = createSignal(false);
   const [refreshing, setRefreshing] = createSignal(false);
   const [refreshedAt, setRefreshedAt] = createSignal<number | undefined>(
+    undefined,
+  );
+  const [failingSince, setFailingSince] = createSignal<number | undefined>(
     undefined,
   );
   const character = () => url.get("character");
@@ -421,12 +425,12 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   window.addEventListener("keydown", onKeyDown);
   onCleanup(() => window.removeEventListener("keydown", onKeyDown));
 
+  const clock = (at: number) => new Date(at).toLocaleTimeString();
+
   const refreshLabel = () => {
     const at = refreshedAt();
 
-    return at === undefined
-      ? "Refresh"
-      : `Refresh · last at ${new Date(at).toLocaleTimeString()}`;
+    return at === undefined ? "Refresh" : `Refresh · last at ${clock(at)}`;
   };
 
   const panelLabel = () =>
@@ -444,6 +448,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     try {
       const outcome = await refreshProfile(session);
 
+      setFailingSince(undefined);
       setActive((was) => observe(was, outcome.playing));
 
       if (outcome.status === "manifest-changed") {
@@ -453,6 +458,10 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
       }
 
       setRefreshedAt(Date.now());
+    } catch (e: unknown) {
+      setFailingSince((was) => was ?? Date.now());
+
+      throw e;
     } finally {
       setRefreshing(false);
     }
@@ -502,6 +511,8 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     timings,
     onPin: pin,
     onUnpin: unpin,
+    // The rival leads so the drop's column carries the deltas
+    onCompare: (item, rival) => url.push({ pin: [rival.id, item.id] }),
     onMove,
     onCharacter: (store) => url.push({ character: store.id }),
   };
@@ -590,7 +601,11 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
                   refreshing() ||
                   current()?.source === "cache"
                 }
-                onClick={() => void refresh()}
+                onClick={() =>
+                  void refresh().catch((e: unknown) =>
+                    showToast(messageOf(e), "danger"),
+                  )
+                }
               >
                 <RefreshGlyph />
               </button>
@@ -641,6 +656,17 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
                     </span>
                   )}
                 </For>
+              )}
+            </Show>
+
+            <Show when={failingSince()}>
+              {(since) => (
+                <span class="text-warning">
+                  Refresh failing since {clock(since())}
+                  <Show when={refreshedAt()}>
+                    {(at) => <> · data from {clock(at())}</>}
+                  </Show>
+                </span>
               )}
             </Show>
 
@@ -701,6 +727,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
             <HoverCard
               item={card().item}
               against={against()}
+              verdict={card().verdict}
               cursorX={card().cursorX}
             />
           )}

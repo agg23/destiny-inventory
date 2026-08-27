@@ -1,6 +1,7 @@
 import type { DimItem } from "app/inventory/item-types";
 import { createSignal } from "solid-js";
 
+import type { Verdict } from "./arrivals.ts";
 import { holdAnchor, releaseAnchor } from "./ui/anchor.ts";
 
 export const HOVER_DELAY = 120;
@@ -8,6 +9,8 @@ export const HOVER_DELAY = 120;
 export interface Previewed {
   item: DimItem;
   cursorX: number | undefined;
+  /** The roll verdict, when the card came from the arrivals rail */
+  verdict: Verdict | undefined;
 }
 
 const [shown, setShown] = createSignal<Previewed | undefined>(undefined);
@@ -21,10 +24,11 @@ export const preview = (
   item: DimItem,
   element: HTMLElement,
   cursorX: number | undefined = undefined,
+  verdict: Verdict | undefined = undefined,
 ) => {
   const open = () => {
     holdAnchor(element, clear);
-    setShown({ item, cursorX });
+    setShown({ item, cursorX, verdict });
   };
 
   if (shown()?.item.index === item.index) {

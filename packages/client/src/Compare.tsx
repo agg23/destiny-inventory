@@ -2,6 +2,7 @@ import type { DimItem, DimStat } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { createMemo, createSignal, For, Show } from "solid-js";
 
+import { recency } from "./arrivals.ts";
 import { best, TOTAL } from "./compare.ts";
 import {
   Benefits,
@@ -55,6 +56,17 @@ export const Compare = (props: Props) => {
 
   const compact = () => props.items.length > 1;
 
+  // Copies of the same weapon are otherwise indistinguishable in the heads
+  const ages = (): (string | undefined)[] => {
+    const [a, b] = props.items;
+
+    if (!a || !b || props.items.length !== 2 || a.hash !== b.hash) {
+      return props.items.map(() => undefined);
+    }
+
+    return recency(a) > recency(b) ? ["Newer", "Older"] : ["Older", "Newer"];
+  };
+
   const columns = () =>
     `var(--compare-labels) repeat(${props.items.length}, minmax(0, 1fr))`;
 
@@ -75,6 +87,14 @@ export const Compare = (props: Props) => {
                 class="compare-head relative self-stretch pb-3"
                 style={{ "grid-column": start(column()), "grid-row": "1" }}
               >
+                <Show when={ages()[column()]}>
+                  {/* Lives in the panel's top padding, costing no height */}
+                  {(age) => (
+                    <span class="absolute bottom-full left-0 pb-0.5 text-xs uppercase tracking-caps text-dim">
+                      {age()}
+                    </span>
+                  )}
+                </Show>
                 <ItemHead item={item} compact />
                 <IconButton
                   type="button"
