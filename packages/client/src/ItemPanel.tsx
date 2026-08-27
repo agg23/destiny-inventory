@@ -19,6 +19,9 @@ import {
   potentialSpaceLeftForItem,
 } from "app/inventory/stores-helpers";
 import { isClassCompatible, itemCanBeEquippedBy } from "app/utils/item-utils";
+import ammoHeavy from "destiny-icons/general/ammo-heavy.svg";
+import ammoPrimary from "destiny-icons/general/ammo-primary.svg";
+import ammoSpecial from "destiny-icons/general/ammo-special.svg";
 import { createMemo, For, Show, type JSX } from "solid-js";
 
 import { BUNGIE } from "./bungie.ts";
@@ -37,7 +40,7 @@ import { Button } from "./ui/Button.tsx";
 import { SplitButton, type Choice } from "./ui/SplitButton.tsx";
 
 // BucketHashes.LostItems, inlined
-const LOST_ITEMS = 215593132;
+export const LOST_ITEMS = 215593132;
 
 // SocketCategoryHashes for weapon, armor and ghost cosmetics
 const COSMETIC = new Set([2048875504, 1926152773, 2549160099]);
@@ -258,7 +261,7 @@ export const StatDelta = (props: { delta: Delta | undefined }) => (
   <Show when={props.delta}>
     {(change) => (
       <span
-        class="text-sm whitespace-nowrap tabular-nums"
+        class="text-xs whitespace-nowrap tabular-nums"
         classList={{
           "text-success": change().better,
           "text-danger": !change().better,
@@ -291,9 +294,7 @@ export const StatValue = (props: {
   >
     <span>{props.stat.value}</span>
     <Show when={props.comparing}>
-      <span class="w-[4ch] text-left">
-        <StatDelta delta={delta(props.stat, props.against)} />
-      </span>
+      <StatDelta delta={delta(props.stat, props.against)} />
     </Show>
   </span>
 );
@@ -596,7 +597,7 @@ const Masterwork = (props: { item: DimItem }) => {
   return (
     <Show when={worth()}>
       <p
-        class="m-0 text-sm"
+        class="m-0 text-xs"
         classList={{
           "text-light": props.item.masterwork,
           "text-dim": !props.item.masterwork,
@@ -984,7 +985,6 @@ export const ItemDetails = (props: {
           </Show>
           <div class="tooltip-body">
             {props.lead}
-            <ItemPower item={props.item} />
             <Masterwork item={props.item} />
             <Archetype item={props.item} />
             <Stats item={props.item} against={props.against} />
@@ -1007,8 +1007,10 @@ export const ItemDetails = (props: {
           <div class="min-w-0 self-start" style={cell(SUMMARY_ROW)}>
             <AegisNote item={props.item} />
             {warning}
-            <ItemPower item={props.item} />
-            <Masterwork item={props.item} />
+            <div class="flex flex-wrap items-baseline gap-x-3">
+              <ItemPower item={props.item} />
+              <Masterwork item={props.item} />
+            </div>
             <Archetype item={props.item} />
           </div>
           <For each={place().stats}>
@@ -1059,41 +1061,55 @@ export const ItemDetails = (props: {
 };
 
 export const ItemHead = (props: { item: DimItem; compact?: boolean }) => (
-  <div
-    class={`tooltip-header ${props.item.rarity.toLowerCase()}`}
-    classList={{ "h-(--item-head) p-0": props.compact }}
-  >
-    <div class="flex h-full items-stretch gap-2">
-      <Show when={props.compact}>
-        <img
-          class="aspect-square h-full shrink-0"
-          src={`${BUNGIE}${props.item.icon}`}
-          alt=""
-        />
-      </Show>
-      <div
-        class="min-w-0 flex-1"
-        classList={{ "flex flex-col justify-center pr-4": props.compact }}
-      >
+  <>
+    <div
+      class={`tooltip-header ${props.item.rarity.toLowerCase()}`}
+      classList={{ "h-(--item-head) p-0": props.compact }}
+    >
+      <div class="flex h-full items-stretch gap-2">
+        <Show when={props.compact}>
+          <img
+            class="aspect-square h-full shrink-0"
+            src={`${BUNGIE}${props.item.icon}`}
+            alt=""
+          />
+        </Show>
         <div
-          class="tooltip-name"
-          classList={{
-            "line-clamp-2 pr-6 text-md leading-5 whitespace-normal":
-              props.compact,
-          }}
+          class="min-w-0 flex-1"
+          classList={{ "flex flex-col justify-center pr-4": props.compact }}
         >
-          {props.item.name}
-        </div>
-        <div class="tooltip-type">
-          <span class="truncate">{typeName(props.item)}</span>
-          <Show when={props.item.tier > 0}>
-            <span class="gear-tier">Tier {props.item.tier}</span>
-          </Show>
+          <div
+            class="tooltip-name"
+            classList={{
+              "line-clamp-2 pr-6 text-md leading-5 whitespace-normal":
+                props.compact,
+            }}
+          >
+            {props.item.name}
+          </div>
+          <div class="tooltip-type">
+            <span class="truncate">{typeName(props.item)}</span>
+            <Show when={props.item.tier > 0}>
+              <span class="gear-tier">Tier {props.item.tier}</span>
+            </Show>
+          </div>
         </div>
       </div>
     </div>
-  </div>
+    <Show when={!props.compact}>
+      <div class="tooltip-body py-2">
+        <ItemPower item={props.item} />
+      </div>
+    </Show>
+  </>
 );
+
+// DestinyAmmunitionType Primary, Special and Heavy
+const AMMO: Record<number, { url: string; name: string }> = {
+  1: { url: ammoPrimary, name: "Primary" },
+  2: { url: ammoSpecial, name: "Special" },
+  3: { url: ammoHeavy, name: "Heavy" },
+};
 
 export const ItemPower = (props: { item: DimItem }) => (
   <Show when={props.item.power > 0 || props.item.element || props.item.energy}>
@@ -1103,7 +1119,14 @@ export const ItemPower = (props: { item: DimItem }) => (
       </Show>
       <Show when={props.item.element}>
         {(element) => (
-          <span class="power-type">{element().displayProperties.name}</span>
+          <span class="power-type">
+            <Show when={element().displayProperties.icon}>
+              {(icon) => (
+                <img class="element-icon" src={`${BUNGIE}${icon()}`} alt="" />
+              )}
+            </Show>
+            {element().displayProperties.name}
+          </span>
         )}
       </Show>
       <Show when={props.item.energy}>
@@ -1111,6 +1134,16 @@ export const ItemPower = (props: { item: DimItem }) => (
           <span class="power-type">
             Energy {energy().energyUsed}/{energy().energyCapacity}
           </span>
+        )}
+      </Show>
+      <Show when={AMMO[props.item.ammoType]}>
+        {(ammo) => (
+          <img
+            class="ammo-icon"
+            src={ammo().url}
+            alt={ammo().name}
+            title={ammo().name}
+          />
         )}
       </Show>
     </div>
