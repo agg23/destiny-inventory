@@ -77,7 +77,7 @@ export const SearchBar = (props: Props) => {
   createEffect(() => props.onPreview(highlighted()?.query));
 
   // Only trails the caret, so an edit in the middle of a query gets no ghost
-  const suggested = () => {
+  const suggested = createMemo(() => {
     if (!focused() || caret() !== props.query.length) {
       return "";
     }
@@ -85,11 +85,11 @@ export const SearchBar = (props: Props) => {
     const full = completion(props.query, caret(), props.stores, defs());
 
     return full === undefined ? "" : full.slice(props.query.length);
-  };
+  });
 
   // A walked row shows in the box without being committed, so dropping the highlight puts the
   // default completion back
-  const ghost = () => {
+  const ghost = createMemo(() => {
     const row = highlighted()?.query;
 
     if (row === undefined) {
@@ -101,7 +101,7 @@ export const SearchBar = (props: Props) => {
     }
 
     return row.startsWith(props.query) ? row.slice(props.query.length) : "";
-  };
+  });
 
   // What a commit takes: the row being walked, or else the default completion
   const chosen = (): string | undefined => {

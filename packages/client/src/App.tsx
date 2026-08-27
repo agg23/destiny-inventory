@@ -68,11 +68,17 @@ const SCOPES: Record<Tab, string> = {
   history: "Filter runs",
 };
 
+/** The filtered items grouped the way the grid draws them, with the total across every store */
+export interface Matched {
+  byStore: Map<string, Map<number, DimItem[]>>;
+  total: number;
+}
+
 export interface AppState {
   loaded: () => LoadResult | undefined;
   stores: () => DimStore[];
   active: () => DimStore | undefined;
-  matches: (item: DimItem) => boolean;
+  matched: () => Matched;
   shown: () => number;
   query: () => string;
   pinned: () => DimItem[];
@@ -287,12 +293,6 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     ),
   );
 
-  const shown = () =>
-    stores().reduce(
-      (total, store) => total + store.items.filter(matches).length,
-      0,
-    );
-
   // The engine mutates its own stores
   const stores = () => moved() ?? current()?.stores ?? [];
 
@@ -303,7 +303,32 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     itemFilter(previewQuery() ?? vaultQuery(), stores(), defs()),
   );
 
-  const matches = (item: DimItem) => !!filter()(item);
+  const matched = createMemo<Matched>(() => {
+    const test = filter();
+    const byStore = new Map<string, Map<number, DimItem[]>>();
+    let total = 0;
+
+    for (const store of stores()) {
+      const buckets = new Map<number, DimItem[]>();
+
+      for (const item of store.items) {
+        if (!test(item)) {
+          continue;
+        }
+
+        const bucket = buckets.get(item.location.hash) ?? [];
+        bucket.push(item);
+        buckets.set(item.location.hash, bucket);
+        total += 1;
+      }
+
+      byStore.set(store.id, buckets);
+    }
+
+    return { byStore, total };
+  });
+
+  const shown = () => matched().total;
 
   const characterIds = () =>
     stores()
@@ -561,7 +586,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     loaded: current,
     stores,
     active: () => activeStore(active(), stores()),
-    matches,
+    matched,
     shown,
     query: typed,
     pinned,

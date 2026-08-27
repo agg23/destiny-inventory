@@ -40,7 +40,7 @@ export const Vault = () => {
           <Inventory
             stores={app.stores()}
             buckets={loaded().buckets}
-            matches={app.matches}
+            matched={app.matched()}
             active={app.active()}
             pinned={app.pinned()}
             onSelectStore={app.onCharacter}

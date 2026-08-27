@@ -213,6 +213,17 @@ export interface Suggestion {
   range: [number, number];
 }
 
+interface Suggested {
+  query: string;
+  caret: number;
+  stores: DimStore[];
+  definitions: D2ManifestDefinitions | undefined;
+  rows: Suggestion[];
+}
+
+// The ghost, the menu and the filter all ask for the same query, so the last answer is kept
+let suggested: Suggested | undefined = undefined;
+
 /** Autocomplete rows for a partially typed query, in DIM's own ordering */
 export const suggest = (
   query: string,
@@ -220,27 +231,56 @@ export const suggest = (
   stores: DimStore[],
   definitions: D2ManifestDefinitions | undefined,
 ): Suggestion[] => {
+  if (
+    suggested !== undefined &&
+    suggested.query === query &&
+    suggested.caret === caret &&
+    suggested.stores === stores &&
+    suggested.definitions === definitions
+  ) {
+    return suggested.rows;
+  }
+
   const { config, complete } = completer(stores, definitions);
 
-  return autocompleteTermSuggestions(query, caret, complete, config).flatMap(
-    (item) =>
-      item.highlightRange === undefined
-        ? []
-        : [
-            {
-              query: item.query.fullText,
-              help: item.query.helpText,
-              range: item.highlightRange.range,
-            },
-          ],
+  const rows = autocompleteTermSuggestions(
+    query,
+    caret,
+    complete,
+    config,
+  ).flatMap((item) =>
+    item.highlightRange === undefined
+      ? []
+      : [
+          {
+            query: item.query.fullText,
+            help: item.query.helpText,
+            range: item.highlightRange.range,
+          },
+        ],
   );
+
+  suggested = { query, caret, stores, definitions, rows };
+
+  return rows;
 };
+
+let validated: { query: string; result: boolean } | undefined = undefined;
 
 // A query is invalid until its last term is finished, so the term being typed is dropped
 // instead of emptying the results
 /** Whether every term in a query names a filter we carry and parses */
-export const valid = (query: string): boolean =>
-  parseAndValidateQuery(query, FILTERS_MAP).valid;
+export const valid = (query: string): boolean => {
+  if (validated !== undefined && validated.query === query) {
+    return validated.result;
+  }
+
+  const result = parseAndValidateQuery(query, FILTERS_MAP).valid;
+
+  validated = { query, result };
+
+  return result;
+};
 
 /**
  * The completion that stands in for an unfinished query. A query that is already valid gets none,

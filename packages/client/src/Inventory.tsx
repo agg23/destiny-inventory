@@ -7,6 +7,7 @@ import type { DimStore } from "app/inventory/store-types";
 import { potentialSpaceLeftForItem } from "app/inventory/stores-helpers";
 import { createMemo, For, Show } from "solid-js";
 
+import type { Matched } from "./App.tsx";
 import { CharacterPicker, StoreBanner } from "./CharacterPicker.tsx";
 import { unmovable } from "./compare.ts";
 import { ItemIcon } from "./ItemIcon.tsx";
@@ -18,7 +19,7 @@ const CATEGORIES = ["Postmaster", "Weapons", "Armor", "General", "Inventory"];
 interface Props {
   stores: DimStore[];
   buckets: InventoryBuckets;
-  matches: (item: DimItem) => boolean;
+  matched: Matched;
   onSelect: (item: DimItem, additive: boolean) => void;
   pinned: DimItem[];
   active: DimStore | undefined;
@@ -43,25 +44,7 @@ const ordered = (items: DimItem[]): DimItem[] =>
   );
 
 export const Inventory = (props: Props) => {
-  const byStore = createMemo(() => {
-    const table = new Map<string, Map<number, DimItem[]>>();
-
-    for (const store of props.stores) {
-      const buckets = new Map<number, DimItem[]>();
-
-      for (const item of store.items) {
-        if (props.matches(item)) {
-          const bucket = buckets.get(item.location.hash) ?? [];
-          bucket.push(item);
-          buckets.set(item.location.hash, bucket);
-        }
-      }
-
-      table.set(store.id, buckets);
-    }
-
-    return table;
-  });
+  const byStore = () => props.matched.byStore;
 
   const characters = () => props.stores.filter((store) => !store.isVault);
   const vault = () => props.stores.find((store) => store.isVault);
@@ -116,12 +99,7 @@ export const Inventory = (props: Props) => {
         buckets: props.buckets.byCategory[category] ?? [],
       })),
       { category: "Other", buckets: uncategorized() },
-    ]
-      .map((section) => ({
-        ...section,
-        buckets: section.buckets.filter(occupied),
-      }))
-      .filter((section) => section.buckets.length > 0),
+    ].filter((section) => section.buckets.length > 0),
   );
 
   const cell = (store: DimStore, bucket: InventoryBucket) =>
@@ -163,62 +141,66 @@ export const Inventory = (props: Props) => {
 
       <For each={rows()}>
         {(section) => (
-          <section>
-            <h2 class="section-label mt-4 mb-1.5">
-              {section.category}
-              <Show when={section.category === "Postmaster" && collectible()}>
-                {(found) => (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    disabled={!!props.moving || found().items.length === 0}
-                    title={
-                      found().items.length > 0
-                        ? undefined
-                        : found().empty
-                          ? "Nothing to pull"
-                          : "Cannot pull available items"
-                    }
-                    onClick={() =>
-                      props.onCollect(found().items, found().character)
-                    }
-                  >
-                    Collect all ({found().items.length})
-                  </Button>
-                )}
-              </Show>
-            </h2>
-            <For each={section.buckets}>
-              {(bucket) => (
-                <div class="row">
-                  <h3 class="bucket-label">
-                    {bucket.name || `Bucket ${bucket.hash}`}
-                  </h3>
-                  <For each={shown()}>
-                    {(store) => (
-                      <div
-                        class="item-grid wide"
-                        classList={{ character: !store.isVault }}
-                      >
-                        <For each={cell(store, bucket)}>
-                          {(item) => (
-                            <ItemIcon
-                              item={item}
-                              selected={props.pinned.some(
-                                (pin) => pin.id === item.id,
+          <Show when={section.buckets.some((bucket) => occupied(bucket))}>
+            <section>
+              <h2 class="section-label mt-4 mb-1.5">
+                {section.category}
+                <Show when={section.category === "Postmaster" && collectible()}>
+                  {(found) => (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      disabled={!!props.moving || found().items.length === 0}
+                      title={
+                        found().items.length > 0
+                          ? undefined
+                          : found().empty
+                            ? "Nothing to pull"
+                            : "Cannot pull available items"
+                      }
+                      onClick={() =>
+                        props.onCollect(found().items, found().character)
+                      }
+                    >
+                      Collect all ({found().items.length})
+                    </Button>
+                  )}
+                </Show>
+              </h2>
+              <For each={section.buckets}>
+                {(bucket) => (
+                  <Show when={occupied(bucket)}>
+                    <div class="row">
+                      <h3 class="bucket-label">
+                        {bucket.name || `Bucket ${bucket.hash}`}
+                      </h3>
+                      <For each={shown()}>
+                        {(store) => (
+                          <div
+                            class="item-grid wide"
+                            classList={{ character: !store.isVault }}
+                          >
+                            <For each={cell(store, bucket)}>
+                              {(item) => (
+                                <ItemIcon
+                                  item={item}
+                                  selected={props.pinned.some(
+                                    (pin) => pin.id === item.id,
+                                  )}
+                                  onSelect={props.onSelect}
+                                />
                               )}
-                              onSelect={props.onSelect}
-                            />
-                          )}
-                        </For>
-                      </div>
-                    )}
-                  </For>
-                </div>
-              )}
-            </For>
-          </section>
+                            </For>
+                          </div>
+                        )}
+                      </For>
+                    </div>
+                  </Show>
+                )}
+              </For>
+            </section>
+          </Show>
         )}
       </For>
     </div>

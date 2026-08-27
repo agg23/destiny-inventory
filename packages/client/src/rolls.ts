@@ -93,6 +93,8 @@ const [sheet, setSheet] = createSignal<Sheet>(EMPTY_SHEET);
 
 let matched = new Map<string, InventoryWishListRoll | undefined>();
 
+let assessed = new WeakMap<DimItem, Assessment | undefined>();
+
 const rankOf = (perk: AegisPerk): number =>
   perk.rank ?? Number.MAX_SAFE_INTEGER;
 
@@ -185,6 +187,7 @@ export const setRolls = (data: AegisData) => {
   }
 
   matched = new Map();
+  assessed = new WeakMap();
 
   setSheet({
     byHash: rolls,
@@ -363,12 +366,8 @@ const namePicks = (
   return picks;
 };
 
-/**
- * What Aegis says about this exact roll: the weapon's standing, which perk columns landed on
- * one of its picks, and the tier those two together come to
- */
-export const assess = (item: DimItem): Assessment | undefined => {
-  const { ratings, slotsByHash, perkRanks } = sheet();
+const assessRoll = (item: DimItem, current: Sheet): Assessment | undefined => {
+  const { ratings, slotsByHash, perkRanks } = current;
   const rating = ratings.get(item.hash);
 
   if (!rating) {
@@ -453,6 +452,24 @@ export const assess = (item: DimItem): Assessment | undefined => {
     of: slots.length,
     overall: step(rating.tier, slots.length - score),
   };
+};
+
+/**
+ * What Aegis says about this exact roll: the weapon's standing, which perk columns landed on
+ * one of its picks, and the tier those two together come to
+ */
+export const assess = (item: DimItem): Assessment | undefined => {
+  const current = sheet();
+
+  if (assessed.has(item)) {
+    return assessed.get(item);
+  }
+
+  const read = assessRoll(item, current);
+
+  assessed.set(item, read);
+
+  return read;
 };
 
 /** Aegis's standing on a perk or origin trait, apart from the weapon carrying it */
