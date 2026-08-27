@@ -1,5 +1,6 @@
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
+import { spaceLeftForItem } from "app/inventory/stores-helpers";
 import { useLocation, useNavigate } from "@solidjs/router";
 import {
   createContext,
@@ -34,7 +35,7 @@ import {
   type HistoryRun,
 } from "./history.ts";
 import { load, NotSignedIn, refreshProfile, type LoadResult } from "./load.ts";
-import { moveItem, subscribeStores } from "./moves.ts";
+import { currentStores, moveItem, subscribeStores } from "./moves.ts";
 import { plugIcons, warmIcons } from "./preload.ts";
 import { clear, previewed } from "./preview.ts";
 import { collapseRail, railCollapsed } from "./rail.ts";
@@ -84,6 +85,7 @@ export interface AppState {
   onUnpin: (item: DimItem) => void;
   onCompare: (item: DimItem, rival: DimItem) => void;
   onMove: (item: DimItem, target: DimStore, equip: boolean) => void;
+  onCollect: (items: DimItem[], target: DimStore) => void;
   onCharacter: (store: DimStore) => void;
 }
 
@@ -494,6 +496,46 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
       .finally(() => setMoving(undefined));
   };
 
+  // A full unique stack only takes what tops it off
+  const pullAmount = (item: DimItem, target: DimStore): number => {
+    if (!item.uniqueStack) {
+      return item.amount;
+    }
+
+    const space = spaceLeftForItem(target, item, currentStores());
+
+    return space > 0 ? Math.min(item.amount || 1, space) : item.amount;
+  };
+
+  const onCollect = (items: DimItem[], target: DimStore) => {
+    if (moving() || items.length === 0) {
+      return;
+    }
+
+    void (async () => {
+      const errors = new Set<string>();
+      let index = 0;
+
+      for (const item of items) {
+        index += 1;
+        setMoving(`Collecting ${item.name} (${index} of ${items.length})`);
+
+        try {
+          await moveItem(item, target, false, pullAmount(item, target));
+        } catch (e: unknown) {
+          const message = messageOf(e);
+
+          if (!errors.has(message)) {
+            errors.add(message);
+            showToast(message, "danger");
+          }
+        }
+      }
+
+      setMoving(undefined);
+    })();
+  };
+
   const state: AppState = {
     loaded: current,
     stores,
@@ -514,6 +556,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     // The rival leads so the drop's column carries the deltas
     onCompare: (item, rival) => url.push({ pin: [rival.id, item.id] }),
     onMove,
+    onCollect,
     onCharacter: (store) => url.push({ character: store.id }),
   };
 

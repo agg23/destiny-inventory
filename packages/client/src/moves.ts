@@ -69,10 +69,9 @@ export const moveItem = async (
   item: DimItem,
   target: DimStore,
   equip: boolean,
+  amount = item.amount,
 ): Promise<DimItem> => {
   const session = createMoveSession(neverCanceled, [item]);
 
-  return dispatch(
-    executeMoveItem(item, target, { equip, amount: item.amount }, session),
-  );
+  return dispatch(executeMoveItem(item, target, { equip, amount }, session));
 };

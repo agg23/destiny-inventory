@@ -4,10 +4,14 @@ import type {
 } from "app/inventory/inventory-buckets";
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
+import { potentialSpaceLeftForItem } from "app/inventory/stores-helpers";
 import { createMemo, For, Show } from "solid-js";
 
 import { CharacterPicker, StoreBanner } from "./CharacterPicker.tsx";
+import { unmovable } from "./compare.ts";
 import { ItemIcon } from "./ItemIcon.tsx";
+import { LOST_ITEMS } from "./ItemPanel.tsx";
+import { Button } from "./ui/Button.tsx";
 
 const CATEGORIES = ["Postmaster", "Weapons", "Armor", "General", "Inventory"];
 
@@ -19,6 +23,8 @@ interface Props {
   pinned: DimItem[];
   active: DimStore | undefined;
   onSelectStore: (store: DimStore) => void;
+  onCollect: (items: DimItem[], target: DimStore) => void;
+  moving: string | undefined;
 }
 
 const VaultHeader = (props: { store: DimStore }) => (
@@ -121,6 +127,29 @@ export const Inventory = (props: Props) => {
   const cell = (store: DimStore, bucket: InventoryBucket) =>
     ordered(byStore().get(store.id)?.get(bucket.hash) ?? []);
 
+  const collectible = createMemo(() => {
+    const character = shown().find((store) => !store.isVault);
+
+    if (!character) {
+      return undefined;
+    }
+
+    const eligible = character.items.filter(
+      (item) =>
+        item.location.hash === LOST_ITEMS &&
+        !unmovable(item) &&
+        item.canPullFromPostmaster,
+    );
+
+    const items = eligible.filter((item) => {
+      const space = potentialSpaceLeftForItem(character, item, props.stores);
+
+      return space.guaranteed > 0 || space.couldMakeSpace;
+    });
+
+    return { character, items, empty: eligible.length === 0 };
+  });
+
   return (
     <div class="p-3">
       <div class="stores">
@@ -135,7 +164,31 @@ export const Inventory = (props: Props) => {
       <For each={rows()}>
         {(section) => (
           <section>
-            <h2 class="section-label mt-4 mb-1.5">{section.category}</h2>
+            <h2 class="section-label mt-4 mb-1.5">
+              {section.category}
+              <Show when={section.category === "Postmaster" && collectible()}>
+                {(found) => (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={!!props.moving || found().items.length === 0}
+                    title={
+                      found().items.length > 0
+                        ? undefined
+                        : found().empty
+                          ? "Nothing to pull"
+                          : "Cannot pull available items"
+                    }
+                    onClick={() =>
+                      props.onCollect(found().items, found().character)
+                    }
+                  >
+                    Collect all ({found().items.length})
+                  </Button>
+                )}
+              </Show>
+            </h2>
             <For each={section.buckets}>
               {(bucket) => (
                 <div class="row">

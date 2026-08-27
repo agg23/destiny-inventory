@@ -45,6 +45,8 @@ export const Vault = () => {
             pinned={app.pinned()}
             onSelectStore={app.onCharacter}
             onSelect={app.onPin}
+            onCollect={app.onCollect}
+            moving={app.moving()}
           />
         )}
       </Show>
