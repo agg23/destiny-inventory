@@ -911,7 +911,7 @@
   .compare-stat {
     display: grid;
     grid-template-columns: minmax(0, 1fr) max-content;
-    gap: var(--space-2);
+    gap: 0.6rem;
     align-items: center;
   }
 
@@ -977,10 +977,13 @@
     color: var(--dim);
   }
 
-  /* Or RESILIENCE will not fit the label column */
   .compare-grid .stat-name {
-    font-size: var(--text-sm);
     letter-spacing: var(--track-caps);
+  }
+
+  /* Stands in for the tooltip's body break */
+  .stat-lead:not(:first-child) {
+    margin-top: 0.8rem;
   }
 
   .plug {

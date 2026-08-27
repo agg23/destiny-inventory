@@ -78,7 +78,7 @@ export const Compare = (props: Props) => {
     <Show when={props.items.length > 0}>
       <aside class="item-tooltip compare overflow-y-auto p-4 [scrollbar-gutter:stable]">
         <div
-          class="stat-list compare-grid grid items-center content-start gap-1.5 gap-x-4"
+          class="stat-list compare-grid grid items-center content-start"
           style={{ "grid-template-columns": columns() }}
         >
           <For each={props.items}>

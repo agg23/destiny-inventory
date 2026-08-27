@@ -1047,8 +1047,10 @@ export const ItemDetails = (props: {
           <div class="min-w-0 self-start" style={cell(SUMMARY_ROW)}>
             <AegisNote item={props.item} />
             {warning}
-            <Masterwork item={props.item} />
-            <Archetype item={props.item} />
+            <div class="stat-lead">
+              <Masterwork item={props.item} />
+              <Archetype item={props.item} />
+            </div>
           </div>
           <For each={place().stats}>
             {(stat, row) => (
@@ -1084,7 +1086,7 @@ export const ItemDetails = (props: {
               </div>
             )}
           </For>
-          <div class="min-w-0 self-start" style={cell(perksRow())}>
+          <div class="min-w-0 self-start pt-2" style={cell(perksRow())}>
             {perks}
           </div>
           <div class="min-w-0 self-start pt-6" style={cell(perksRow() + 1)}>
