@@ -101,6 +101,30 @@ const describe = (plug: DimPlug): string => {
     .join("\n\n");
 };
 
+/** One perk or mod as the panels write it, whether or not it carries anything worth showing */
+export const benefitFor = (
+  item: DimItem,
+  plug: DimPlug,
+): Benefit | undefined => {
+  const { icon, hasIcon, name } = plug.plugDef.displayProperties;
+
+  // The archetype's stats hang off a second, nameless plug
+  if (!name) {
+    return undefined;
+  }
+
+  const stats = changes(item, plug);
+  const written = describe(plug);
+
+  return {
+    name,
+    icon: hasIcon ? icon : undefined,
+    enhanced: isEnhancedPerk(plug.plugDef),
+    description: restates(written, stats) ? "" : written,
+    stats,
+  };
+};
+
 // The game prints the intrinsic first
 export const benefits = (item: DimItem): Benefit[] => {
   const sockets = item.sockets;
@@ -131,30 +155,13 @@ export const benefits = (item: DimItem): Benefit[] => {
           return [];
         }
 
-        const stats = changes(item, plug);
-        const written = describe(plug);
-        const description = restates(written, stats) ? "" : written;
+        const benefit = benefitFor(item, plug);
 
-        if (!description && stats.length === 0) {
+        if (!benefit || (!benefit.description && benefit.stats.length === 0)) {
           return [];
         }
 
-        const { icon, hasIcon, name } = plug.plugDef.displayProperties;
-
-        // The archetype's stats hang off a second, nameless plug
-        if (!name) {
-          return [];
-        }
-
-        return [
-          {
-            name,
-            icon: hasIcon ? icon : undefined,
-            enhanced: isEnhancedPerk(plug.plugDef),
-            description,
-            stats,
-          },
-        ];
+        return [benefit];
       },
     );
   });

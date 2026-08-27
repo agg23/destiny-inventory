@@ -214,6 +214,7 @@
   /* Above the sticky character header */
   .rail {
     position: fixed;
+    anchor-name: --rail;
     z-index: 2;
     top: var(--header-h, 132px);
     right: 0;
@@ -854,6 +855,25 @@
     overflow: hidden;
     background-color: var(--panel);
     pointer-events: none;
+  }
+
+  /* Held clear of the rail so the perk being read stays visible */
+  .anchored.perk-card {
+    z-index: 7;
+    position-anchor: --hovered-perk;
+    position-area: none;
+    right: anchor(--rail left, var(--rail));
+    top: anchor(top);
+    max-height: calc(100vh - 16px);
+    overflow: hidden;
+    background-color: var(--panel);
+    pointer-events: none;
+    position-try-fallbacks: --perk-bottom;
+  }
+
+  @position-try --perk-bottom {
+    top: auto;
+    bottom: 0;
   }
 
   .tooltip-body:empty {

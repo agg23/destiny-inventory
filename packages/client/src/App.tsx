@@ -37,6 +37,8 @@ import {
 import { load, NotSignedIn, refreshProfile, type LoadResult } from "./load.ts";
 import { currentStores, moveItem, subscribeStores } from "./moves.ts";
 import { plugIcons, warmIcons } from "./preload.ts";
+import { clearPerk, previewedPerk } from "./perkPreview.ts";
+import { PerkCard } from "./PerkCard.tsx";
 import { clear, previewed } from "./preview.ts";
 import { collapseRail, railCollapsed } from "./rail.ts";
 import { startAutoRefresh } from "./refresh.ts";
@@ -261,7 +263,10 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   createEffect(
     on(
       () => `${location.pathname}${location.search}`,
-      () => clear(),
+      () => {
+        clear();
+        clearPerk();
+      },
       { defer: true },
     ),
   );
@@ -774,6 +779,10 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
               cursorX={card().cursorX}
             />
           )}
+        </Show>
+
+        <Show when={previewedPerk()}>
+          {(card) => <PerkCard item={card().item} plug={card().plug} />}
         </Show>
       </Show>
 

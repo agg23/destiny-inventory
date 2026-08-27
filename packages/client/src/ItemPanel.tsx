@@ -26,11 +26,11 @@ import { createMemo, For, Show, type JSX } from "solid-js";
 
 import { BUNGIE } from "./bungie.ts";
 import { delta, TOTAL, unmovable, type Delta } from "./compare.ts";
+import { dismissPerk, previewPerk } from "./perkPreview.ts";
 import { archetype, benefits, setBonus, type StatChange } from "./perks.ts";
 import {
   assess,
   perkFor,
-  perkRanked,
   setBonusFor,
   setBonusesRanked,
   type SlotVerdict,
@@ -357,7 +357,11 @@ const identity = (plug: DimPlug): string => {
 };
 
 // The game lights the plugged perk and dims the rest
-const Socket = (props: { socket: DimSocket; all?: boolean }) => {
+const Socket = (props: {
+  item: DimItem;
+  socket: DimSocket;
+  all?: boolean;
+}) => {
   const pool = () => {
     const set = props.socket.plugSet;
 
@@ -408,21 +412,17 @@ const Socket = (props: { socket: DimSocket; all?: boolean }) => {
     return props.socket.plugged ? [props.socket.plugged] : [];
   };
 
-  const tip = (plug: DimPlug) => {
-    const { name, description } = plug.plugDef.displayProperties;
-    const graded = perkFor(plug.plugDef.hash);
-    const standing = graded?.rank
-      ? `Aegis #${graded.rank} of ${perkRanked(graded.kind)}`
-      : undefined;
-
-    return [name, standing, description].filter(Boolean).join("\n\n");
-  };
-
   return (
     <div class="flex flex-col gap-1">
       <For each={options()}>
         {(plug) => (
-          <span class="plug-slot">
+          <span
+            class="plug-slot"
+            onMouseEnter={(event) =>
+              previewPerk(props.item, plug, event.currentTarget)
+            }
+            onMouseLeave={() => dismissPerk(plug)}
+          >
             <img
               class="plug"
               classList={{
@@ -437,7 +437,6 @@ const Socket = (props: { socket: DimSocket; all?: boolean }) => {
               src={`${BUNGIE}${plug.plugDef.displayProperties.icon}`}
               loading="lazy"
               alt={plug.plugDef.displayProperties.name}
-              title={tip(plug)}
             />
             <Show when={perkFor(plug.plugDef.hash)?.rank}>
               {(rank) => <span class="plug-rank">{rank()}</span>}
@@ -450,6 +449,7 @@ const Socket = (props: { socket: DimSocket; all?: boolean }) => {
 };
 
 const Category = (props: {
+  item: DimItem;
   sockets: DimSockets;
   category: DimSocketCategory;
   all?: boolean;
@@ -489,7 +489,9 @@ const Category = (props: {
         </h4>
         <div class="flex flex-wrap items-start gap-1">
           <For each={sockets()}>
-            {(socket) => <Socket socket={socket} all={props.all} />}
+            {(socket) => (
+              <Socket item={props.item} socket={socket} all={props.all} />
+            )}
           </For>
         </div>
       </div>
@@ -525,6 +527,7 @@ export const Perks = (props: {
         <For each={shown()}>
           {(category) => (
             <Category
+              item={props.item}
               sockets={sockets()}
               category={category}
               all={props.all}
@@ -539,7 +542,10 @@ export const Perks = (props: {
 };
 
 // The framework draws the perk disc itself
-const PerkIcon = (props: { icon: string | undefined; enhanced?: boolean }) => (
+export const PerkIcon = (props: {
+  icon: string | undefined;
+  enhanced?: boolean;
+}) => (
   <Show
     when={props.icon}
     fallback={

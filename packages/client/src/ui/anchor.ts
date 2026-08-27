@@ -1,7 +1,11 @@
-const NAME = "--hovered";
+const DEFAULT = "--hovered";
 
-let held: HTMLElement | undefined = undefined;
-let leave: (() => void) | undefined = undefined;
+interface Hold {
+  element: HTMLElement;
+  leave: () => void;
+}
+
+const held = new Map<string, Hold>();
 
 let pointerX = 0;
 let pointerY = 0;
@@ -13,34 +17,37 @@ const track = (event: MouseEvent) => {
 
 // Firefox withholds mouseleave until a scroll settles, so re-test the pointer here
 const recheck = () => {
-  if (!held) {
-    return;
-  }
-
   const under = document.elementFromPoint(pointerX, pointerY);
 
-  if (!under || !held.contains(under)) {
-    leave?.();
+  for (const hold of [...held.values()]) {
+    if (!under || !hold.element.contains(under)) {
+      hold.leave();
+    }
   }
 };
 
-/** Moves the CSS anchor name to this element, calling onLeave once the pointer is off it */
-export const holdAnchor = (element: HTMLElement, onLeave: () => void) => {
-  leave = onLeave;
+/** Moves the named CSS anchor to this element, calling onLeave once the pointer is off it */
+export const holdAnchor = (
+  element: HTMLElement,
+  onLeave: () => void,
+  name: string = DEFAULT,
+) => {
+  const existing = held.get(name);
 
-  if (held === element) {
+  if (existing?.element === element) {
+    existing.leave = onLeave;
+
     return;
   }
 
-  held?.style.removeProperty("anchor-name");
-  element.style.setProperty("anchor-name", NAME);
-  held = element;
+  existing?.element.style.removeProperty("anchor-name");
+  element.style.setProperty("anchor-name", name);
+  held.set(name, { element, leave: onLeave });
 };
 
-export const releaseAnchor = () => {
-  held?.style.removeProperty("anchor-name");
-  held = undefined;
-  leave = undefined;
+export const releaseAnchor = (name: string = DEFAULT) => {
+  held.get(name)?.element.style.removeProperty("anchor-name");
+  held.delete(name);
 };
 
 const init = () => {
