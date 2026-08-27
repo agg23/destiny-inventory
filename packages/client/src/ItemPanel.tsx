@@ -782,8 +782,10 @@ const RECOMMENDED_TIERS = new Set(["S", "A", "B"]);
 const recommendedBase = (tier: string | undefined): boolean =>
   tier !== undefined && RECOMMENDED_TIERS.has(tier);
 
-const others = (slot: SlotVerdict): string[] =>
-  slot.picks.filter((name) => name !== slot.rolled?.name);
+const unrolled = (slot: SlotVerdict): string[] =>
+  slot.picks.filter(
+    (name) => !slot.options.some((option) => option.name === name),
+  );
 
 const AegisMark = (props: { matched: boolean }) => (
   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -861,19 +863,51 @@ export const AegisNote = (props: { item: DimItem }) => {
                 {(slot) => (
                   <li classList={{ hit: slot.matched, miss: !slot.matched }}>
                     <span class="aegis-slot-label">Perk {slot.slot}</span>
-                    <span class="aegis-slot-perk">
-                      <AegisMark matched={slot.matched} />
-                      {slot.rolled?.name ?? "Empty"}
-                    </span>
                     <span class="sr-only">
                       {slot.matched ? "recommended" : "not recommended"}
                     </span>
-                    <Show when={others(slot).length > 0}>
+                    <Show
+                      when={slot.options.length > 0}
+                      fallback={
+                        <span class="aegis-slot-rolled">
+                          <span class="aegis-slot-perk plain">
+                            <AegisMark matched={false} />
+                            Empty
+                          </span>
+                        </span>
+                      }
+                    >
+                      <span class="aegis-slot-rolled">
+                        <For each={slot.options}>
+                          {(option) => (
+                            <span
+                              class="aegis-slot-perk"
+                              classList={{
+                                wanted: option.wanted,
+                                plain: !option.wanted,
+                              }}
+                            >
+                              <AegisMark matched={option.wanted} />
+                              {option.name}
+                              <Show when={option.rank}>
+                                {(rank) => (
+                                  <span class="aegis-slot-rank">#{rank()}</span>
+                                )}
+                              </Show>
+                              <Show when={option.plugged}>
+                                <span class="aegis-slot-label">selected</span>
+                              </Show>
+                            </span>
+                          )}
+                        </For>
+                      </span>
+                    </Show>
+                    <Show when={unrolled(slot).length > 0}>
                       <span class="aegis-slot-picks">
                         <span class="aegis-slot-label">
-                          {slot.matched ? "Also" : "Wants"}
+                          {slot.matched ? "Also wants" : "Wants"}
                         </span>{" "}
-                        {listed(others(slot))}
+                        {listed(unrolled(slot))}
                       </span>
                     </Show>
                   </li>

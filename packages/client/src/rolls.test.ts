@@ -211,6 +211,17 @@ describe("assess", () => {
     expect(read.of).toBe(2);
   });
 
+  it("marks a column whose pick rolled without being selected", () => {
+    load(roll({ slots: [[FLUTED_BARREL], [DESPERADO]] }));
+
+    const read = assess(weapon)!;
+
+    // Chambered Compensator is plugged, Fluted Barrel rolled beside it
+    expect(read.slots.map((s) => s.matched)).toEqual([true, true]);
+    expect(read.slots[0]?.rolled?.name).toBe("Fluted Barrel");
+    expect(read.score).toBe(2);
+  });
+
   it("marks a column that missed and still names what rolled there", () => {
     load(roll({ slots: [[SLICE], [KILL_CLIP]] }));
 
@@ -220,6 +231,41 @@ describe("assess", () => {
     // The pick is in that socket's pool, so the column resolves and names what rolled
     expect(read.slots[1]?.rolled?.name).toBe("Desperado");
     expect(read.score).toBe(1);
+  });
+
+  it("lists every perk the column rolled, marking the wanted and the selected", () => {
+    load(roll({ slots: [[FLUTED_BARREL], [DESPERADO]] }));
+
+    const read = assess(weapon)!;
+
+    expect(read.slots[0]?.options).toEqual([
+      {
+        name: "Chambered Compensator",
+        hash: 3661387068,
+        rank: undefined,
+        wanted: false,
+        plugged: true,
+      },
+      {
+        name: "Fluted Barrel",
+        hash: FLUTED_BARREL,
+        rank: undefined,
+        wanted: true,
+        plugged: false,
+      },
+    ]);
+  });
+
+  it("carries the perk rank onto each rolled option", () => {
+    loadPerks(
+      [roll({ slots: [[SLICE], [DESPERADO]] })],
+      [perk({ name: "Desperado", hashes: [DESPERADO], rank: 3 })],
+    );
+
+    const desperado = assess(weapon)?.slots[1]?.options[0];
+
+    expect(desperado?.name).toBe("Desperado");
+    expect(desperado?.rank).toBe(3);
   });
 
   it("names every pick the column offers, not only what rolled", () => {
@@ -253,12 +299,12 @@ describe("assess", () => {
     load(roll({ tier: "S", slots: [[SLICE], [KILL_CLIP]] }));
     expect(assess(weapon)?.overall).toBe("A");
 
-    load(roll({ tier: "S", slots: [[FLUTED_BARREL], [KILL_CLIP]] }));
+    load(roll({ tier: "S", slots: [[12345], [KILL_CLIP]] }));
     expect(assess(weapon)?.overall).toBe("B");
   });
 
   it("does not step past the bottom tier", () => {
-    load(roll({ tier: "F", slots: [[FLUTED_BARREL], [KILL_CLIP]] }));
+    load(roll({ tier: "F", slots: [[12345], [KILL_CLIP]] }));
 
     expect(assess(weapon)?.overall).toBe("F");
   });
@@ -284,6 +330,12 @@ describe("rollFor", () => {
     expect([...(matched?.wishListPerks ?? [])].sort()).toEqual(
       [SLICE, DESPERADO].sort(),
     );
+  });
+
+  it("matches when the pick rolled in a column without being selected", () => {
+    load(roll({ slots: [[FLUTED_BARREL], [DESPERADO]] }));
+
+    expect(rollFor(weapon)).toBeDefined();
   });
 
   it("matches when one slot lists a perk the item did not roll", () => {

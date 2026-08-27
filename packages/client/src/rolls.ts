@@ -279,11 +279,22 @@ export const rollFor = (item: DimItem): InventoryWishListRoll | undefined => {
   return roll;
 };
 
+export interface SlotPerk {
+  name: string;
+  hash: number;
+  rank: number | undefined;
+  wanted: boolean;
+  plugged: boolean;
+}
+
 export interface SlotVerdict {
   /** Which perk column this is, counting from one the way the sheet does */
   slot: number;
+  /** The wanted perk when the column rolled one, otherwise what sits plugged */
   rolled: { name: string; hash: number; rank: number | undefined } | undefined;
   wanted: number[];
+  /** Every perk the column rolled, in the order the socket lists them */
+  options: SlotPerk[];
   /** What Aegis picked for the column, named off the socket's own pool */
   picks: string[];
   matched: boolean;
@@ -370,20 +381,66 @@ export const assess = (item: DimItem): Assessment | undefined => {
   for (const [index, column] of columns.entries()) {
     const wanted = new Set(column);
     const socket = socketFor(item, wanted);
-    const plugged = socket?.plugged;
+    const plugged = socket?.plugged ?? undefined;
+
+    const rollable =
+      socket && socket.plugOptions.length > 0
+        ? socket.plugOptions
+        : plugged
+          ? [plugged]
+          : [];
+
+    const options: SlotPerk[] = [];
+
+    for (const plug of rollable) {
+      const { name } = plug.plugDef.displayProperties;
+      const hash = plug.plugDef.hash;
+      const isWanted = wanted.has(hash);
+      const isPlugged = hash === plugged?.plugDef.hash;
+      const seen = options.find((option) => option.name === name);
+
+      if (seen) {
+        seen.wanted = seen.wanted || isWanted;
+        seen.plugged = seen.plugged || isPlugged;
+        continue;
+      }
+
+      options.push({
+        name,
+        hash,
+        rank: perkRanks.get(hash)?.rank,
+        wanted: isWanted,
+        plugged: isPlugged,
+      });
+    }
+
+    // A column scores on everything it rolled, since any of it can be selected
+    const hits = options.filter((option) => option.wanted);
+    let shown = hits.find((option) => option.plugged);
+
+    if (shown === undefined) {
+      for (const hit of hits) {
+        if (
+          shown === undefined ||
+          (hit.rank ?? Number.MAX_SAFE_INTEGER) <
+            (shown.rank ?? Number.MAX_SAFE_INTEGER)
+        ) {
+          shown = hit;
+        }
+      }
+    }
+
+    shown = shown ?? options.find((option) => option.plugged);
 
     slots.push({
       slot: index + 1,
-      rolled: plugged
-        ? {
-            name: plugged.plugDef.displayProperties.name,
-            hash: plugged.plugDef.hash,
-            rank: perkRanks.get(plugged.plugDef.hash)?.rank,
-          }
+      rolled: shown
+        ? { name: shown.name, hash: shown.hash, rank: shown.rank }
         : undefined,
       wanted: column,
+      options,
       picks: namePicks(socket, column),
-      matched: plugged ? wanted.has(plugged.plugDef.hash) : false,
+      matched: hits.length > 0,
     });
   }
 

@@ -673,13 +673,11 @@
     margin-top: var(--space-3);
   }
 
-  .aegis-slots li.hit .aegis-slot-perk,
-  .aegis-slots li.hit .aegis-slot-mark {
+  .aegis-slots li.hit > .aegis-slot-label {
     color: var(--good);
   }
 
-  .aegis-slots li.miss .aegis-slot-perk,
-  .aegis-slots li.miss .aegis-slot-mark {
+  .aegis-slots li.miss > .aegis-slot-label {
     color: var(--error);
   }
 
@@ -695,11 +693,32 @@
     grid-column: 1;
   }
 
+  .aegis-slot-rolled {
+    display: flex;
+    grid-column: 2;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
   .aegis-slot-perk {
     display: flex;
     grid-column: 2;
     align-items: baseline;
     gap: var(--space-3);
+  }
+
+  .aegis-slot-perk.wanted {
+    color: var(--good);
+  }
+
+  .aegis-slot-perk.plain {
+    color: var(--muted);
+  }
+
+  .aegis-slot-rank {
+    color: var(--dim);
+    font-size: var(--text-xs);
+    font-variant-numeric: tabular-nums;
   }
 
   /* Baseline aligning an svg sits its box on the baseline, not its ink */

@@ -59,6 +59,7 @@ const read = (hits: boolean[]): Assessment => ({
     slot: index + 1,
     rolled: { name: `Perk ${index + 1}`, hash: index, rank: undefined },
     wanted: [],
+    options: [],
     picks: [],
     matched,
   })),
