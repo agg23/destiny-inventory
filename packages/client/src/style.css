@@ -480,7 +480,13 @@
 
   /* Framework's hover tint assumes a background image */
   .item-tile {
+    --badge: clamp(9px, calc(var(--tile) * 0.2), 16px);
     z-index: 0;
+  }
+
+  /* Framework sizes these at 3rem, ignoring the tile setting */
+  .arrivals .item-tile.small {
+    --tile: 3rem;
   }
 
   /* A nested tile is decoration; the row around it owns the hover */
@@ -493,8 +499,25 @@
   }
 
   .item-tile .item-quantity {
+    padding: 0 0.15em;
+    font-size: clamp(9px, calc(var(--badge) * 0.85), 14px);
     line-height: 1.25;
     font-variant-numeric: tabular-nums;
+  }
+
+  .item-tile .tile-icons {
+    display: flex;
+    gap: 1px;
+    position: absolute;
+    bottom: 1px;
+    left: 1px;
+    z-index: 2;
+  }
+
+  .item-tile .tile-icons img {
+    width: var(--badge);
+    height: var(--badge);
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9));
   }
 
   .gear-tier {

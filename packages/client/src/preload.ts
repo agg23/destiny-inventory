@@ -23,9 +23,10 @@ const collect = (
   return [...icons];
 };
 
-export const elementIcons = (items: DimItem[]): string[] =>
+export const tileIcons = (items: DimItem[]): string[] =>
   collect(items, (item, take) => {
     take(item.element?.displayProperties.icon);
+    take(item.breakerType?.displayProperties.icon);
   });
 
 export const plugIcons = (items: DimItem[]): string[] =>

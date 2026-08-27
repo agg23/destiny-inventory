@@ -36,7 +36,7 @@ import {
 } from "./history.ts";
 import { load, NotSignedIn, refreshProfile, type LoadResult } from "./load.ts";
 import { currentStores, moveItem, subscribeStores } from "./moves.ts";
-import { elementIcons, plugIcons, warmIcons } from "./preload.ts";
+import { plugIcons, tileIcons, warmIcons } from "./preload.ts";
 import { clearPerk, previewedPerk } from "./perkPreview.ts";
 import { PerkCard } from "./PerkCard.tsx";
 import { clear, previewed } from "./preview.ts";
@@ -185,18 +185,18 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
 
   const feed = () => acquired(stores());
 
-  let elemented = false;
+  let warmedTiles = false;
 
   createEffect(() => {
     const loaded = current();
 
-    if (elemented || !loaded) {
+    if (warmedTiles || !loaded) {
       return;
     }
 
-    elemented = true;
+    warmedTiles = true;
 
-    const stop = warmIcons(elementIcons(loaded.items));
+    const stop = warmIcons(tileIcons(loaded.items));
 
     onCleanup(stop);
   });

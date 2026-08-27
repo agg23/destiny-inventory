@@ -66,6 +66,14 @@ const Face = (props: Props) => (
       <Show when={corner(props.item)}>
         {(value) => <span class="item-quantity">{value()}</span>}
       </Show>
+      <span class="tile-icons">
+        <Show when={props.item.element?.displayProperties.icon}>
+          {(icon) => <img src={`${BUNGIE}${icon()}`} alt="" />}
+        </Show>
+        <Show when={props.item.breakerType?.displayProperties.icon}>
+          {(icon) => <img src={`${BUNGIE}${icon()}`} alt="" />}
+        </Show>
+      </span>
       <Show when={assess(props.item)?.overall}>
         {(overall) => (
           <span class={`item-tier tier-${overall().toLowerCase()}`}>
