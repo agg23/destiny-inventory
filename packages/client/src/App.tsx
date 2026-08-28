@@ -51,6 +51,7 @@ import { showToast, Toasts } from "./toast.tsx";
 import { Button } from "./ui/Button.tsx";
 import { PanelGlyph } from "./ui/PanelGlyph.tsx";
 import { RefreshGlyph } from "./ui/RefreshGlyph.tsx";
+import { SignOutGlyph } from "./ui/SignOutGlyph.tsx";
 import { TabButton } from "./ui/TabButton.tsx";
 import { tabHref, TABS, type Tab } from "./url.ts";
 
@@ -735,16 +736,18 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
               </Show>
               <Settings />
               <span class="header-rule" aria-hidden="true" />
-              <Button
-                size="xs"
-                variant="ghost"
+              <button
+                type="button"
+                class="header-action"
+                title="Sign out"
+                aria-label="Sign out"
                 onClick={() => {
                   signOut();
                   globalThis.location.reload();
                 }}
               >
-                Sign out
-              </Button>
+                <SignOutGlyph />
+              </button>
             </div>
           </div>
 
