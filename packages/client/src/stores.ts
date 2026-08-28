@@ -100,7 +100,7 @@ export const buildStoresFrom = (
   tables.set("InventoryItem", items as unknown as Record<string, unknown>);
   tables.set("PlugSet", plugSets as unknown as Record<string, unknown>);
 
-  const defs = buildDefinitions(tables);
+  const defs = buildDefinitions(tables, hidden);
 
   setDefs(defs);
 

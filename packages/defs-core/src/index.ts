@@ -38,6 +38,7 @@ export {
   slimPlace,
   slimReward,
   skullTable,
+  type GearTier,
   type SlimActivity,
   type SlimActivitySet,
   type SlimActivityType,

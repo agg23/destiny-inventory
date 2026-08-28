@@ -123,19 +123,6 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .status-toggle {
-    margin-left: auto;
-    padding: 0;
-    background: none;
-    border: 0;
-    color: inherit;
-    font: inherit;
-    cursor: pointer;
-  }
-
-  .status-toggle:hover {
-    color: var(--text);
-  }
 
   .search-field .header-filter,
   .search-menu {

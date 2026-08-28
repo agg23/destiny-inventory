@@ -119,7 +119,6 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   const [moved, setMoved] = createSignal<DimStore[] | undefined>(undefined);
   const [moving, setMoving] = createSignal<string | undefined>(undefined);
   const [stale, setStale] = createSignal(false);
-  const [detail, setDetail] = createSignal(false);
   const [refreshing, setRefreshing] = createSignal(false);
   const [refreshedAt, setRefreshedAt] = createSignal<number | undefined>(
     undefined,
@@ -241,22 +240,6 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   const current = () => (error() ? undefined : upgraded() ?? result());
   const needsSignIn = () =>
     !authed() || expired() || error() instanceof NotSignedIn;
-
-  const failures = () => {
-    const loaded = current();
-    const groups = [
-      ...(loaded?.skipped ?? []).map((group) => ({
-        ...group,
-        kind: "skipped",
-      })),
-      ...(loaded?.degraded ?? []).map((group) => ({
-        ...group,
-        kind: "degraded",
-      })),
-    ];
-
-    return groups.length > 0 ? groups : undefined;
-  };
 
   const tab = (): Tab =>
     TABS.find((one) => location.pathname.startsWith(`/${one}`)) ?? "vault";
@@ -777,18 +760,6 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
               <span>Syncing history…</span>
             </Show>
 
-            <Show when={failures()}>
-              {(groups) => (
-                <For each={groups()}>
-                  {(group) => (
-                    <span class="text-warning">
-                      {group.count} × {group.kind}: {group.reason}
-                    </span>
-                  )}
-                </For>
-              )}
-            </Show>
-
             <Show when={failingSince()}>
               {(since) => (
                 <span class="text-warning">
@@ -804,34 +775,6 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
               {(message) => <span class="text-danger">{message()}</span>}
             </Show>
 
-            <Show when={current()}>
-              {(loaded) => (
-                <>
-                  <button
-                    type="button"
-                    class="status-toggle"
-                    aria-expanded={detail()}
-                    title="Load timings"
-                    onClick={() => setDetail(!detail())}
-                  >
-                    {loaded().stores.length} stores · tier {loaded().tier}
-                  </button>
-                  <Show when={detail()}>
-                    <span>
-                      paint {Math.round(result()?.timings.total ?? 0)}ms ·
-                      profile {Math.round(loaded().timings.profile)}ms · defs{" "}
-                      {Math.round(loaded().timings.defs)}ms · build{" "}
-                      {Math.round(loaded().timings.items)}ms
-                      <Show when={upgraded()}>
-                        {(done) => (
-                          <> · complete {Math.round(done().timings.total)}ms</>
-                        )}
-                      </Show>
-                    </span>
-                  </Show>
-                </>
-              )}
-            </Show>
           </div>
         </header>
 

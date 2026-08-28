@@ -64,26 +64,17 @@ const SUPPORT = [
 const CURRENT = "current";
 
 // Bumped whenever the shipped def shape changes, so cached records get refetched
-const SHAPE = 2;
+const SHAPE = 3;
 
 const stamp = (version: string): string => `${version}/${SHAPE}`;
 
 type ItemDef = DestinyInventoryItemDefinition;
 type PlugSetDef = DestinyPlugSetDefinition;
 
-export interface Timings {
-  index: number;
-  profile: number;
-  defs: number;
-  items: number;
-  total: number;
-}
-
 export interface LoadResult {
   stores: DimStore[];
   buckets: InventoryBuckets;
   items: DimItem[];
-  timings: Timings;
   manifestVersion: string;
   tier: "core" | "detail";
   source: "cache" | "live";
@@ -272,15 +263,11 @@ export const load = async (
   onLiveError?: (e: unknown) => void,
   primed?: LoadResult,
 ): Promise<LoadResult> => {
-  const started = performance.now();
-
-  const indexStart = performance.now();
   const store = primed?.session.store ?? (await openStore());
 
   const finish = async (useCachedProfile: boolean): Promise<LoadResult> => {
     const config = await loadConfig();
     const index = config.artifacts;
-    const indexTime = performance.now() - indexStart;
 
     const stored = await store.manifestVersion();
     const fresh =
@@ -291,7 +278,6 @@ export const load = async (
       await store.clear();
     }
 
-    const profileStart = performance.now();
     const supportPromise = fetchSupport(index);
     const rollsPromise = loadRolls(index, store);
 
@@ -334,14 +320,11 @@ export const load = async (
       void store.putOne(PROFILE, CURRENT, profile);
     }
 
-    const profileTime = performance.now() - profileStart;
-
     const owned = new Set([
       ...profileItems(profile).map((item) => item.itemHash),
       ...liveReferences(profile),
     ]);
 
-    const defsStart = performance.now();
     let core: ItemDef[] | undefined = undefined;
     let items: Record<number, ItemDef>;
     let plugSets: Record<number, PlugSetDef> = {};
@@ -359,7 +342,6 @@ export const load = async (
       plugSets = closure.plugSets;
     }
 
-    const defsTime = performance.now() - defsStart;
     const [support, hiddenHashes] = await Promise.all([
       supportPromise,
       fetchRecords<number>(index, "hidden"),
@@ -368,9 +350,7 @@ export const load = async (
 
     const hidden = new Set(hiddenHashes);
 
-    const itemsStart = performance.now();
     const built = buildStoresFrom(support, items, plugSets, profile, hidden);
-    const itemsTime = performance.now() - itemsStart;
 
     await seedInventory(built.stores, membership);
 
@@ -389,13 +369,6 @@ export const load = async (
       stores: built.stores,
       buckets: built.buckets,
       items: storeItems(built.stores),
-      timings: {
-        index: indexTime,
-        profile: profileTime,
-        defs: defsTime,
-        items: itemsTime,
-        total: performance.now() - started,
-      },
       manifestVersion: index.manifestVersion,
       tier: fresh ? "core" : "detail",
       source: cached ? "cache" : "live",
@@ -425,7 +398,6 @@ export const load = async (
         membership,
         onUpgrade,
         first: result,
-        started,
       });
     }
 
@@ -450,12 +422,7 @@ export const load = async (
   }
 
   if (onUpgrade) {
-    const painted = await bootFromSnapshot(
-      store,
-      storedMembership(),
-      performance.now() - indexStart,
-      started,
-    );
+    const painted = await bootFromSnapshot(store, storedMembership());
 
     if (painted) {
       finish(false)
@@ -542,7 +509,6 @@ interface Populate {
   membership: Membership;
   onUpgrade: (result: LoadResult) => void;
   first: LoadResult;
-  started: number;
 }
 
 // The version marker lands last
@@ -557,7 +523,6 @@ const populate = async ({
   membership,
   onUpgrade,
   first,
-  started,
 }: Populate) => {
   const [detail, plugsets] = await Promise.all([
     fetchRecords<ItemDef>(index, "detail"),
@@ -574,10 +539,8 @@ const populate = async ({
     }
   }
 
-  const itemsStart = performance.now();
   const plugSets = byHash(plugsets);
   const built = buildStoresFrom(support, items, plugSets, profile, hidden);
-  const itemsTime = performance.now() - itemsStart;
 
   await seedInventory(built.stores, membership);
 
@@ -588,11 +551,6 @@ const populate = async ({
     stores: built.stores,
     buckets: built.buckets,
     items: storeItems(built.stores),
-    timings: {
-      ...first.timings,
-      items: itemsTime,
-      total: performance.now() - started,
-    },
     tier: "detail",
     counts: {
       ...first.counts,

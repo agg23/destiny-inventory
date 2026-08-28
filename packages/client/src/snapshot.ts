@@ -57,8 +57,6 @@ const hydrate = (
   stored: string | undefined,
   rolls: CachedRolls | undefined,
   membership: Membership,
-  indexTime: number,
-  started: number,
 ): LoadResult | undefined => {
   if (!snapshot?.index || stored === undefined || snapshot.stamp !== stored) {
     return undefined;
@@ -74,7 +72,7 @@ const hydrate = (
     console.warn("Seed failed", e);
   });
 
-  return fromSnapshot(snapshot, store, membership, indexTime, started);
+  return fromSnapshot(snapshot, store, membership);
 };
 
 /**
@@ -83,7 +81,6 @@ const hydrate = (
  * delays startup by at most PRIME_CAP
  */
 export const primeBoot = async (): Promise<LoadResult | undefined> => {
-  const started = performance.now();
   const membership = storedMembership();
 
   if (!membership) {
@@ -102,17 +99,10 @@ export const primeBoot = async (): Promise<LoadResult | undefined> => {
         early.stored,
         early.rolls,
         membership,
-        performance.now() - started,
-        started,
       );
     }
 
-    return bootFromSnapshot(
-      store,
-      membership,
-      performance.now() - started,
-      started,
-    );
+    return bootFromSnapshot(store, membership);
   })().catch((e: unknown) => {
     console.warn("Prime failed", e);
 
@@ -134,8 +124,6 @@ export const primeBoot = async (): Promise<LoadResult | undefined> => {
 export const bootFromSnapshot = async (
   store: DefStore,
   membership: Membership | undefined,
-  indexTime: number,
-  started: number,
 ): Promise<LoadResult | undefined> => {
   if (!membership) {
     return undefined;
@@ -147,15 +135,7 @@ export const bootFromSnapshot = async (
     readCachedRolls(store),
   ]);
 
-  return hydrate(
-    store,
-    snapshot,
-    stored,
-    rolls,
-    membership,
-    indexTime,
-    started,
-  );
+  return hydrate(store, snapshot, stored, rolls, membership);
 };
 
 /** Persists a built result for the next boot; setHasUnknown breaks structured clone */
@@ -191,19 +171,10 @@ const fromSnapshot = (
   snapshot: Snapshot,
   store: DefStore,
   membership: Membership,
-  indexTime: number,
-  started: number,
 ): LoadResult => ({
   stores: snapshot.stores,
   buckets: { ...snapshot.buckets, setHasUnknown: () => {} },
   items: storeItems(snapshot.stores),
-  timings: {
-    index: indexTime,
-    profile: 0,
-    defs: 0,
-    items: 0,
-    total: performance.now() - started,
-  },
   manifestVersion: snapshot.index.manifestVersion,
   tier: snapshot.tier,
   source: "cache",
