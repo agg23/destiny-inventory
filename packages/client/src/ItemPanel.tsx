@@ -365,6 +365,10 @@ const Socket = (props: {
   socket: DimSocket;
   all?: boolean;
 }) => {
+  // Enhanced variants roll under their own hash, so match the way the pool dedupes
+  const onInstance = () =>
+    new Map(props.socket.plugOptions.map((plug) => [identity(plug), plug]));
+
   const pool = () => {
     const set = props.socket.plugSet;
 
@@ -398,7 +402,19 @@ const Socket = (props: {
       return [plug];
     });
 
-    return plugged ? [plugged, ...rest] : rest;
+    const carried = onInstance();
+
+    // The pool holds the base variant, so swap in the one the item carries
+    const sorted = [
+      ...rest.flatMap((plug) => {
+        const own = carried.get(identity(plug));
+
+        return own ? [own] : [];
+      }),
+      ...rest.filter((plug) => !carried.has(identity(plug))),
+    ];
+
+    return plugged ? [plugged, ...sorted] : sorted;
   };
 
   const options = () => {
@@ -431,6 +447,7 @@ const Socket = (props: {
               classList={{
                 plugged:
                   plug.plugDef.hash === props.socket.plugged?.plugDef.hash,
+                available: onInstance().has(identity(plug)),
                 disabled: !plug.enabled,
                 round:
                   props.socket.isPerk &&
@@ -486,7 +503,12 @@ const Category = (props: {
               aria-pressed={Boolean(props.all)}
               onClick={props.onToggleAll}
             >
-              {props.all ? "Hide" : "All"}
+              <span class="toggle-label">
+                <span>{props.all ? "Hide" : "All"}</span>
+                <span class="reserve" aria-hidden="true">
+                  Hide
+                </span>
+              </span>
             </Button>
           </Show>
         </h4>
