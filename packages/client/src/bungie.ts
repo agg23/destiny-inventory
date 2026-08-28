@@ -39,10 +39,12 @@ const call = async <T>(
   path: string,
   accessToken: string,
   host = PLATFORM,
+  cache: RequestCache = "default",
 ): Promise<T> => {
   const { apiKey } = await loadConfig();
 
   const response = await fetch(`${host}${path}`, {
+    cache,
     headers: { "X-API-Key": apiKey, Authorization: `Bearer ${accessToken}` },
   });
 
@@ -113,6 +115,9 @@ export const fetchProfile = (
       membership.membershipId
     }/?components=${COMPONENTS.join(",")}`,
     accessToken,
+    PLATFORM,
+    // Bungie serves the profile with a max-age, so a refresh can never leave the browser
+    "no-cache",
   );
 
 const character = (membership: Membership, characterId: string): string =>
@@ -131,6 +136,9 @@ export const fetchActivityHistory = async (
       characterId,
     )}/Stats/Activities/?count=${PAGE}&page=${page}`,
     accessToken,
+    PLATFORM,
+    // Page 0 grows as you play, and Bungie serves it with a max-age
+    page === 0 ? "no-cache" : "default",
   );
 
   // Bungie omits the array entirely once the pages run out

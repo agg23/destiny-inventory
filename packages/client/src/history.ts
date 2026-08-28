@@ -300,7 +300,7 @@ export const playedSeconds = (runs: HistoryRun[]): number =>
   runs.reduce((total, run) => total + run.playedSeconds, 0);
 
 export interface ActivityTiming {
-  lastRunAt: number;
+  lastRun: HistoryRun;
   fastestSeconds: number | undefined;
   runs: number;
 }
@@ -316,7 +316,7 @@ export const timingsByHash = (
 
     if (!held) {
       timings.set(hash, {
-        lastRunAt: run.startedAt,
+        lastRun: run,
         fastestSeconds: run.completed ? run.durationSeconds : undefined,
         runs: 1,
       });
@@ -325,7 +325,10 @@ export const timingsByHash = (
     }
 
     held.runs += 1;
-    held.lastRunAt = Math.max(held.lastRunAt, run.startedAt);
+
+    if (run.startedAt > held.lastRun.startedAt) {
+      held.lastRun = run;
+    }
 
     if (run.completed) {
       held.fastestSeconds =
@@ -367,7 +370,10 @@ export const bestTiming = (
     }
 
     merged.runs += found.runs;
-    merged.lastRunAt = Math.max(merged.lastRunAt, found.lastRunAt);
+
+    if (found.lastRun.startedAt > merged.lastRun.startedAt) {
+      merged.lastRun = found.lastRun;
+    }
 
     if (found.fastestSeconds !== undefined) {
       merged.fastestSeconds =

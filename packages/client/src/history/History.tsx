@@ -13,7 +13,12 @@ import { useApp } from "../App.tsx";
 import { useUrl } from "../router.ts";
 import { Button } from "../ui/Button.tsx";
 import { TabButton } from "../ui/TabButton.tsx";
-import { activityHref, activityLabel, type HistoryTab } from "../url.ts";
+import {
+  activityHref,
+  activityLabel,
+  runHref,
+  type HistoryTab,
+} from "../url.ts";
 import { activityArt } from "../activities.ts";
 import { activityLookup } from "./activityLookup.ts";
 import { ActivityMap, type Week } from "./ActivityMap.tsx";
@@ -175,11 +180,10 @@ export const History = () => {
   const openRow = (row: ActivityRow) =>
     navigate(activityHref(row.label, row.difficulty));
 
-  const openActivity = (run: HistoryRun) => {
-    const href = activityHref(lookup().labelOf(run), lookup().rungOf(run));
-
-    navigate(`${href}${href.includes("?") ? "&" : "?"}run=${run.instanceId}`);
-  };
+  const openActivity = (run: HistoryRun) =>
+    navigate(
+      runHref(lookup().labelOf(run), lookup().rungOf(run), run.instanceId),
+    );
 
   const toggleRun = (run: HistoryRun) =>
     url.push({

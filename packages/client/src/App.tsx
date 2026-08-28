@@ -101,6 +101,9 @@ const AppContext = createContext<AppState>();
 
 export const useApp = (): AppState => useContext(AppContext)!;
 
+// Keeps the last-run column from drifting while History is closed
+const OFFSCREEN_RUNS = 2 * 60_000;
+
 export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   const url = useUrl();
   const location = useLocation();
@@ -129,6 +132,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     character() === undefined ? NOBODY : prefer(NOBODY, character() ?? ""),
   );
   const [runs, setRuns] = createSignal<HistoryRun[]>([]);
+  let runsAt = 0;
   const [syncing, setSyncing] = createSignal(false);
   const [syncError, setSyncError] = createSignal<string | undefined>(undefined);
   const [liveFailed, setLiveFailed] = createSignal(false);
@@ -346,10 +350,13 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   };
 
   const syncRuns = async (session: LoadResult["session"]) => {
+    runsAt = Date.now();
     setSyncing(true);
 
     try {
-      setRuns(await storedRuns(session.store));
+      if (runs().length === 0) {
+        setRuns(await storedRuns(session.store));
+      }
 
       const token = await accessToken();
 
@@ -395,6 +402,16 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     syncStarted = true;
     void syncRuns(loaded.session);
   });
+
+  const syncNow = (): Promise<void> => {
+    const loaded = current();
+
+    if (syncing() || !loaded || characterIds().length === 0) {
+      return Promise.resolve();
+    }
+
+    return syncRuns(loaded.session);
+  };
 
   const timings = createMemo(() => timingsByHash(runs()));
 
@@ -485,16 +502,16 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     railCollapsed() ? "Show side panel" : "Hide side panel";
 
   const refresh = async () => {
-    const session = current()?.session;
+    const loaded = current();
 
-    if (!session) {
+    if (!loaded) {
       return;
     }
 
     setRefreshing(true);
 
     try {
-      const outcome = await refreshProfile(session);
+      const outcome = await refreshProfile(loaded);
 
       setFailingSince(undefined);
       setActive((was) => observe(was, outcome.playing));
@@ -503,6 +520,10 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
         setStale(true);
 
         return;
+      }
+
+      if (outcome.result) {
+        setUpgraded(outcome.result);
       }
 
       setRefreshedAt(Date.now());
@@ -515,12 +536,32 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     }
   };
 
-  onCleanup(
-    startAutoRefresh({
-      onRefresh: () =>
-        refresh().catch((e: unknown) => console.warn("Refresh failed", e)),
-      busy: () => Boolean(moving()) || current()?.source === "cache",
-    }),
+  const refreshAll = async () => {
+    if (tab() === "history" || Date.now() - runsAt > OFFSCREEN_RUNS) {
+      await syncNow();
+    }
+
+    await refresh();
+  };
+
+  const poller = startAutoRefresh({
+    onRefresh: () =>
+      refreshAll().catch((e: unknown) => console.warn("Refresh failed", e)),
+    busy: () => Boolean(moving()) || current()?.source === "cache",
+  });
+
+  onCleanup(poller.stop);
+
+  createEffect(
+    on(
+      tab,
+      (which) => {
+        if (which === "history") {
+          poller.now();
+        }
+      },
+      { defer: true },
+    ),
   );
 
   const against = () => {
@@ -691,7 +732,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
                   current()?.source === "cache"
                 }
                 onClick={() =>
-                  void refresh().catch((e: unknown) =>
+                  void refreshAll().catch((e: unknown) =>
                     showToast(messageOf(e), "danger"),
                   )
                 }

@@ -448,7 +448,7 @@ describe("history", () => {
 
     expect(bestTiming(timings, [10, 20])).toMatchObject({
       runs: 2,
-      lastRunAt: 5000,
+      lastRun: { startedAt: 5000 },
       fastestSeconds: 900,
     });
   });
@@ -466,7 +466,7 @@ describe("history", () => {
     expect(timings.get(10)).toMatchObject({
       runs: 2,
       fastestSeconds: 900,
-      lastRunAt: 2000,
+      lastRun: { startedAt: 2000 },
     });
   });
 });

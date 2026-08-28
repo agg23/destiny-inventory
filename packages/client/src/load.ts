@@ -617,10 +617,8 @@ export type RefreshStatus = "updated" | "unchanged" | "manifest-changed";
 
 export interface RefreshOutcome {
   status: RefreshStatus;
-  skipped: Failure[];
-  degraded: Failure[];
   playing: string | undefined;
-  activities: CharacterActivities | undefined;
+  result: LoadResult | undefined;
 }
 
 /** Pulls definitions the load-time closure never reached, such as a weapon nobody owns */
@@ -652,7 +650,7 @@ const materializeNew = (session: Session, profile: DestinyProfileResponse) =>
   ]);
 
 export const refreshProfile = async (
-  session: Session,
+  first: LoadResult,
 ): Promise<RefreshOutcome> => {
   const token = await accessToken();
 
@@ -660,30 +658,24 @@ export const refreshProfile = async (
     throw new NotSignedIn();
   }
 
+  const session = first.session;
   const config = await loadConfig();
 
   if (config.artifacts.manifestVersion !== session.index.manifestVersion) {
     return {
       status: "manifest-changed",
-      skipped: [],
-      degraded: [],
       playing: undefined,
-      activities: undefined,
+      result: undefined,
     };
   }
 
   const profile = await fetchProfile(session.membership, token);
   const minted = mintedAt(profile);
+  const playing = playingNow(profile);
 
   // Bungie's cache can hand back stale data
   if (minted <= session.minted) {
-    return {
-      status: "unchanged",
-      skipped: [],
-      degraded: [],
-      playing: playingNow(profile),
-      activities: profile.characterActivities?.data,
-    };
+    return { status: "unchanged", playing, result: undefined };
   }
 
   void session.store.putOne(PROFILE, CURRENT, profile);
@@ -701,11 +693,25 @@ export const refreshProfile = async (
   session.minted = minted;
   await seedInventory(built.stores, session.membership);
 
-  return {
-    status: "updated",
+  const result: LoadResult = {
+    ...first,
+    stores: built.stores,
+    buckets: built.buckets,
+    items: storeItems(built.stores),
+    source: "live",
+    playing,
+    activities: profile.characterActivities?.data ?? {},
+    variables: stringVariables(profile),
+    counts: {
+      ...first.counts,
+      skipped: built.skipped.reduce((total, group) => total + group.count, 0),
+      hidden: built.hidden,
+    },
     skipped: built.skipped,
     degraded: built.degraded,
-    playing: playingNow(profile),
-    activities: profile.characterActivities?.data,
   };
+
+  saveSnapshot(session.store, result, stamp(first.manifestVersion));
+
+  return { status: "updated", playing, result };
 };

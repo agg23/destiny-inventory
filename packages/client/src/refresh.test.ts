@@ -37,12 +37,12 @@ describe("auto refresh", () => {
 
   it("polls on an interval while visible", async () => {
     const onRefresh = vi.fn(() => Promise.resolve());
-    const stop = startAutoRefresh({ onRefresh, busy: () => false });
+    const { stop } = startAutoRefresh({ onRefresh, busy: () => false });
 
-    await vi.advanceTimersByTimeAsync(31_000);
+    await vi.advanceTimersByTimeAsync(16_000);
     expect(onRefresh).toHaveBeenCalledTimes(1);
 
-    await vi.advanceTimersByTimeAsync(31_000);
+    await vi.advanceTimersByTimeAsync(16_000);
     expect(onRefresh).toHaveBeenCalledTimes(2);
 
     stop();
@@ -51,7 +51,7 @@ describe("auto refresh", () => {
   it("does not poll while the tab is hidden", async () => {
     setHidden(true);
     const onRefresh = vi.fn(() => Promise.resolve());
-    const stop = startAutoRefresh({ onRefresh, busy: () => false });
+    const { stop } = startAutoRefresh({ onRefresh, busy: () => false });
 
     await vi.advanceTimersByTimeAsync(120_000);
     expect(onRefresh).not.toHaveBeenCalled();
@@ -61,7 +61,7 @@ describe("auto refresh", () => {
 
   it("does not poll during a move", async () => {
     const onRefresh = vi.fn(() => Promise.resolve());
-    const stop = startAutoRefresh({ onRefresh, busy: () => true });
+    const { stop } = startAutoRefresh({ onRefresh, busy: () => true });
 
     await vi.advanceTimersByTimeAsync(120_000);
     expect(onRefresh).not.toHaveBeenCalled();
@@ -71,9 +71,9 @@ describe("auto refresh", () => {
 
   it("throttles a visibility change that lands right after a poll", async () => {
     const onRefresh = vi.fn(() => Promise.resolve());
-    const stop = startAutoRefresh({ onRefresh, busy: () => false });
+    const { stop } = startAutoRefresh({ onRefresh, busy: () => false });
 
-    await vi.advanceTimersByTimeAsync(31_000);
+    await vi.advanceTimersByTimeAsync(16_000);
     expect(onRefresh).toHaveBeenCalledTimes(1);
 
     listeners.get("visibilitychange")?.();
@@ -85,7 +85,7 @@ describe("auto refresh", () => {
 
   it("stops polling once torn down", async () => {
     const onRefresh = vi.fn(() => Promise.resolve());
-    const stop = startAutoRefresh({ onRefresh, busy: () => false });
+    const { stop } = startAutoRefresh({ onRefresh, busy: () => false });
     stop();
 
     await vi.advanceTimersByTimeAsync(120_000);

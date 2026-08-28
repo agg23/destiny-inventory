@@ -1,16 +1,21 @@
-const INTERVAL = 30_000;
-const MINIMUM = 15_000;
+const INTERVAL = 15_000;
+const MINIMUM = 7_500;
 
 interface Options {
   onRefresh: () => Promise<void>;
   busy: () => boolean;
 }
 
+export interface AutoRefresh {
+  stop: () => void;
+  now: () => void;
+}
+
 // Bungie has no push for profile data
 export const startAutoRefresh = ({
   onRefresh,
   busy,
-}: Options): (() => void) => {
+}: Options): AutoRefresh => {
   let timer: number | undefined = undefined;
   let last = 0;
   let stopped = false;
@@ -52,10 +57,13 @@ export const startAutoRefresh = ({
   window.addEventListener("online", onVisible);
   schedule();
 
-  return () => {
-    stopped = true;
-    window.clearTimeout(timer);
-    document.removeEventListener("visibilitychange", onVisible);
-    window.removeEventListener("online", onVisible);
+  return {
+    stop: () => {
+      stopped = true;
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", onVisible);
+    },
+    now: attempt,
   };
 };
