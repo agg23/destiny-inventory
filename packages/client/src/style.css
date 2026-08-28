@@ -1072,7 +1072,6 @@
   }
 
   .badge,
-  .run-power,
   .tag {
     flex-shrink: 0;
     padding: 0 var(--space-3);
@@ -1161,30 +1160,6 @@
     color: var(--light);
   }
 
-  .picks {
-    border-bottom: 1px solid var(--line);
-    padding-bottom: var(--space-6);
-  }
-
-  .run {
-    background-image: linear-gradient(
-        to top,
-        rgb(0 0 0 / 88%) 0%,
-        rgb(0 0 0 / 80%) 14%,
-        rgb(0 0 0 / 62%) 30%,
-        rgb(0 0 0 / 38%) 48%,
-        rgb(0 0 0 / 16%) 66%,
-        rgb(0 0 0 / 4%) 82%,
-        transparent 100%
-      ),
-      var(--art, none);
-    background-position: center;
-    /* Or the border ring tiles the scrim, leaving art bare */
-    background-origin: border-box;
-    background-size: cover;
-    text-shadow: 0 1px 2px #000;
-  }
-
   .plate {
     background-image: linear-gradient(
         to right,
@@ -1244,12 +1219,6 @@
     background-origin: border-box;
     background-size: cover;
     text-shadow: 0 1px 3px #000;
-  }
-
-  .run-power {
-    margin-left: auto;
-    color: color-mix(in srgb, var(--fg) 75%, transparent);
-    font-variant-numeric: tabular-nums;
   }
 
   /* The framework's checkbox mark, read only */

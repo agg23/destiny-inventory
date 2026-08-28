@@ -1,4 +1,5 @@
 import type { DimItem } from "app/inventory/item-types";
+import { A } from "@solidjs/router";
 import {
   createMemo,
   createResource,
@@ -29,18 +30,25 @@ import { PageChrome } from "./chrome.tsx";
 import { BUNGIE } from "./bungie.ts";
 import { defs } from "./defs.ts";
 import { countdown, HOUR, schedule, type Rotation } from "./distortion.ts";
-import { ago, bestTiming, duration, type ActivityTiming } from "./history.ts";
+import {
+  ago,
+  bestTiming,
+  duration,
+  type ActivityTiming,
+  type HistoryRun,
+} from "./history.ts";
+import { activityLookup } from "./history/activityLookup.ts";
 import { clock } from "./history/runFormat.ts";
 import type { CharacterActivities, StringVariables } from "./load.ts";
 import { fakeItems } from "./fakeItems.ts";
 import { dismiss, HOVER_DELAY, preview } from "./preview.ts";
 import { useApp } from "./App.tsx";
 import { useUrl } from "./router.ts";
+import { runHref } from "./url.ts";
 import { AnchoredPanel } from "./ui/AnchoredPanel.tsx";
 import { holdAnchor, releaseAnchor } from "./ui/anchor.ts";
 import { Button } from "./ui/Button.tsx";
 import { TabButton } from "./ui/TabButton.tsx";
-import { LAYOUTS, type Layout } from "./url.ts";
 
 type Values = Record<number, number>;
 
@@ -50,11 +58,6 @@ interface Section {
 }
 
 const ALL = "All";
-
-const LAYOUT_LABELS: Record<Layout, string> = {
-  cards: "Cards",
-  list: "List",
-};
 
 const FEATURED = "Featured";
 const THIS_WEEK = "This week";
@@ -442,106 +445,6 @@ const RunDetail = (props: DetailProps) => (
   </AnchoredPanel>
 );
 
-const Played = (props: { timing: ActivityTiming | undefined }) => (
-  <Show
-    when={props.timing}
-    fallback={<span class="card-subtitle text-dim">Never run</span>}
-  >
-    {(timing) => (
-      <span class="card-subtitle tabular-nums">
-        Last {ago(timing().lastRunAt)} · {timing().runs} runs
-        <Show when={timing().fastestSeconds}>
-          {(fastest) => <> · best {duration(fastest())}</>}
-        </Show>
-      </span>
-    )}
-  </Show>
-);
-
-interface RowProps {
-  entry: Available;
-  glyph: string | undefined;
-  timing: ActivityTiming | undefined;
-  itemFor: (loot: Loot) => DimItem | undefined;
-  onHover: (entry: Available, element: HTMLElement, cursorX?: number) => void;
-  onLeave: (entry: Available) => void;
-}
-
-const Row = (props: RowProps) => (
-  <li
-    class="card selectable run flex min-h-[260px] flex-col justify-between"
-    style={{ "--art": tileArt(props.entry.pgcrImage, props.entry.typeName) }}
-    onMouseEnter={(e) => props.onHover(props.entry, e.currentTarget)}
-    onMouseLeave={() => props.onLeave(props.entry)}
-  >
-    <div class="flex items-start gap-2 p-3">
-      <Show when={props.entry.challenges.length > 0}>
-        <span
-          class="badge inline-flex min-h-[1lh] items-center gap-1 text-gold"
-          aria-label="Challenges"
-        >
-          <ChallengeMark />
-          <Show when={props.entry.challenges.length > 1}>
-            {props.entry.challenges.length}
-          </Show>
-        </span>
-      </Show>
-      <Show when={power(props.entry)}>
-        {(level) => <span class="run-power">{level()}</span>}
-      </Show>
-    </div>
-    <div class="card-header flex-col items-start gap-1.5 border-b-0">
-      <span class="card-title line-clamp-2 max-w-full">{props.entry.name}</span>
-      <span class="card-subtitle">
-        {where(props.entry)}
-        <Show when={MATCHMAKING[props.entry.matchmaking]}>
-          {(label) => <> · {label()}</>}
-        </Show>
-      </span>
-      <Played timing={props.timing} />
-      <Drops entry={props.entry} glyph={props.glyph} />
-      <div class="flex flex-wrap items-center gap-2 gap-x-4 text-md">
-        <Rewards
-          entry={props.entry}
-          itemFor={props.itemFor}
-          onHide={() => props.onLeave(props.entry)}
-        />
-      </div>
-    </div>
-  </li>
-);
-
-interface GridProps {
-  entries: Available[];
-  glyph: string | undefined;
-  timingFor: (entry: Available) => ActivityTiming | undefined;
-  itemFor: (loot: Loot) => DimItem | undefined;
-  onHover: (entry: Available, element: HTMLElement, cursorX?: number) => void;
-  onLeave: (entry: Available) => void;
-  class?: string;
-}
-
-const RunGrid = (props: GridProps) => (
-  <ul
-    class={`m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(440px,1fr))] gap-3 p-0 ${
-      props.class ?? ""
-    }`}
-  >
-    <For each={props.entries}>
-      {(entry) => (
-        <Row
-          entry={entry}
-          glyph={props.glyph}
-          timing={props.timingFor(entry)}
-          itemFor={props.itemFor}
-          onHover={props.onHover}
-          onLeave={props.onLeave}
-        />
-      )}
-    </For>
-  </ul>
-);
-
 interface TableSection {
   name: string;
   entries: Available[];
@@ -578,6 +481,16 @@ const rung = (entry: Available): string | undefined => {
 
   return `${tiers[0]?.name} - ${tiers[tiers.length - 1]?.name}`;
 };
+
+interface RowProps {
+  entry: Available;
+  glyph: string | undefined;
+  timing: ActivityTiming | undefined;
+  itemFor: (loot: Loot) => DimItem | undefined;
+  hrefFor: (run: HistoryRun) => string;
+  onHover: (entry: Available, element: HTMLElement, cursorX?: number) => void;
+  onLeave: (entry: Available) => void;
+}
 
 const TableRow = (props: RowProps) => (
   <tr
@@ -677,15 +590,21 @@ const TableRow = (props: RowProps) => (
         fallback={<span class="text-sm text-dim">Never run</span>}
       >
         {(timing) => (
-          <div class="flex flex-col text-sm tabular-nums">
-            <span>{ago(timing().lastRunAt)}</span>
+          <A
+            href={props.hrefFor(timing().lastRun)}
+            class="group flex w-fit flex-col text-sm tabular-nums"
+            onClick={() => props.onLeave(props.entry)}
+          >
+            <span class="group-hover:text-fg group-hover:underline">
+              {ago(timing().lastRun.startedAt)}
+            </span>
             <span class="text-dim">
               {timing().runs} runs
               <Show when={timing().fastestSeconds}>
                 {(fastest) => <> · {duration(fastest())}</>}
               </Show>
             </span>
-          </div>
+          </A>
         )}
       </Show>
     </td>
@@ -697,6 +616,7 @@ interface TableProps {
   glyph: string | undefined;
   timingFor: (entry: Available) => ActivityTiming | undefined;
   itemFor: (loot: Loot) => DimItem | undefined;
+  hrefFor: (run: HistoryRun) => string;
   onHover: (entry: Available, element: HTMLElement, cursorX?: number) => void;
   onLeave: (entry: Available) => void;
 }
@@ -741,6 +661,7 @@ const RunTable = (props: TableProps) => (
                     glyph={props.glyph}
                     timing={props.timingFor(entry)}
                     itemFor={props.itemFor}
+                    hrefFor={props.hrefFor}
                     onHover={props.onHover}
                     onLeave={props.onLeave}
                   />
@@ -775,7 +696,6 @@ export const Activities = () => {
   const character = () => app.active()?.id;
   const power = () => app.active()?.powerLevel;
   const realm = () => url.get("realm");
-  const layout = () => url.get("layout");
   const section = () => url.get("section");
   const showRest = () => url.get("rest");
   const [hovered, setHovered] = createSignal<Hovered | undefined>(undefined);
@@ -905,6 +825,11 @@ export const Activities = () => {
 
   const glyph = () => tables()?.rewards[BONUS_DROP_ITEM]?.icon;
 
+  const lookup = createMemo(() => activityLookup(tables()));
+
+  const hrefFor = (run: HistoryRun): string =>
+    runHref(lookup().labelOf(run), lookup().rungOf(run), run.instanceId);
+
   const timingFor = (entry: Available): ActivityTiming | undefined =>
     bestTiming(app.timings(), [
       entry.hash,
@@ -948,53 +873,32 @@ export const Activities = () => {
     <div class="flex flex-col gap-3 px-3 pt-3">
       <PageChrome
         tabs={
-          <>
-            <nav class="nav-subtabs">
-              <For each={shown()}>
-                {(one) => (
-                  <TabButton
-                    active={!onZones() && one.name === activeRealm()?.name}
-                    onClick={() => {
-                      // The card unmounts without a mouseleave
-                      hide();
-                      url.push({ realm: one.name, section: undefined });
-                    }}
-                  >
-                    {one.name}
-                    <BonusCount count={one.bonusDrops} glyph={glyph()} />
-                  </TabButton>
-                )}
-              </For>
-              <TabButton
-                active={onZones()}
-                onClick={() => {
-                  hide();
-                  url.push({ realm: DISTORTION, section: undefined });
-                }}
-              >
-                Distortion
-              </TabButton>
-            </nav>
-          </>
-        }
-        tools={
-          <Show when={!onZones()}>
-            <nav class="nav-facets">
-              <For each={LAYOUTS}>
-                {(one) => (
-                  <TabButton
-                    active={layout() === one}
-                    onClick={() => {
-                      hide();
-                      url.push({ layout: one });
-                    }}
-                  >
-                    {LAYOUT_LABELS[one]}
-                  </TabButton>
-                )}
-              </For>
-            </nav>
-          </Show>
+          <nav class="nav-subtabs">
+            <For each={shown()}>
+              {(one) => (
+                <TabButton
+                  active={!onZones() && one.name === activeRealm()?.name}
+                  onClick={() => {
+                    // The row unmounts without a mouseleave
+                    hide();
+                    url.push({ realm: one.name, section: undefined });
+                  }}
+                >
+                  {one.name}
+                  <BonusCount count={one.bonusDrops} glyph={glyph()} />
+                </TabButton>
+              )}
+            </For>
+            <TabButton
+              active={onZones()}
+              onClick={() => {
+                hide();
+                url.push({ realm: DISTORTION, section: undefined });
+              }}
+            >
+              Distortion
+            </TabButton>
+          </nav>
         }
       />
 
@@ -1060,37 +964,15 @@ export const Activities = () => {
             </ul>
           </Show>
           <Show when={!onZones()}>
-            <Show when={layout() === "list"}>
-              <RunTable
-                sections={sections()}
-                glyph={glyph()}
-                timingFor={timingFor}
-                itemFor={itemFor}
-                onHover={onHover}
-                onLeave={onLeave}
-              />
-            </Show>
-            <Show when={layout() === "cards"}>
-              <Show when={picks().length > 0}>
-                <RunGrid
-                  class="picks"
-                  entries={picks()}
-                  glyph={glyph()}
-                  timingFor={timingFor}
-                  itemFor={itemFor}
-                  onHover={onHover}
-                  onLeave={onLeave}
-                />
-              </Show>
-              <RunGrid
-                entries={weekly()}
-                glyph={glyph()}
-                timingFor={timingFor}
-                itemFor={itemFor}
-                onHover={onHover}
-                onLeave={onLeave}
-              />
-            </Show>
+            <RunTable
+              sections={sections()}
+              glyph={glyph()}
+              timingFor={timingFor}
+              itemFor={itemFor}
+              hrefFor={hrefFor}
+              onHover={onHover}
+              onLeave={onLeave}
+            />
             <Show when={rest().length > 0}>
               <Button
                 type="button"
@@ -1103,16 +985,6 @@ export const Activities = () => {
                 {showRest() ? "Hide" : "Show"} {rest().length} with nothing left
                 this week
               </Button>
-              <Show when={showRest() && layout() === "cards"}>
-                <RunGrid
-                  entries={rest()}
-                  glyph={glyph()}
-                  timingFor={timingFor}
-                  itemFor={itemFor}
-                  onHover={onHover}
-                  onLeave={onLeave}
-                />
-              </Show>
             </Show>
           </Show>
         </>
