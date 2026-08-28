@@ -19,6 +19,7 @@ export interface Benefit {
   name: string;
   icon: string | undefined;
   enhanced: boolean;
+  intrinsic: boolean;
   description: string;
   stats: StatChange[];
 }
@@ -49,6 +50,9 @@ const EMPTY_EXOTIC_MASTERWORK = 1915962497;
 
 // ItemPerkVisibility.Hidden
 const HIDDEN = 2;
+
+// PlugCategoryHashes.Intrinsics
+const INTRINSICS = 1744546145;
 
 const change = (item: DimItem, hash: number, value: number): StatChange[] => {
   const own = item.stats?.find((stat) => stat.statHash === hash);
@@ -120,6 +124,7 @@ export const benefitFor = (
     name,
     icon: hasIcon ? icon : undefined,
     enhanced: isEnhancedPerk(plug.plugDef),
+    intrinsic: plug.plugDef.plug.plugCategoryHash === INTRINSICS,
     description: restates(written, stats) ? "" : written,
     stats,
   };

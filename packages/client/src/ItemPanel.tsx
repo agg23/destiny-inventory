@@ -45,6 +45,9 @@ export const LOST_ITEMS = 215593132;
 // SocketCategoryHashes for weapon, armor and ghost cosmetics
 const COSMETIC = new Set([2048875504, 1926152773, 2549160099]);
 
+// SocketCategoryHashes.IntrinsicTraits
+const INTRINSIC_TRAITS = 3956125808;
+
 export interface MoveProps {
   item: DimItem;
   stores: DimStore[];
@@ -508,7 +511,9 @@ export const Perks = (props: {
   const shown = () => {
     const archetypeSocket = getArmorArchetypeSocket(props.item);
     const categories = (props.item.sockets?.categories ?? []).filter(
-      (category) => !COSMETIC.has(category.category.hash),
+      (category) =>
+        !COSMETIC.has(category.category.hash) &&
+        category.category.hash !== INTRINSIC_TRAITS,
     );
 
     if (!archetypeSocket) {
@@ -545,17 +550,21 @@ export const Perks = (props: {
 export const PerkIcon = (props: {
   icon: string | undefined;
   enhanced?: boolean;
+  square?: boolean;
 }) => (
   <Show
     when={props.icon}
     fallback={
-      <span class="perk-icon" classList={{ enhanced: props.enhanced }} />
+      <span
+        class="perk-icon"
+        classList={{ enhanced: props.enhanced, square: props.square }}
+      />
     }
   >
     {(icon) => (
       <img
         class="perk-icon"
-        classList={{ enhanced: props.enhanced }}
+        classList={{ enhanced: props.enhanced, square: props.square }}
         src={`${BUNGIE}${icon()}`}
         alt=""
         loading="lazy"
@@ -745,13 +754,21 @@ export const Benefits = (props: { item: DimItem }) => {
       <For each={list()}>
         {(benefit) => (
           <div class="tooltip-perk items-start">
-            <PerkIcon icon={benefit.icon} enhanced={benefit.enhanced} />
+            <PerkIcon
+              icon={benefit.icon}
+              enhanced={benefit.enhanced}
+              square={benefit.intrinsic}
+            />
             <div class="perk-text">
               <b classList={{ "text-light": benefit.enhanced }}>
                 {benefit.name}
                 <Show when={benefit.enhanced}>
                   {" "}
                   <span class="tag">Enhanced</span>
+                </Show>
+                <Show when={benefit.intrinsic}>
+                  {" "}
+                  <span class="tag">Intrinsic</span>
                 </Show>
               </b>
               <Changes stats={benefit.stats} />

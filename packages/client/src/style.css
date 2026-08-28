@@ -1047,6 +1047,12 @@
     border-color: var(--light);
   }
 
+  .perk-icon.square {
+    border: none;
+    border-radius: 0;
+    background-color: transparent;
+  }
+
   .badge,
   .run-power,
   .tag {
