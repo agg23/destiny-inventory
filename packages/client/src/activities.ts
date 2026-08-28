@@ -1,4 +1,5 @@
 import type {
+  GearTier,
   SlimActivity,
   SlimActivitySet,
   SlimActivityType,
@@ -12,6 +13,7 @@ import type {
   SlimSkull,
   SlimTier,
 } from "@dvm/defs-core";
+import { activityName, DIFFICULTIES } from "@dvm/defs-core";
 import type { DestinyActivity } from "bungie-api-ts/destiny2";
 
 import { BUNGIE } from "./bungie.ts";
@@ -48,11 +50,18 @@ export interface Challenge {
 
 export type Matchmaking = "required" | "optional" | "none";
 
+export interface GearDrop {
+  base: GearTier;
+  top: GearTier;
+}
+
 export interface Variant {
   hash: number;
   name: string;
+  difficulty: string | undefined;
   power: number | undefined;
   matchmade: boolean;
+  gearTier: GearTier | undefined;
 }
 
 export interface Recalled {
@@ -85,6 +94,7 @@ export interface Available {
   spentFocus: Loot | undefined;
   spentBonus: Loot[];
   variants: Variant[];
+  gear: GearDrop | undefined;
   modifiers: SlimModifier[];
   difficulties: SlimTier[];
   locked: string[];
@@ -175,7 +185,10 @@ const DROPPED_TYPES = new Set([1838596016, 1686739444, 1299744814, 2694988718]);
 
 const STRIKE_TYPES = new Set([3547475498, 4110605575]);
 
-const BY_TYPE = new Map([[2043403989, RAIDS]]);
+const RAID_TYPE = 2043403989;
+const DUNGEON_TYPE = 608898761;
+
+const BY_TYPE = new Map([[RAID_TYPE, RAIDS]]);
 
 // Bungie names both doors after the fireteam
 const VARIANT = /\s*[:-]\s*(Matchmade|Customize)\s*$/;
@@ -348,6 +361,33 @@ const loot = (entry: DestinyActivity, tables: ActivityTables): Loot[] => {
   }
 
   return [...found.values()];
+};
+
+// The tier lives on the reward item's type line, and the quantity flag says nothing about it
+const gearOf = (
+  entry: DestinyActivity,
+  tables: ActivityTables,
+): GearTier | undefined => {
+  let found: GearTier | undefined = undefined;
+
+  for (const group of entry.visibleRewards ?? []) {
+    for (const item of group.rewardItems) {
+      const tier = tables.rewards[item.itemQuantity.itemHash]?.gearTier;
+
+      if (!tier) {
+        continue;
+      }
+
+      found = found
+        ? {
+            low: Math.min(found.low, tier.low),
+            high: Math.max(found.high, tier.high),
+          }
+        : tier;
+    }
+  }
+
+  return found;
 };
 
 const reward = (entry: DestinyActivity, style: string): number => {
@@ -625,11 +665,39 @@ const fold = (
     group.flatMap(({ entry, definition }) => refused(entry, definition)),
   );
 
+  const variants = group.map(({ entry, definition }) => ({
+    hash: entry.activityHash,
+    name: definition.name,
+    difficulty: definition.difficulty,
+    power: entry.recommendedLight,
+    matchmade: definition.isMatchmade,
+    gearTier: gearOf(entry, tables),
+  }));
+
+  const tiered = variants
+    .flatMap((one) =>
+      one.gearTier
+        ? [
+            {
+              rung: DIFFICULTIES.indexOf(one.difficulty ?? ""),
+              tier: one.gearTier,
+            },
+          ]
+        : [],
+    )
+    .sort((a, b) => a.rung - b.rung);
+
+  const easiest = tiered[0];
+  const hardest = tiered[tiered.length - 1];
+
+  const gear =
+    easiest && hardest ? { base: easiest.tier, top: hardest.tier } : undefined;
+
   return {
     key,
     hash: first.entry.activityHash,
     // Shared: "The Coil: Matchmade" and "The Coil: Customize"
-    name: first.definition.name.replace(VARIANT, ""),
+    name: baseName(first.definition),
     description: first.definition.description,
     pgcrImage: backdrop(group, tables),
     typeName: type,
@@ -650,12 +718,8 @@ const fold = (
         : before.map((one) => one.bonus).find((one) => one.length > 0) ?? [],
     matchmaking,
     challenges: [...challenged.values()],
-    variants: group.map(({ entry, definition }) => ({
-      hash: entry.activityHash,
-      name: definition.name,
-      power: entry.recommendedLight,
-      matchmade: definition.isMatchmade,
-    })),
+    variants,
+    gear,
     modifiers: [...modifiers.values()],
     difficulties: [...tiers.values()].sort((a, b) => a.level - b.level),
     locked: [...locked],
@@ -723,10 +787,26 @@ const placed = (definition: SlimActivity, root: number): number =>
     ? STRIKES_OTHER
     : root;
 
-const identity = (definition: SlimActivity): string =>
-  `${definition.name.replace(VARIANT, "")}|${
-    definition.destinationHash ?? definition.placeHash ?? 0
-  }`;
+// Raids and dungeons ship one activity per difficulty instead of one carrying a ladder
+const LADDERED_TYPES = new Set([RAID_TYPE, DUNGEON_TYPE]);
+
+const laddered = (definition: SlimActivity): boolean =>
+  definition.activityTypeHash !== undefined &&
+  LADDERED_TYPES.has(definition.activityTypeHash);
+
+const baseName = (definition: SlimActivity): string =>
+  laddered(definition)
+    ? activityName(definition.name)
+    : definition.name.replace(VARIANT, "");
+
+// Grasp of Avarice gives its two doors their own destinations, and they share only the place
+const identity = (definition: SlimActivity): string => {
+  const where = laddered(definition)
+    ? definition.placeHash ?? definition.destinationHash ?? 0
+    : definition.destinationHash ?? definition.placeHash ?? 0;
+
+  return `${baseName(definition)}|${where}`;
+};
 
 const home = (
   group: { definition: SlimActivity }[],

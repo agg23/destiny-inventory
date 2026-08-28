@@ -52,10 +52,16 @@ export interface SlimPlace {
   name: string;
 }
 
+export interface GearTier {
+  low: number;
+  high: number;
+}
+
 export interface SlimReward {
   hash: number;
   name: string;
   icon: string | undefined;
+  gearTier: GearTier | undefined;
 }
 
 export interface SlimModifier {
@@ -310,6 +316,22 @@ export const slimPlace = (
   name: place.displayProperties.name,
 });
 
+// "Gear Tier 3", or "Gear Tier 1-5" on the engrams that roll a spread
+const GEAR_TIER = /^Gear Tier (\d+)(?:-(\d+))?$/;
+
+const gearTier = (label: string | undefined): GearTier | undefined => {
+  const found = GEAR_TIER.exec(label ?? "");
+
+  if (!found) {
+    return undefined;
+  }
+
+  const low = Number(found[1]);
+  const high = found[2] === undefined ? low : Number(found[2]);
+
+  return { low, high };
+};
+
 // The 542 reward items are a rounding error next to shipping the item table twice
 export const slimReward = (
   item: DestinyInventoryItemDefinition,
@@ -317,6 +339,7 @@ export const slimReward = (
   hash: item.hash,
   name: item.displayProperties.name,
   icon: named(item.displayProperties),
+  gearTier: gearTier(item.itemTypeDisplayName),
 });
 
 // The playlist challenges open with their own progress, which the count on the card repeats

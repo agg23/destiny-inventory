@@ -1,7 +1,12 @@
 import type { DestinyActivityDifficultyTierCollectionDefinition } from "bungie-api-ts/destiny2";
 import { describe, expect, it } from "vitest";
 
-import { activityName, difficultyOf, slimDifficulty } from "./activities.ts";
+import {
+  activityName,
+  difficultyOf,
+  slimDifficulty,
+  slimReward,
+} from "./activities.ts";
 
 describe("difficultyOf", () => {
   it("reads every rung of the ladder", () => {
@@ -133,5 +138,32 @@ describe("slimDifficulty", () => {
       ["Normal", 4],
       ["Master", 2],
     ]);
+  });
+});
+
+describe("slimReward", () => {
+  const item = (itemTypeDisplayName: string) =>
+    ({
+      hash: 1,
+      displayProperties: { name: "Powerful Gear", hasIcon: false },
+      itemTypeDisplayName,
+    }) as never;
+
+  it("reads the tier off the type line", () => {
+    expect(slimReward(item("Gear Tier 3")).gearTier).toEqual({
+      low: 3,
+      high: 3,
+    });
+  });
+
+  it("reads a spread as its own range", () => {
+    expect(slimReward(item("Gear Tier 1-5")).gearTier).toEqual({
+      low: 1,
+      high: 5,
+    });
+  });
+
+  it("has none for an item that is not gear", () => {
+    expect(slimReward(item("Engram")).gearTier).toBeUndefined();
   });
 });

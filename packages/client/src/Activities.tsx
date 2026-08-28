@@ -9,7 +9,12 @@ import {
   Show,
 } from "solid-js";
 
-import { DIFFICULTIES, difficultyOf, type SlimTier } from "@dvm/defs-core";
+import {
+  DIFFICULTIES,
+  difficultyOf,
+  type GearTier,
+  type SlimTier,
+} from "@dvm/defs-core";
 
 import {
   barred,
@@ -20,6 +25,7 @@ import {
   tileArt,
   type Available,
   type Challenge,
+  type GearDrop,
   type Loot,
   type Matchmaking,
   type Realm,
@@ -395,31 +401,60 @@ const RunDetail = (props: DetailProps) => (
         </div>
       </Show>
       {/* Bungie states no per-rung power delta */}
-      <Show when={props.entry.difficulties.length > 0}>
+      <Show when={ladder(props.entry).length > 0}>
         <div class="flex flex-col gap-1.5">
           <p class="section-label">Difficulty</p>
           <p class="m-0 text-md text-text">
-            <For each={props.entry.difficulties}>
-              {(tier, index) => (
+            <For each={ladder(props.entry)}>
+              {(rung, index) => (
                 <>
                   <Show when={index() > 0}>
                     <span class="text-dim"> · </span>
                   </Show>
                   <span
                     class="tier"
-                    classList={{ barred: barred(tier, props.power) }}
+                    classList={{
+                      barred:
+                        rung.tier !== undefined &&
+                        barred(rung.tier, props.power),
+                    }}
                     title={
-                      barred(tier, props.power)
-                        ? `${tier.power} power to launch`
+                      rung.tier && barred(rung.tier, props.power)
+                        ? `${rung.tier.power} power to launch`
                         : undefined
                     }
                   >
-                    {tier.name}
+                    {rung.name}
                   </span>
                 </>
               )}
             </For>
           </p>
+        </div>
+      </Show>
+      <Show when={doors(props.entry).length > 0}>
+        <div class="flex flex-col gap-1.5">
+          <p class="section-label">Gear tier</p>
+          <ul class="m-0 flex list-none flex-col gap-1 p-0 text-md">
+            <For each={doors(props.entry)}>
+              {(door) => (
+                <li class="flex items-baseline justify-between gap-4">
+                  <Show when={door.name}>
+                    {(name) => <span class="text-muted">{name()}</span>}
+                  </Show>
+                  <span
+                    class="text-text"
+                    classList={{ "text-gold": door.tier.low >= TOP_GEAR_TIER }}
+                  >
+                    Tier{" "}
+                    {door.tier.low === door.tier.high
+                      ? door.tier.high
+                      : `${door.tier.low}-${door.tier.high}`}
+                  </span>
+                </li>
+              )}
+            </For>
+          </ul>
         </div>
       </Show>
       <Show when={props.entry.modifiers.length > 0}>
@@ -454,32 +489,97 @@ const COLUMNS = 10;
 
 const ANY = "Any";
 
+const RANGE = "Range";
+
 const NORMAL_RANK = DIFFICULTIES.indexOf("Normal");
 const TOP_RANK = DIFFICULTIES.length - 1;
 
-const wholeLadder = (tiers: SlimTier[]): boolean => {
-  const first = DIFFICULTIES.indexOf(tiers[0]?.name ?? "");
-  const last = DIFFICULTIES.indexOf(tiers[tiers.length - 1]?.name ?? "");
+const RUNG_ORDER = new Map(DIFFICULTIES.map((name, at) => [name, at]));
+
+const byRung = (a: string, b: string): number =>
+  (RUNG_ORDER.get(a) ?? TOP_RANK) - (RUNG_ORDER.get(b) ?? TOP_RANK);
+
+// Raids and dungeons carry no ladder, so their doors are the rungs
+const rungs = (entry: Available): string[] => {
+  if (entry.difficulties.length > 0) {
+    return entry.difficulties.map((tier) => tier.name);
+  }
+
+  const named = new Set(
+    entry.variants.flatMap((one) => (one.difficulty ? [one.difficulty] : [])),
+  );
+
+  return [...named].sort(byRung);
+};
+
+const wholeLadder = (names: string[]): boolean => {
+  const first = DIFFICULTIES.indexOf(names[0] ?? "");
+  const last = DIFFICULTIES.indexOf(names[names.length - 1] ?? "");
 
   return first >= 0 && first <= NORMAL_RANK && last === TOP_RANK;
 };
 
-const rung = (entry: Available): string | undefined => {
-  const tiers = entry.difficulties;
+interface Rung {
+  name: string;
+  tier: SlimTier | undefined;
+}
 
-  if (tiers.length === 0) {
+// The column has room for one word, so the panel spells the rungs out
+const ladder = (entry: Available): Rung[] =>
+  entry.difficulties.length > 0
+    ? entry.difficulties.map((tier) => ({ name: tier.name, tier }))
+    : rungs(entry).map((name) => ({ name, tier: undefined }));
+
+const rung = (entry: Available): string | undefined => {
+  const names = rungs(entry);
+
+  if (names.length === 0) {
     return difficultyOf(entry.name);
   }
 
-  if (tiers.length === 1) {
-    return tiers[0]?.name;
+  if (names.length === 1) {
+    return names[0];
   }
 
-  if (wholeLadder(tiers)) {
-    return ANY;
+  return wholeLadder(names) ? ANY : RANGE;
+};
+
+const TOP_GEAR_TIER = 5;
+
+const gearLabel = (tier: GearTier): string =>
+  tier.low === tier.high ? `T${tier.high}` : `T${tier.low}-${tier.high}`;
+
+const topTier = (gear: GearDrop): boolean => gear.base.low >= TOP_GEAR_TIER;
+
+// The star is the cue for a featured week, since the gold alone is not one
+const gearText = (gear: GearDrop): string => {
+  const base = gearLabel(gear.base);
+  const top = gearLabel(gear.top);
+  const span = base === top ? base : `${base} / ${top}`;
+
+  return topTier(gear) ? `${span} ★` : span;
+};
+
+interface Door {
+  name: string | undefined;
+  tier: GearTier;
+}
+
+const doors = (entry: Available): Door[] => {
+  const held = new Map<string, Door>();
+
+  for (const one of entry.variants) {
+    if (!one.gearTier) {
+      continue;
+    }
+
+    held.set(`${one.difficulty ?? ""}|${gearLabel(one.gearTier)}`, {
+      name: one.difficulty,
+      tier: one.gearTier,
+    });
   }
 
-  return `${tiers[0]?.name} - ${tiers[tiers.length - 1]?.name}`;
+  return [...held.values()].sort((a, b) => byRung(a.name ?? "", b.name ?? ""));
 };
 
 interface RowProps {
@@ -543,16 +643,28 @@ const TableRow = (props: RowProps) => (
       <span class="inline-flex items-center gap-2">
         <Icon icon={props.glyph} alt="" class="size-(--icon-xs)" />
         <b>{BASE_DROPS}</b>
+        <Show when={props.entry.gear}>
+          {(gear) => (
+            <span
+              classList={{
+                "font-semibold text-gold": topTier(gear()),
+                "text-muted": !topTier(gear()),
+              }}
+            >
+              {gearText(gear())}
+            </span>
+          )}
+        </Show>
         <Show when={props.entry.bonusDrops}>
           {(count) => (
-            <span class="text-gold" title={REMAINING}>
+            <span class="text-gold">
               +{count()}
             </span>
           )}
         </Show>
         <Show when={props.entry.dropsTaken}>
           {(count) => (
-            <span class="spent text-gold" title={TAKEN}>
+            <span class="spent text-gold">
               +{count()}
             </span>
           )}
@@ -635,7 +747,7 @@ const RunTable = (props: TableProps) => (
             </th>
             <th class="w-32">Difficulty</th>
             <th class="w-24">Power</th>
-            <th class="w-24">Drops</th>
+            <th class="w-36">Drops</th>
             <th>Rewards</th>
             <th class="w-36">Challenges</th>
             <th class="w-32">Last run</th>

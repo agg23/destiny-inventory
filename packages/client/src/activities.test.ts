@@ -65,6 +65,22 @@ const tables: ActivityTables = {
     30: definition({ hash: 30, name: "Crota's End" }),
     31: definition({ hash: 31, name: "Last Wish" }),
     32: definition({ hash: 32, name: "King's Fall" }),
+    40: definition({
+      hash: 40,
+      name: "Warlord's Ruin: Standard",
+      activityTypeHash: 608898761,
+      difficulty: "Standard",
+      destinationHash: 700,
+      placeHash: 800,
+    }),
+    41: definition({
+      hash: 41,
+      name: "Warlord's Ruin: Master",
+      activityTypeHash: 608898761,
+      difficulty: "Master",
+      destinationHash: 701,
+      placeHash: 800,
+    }),
   },
   modifiers: {
     900: { hash: 900, name: "Champion Foes", description: "", icon: undefined },
@@ -106,10 +122,32 @@ const tables: ActivityTables = {
   skulls: {},
   modes: {},
   rewards: {
-    600: { hash: 600, name: "Raid Gear", icon: undefined },
-    601: { hash: 601, name: "Deepsight Weapon", icon: undefined },
-    602: { hash: 602, name: "", icon: undefined },
-    603: { hash: 603, name: "Eutechnology Cover", icon: "/cover.png" },
+    600: { hash: 600, name: "Raid Gear", icon: undefined, gearTier: undefined },
+    601: {
+      hash: 601,
+      name: "Deepsight Weapon",
+      icon: undefined,
+      gearTier: undefined,
+    },
+    602: { hash: 602, name: "", icon: undefined, gearTier: undefined },
+    603: {
+      hash: 603,
+      name: "Eutechnology Cover",
+      icon: "/cover.png",
+      gearTier: undefined,
+    },
+    604: {
+      hash: 604,
+      name: "Powerful Gear",
+      icon: undefined,
+      gearTier: { low: 3, high: 3 },
+    },
+    605: {
+      hash: 605,
+      name: "Powerful Gear",
+      icon: undefined,
+      gearTier: { low: 5, high: 5 },
+    },
   },
   sets: {
     50: {
@@ -149,6 +187,15 @@ const focus = (hash = 8000, itemHash = 603) => [
   },
 ];
 
+// Bungie ships these with a zero quantity, which says nothing about the tier
+const tiers = (...itemHashes: number[]) => [
+  {
+    rewardItems: itemHashes.map((itemHash) => ({
+      itemQuantity: { itemHash, quantity: 0 },
+    })),
+  },
+];
+
 const entry = (over: Partial<DestinyActivity>): DestinyActivity =>
   ({
     activityHash: 10,
@@ -183,9 +230,19 @@ describe("categorize", () => {
       destinations: { 700: { hash: 700, name: "The Dreaming City" } },
       places: { 800: { hash: 800, name: "Earth" } },
       rewards: {
-        600: { hash: 600, name: "Raid Gear", icon: undefined },
-        601: { hash: 601, name: "Deepsight Weapon", icon: undefined },
-        602: { hash: 602, name: "", icon: undefined },
+        600: {
+          hash: 600,
+          name: "Raid Gear",
+          icon: undefined,
+          gearTier: undefined,
+        },
+        601: {
+          hash: 601,
+          name: "Deepsight Weapon",
+          icon: undefined,
+          gearTier: undefined,
+        },
+        602: { hash: 602, name: "", icon: undefined, gearTier: undefined },
       },
       sets: {
         ...tables.sets,
@@ -1118,5 +1175,49 @@ describe("readable", () => {
     expect(
       readable("You will face [Arc] Arc and [Void] Void shields.", {}),
     ).toBe("You will face Arc and Void shields.");
+  });
+});
+
+// A dungeon ships one activity per difficulty, and its doors carry different gear tiers
+describe("gear tiers", () => {
+  const ruin = (standard: number[], master: number[]) => [
+    entry({ activityHash: 40, visibleRewards: tiers(...standard) as never }),
+    entry({ activityHash: 41, visibleRewards: tiers(...master) as never }),
+  ];
+
+  it("folds the doors into one row named after the dungeon", () => {
+    const [category] = sections(ruin([604], [605]), tables);
+
+    expect(category?.entries).toHaveLength(1);
+    expect(category?.entries[0]?.name).toBe("Warlord's Ruin");
+  });
+
+  it("keeps each door's difficulty for the rungs", () => {
+    const [category] = sections(ruin([604], [605]), tables);
+
+    expect(category?.entries[0]?.variants.map((one) => one.difficulty)).toEqual(
+      ["Standard", "Master"],
+    );
+  });
+
+  it("reads the base tier off the easiest door and the top off the hardest", () => {
+    const [category] = sections(ruin([604], [605]), tables);
+
+    expect(category?.entries[0]?.gear).toEqual({
+      base: { low: 3, high: 3 },
+      top: { low: 5, high: 5 },
+    });
+  });
+
+  it("spans a door that offers both tiers, the way a featured dungeon does", () => {
+    const [category] = sections(ruin([604, 605], [605]), tables);
+
+    expect(category?.entries[0]?.gear?.base).toEqual({ low: 3, high: 5 });
+  });
+
+  it("has none when no reward names a tier", () => {
+    const [category] = sections([entry({})], tables);
+
+    expect(category?.entries[0]?.gear).toBeUndefined();
   });
 });
