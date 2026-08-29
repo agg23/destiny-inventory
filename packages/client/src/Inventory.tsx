@@ -11,7 +11,8 @@ import type { Matched } from "./App.tsx";
 import { CharacterPicker, StoreBanner } from "./CharacterPicker.tsx";
 import { unmovable } from "./compare.ts";
 import { ItemIcon } from "./ItemIcon.tsx";
-import { LOST_ITEMS } from "./ItemPanel.tsx";
+import { ItemMenu } from "./ItemMenu.tsx";
+import { LOST_ITEMS } from "./moveTargets.ts";
 import { Button } from "./ui/Button.tsx";
 
 const CATEGORIES = ["Postmaster", "Weapons", "Armor", "General", "Inventory"];
@@ -25,6 +26,10 @@ interface Props {
   active: DimStore | undefined;
   onSelectStore: (store: DimStore) => void;
   onCollect: (items: DimItem[], target: DimStore) => void;
+  onMove: (item: DimItem, target: DimStore, equip: boolean) => void;
+  onUnpin: (item: DimItem) => void;
+  onCompare: (item: DimItem, rival: DimItem) => void;
+  onQuery: (query: string) => void;
   moving: string | undefined;
 }
 
@@ -183,13 +188,26 @@ export const Inventory = (props: Props) => {
                           >
                             <For each={cell(store, bucket)}>
                               {(item) => (
-                                <ItemIcon
+                                <ItemMenu
                                   item={item}
-                                  selected={props.pinned.some(
-                                    (pin) => pin.id === item.id,
-                                  )}
-                                  onSelect={props.onSelect}
-                                />
+                                  stores={props.stores}
+                                  active={props.active}
+                                  pinned={props.pinned}
+                                  moving={props.moving}
+                                  onMove={props.onMove}
+                                  onPin={(item) => props.onSelect(item, false)}
+                                  onUnpin={props.onUnpin}
+                                  onCompare={props.onCompare}
+                                  onQuery={props.onQuery}
+                                >
+                                  <ItemIcon
+                                    item={item}
+                                    selected={props.pinned.some(
+                                      (pin) => pin.id === item.id,
+                                    )}
+                                    onSelect={props.onSelect}
+                                  />
+                                </ItemMenu>
                               )}
                             </For>
                           </div>

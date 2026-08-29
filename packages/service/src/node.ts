@@ -15,7 +15,7 @@ import {
 
 const REPO_ROOT = new URL("../../../", import.meta.url).pathname;
 const ARTIFACT_ROOT = join(REPO_ROOT, "artifacts");
-const PORT = Number(process.env.PORT ?? 8787);
+const PORT = Number(process.env.PORT ?? 8791);
 
 const artifactDir = async (): Promise<string> => {
   const versions = await readdir(ARTIFACT_ROOT);

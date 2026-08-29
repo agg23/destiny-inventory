@@ -46,6 +46,10 @@ export const Vault = () => {
             onSelectStore={app.onCharacter}
             onSelect={app.onPin}
             onCollect={app.onCollect}
+            onMove={app.onMove}
+            onUnpin={app.onUnpin}
+            onCompare={app.onCompare}
+            onQuery={app.onQuery}
             moving={app.moving()}
           />
         )}

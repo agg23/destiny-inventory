@@ -204,7 +204,8 @@
     anchor-name: --rail;
     z-index: 2;
     top: var(--header-h, 132px);
-    right: 0;
+    /* Kobalte's scroll lock widens the viewport under a fixed rail */
+    right: var(--scrollbar-width, 0px);
     bottom: 0;
     width: var(--rail);
     display: flex;
@@ -479,6 +480,18 @@
   /* A nested tile is decoration; the row around it owns the hover */
   span.item-tile {
     pointer-events: none;
+  }
+
+  /* Kobalte flags the trigger while its menu is open, so hold the hover treatment */
+  .tile-menu[data-expanded] > .item-tile {
+    border-color: #fff;
+  }
+
+  .tile-menu[data-expanded] > .item-tile::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-color: rgb(255 255 255 / 0.25);
   }
 
   .item-tile::before {

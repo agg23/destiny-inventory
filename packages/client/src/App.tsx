@@ -96,6 +96,7 @@ export interface AppState {
   onMove: (item: DimItem, target: DimStore, equip: boolean) => void;
   onCollect: (items: DimItem[], target: DimStore) => void;
   onCharacter: (store: DimStore) => void;
+  onQuery: (query: string) => void;
 }
 
 const AppContext = createContext<AppState>();
@@ -629,6 +630,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     onMove,
     onCollect,
     onCharacter: (store) => url.push({ character: store.id }),
+    onQuery,
   };
 
   return (

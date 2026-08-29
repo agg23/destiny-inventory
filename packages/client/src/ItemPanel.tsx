@@ -13,19 +13,22 @@ import {
   isEnhancedPerk,
   socketContainsIntrinsicPlug,
 } from "app/utils/socket-utils";
-import {
-  amountOfItem,
-  getCurrentStore,
-  potentialSpaceLeftForItem,
-} from "app/inventory/stores-helpers";
-import { isClassCompatible, itemCanBeEquippedBy } from "app/utils/item-utils";
 import ammoHeavy from "destiny-icons/general/ammo-heavy.svg?inline";
 import ammoPrimary from "destiny-icons/general/ammo-primary.svg?inline";
 import ammoSpecial from "destiny-icons/general/ammo-special.svg?inline";
 import { createMemo, For, Show, type JSX } from "solid-js";
 
 import { BUNGIE } from "./bungie.ts";
-import { delta, TOTAL, unmovable, type Delta } from "./compare.ts";
+import { delta, TOTAL, type Delta } from "./compare.ts";
+import {
+  defaultEquip,
+  defaultTransfer,
+  equipTargets,
+  pullBlocked,
+  storeLabel,
+  transferBlocked,
+  transferTargets,
+} from "./moveTargets.ts";
 import { dismissPerk, previewPerk } from "./perkPreview.ts";
 import { archetype, benefits, setBonus, type StatChange } from "./perks.ts";
 import {
@@ -38,9 +41,6 @@ import {
 import { shortStat } from "./statNames.ts";
 import { Button } from "./ui/Button.tsx";
 import { SplitButton, type Choice } from "./ui/SplitButton.tsx";
-
-// BucketHashes.LostItems, inlined
-export const LOST_ITEMS = 215593132;
 
 // SocketCategoryHashes for weapon, armor and ghost cosmetics
 const COSMETIC = new Set([2048875504, 1926152773, 2549160099]);
@@ -58,154 +58,17 @@ export interface MoveProps {
   compact?: boolean;
 }
 
-const label = (store: DimStore) => (store.isVault ? "Vault" : store.className);
-
 export const Moves = (props: MoveProps) => {
-  const vault = () => props.stores.find((store) => store.isVault);
-  const characters = () => props.stores.filter((store) => !store.isVault);
+  const transfers = () =>
+    transferTargets(props.item, props.stores, props.active);
+  const equips = () => equipTargets(props.item, props.stores, props.active);
 
-  const canTransfer = () => !props.item.notransfer;
+  const transferTo = () =>
+    defaultTransfer(props.item, props.stores, props.active);
+  const equipOn = () => defaultEquip(props.item, props.stores, props.active);
 
-  const inPostmaster = () => props.item.location.hash === LOST_ITEMS;
-
-  const owner = () =>
-    props.stores.find((store) => store.id === props.item.owner);
-
-  const noRoom = (target: DimStore): string | undefined => {
-    const item = props.item;
-    const space = potentialSpaceLeftForItem(target, item, props.stores);
-
-    if (space.guaranteed > 0) {
-      return undefined;
-    }
-
-    // Account-wide buckets live on the current character
-    const holder =
-      item.bucket.accountWide && !target.isVault
-        ? getCurrentStore(props.stores)
-        : target;
-
-    if (
-      item.uniqueStack &&
-      holder &&
-      amountOfItem(holder, item) >= item.maxStackSize
-    ) {
-      return `${label(target)} already holds the maximum`;
-    }
-
-    return space.couldMakeSpace ? undefined : `No room in ${label(target)}`;
-  };
-
-  const pullBlocked = (): string | undefined => {
-    if (unmovable(props.item)) {
-      return "Cannot be pulled from the Postmaster";
-    }
-
-    if (inPostmaster() && !props.item.canPullFromPostmaster) {
-      return "Cannot be pulled from the Postmaster";
-    }
-
-    return undefined;
-  };
-
-  const blocked = (target: DimStore): string | undefined => {
-    const item = props.item;
-    const pull = pullBlocked();
-
-    if (pull) {
-      return pull;
-    }
-
-    if (inPostmaster()) {
-      return noRoom(target);
-    }
-
-    if (item.notransfer) {
-      return "Cannot be transferred";
-    }
-
-    return noRoom(target);
-  };
-
-  const holders = () => {
-    const compatible = props.stores.filter(
-      (store) =>
-        store.isVault ||
-        isClassCompatible(props.item.classType, store.classType),
-    );
-
-    if (!inPostmaster()) {
-      return compatible;
-    }
-
-    return compatible.filter(
-      (store) => store.isVault || store.id === props.active?.id,
-    );
-  };
-
-  const transferTargets = () => {
-    const elsewhere = holders().filter(
-      (store) => store.id !== props.item.owner && canTransfer(),
-    );
-    const home = owner();
-
-    // A pull lands on the owning character, transferable or not
-    if (inPostmaster() && home && home.id === props.active?.id) {
-      return [home, ...elsewhere];
-    }
-
-    return elsewhere;
-  };
-
-  const transferTo = () => {
-    const home = owner();
-
-    if (inPostmaster()) {
-      return transferTargets()[0];
-    }
-
-    if (!home?.isVault) {
-      return vault();
-    }
-
-    const characters = holders().filter((store) => !store.isVault);
-
-    if (
-      props.active &&
-      characters.some((store) => store.id === props.active?.id)
-    ) {
-      return props.active;
-    }
-
-    return characters[0];
-  };
-
-  const equippable = () => {
-    const targets = characters().filter(
-      (store) =>
-        itemCanBeEquippedBy(props.item, store, true) &&
-        !(props.item.equipped && props.item.owner === store.id),
-    );
-
-    if (!inPostmaster()) {
-      return targets;
-    }
-
-    return targets.filter((store) => store.id === props.active?.id);
-  };
-
-  const equipOn = () => {
-    const targets = equippable();
-
-    if (
-      props.active &&
-      targets.some((store) => store.id === props.active?.id)
-    ) {
-      return props.active;
-    }
-
-    return targets[0];
-  };
+  const blocked = (target: DimStore) =>
+    transferBlocked(props.item, props.stores, target);
 
   const act = (target: DimStore, equip: boolean, manual: boolean) => {
     if (manual && !target.isVault) {
@@ -218,8 +81,8 @@ export const Moves = (props: MoveProps) => {
   const choices = (targets: DimStore[], equip: boolean): Choice[] =>
     targets.map((store) => ({
       id: store.id,
-      label: label(store),
-      reason: equip ? pullBlocked() : blocked(store),
+      label: storeLabel(store),
+      reason: equip ? pullBlocked(props.item) : blocked(store),
       onChoose: () => act(store, equip, true),
     }));
 
@@ -231,12 +94,14 @@ export const Moves = (props: MoveProps) => {
             block
             size="xs"
             label={
-              props.compact ? "Transfer" : `Transfer to ${label(target())}`
+              props.compact
+                ? "Transfer"
+                : `Transfer to ${storeLabel(target())}`
             }
             disabled={!!props.moving || !!blocked(target())}
             title={blocked(target())}
             onPrimary={() => act(target(), false, false)}
-            choices={choices(transferTargets(), false)}
+            choices={choices(transfers(), false)}
           />
         )}
       </Show>
@@ -245,11 +110,11 @@ export const Moves = (props: MoveProps) => {
           <SplitButton
             block
             size="xs"
-            label={props.compact ? "Equip" : `Equip on ${label(target())}`}
-            disabled={!!props.moving || !!pullBlocked()}
-            title={pullBlocked()}
+            label={props.compact ? "Equip" : `Equip on ${storeLabel(target())}`}
+            disabled={!!props.moving || !!pullBlocked(props.item)}
+            title={pullBlocked(props.item)}
             onPrimary={() => act(target(), true, false)}
-            choices={choices(equippable(), true)}
+            choices={choices(equips(), true)}
           />
         )}
       </Show>
