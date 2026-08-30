@@ -284,6 +284,13 @@
     height: var(--tile);
   }
 
+  /* Allow hover over half of the gap, ignoring the 1px border */
+  .row .item-grid .item-tile.small::after {
+    content: "";
+    position: absolute;
+    inset: calc(var(--space-2) / -2 - 1px);
+  }
+
   /* Opaque: these float over the grid, not game art */
   .picker-menu,
   .run-detail {

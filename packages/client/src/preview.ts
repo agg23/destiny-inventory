@@ -4,7 +4,7 @@ import { createSignal } from "solid-js";
 import type { Verdict } from "./arrivals.ts";
 import { holdAnchor, releaseAnchor } from "./ui/anchor.ts";
 
-export const HOVER_DELAY = 120;
+export const HOVER_DELAY = 50;
 
 export interface Previewed {
   item: DimItem;
