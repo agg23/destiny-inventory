@@ -505,6 +505,18 @@
     z-index: 1;
   }
 
+  /* Forcibly hovered */
+  .item-tile.hovered {
+    border-color: #fff;
+  }
+
+  .item-tile.hovered::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-color: rgb(255 255 255 / 0.25);
+  }
+
   .item-tile .item-quantity {
     padding: 0 0.15em;
     font-size: clamp(9px, calc(var(--badge) * 0.85), 14px);

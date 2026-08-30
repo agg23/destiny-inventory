@@ -13,6 +13,7 @@ import { unmovable } from "./compare.ts";
 import { ItemIcon } from "./ItemIcon.tsx";
 import { ItemMenu } from "./ItemMenu.tsx";
 import { LOST_ITEMS } from "./moveTargets.ts";
+import { previewed } from "./preview.ts";
 import { Button } from "./ui/Button.tsx";
 
 const CATEGORIES = ["Postmaster", "Weapons", "Armor", "General", "Inventory"];
@@ -205,6 +206,11 @@ export const Inventory = (props: Props) => {
                                     selected={props.pinned.some(
                                       (pin) => pin.id === item.id,
                                     )}
+                                    class={
+                                      previewed()?.item.index === item.index
+                                        ? "hovered"
+                                        : ""
+                                    }
                                     onSelect={props.onSelect}
                                   />
                                 </ItemMenu>
