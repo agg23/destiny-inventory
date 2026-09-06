@@ -34,6 +34,16 @@
     min-width: 0;
   }
 
+  .header-filter {
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--text-sm);
+  }
+
+  .header-filter::placeholder {
+    font-size: var(--text-sm);
+    letter-spacing: var(--track-caps);
+  }
+
   .header-session {
     display: flex;
     align-items: center;
@@ -50,8 +60,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: var(--button-sm);
-    height: var(--button-sm);
+    width: var(--button-xs);
+    height: var(--button-xs);
     padding: 0;
     background: none;
     border: 0;
@@ -70,8 +80,8 @@
   }
 
   .header-action svg {
-    width: var(--icon-md);
-    height: var(--icon-md);
+    width: var(--icon-sm);
+    height: var(--icon-sm);
   }
 
   .header-action.busy svg {
@@ -1128,6 +1138,22 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-3);
+  }
+
+  .nav-tabs {
+    gap: var(--space-6);
+  }
+
+  .nav-tabs > .nav-tab {
+    padding: 0;
+    font-size: var(--text-md);
+    letter-spacing: var(--track-caps);
+  }
+
+  .nav-tabs > .nav-tab.active::after {
+    bottom: -0.25rem;
+    width: 4px;
+    height: 2px;
   }
 
   /* The framework's 45% white assumes bright game art behind it */
