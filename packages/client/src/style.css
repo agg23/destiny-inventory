@@ -1132,7 +1132,6 @@
     object-fit: contain;
   }
 
-  .nav-tabs > .nav-tab,
   .nav-subtabs > .nav-tab,
   .nav-facets > .nav-tab {
     display: inline-flex;
@@ -1140,33 +1139,22 @@
     gap: var(--space-3);
   }
 
-  .nav-tabs {
-    gap: var(--space-6);
-  }
-
-  .nav-tabs > .nav-tab {
-    padding: 0;
+  .header-bar .nav-subtabs > .nav-tab {
     font-size: var(--text-md);
     letter-spacing: var(--track-caps);
+    line-height: 1;
+    padding: var(--space-4) 0 var(--space-3);
   }
 
-  .nav-tabs > .nav-tab.active::after {
-    bottom: -0.25rem;
-    width: 4px;
-    height: 2px;
-  }
-
-  /* The framework's 45% white assumes bright game art behind it */
-  .nav-tabs > .nav-tab:not(.active) {
-    color: var(--text);
-  }
-
-  /* A step down from the primary row, which sits directly above it */
+  /* A step down from the header row, which sits above every page */
   .nav-subtabs > .nav-tab:not(.active) {
     color: var(--muted);
   }
 
-  .nav-tabs > .nav-tab:not(.active):hover,
+  .header-bar .nav-subtabs > .nav-tab:not(.active) {
+    color: var(--text);
+  }
+
   .nav-subtabs > .nav-tab:not(.active):hover {
     color: var(--fg);
   }

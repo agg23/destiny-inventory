@@ -658,7 +658,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
       >
         <header class="app-header" ref={(el) => (head = el)}>
           <div class="header-bar">
-            <nav class="nav-tabs">
+            <nav class="nav-subtabs">
               <For each={TABS}>
                 {(one) => (
                   <TabButton
