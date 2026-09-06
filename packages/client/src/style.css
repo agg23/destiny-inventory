@@ -294,6 +294,22 @@
     height: var(--tile);
   }
 
+  .row .item-grid.character:has(> :nth-child(2)) .item-tile.equipped {
+    grid-column: 1 / -1;
+    grid-row: span 2;
+    align-self: start;
+    justify-self: start;
+  }
+
+  /* Rows size to the spanned tile without this, halving the empty row */
+  .row .item-grid.character:has(> :nth-child(2)):has(.item-tile.equipped) {
+    grid-auto-rows: var(--tile);
+    background-image: linear-gradient(var(--line-bright), var(--line-bright));
+    background-size: 100% 1px;
+    background-repeat: no-repeat;
+    background-position: 0 calc(var(--tile) + var(--space-2) + var(--tile) / 2);
+  }
+
   /* Allow hover over half of the gap, ignoring the 1px border */
   .row .item-grid .item-tile.small::after {
     content: "";
@@ -486,7 +502,26 @@
   /* Framework's hover tint assumes a background image */
   .item-tile {
     --badge: clamp(9px, calc(var(--tile) * 0.2), 16px);
+    --edge: 2px;
     z-index: 0;
+    border-color: transparent;
+  }
+
+  .item-tile.small {
+    --edge: 1px;
+  }
+
+  /* A parent's border paints under its children, so the states ride on one of them */
+  .item-tile .tile-edge {
+    position: absolute;
+    inset: calc(var(--edge) * -1);
+    z-index: 3;
+    border: var(--edge) solid transparent;
+    pointer-events: none;
+  }
+
+  .item-tile:hover .tile-edge {
+    border-color: #fff;
   }
 
   /* Framework sizes these at 3rem, ignoring the tile setting */
@@ -500,34 +535,38 @@
   }
 
   /* Kobalte flags the trigger while its menu is open, so hold the hover treatment */
-  .tile-menu[data-expanded] > .item-tile {
+  .tile-menu[data-expanded] > .item-tile .tile-edge {
     border-color: #fff;
   }
 
   .tile-menu[data-expanded] > .item-tile::before {
     content: "";
     position: absolute;
-    inset: 0;
+    inset: calc(var(--edge) * -1);
     background-color: rgb(255 255 255 / 0.25);
   }
 
+  /* Badges anchor to the padding box, so the border width comes back off */
   .item-tile::before {
     z-index: 1;
+    inset: calc(var(--edge) * -1);
   }
 
   /* Forcibly hovered */
-  .item-tile.hovered {
+  .item-tile.hovered .tile-edge {
     border-color: #fff;
   }
 
   .item-tile.hovered::before {
     content: "";
     position: absolute;
-    inset: 0;
+    inset: calc(var(--edge) * -1);
     background-color: rgb(255 255 255 / 0.25);
   }
 
   .item-tile .item-quantity {
+    right: calc(var(--edge) * -1);
+    bottom: calc(var(--edge) * -1);
     padding: 0 0.15em;
     font-size: clamp(9px, calc(var(--badge) * 0.85), 14px);
     line-height: 1.25;
@@ -538,8 +577,8 @@
     display: flex;
     gap: 1px;
     position: absolute;
-    bottom: 1px;
-    left: 1px;
+    bottom: calc(1px - var(--edge));
+    left: calc(1px - var(--edge));
     z-index: 2;
   }
 
@@ -563,7 +602,7 @@
   .item-tile .item-tier,
   .item-tile .gear-tier {
     position: absolute;
-    top: 0;
+    top: calc(var(--edge) * -1);
     z-index: 2;
     width: 17px;
     padding: 0;
@@ -575,7 +614,7 @@
   }
 
   .item-tile .item-tier {
-    right: 0;
+    right: calc(var(--edge) * -1);
     background: var(--tier);
     color: #000;
   }
@@ -594,7 +633,7 @@
   }
 
   .item-tile .gear-tier {
-    left: 0;
+    left: calc(var(--edge) * -1);
   }
 
   .tooltip-header {
@@ -691,8 +730,8 @@
 
   .item-tile .item-score {
     position: absolute;
-    top: 0;
-    right: 0;
+    top: calc(var(--edge) * -1);
+    right: calc(var(--edge) * -1);
     z-index: 2;
     min-width: 13px;
     padding: 0 var(--space-2);
@@ -845,15 +884,15 @@
 
   .item-tile .overlay {
     position: absolute;
-    inset: 0;
+    inset: calc(var(--edge) * -1);
   }
 
   /* Gold pinned, cream equipped; the framework names neither */
-  .item-tile.equipped {
+  .item-tile.equipped .tile-edge {
     border-color: var(--cream);
   }
 
-  .item-tile.selected {
+  .item-tile.selected .tile-edge {
     border-color: var(--light);
   }
 

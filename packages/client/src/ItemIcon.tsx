@@ -49,6 +49,7 @@ const Face = (props: Props) => (
       loading="lazy"
       alt={props.item.name}
     />
+    <span class="tile-edge" />
     <Show when={props.badges !== false}>
       <Show when={settings().overlay && props.item.iconOverlay}>
         {(overlay) => (
