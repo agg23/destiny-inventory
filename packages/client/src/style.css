@@ -133,7 +133,6 @@
     font-variant-numeric: tabular-nums;
   }
 
-
   .search-field .header-filter,
   .search-menu {
     width: 100%;
@@ -1162,6 +1161,182 @@
     text-transform: none;
     letter-spacing: var(--track-base);
     font-size: var(--text-md);
+  }
+
+  .orders {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    gap: var(--space-3);
+    overflow-y: auto;
+  }
+
+  .todo-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    padding: var(--space-5);
+  }
+
+  .todo-section {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  /* The label's own trailing rule is its ::after, so a note has to sort past it */
+  .section-note {
+    order: 1;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    letter-spacing: var(--track-base);
+    text-transform: none;
+    color: var(--muted);
+  }
+
+  .reset-strip {
+    display: grid;
+    gap: var(--space-5);
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  }
+
+  .reset-block {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding-left: var(--space-5);
+    border-left: 2px solid var(--line-bright);
+  }
+
+  .reset-label {
+    font-size: var(--text-sm);
+    letter-spacing: var(--track-caps);
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .reset-clock {
+    font-size: var(--text-2xl);
+    line-height: 1.1;
+  }
+
+  .reset-when {
+    font-size: var(--text-sm);
+    color: var(--dim);
+  }
+
+  .todo-section .table tbody td:first-child {
+    width: 40%;
+  }
+
+  .todo-section .table tr.blocked {
+    color: var(--muted);
+  }
+
+  .cell-lead {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  /* A second .section-label inside a section reads as a duplicate header */
+  .slot-label {
+    font-size: var(--text-sm);
+    letter-spacing: var(--track-caps);
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .slot-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-6);
+  }
+
+  .order-row {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+  }
+
+  .order-head {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+  }
+
+  .order-name {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .order-tier,
+  .order-foot {
+    display: flex;
+    gap: var(--space-3);
+    justify-content: space-between;
+    font-size: var(--text-sm);
+  }
+
+  .order-rarity {
+    letter-spacing: var(--track-caps);
+    text-transform: uppercase;
+  }
+
+  .order-note {
+    font-size: var(--text-sm);
+    line-height: 1.35;
+  }
+
+  /* Hub challenge text runs to a paragraph where an order's is a single line, and it
+     holds two lines either way so the bars below it line up across the grid */
+  .order-note.clamped {
+    display: -webkit-box;
+    min-height: 2lh;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .challenge-grid {
+    display: grid;
+    gap: var(--space-5);
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  }
+
+  .challenge-card {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-5);
+    background: var(--panel);
+    border: 1px solid var(--line);
+  }
+
+  .challenge-card.claimed {
+    opacity: 0.55;
+  }
+
+  .vendor-slot {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .vendor-slot.spent {
+    opacity: 0.4;
+  }
+
+  .slot-tiles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
   }
 
   .glyph {

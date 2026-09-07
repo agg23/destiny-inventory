@@ -19,6 +19,7 @@ import {
   slimModifier,
   slimPlace,
   slimReward,
+  slimVendor,
   skullTable,
   type Tables,
 } from "@dvm/defs-core";
@@ -26,6 +27,7 @@ import type {
   DestinyActivityDefinition,
   DestinyInventoryItemDefinition,
   DestinyObjectiveDefinition,
+  DestinyVendorDefinition,
 } from "bungie-api-ts/destiny2";
 
 import { loadManifest, type RawTable } from "./manifest.ts";
@@ -37,11 +39,9 @@ const AEGIS_DATA = join(REPO_ROOT, ".cache", "aegis.json");
 
 const ITEMS = "DestinyInventoryItemDefinition";
 const PLUG_SETS = "DestinyPlugSetDefinition";
-const VENDORS = "DestinyVendorDefinition";
 
-// getBuckets reads one vendor for the vault bucket mappings
-const VAULT_VENDOR = 1037843411;
 const ACTIVITIES = "DestinyActivityDefinition";
+const VENDORS = "DestinyVendorDefinition";
 const OBJECTIVES = "DestinyObjectiveDefinition";
 const SKULLS = "DestinyActivitySelectableSkullCollectionDefinition";
 
@@ -56,6 +56,7 @@ const SLIM: Record<string, (record: never) => { hash: number }> = {
   DestinyFireteamFinderActivitySetDefinition: slimActivitySet,
   DestinyDestinationDefinition: slimPlace,
   DestinyPlaceDefinition: slimPlace,
+  DestinyVendorDefinition: slimVendor,
 };
 
 const project = (table: string, contents: RawTable): RawTable => {
@@ -228,6 +229,36 @@ const main = async () => {
     }
   }
 
+  // Pursuit rewards are the same kind of dummy, reached through the item's own value block
+  for (const item of shipped) {
+    for (const reward of item.value?.itemValue ?? []) {
+      if (reward.itemHash) {
+        rewardHashes.add(reward.itemHash);
+      }
+    }
+  }
+
+  // Vendor stock is dummy items, named only through the vendor's own item list
+  const vendorHashes = new Set<number>();
+
+  for (const vendor of Object.values(
+    (manifest.tables.get(VENDORS) ?? {}) as Record<string, DestinyVendorDefinition>,
+  )) {
+    for (const entry of vendor.itemList ?? []) {
+      vendorHashes.add(entry.itemHash);
+
+      for (const cost of entry.currencies ?? []) {
+        vendorHashes.add(cost.itemHash);
+      }
+    }
+  }
+
+  const vendorItems = [...vendorHashes].flatMap((hash) => {
+    const item = tables.items[hash];
+
+    return item ? [slimReward(item)] : [];
+  });
+
   const rewards = [...rewardHashes].flatMap((hash) => {
     const item = tables.items[hash];
 
@@ -248,6 +279,7 @@ const main = async () => {
   const coreFile = await emit("core", core);
   await emit("ActivityReward", rewards);
   await emit("ActivityChallenge", challenges);
+  await emit("VendorItem", vendorItems);
   const detailFile = await emit("detail", detail);
   await emit("plugsets", plugsets);
   await emit("hidden", hidden);
@@ -265,12 +297,7 @@ const main = async () => {
     }
 
     const name = table.replace(/^Destiny|Definition$/g, "");
-    const value =
-      table === VENDORS
-        ? { [VAULT_VENDOR]: contents[VAULT_VENDOR] }
-        : project(table, contents);
-
-    await emit(name, value);
+    await emit(name, project(table, contents));
   }
 
   await writeFile(

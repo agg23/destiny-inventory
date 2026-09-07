@@ -6,6 +6,7 @@ import type {
   DestinyInventoryItemDefinition,
   DestinyPlugSetDefinition,
   DestinyProfileResponse,
+  DestinyRecordComponent,
 } from "bungie-api-ts/destiny2";
 
 import { materializeClosure } from "@dvm/defs-core";
@@ -52,6 +53,9 @@ const SUPPORT = [
   "Objective",
   "Progression",
   "Record",
+  "PresentationNode",
+  "EventCard",
+  "GlobalConstants",
   "Race",
   "Gender",
   "Faction",
@@ -64,7 +68,7 @@ const SUPPORT = [
 const CURRENT = "current";
 
 // Bumped whenever the shipped def shape changes, so cached records get refetched
-const SHAPE = 3;
+const SHAPE = 4;
 
 const stamp = (version: string): string => `${version}/${SHAPE}`;
 
@@ -85,6 +89,8 @@ export interface LoadResult {
   playing: string | undefined;
   activities: CharacterActivities;
   variables: StringVariables;
+  records: CharacterRecords;
+  orderRewards: OrderRewards;
 }
 
 export type CharacterActivities = Record<
@@ -93,6 +99,39 @@ export type CharacterActivities = Record<
 >;
 
 export type StringVariables = Record<string, Record<number, number>>;
+
+export type CharacterRecords = Record<
+  string,
+  Record<number, DestinyRecordComponent>
+>;
+
+export type OrderRewards = Record<string, Record<number, number>>;
+
+// The seasonal hub's challenges are character scoped, the lifetime counters are not
+const characterRecords = (profile: DestinyProfileResponse): CharacterRecords => {
+  const shared = profile.profileRecords?.data?.records ?? {};
+  const rows: CharacterRecords = {};
+
+  for (const [id, held] of Object.entries(
+    profile.characterRecords?.data ?? {},
+  )) {
+    rows[id] = { ...shared, ...held.records };
+  }
+
+  return rows;
+};
+
+const orderRewards = (profile: DestinyProfileResponse): OrderRewards => {
+  const rows: OrderRewards = {};
+
+  for (const [id, held] of Object.entries(
+    profile.characterProgressions?.data ?? {},
+  )) {
+    rows[id] = held.unclaimedOrderRewards ?? {};
+  }
+
+  return rows;
+};
 
 const stringVariables = (profile: DestinyProfileResponse): StringVariables => {
   const shared =
@@ -375,6 +414,8 @@ export const load = async (
       playing: playingNow(profile),
       activities: profile.characterActivities?.data ?? {},
       variables: stringVariables(profile),
+      records: characterRecords(profile),
+      orderRewards: orderRewards(profile),
       counts: {
         owned: owned.size,
         defs: Object.keys(items).length,
@@ -454,6 +495,8 @@ const revive = async (
         source: "live",
         playing: playingNow(profile),
         activities: profile.characterActivities?.data ?? first.activities,
+        records: characterRecords(profile),
+        orderRewards: orderRewards(profile),
       });
 
       return;
@@ -482,6 +525,8 @@ const revive = async (
       playing: playingNow(profile),
       activities: profile.characterActivities?.data ?? {},
       variables: stringVariables(profile),
+      records: characterRecords(profile),
+      orderRewards: orderRewards(profile),
       counts: {
         ...first.counts,
         skipped: built.skipped.reduce((total, group) => total + group.count, 0),
@@ -660,6 +705,8 @@ export const refreshProfile = async (
     playing,
     activities: profile.characterActivities?.data ?? {},
     variables: stringVariables(profile),
+    records: characterRecords(profile),
+    orderRewards: orderRewards(profile),
     counts: {
       ...first.counts,
       skipped: built.skipped.reduce((total, group) => total + group.count, 0),

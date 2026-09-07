@@ -37,6 +37,7 @@ export {
   slimModifier,
   slimPlace,
   slimReward,
+  slimVendor,
   skullTable,
   type GearTier,
   type SlimActivity,
@@ -49,6 +50,7 @@ export {
   type SlimModifier,
   type SlimPlace,
   type SlimReward,
+  type SlimVendor,
   type SlimSkull,
   type SlimTier,
 } from "./activities.ts";

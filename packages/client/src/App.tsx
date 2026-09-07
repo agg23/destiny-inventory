@@ -36,6 +36,7 @@ import {
 } from "./history.ts";
 import { load, NotSignedIn, refreshProfile, type LoadResult } from "./load.ts";
 import { currentStores, moveItem, subscribeStores } from "./moves.ts";
+import { syncOrders } from "./orders.ts";
 import { plugIcons, tileIcons, warmIcons } from "./preload.ts";
 import { clearPerk, previewedPerk } from "./perkPreview.ts";
 import { PerkCard } from "./PerkCard.tsx";
@@ -60,12 +61,16 @@ const PINS = 2;
 const LABELS: Record<Tab, string> = {
   vault: "Vault",
   activities: "Activities",
+  todo: "Todo",
   history: "History",
 };
+
+const RAILED: Tab[] = ["vault", "todo"];
 
 const SCOPES: Record<Tab, string> = {
   vault: "Filter items",
   activities: "Filter activities",
+  todo: "Filter todos",
   history: "Filter runs",
 };
 
@@ -189,6 +194,8 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   );
 
   const feed = () => acquired(stores());
+
+  createEffect(() => syncOrders(stores()));
 
   let warmedTiles = false;
 
@@ -725,7 +732,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
               >
                 <RefreshGlyph />
               </button>
-              <Show when={tab() === "vault"}>
+              <Show when={RAILED.includes(tab())}>
                 <button
                   type="button"
                   class="header-action"

@@ -5,6 +5,8 @@ import { storedMembership, type Membership } from "./bungie.ts";
 import type { ArtifactIndex } from "./config.ts";
 import type {
   CharacterActivities,
+  CharacterRecords,
+  OrderRewards,
   LoadResult,
   StringVariables,
 } from "./load.ts";
@@ -49,6 +51,8 @@ interface Snapshot {
   playing: string | undefined;
   activities: CharacterActivities;
   variables: StringVariables;
+  records: CharacterRecords;
+  orderRewards: OrderRewards;
 }
 
 const hydrate = (
@@ -159,6 +163,8 @@ export const saveSnapshot = (
     playing: result.playing,
     activities: result.activities,
     variables: result.variables,
+    records: result.records,
+    orderRewards: result.orderRewards,
   };
 
   // Losing the snapshot only costs paint speed
@@ -183,6 +189,8 @@ const fromSnapshot = (
   degraded: snapshot.degraded,
   playing: snapshot.playing,
   activities: snapshot.activities,
+  records: snapshot.records ?? {},
+  orderRewards: snapshot.orderRewards ?? {},
   variables: snapshot.variables,
   // Empty defs until the live pass fills them in
   session: {

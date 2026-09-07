@@ -10,6 +10,7 @@ import type {
   DestinyFireteamFinderActivityGraphDefinition,
   DestinyFireteamFinderActivitySetDefinition,
   DestinyObjectiveDefinition,
+  DestinyVendorDefinition,
 } from "bungie-api-ts/destiny2";
 
 export interface SlimActivity {
@@ -332,7 +333,35 @@ const gearTier = (label: string | undefined): GearTier | undefined => {
   return { low, high };
 };
 
-// The 542 reward items are a rounding error next to shipping the item table twice
+export interface SlimVendor {
+  hash: number;
+  displayProperties: {
+    name: string;
+    subtitle: string;
+    icon: string | undefined;
+  };
+  failureStrings: string[];
+  acceptedItems: DestinyVendorDefinition["acceptedItems"];
+  displayCategories: { index: number; identifier: string; name: string }[];
+}
+
+/** Enough of a vendor to name it and read its refusal reasons; stock is live-only */
+export const slimVendor = (item: DestinyVendorDefinition): SlimVendor => ({
+  hash: item.hash,
+  displayProperties: {
+    name: item.displayProperties.name,
+    subtitle: item.displayProperties.subtitle,
+    icon: named(item.displayProperties),
+  },
+  failureStrings: item.failureStrings ?? [],
+  acceptedItems: item.acceptedItems ?? [],
+  displayCategories: (item.displayCategories ?? []).map((category) => ({
+    index: category.index,
+    identifier: category.identifier,
+    name: category.displayProperties?.name ?? "",
+  })),
+});
+
 export const slimReward = (
   item: DestinyInventoryItemDefinition,
 ): SlimReward => ({

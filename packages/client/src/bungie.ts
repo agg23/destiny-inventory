@@ -4,6 +4,8 @@ import type {
   DestinyHistoricalStatsPeriodGroup,
   DestinyPostGameCarnageReportData,
   DestinyProfileResponse,
+  DestinyVendorResponse,
+  DestinyVendorsResponse,
 } from "bungie-api-ts/destiny2";
 
 import { loadConfig } from "./config.ts";
@@ -18,9 +20,11 @@ const STATS = "https://stats.bungie.net/Platform";
 const PAGE = 250;
 
 const COMPONENTS = [
-  // 100 dateLastPlayed, 204 CharacterActivities, 1200 StringVariables
-  100, 102, 103, 200, 201, 204, 205, 300, 302, 304, 305, 306, 307, 308, 309,
-  310, 1200,
+  // 100 dateLastPlayed, 204 CharacterActivities, 301 order progress, 900 seasonal hub
+  // challenges, 1200 StringVariables
+  100,
+  102, 103, 200, 201, 204, 205, 300, 301, 302, 304, 305, 306, 307, 308, 309,
+  310, 900, 1200,
 ];
 
 export interface Membership {
@@ -117,6 +121,45 @@ export const fetchProfile = (
     accessToken,
     PLATFORM,
     // Bungie serves the profile with a max-age, so a refresh can never leave the browser
+    "no-cache",
+  );
+
+const VENDOR_COMPONENTS = [400, 401, 402, 600];
+
+export const fetchVendors = (
+  membership: Membership,
+  characterId: string,
+  accessToken: string,
+): Promise<DestinyVendorsResponse> =>
+  call<DestinyVendorsResponse>(
+    `/Destiny2/${membership.membershipType}/Profile/${
+      membership.membershipId
+    }/Character/${characterId}/Vendors/?components=${VENDOR_COMPONENTS.join(
+      ",",
+    )}`,
+    accessToken,
+    PLATFORM,
+    "no-cache",
+  );
+
+// GetVendors answers with an empty itemComponents however they are asked for, so a
+// sale item's roll has to come from the single-vendor endpoint
+const VENDOR_ITEM_COMPONENTS = [300, 301, 304, 305, 308, 310, 402];
+
+export const fetchVendor = (
+  membership: Membership,
+  characterId: string,
+  vendorHash: number,
+  accessToken: string,
+): Promise<DestinyVendorResponse> =>
+  call<DestinyVendorResponse>(
+    `/Destiny2/${membership.membershipType}/Profile/${
+      membership.membershipId
+    }/Character/${characterId}/Vendors/${vendorHash}/?components=${VENDOR_ITEM_COMPONENTS.join(
+      ",",
+    )}`,
+    accessToken,
+    PLATFORM,
     "no-cache",
   );
 

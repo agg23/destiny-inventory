@@ -92,7 +92,7 @@ export const writeParams = (
   return written;
 };
 
-export const TABS = ["vault", "activities", "history"] as const;
+export const TABS = ["vault", "activities", "todo", "history"] as const;
 
 export type Tab = (typeof TABS)[number];
 

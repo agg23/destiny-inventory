@@ -4,6 +4,7 @@ import { render } from "solid-js/web";
 import { Activities } from "./Activities.tsx";
 import { App } from "./App.tsx";
 import { History } from "./history/History.tsx";
+import { Todo } from "./todo/Todo.tsx";
 import { Vault } from "./Vault.tsx";
 import { beginLogin, completeLogin, markDevLogin, signedIn } from "./auth.ts";
 import { messageOf } from "./error.ts";
@@ -54,6 +55,7 @@ const start = async () => {
       <Router root={(props) => <App primed={primed}>{props.children}</App>}>
         <Route path="/vault" component={Vault} />
         <Route path="/activities" component={Activities} />
+        <Route path="/todo" component={Todo} />
         <Route
           path={["/history", "/history/activity/:label"]}
           component={History}

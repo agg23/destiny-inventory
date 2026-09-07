@@ -48,6 +48,8 @@ export const TABLES = [
   "DestinyFireteamFinderActivitySetDefinition",
   "DestinyDestinationDefinition",
   "DestinyPlaceDefinition",
+  "DestinyEventCardDefinition",
+  "DestinyGlobalConstantsDefinition",
 ] as const;
 
 export type TableName = (typeof TABLES)[number];

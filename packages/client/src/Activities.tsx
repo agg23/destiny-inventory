@@ -33,6 +33,7 @@ import {
 import { activityTables } from "./activityTables.ts";
 import { fetchBaseline } from "./baseline.ts";
 import { PageChrome } from "./chrome.tsx";
+import { useClock } from "./clock.ts";
 import { BUNGIE } from "./bungie.ts";
 import { defs } from "./defs.ts";
 import { countdown, HOUR, schedule, type Rotation } from "./distortion.ts";
@@ -814,10 +815,7 @@ export const Activities = () => {
 
   const onZones = () => realm() === DISTORTION;
 
-  const [now, setNow] = createSignal(Date.now());
-  const ticker = window.setInterval(() => setNow(Date.now()), 1000);
-
-  onCleanup(() => window.clearInterval(ticker));
+  const now = useClock();
 
   const hour = createMemo(() => Math.floor(now() / HOUR));
   const turns = createMemo(() => schedule(hour() * HOUR));
