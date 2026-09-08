@@ -9,18 +9,37 @@ import { vendorPlugHashes, type VendorComponents } from "./vendors.ts";
 // An uninstanced item reads nothing off the profile
 const NO_PROFILE = {} as DestinyProfileResponse;
 
+const FAKES = new Map<number, DimItem>();
+
+/** Whatever of a fakeItems set is already built */
+export const builtFakes = (hashes: number[]): Map<number, DimItem> => {
+  const found = new Map<number, DimItem>();
+
+  for (const hash of hashes) {
+    const item = FAKES.get(hash);
+
+    if (item) {
+      found.set(hash, item);
+    }
+  }
+
+  return found;
+};
+
 /** Display-only items for hashes the profile never owned, carrying no roll */
 export const fakeItems = async (
   loaded: LoadResult,
   hashes: number[],
 ): Promise<Map<number, DimItem>> => {
-  await materializeItems(loaded.session, hashes);
+  const wanted = [...new Set(hashes)];
+  const missing = wanted.filter((hash) => !FAKES.has(hash));
+
+  await materializeItems(loaded.session, missing);
 
   const table = defs();
-  const built = new Map<number, DimItem>();
 
   if (!table) {
-    return built;
+    return builtFakes(wanted);
   }
 
   const context = {
@@ -30,7 +49,7 @@ export const fakeItems = async (
     customStats: [],
   };
 
-  for (const hash of new Set(hashes)) {
+  for (const hash of missing) {
     // The factory reads the bucket unchecked, and a profile-level item has none
     if (table.InventoryItem.getOptional(hash)?.inventory === undefined) {
       continue;
@@ -39,11 +58,11 @@ export const fakeItems = async (
     const item = makeFakeItem(context, hash);
 
     if (item) {
-      built.set(hash, item);
+      FAKES.set(hash, item);
     }
   }
 
-  return built;
+  return builtFakes(wanted);
 };
 
 export interface VendorTile {
@@ -54,6 +73,11 @@ export interface VendorTile {
 
 export const tileKey = (vendor: number, vendorItemIndex: number): string =>
   `${vendor}:${vendorItemIndex}`;
+
+let lastTiles = new Map<string, DimItem>();
+
+/** The previous build, for painting while the stock is refetched */
+export const builtTiles = (): Map<string, DimItem> => lastTiles;
 
 /** Sale items carrying the vendor's own roll, falling back to the bare definition */
 export const vendorTiles = async (
@@ -97,6 +121,8 @@ export const vendorTiles = async (
       built.set(tileKey(tile.vendor, tile.vendorItemIndex), item);
     }
   }
+
+  lastTiles = built;
 
   return built;
 };

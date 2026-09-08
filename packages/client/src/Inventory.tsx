@@ -5,7 +5,7 @@ import type {
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { potentialSpaceLeftForItem } from "app/inventory/stores-helpers";
-import { createMemo, For, Show } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
 
 import type { Matched } from "./App.tsx";
 import { CharacterPicker, StoreBanner } from "./CharacterPicker.tsx";
@@ -108,8 +108,58 @@ export const Inventory = (props: Props) => {
     ].filter((section) => section.buckets.length > 0),
   );
 
+  const cells = createMemo(() => {
+    const built = new Map<string, DimItem[]>();
+
+    for (const [id, buckets] of byStore()) {
+      for (const [hash, items] of buckets) {
+        built.set(`${id}:${hash}`, ordered(items));
+      }
+    }
+
+    return built;
+  });
+
   const cell = (store: DimStore, bucket: InventoryBucket) =>
-    ordered(byStore().get(store.id)?.get(bucket.hash) ?? []);
+    cells().get(`${store.id}:${bucket.hash}`) ?? [];
+
+  const [menuFor, setMenuFor] = createSignal<DimItem | undefined>(undefined);
+  const [menuOpen, setMenuOpen] = createSignal(false);
+
+  const tileState = (item: DimItem): string =>
+    [
+      previewed()?.item.index === item.index ? "hovered" : "",
+      menuOpen() && menuFor()?.index === item.index ? "menued" : "",
+    ]
+      .filter((part) => part.length > 0)
+      .join(" ");
+
+  const itemAt = (index: string): DimItem | undefined => {
+    for (const store of props.stores) {
+      const found = store.items.find((one) => one.index === index);
+
+      if (found) {
+        return found;
+      }
+    }
+
+    return undefined;
+  };
+
+  // Capture phase - a miss must not reach the menu's own handler
+  const onContextMenu = (e: MouseEvent) => {
+    const tile = (e.target as HTMLElement).closest("[data-item-index]");
+    const index = tile?.getAttribute("data-item-index") ?? undefined;
+    const found = index === undefined ? undefined : itemAt(index);
+
+    if (!found) {
+      e.stopPropagation();
+
+      return;
+    }
+
+    setMenuFor(found);
+  };
 
   const collectible = createMemo(() => {
     const character = shown().find((store) => !store.isVault);
@@ -135,98 +185,98 @@ export const Inventory = (props: Props) => {
   });
 
   return (
-    <div class="p-3">
-      <div class="stores">
-        <CharacterPicker
-          characters={characters()}
-          selected={props.active}
-          onSelect={props.onSelectStore}
-        />
-        <Show when={vault()}>{(store) => <VaultHeader store={store()} />}</Show>
-      </div>
+    <ItemMenu
+      item={menuFor()}
+      stores={props.stores}
+      active={props.active}
+      pinned={props.pinned}
+      moving={props.moving}
+      onMove={props.onMove}
+      onPin={(item) => props.onSelect(item, false)}
+      onUnpin={props.onUnpin}
+      onCompare={props.onCompare}
+      onQuery={props.onQuery}
+      onOpenChange={setMenuOpen}
+    >
+      <div
+        class="p-3"
+        on:contextmenu={{ handleEvent: onContextMenu, capture: true }}
+      >
+        <div class="stores">
+          <CharacterPicker
+            characters={characters()}
+            selected={props.active}
+            onSelect={props.onSelectStore}
+          />
+          <Show when={vault()}>{(store) => <VaultHeader store={store()} />}</Show>
+        </div>
 
-      <For each={rows()}>
-        {(section) => (
-          <Show when={section.buckets.some((bucket) => occupied(bucket))}>
-            <section>
-              <h2 class="section-label mt-4 mb-1.5">
-                {section.category}
-                <Show when={section.category === "Postmaster" && collectible()}>
-                  {(found) => (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      disabled={!!props.moving || found().items.length === 0}
-                      title={
-                        found().items.length > 0
-                          ? undefined
-                          : found().empty
-                            ? "Nothing to pull"
-                            : "Cannot pull available items"
-                      }
-                      onClick={() =>
-                        props.onCollect(found().items, found().character)
-                      }
-                    >
-                      Collect all ({found().items.length})
-                    </Button>
-                  )}
-                </Show>
-              </h2>
-              <For each={section.buckets}>
-                {(bucket) => (
-                  <Show when={occupied(bucket)}>
-                    <div class="row">
-                      <h3 class="bucket-label">
-                        {bucket.name || `Bucket ${bucket.hash}`}
-                      </h3>
-                      <For each={shown()}>
-                        {(store) => (
-                          <div
-                            class="item-grid wide"
-                            classList={{ character: !store.isVault }}
-                          >
-                            <For each={cell(store, bucket)}>
-                              {(item) => (
-                                <ItemMenu
-                                  item={item}
-                                  stores={props.stores}
-                                  active={props.active}
-                                  pinned={props.pinned}
-                                  moving={props.moving}
-                                  onMove={props.onMove}
-                                  onPin={(item) => props.onSelect(item, false)}
-                                  onUnpin={props.onUnpin}
-                                  onCompare={props.onCompare}
-                                  onQuery={props.onQuery}
-                                >
+        <For each={rows()}>
+          {(section) => (
+            <Show when={section.buckets.some((bucket) => occupied(bucket))}>
+              <section>
+                <h2 class="section-label mt-4 mb-1.5">
+                  {section.category}
+                  <Show when={section.category === "Postmaster" && collectible()}>
+                    {(found) => (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        disabled={!!props.moving || found().items.length === 0}
+                        title={
+                          found().items.length > 0
+                            ? undefined
+                            : found().empty
+                              ? "Nothing to pull"
+                              : "Cannot pull available items"
+                        }
+                        onClick={() =>
+                          props.onCollect(found().items, found().character)
+                        }
+                      >
+                        Collect all ({found().items.length})
+                      </Button>
+                    )}
+                  </Show>
+                </h2>
+                <For each={section.buckets}>
+                  {(bucket) => (
+                    <Show when={occupied(bucket)}>
+                      <div class="row">
+                        <h3 class="bucket-label">
+                          {bucket.name || `Bucket ${bucket.hash}`}
+                        </h3>
+                        <For each={shown()}>
+                          {(store) => (
+                            <div
+                              class="item-grid wide"
+                              classList={{ character: !store.isVault }}
+                            >
+                              <For each={cell(store, bucket)}>
+                                {(item) => (
                                   <ItemIcon
                                     item={item}
                                     selected={props.pinned.some(
                                       (pin) => pin.id === item.id,
                                     )}
-                                    class={
-                                      previewed()?.item.index === item.index
-                                        ? "hovered"
-                                        : ""
-                                    }
+                                    class={tileState(item)}
                                     onSelect={props.onSelect}
                                   />
-                                </ItemMenu>
-                              )}
-                            </For>
-                          </div>
-                        )}
-                      </For>
-                    </div>
-                  </Show>
-                )}
-              </For>
-            </section>
-          </Show>
-        )}
-      </For>
-    </div>
+                                )}
+                              </For>
+                            </div>
+                          )}
+                        </For>
+                      </div>
+                    </Show>
+                  )}
+                </For>
+              </section>
+            </Show>
+          )}
+        </For>
+      </div>
+    </ItemMenu>
   );
 };

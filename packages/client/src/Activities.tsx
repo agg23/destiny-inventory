@@ -31,7 +31,7 @@ import {
   type Realm,
 } from "./activities.ts";
 import { activityTables } from "./activityTables.ts";
-import { fetchBaseline } from "./baseline.ts";
+import { baseline } from "./baseline.ts";
 import { PageChrome } from "./chrome.tsx";
 import { useClock } from "./clock.ts";
 import { BUNGIE } from "./bungie.ts";
@@ -47,7 +47,7 @@ import {
 import { activityLookup } from "./history/activityLookup.ts";
 import { clock } from "./history/runFormat.ts";
 import type { CharacterActivities, StringVariables } from "./load.ts";
-import { fakeItems } from "./fakeItems.ts";
+import { builtFakes, fakeItems } from "./fakeItems.ts";
 import { dismiss, HOVER_DELAY, preview } from "./preview.ts";
 import { useApp } from "./App.tsx";
 import { useUrl } from "./router.ts";
@@ -805,7 +805,9 @@ const DISTORTION = "distortion-schedule";
 export const Activities = () => {
   const app = useApp();
   const url = useUrl();
-  const [tables] = createResource(activityTables);
+  const [tables] = createResource(activityTables, {
+    initialValue: activityTables.settled(),
+  });
   const character = () => app.active()?.id;
   const power = () => app.active()?.powerLevel;
   const realm = () => url.get("realm");
@@ -866,13 +868,13 @@ export const Activities = () => {
     return loaded && entries ? { loaded, entries: [...entries] } : undefined;
   };
 
-  const [baseline] = createResource(tables, (loaded) =>
-    fetchBaseline((hash) => loaded.rewards[hash]),
-  );
+  const [captured] = createResource(baseline, {
+    initialValue: baseline.settled(),
+  });
 
   const all = (): Realm[] => {
     const found = rows();
-    const held = baseline();
+    const held = captured();
 
     if (!found) {
       return [];
@@ -975,6 +977,7 @@ export const Activities = () => {
       return loaded && hashes.length > 0 ? { loaded, hashes } : undefined;
     },
     ({ loaded, hashes }) => fakeItems(loaded, hashes),
+    { initialValue: builtFakes(rewardHashes()) },
   );
 
   const itemFor = (loot: Loot): DimItem | undefined => items()?.get(loot.hash);

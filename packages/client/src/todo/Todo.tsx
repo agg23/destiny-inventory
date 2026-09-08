@@ -1,10 +1,6 @@
 import { createMemo, createResource, For, Show } from "solid-js";
 
-import type { DimItem } from "app/inventory/item-types";
-
 import { useApp } from "../App.tsx";
-import { accessToken } from "../auth.ts";
-import { fetchVendor, fetchVendors } from "../bungie.ts";
 import {
   orderPayouts,
   seasonalChallenges,
@@ -13,7 +9,7 @@ import {
 } from "../challenges.ts";
 import { PageChrome } from "../chrome.tsx";
 import { useClock } from "../clock.ts";
-import { vendorTiles, type VendorTile } from "../fakeItems.ts";
+import { builtTiles, vendorTiles, type VendorTile } from "../fakeItems.ts";
 import {
   activeOrders,
   orderLedger,
@@ -22,12 +18,11 @@ import {
 } from "../orders.ts";
 import { railCollapsed } from "../rail.ts";
 import {
+  fetchVendorState,
+  lastVendorFetch,
   priorityOffers,
   readVendors,
-  TILED,
-  vendorItems,
   type Priority,
-  type VendorComponents,
   type VendorState,
 } from "../vendors.ts";
 import { Challenges } from "./Challenges.tsx";
@@ -88,33 +83,9 @@ export const Todo = () => {
 
       return loaded && character ? { loaded, character } : undefined;
     },
-    async ({ loaded, character }) => {
-      const token = await accessToken();
-
-      if (token === undefined) {
-        return undefined;
-      }
-
-      const [response, items, ...tiled] = await Promise.all([
-        fetchVendors(loaded.session.membership, character, token),
-        vendorItems(),
-        ...TILED.map((vendor) =>
-          fetchVendor(loaded.session.membership, character, vendor, token),
-        ),
-      ]);
-
-      const components: VendorComponents = {};
-
-      TILED.forEach((vendor, at) => {
-        const set = tiled[at]?.itemComponents;
-
-        if (set) {
-          components[vendor] = set;
-        }
-      });
-
-      return { response, items, components };
-    },
+    ({ loaded, character }) =>
+      fetchVendorState(loaded.session.membership, character),
+    { initialValue: lastVendorFetch(app.active()?.id) },
   );
 
   const stock = createMemo(
@@ -167,7 +138,7 @@ export const Todo = () => {
         : undefined;
     },
     ({ loaded, components, tiles }) => vendorTiles(loaded, components, tiles),
-    { initialValue: new Map<string, DimItem>() },
+    { initialValue: builtTiles() },
   );
 
   const priority = createMemo(

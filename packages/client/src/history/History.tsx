@@ -45,7 +45,9 @@ export const History = () => {
   const url = useUrl();
   const route = useParams<{ label?: string }>();
   const navigate = useNavigate();
-  const [tables] = createResource(activityTables);
+  const [tables] = createResource(activityTables, {
+    initialValue: activityTables.settled(),
+  });
   const tab = () => url.get("view");
   const expanded = () => url.get("open");
   const range = () => url.get("range");

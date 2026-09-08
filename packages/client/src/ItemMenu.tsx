@@ -2,7 +2,7 @@ import { ContextMenu } from "@kobalte/core/context-menu";
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { quoteFilterString } from "app/search/query-parser";
-import { For, Show, type JSX } from "solid-js";
+import { For, Show, splitProps, type JSX } from "solid-js";
 
 import { comparable } from "./compare.ts";
 import {
@@ -18,7 +18,7 @@ import { clear } from "./preview.ts";
 import { cn } from "./ui/cn.ts";
 
 interface Props {
-  item: DimItem;
+  item: DimItem | undefined;
   stores: DimStore[];
   active: DimStore | undefined;
   pinned: DimItem[];
@@ -28,8 +28,13 @@ interface Props {
   onUnpin: (item: DimItem) => void;
   onCompare: (item: DimItem, rival: DimItem) => void;
   onQuery: (query: string) => void;
+  onOpenChange: (open: boolean) => void;
   children: JSX.Element;
 }
+
+type RowProps = Omit<Props, "item" | "onOpenChange" | "children"> & {
+  item: DimItem;
+};
 
 const ROW =
   "menu-item px-3 py-2 text-sm tracking-caps outline-none data-[highlighted]:border-fg data-[highlighted]:bg-surface-active data-[highlighted]:text-fg";
@@ -108,7 +113,7 @@ const SplitRow = (props: SplitProps) => (
   </div>
 );
 
-export const ItemMenu = (props: Props) => {
+const Rows = (props: RowProps) => {
   const pinned = () => props.pinned.some((one) => one.id === props.item.id);
 
   const rival = () => {
@@ -140,67 +145,86 @@ export const ItemMenu = (props: Props) => {
     props.moving ?? transferBlocked(props.item, props.stores, target);
 
   return (
-    <ContextMenu onOpenChange={(open) => open && clear()}>
-      <ContextMenu.Trigger as="span" class="tile-menu contents">
+    <>
+      <Show when={equipOn()}>
+        {(target) => (
+          <SplitRow
+            label={`Equip on ${storeLabel(target())}`}
+            reason={equipReason()}
+            onChoose={() => props.onMove(props.item, target(), true)}
+            others={otherEquips(target())}
+            reasonFor={equipReason}
+            onChooseOther={(store) => props.onMove(props.item, store, true)}
+          />
+        )}
+      </Show>
+
+      <Show when={transferTo()}>
+        {(target) => (
+          <SplitRow
+            label={`Transfer to ${storeLabel(target())}`}
+            reason={transferReason(target())}
+            onChoose={() => props.onMove(props.item, target(), false)}
+            others={otherTransfers(target())}
+            reasonFor={transferReason}
+            onChooseOther={(store) => props.onMove(props.item, store, false)}
+          />
+        )}
+      </Show>
+
+      <Show when={equipOn() || transferTo()}>
+        <ContextMenu.Separator class="mx-3 my-1 border-t border-line" />
+      </Show>
+
+      <Row
+        label={pinned() ? "Unpin" : "Pin"}
+        onChoose={() =>
+          pinned() ? props.onUnpin(props.item) : props.onPin(props.item)
+        }
+      />
+      <Show when={rival()}>
+        {(reference) => (
+          <Row
+            label={`Compare with ${reference().name}`}
+            onChoose={() => props.onCompare(props.item, reference())}
+          />
+        )}
+      </Show>
+      <Row
+        label="Search similar"
+        onChoose={() =>
+          props.onQuery(
+            `exactname:${quoteFilterString(props.item.name.toLowerCase())}`,
+          )
+        }
+      />
+    </>
+  );
+};
+
+/** One menu for the whole grid; the caller says which tile the pointer is on */
+export const ItemMenu = (props: Props) => {
+  const [, rest] = splitProps(props, ["item", "onOpenChange", "children"]);
+
+  const onOpenChange = (open: boolean) => {
+    if (open) {
+      clear();
+    }
+
+    props.onOpenChange(open);
+  };
+
+  return (
+    <ContextMenu onOpenChange={onOpenChange}>
+      <ContextMenu.Trigger as="div" class="contents">
         {props.children}
       </ContextMenu.Trigger>
       <ContextMenu.Portal>
         {/* Opaque: this floats over the grid, not over game art */}
         <ContextMenu.Content data-menu="item" class={PANEL}>
-          <Show when={equipOn()}>
-            {(target) => (
-              <SplitRow
-                label={`Equip on ${storeLabel(target())}`}
-                reason={equipReason()}
-                onChoose={() => props.onMove(props.item, target(), true)}
-                others={otherEquips(target())}
-                reasonFor={equipReason}
-                onChooseOther={(store) => props.onMove(props.item, store, true)}
-              />
-            )}
+          <Show when={props.item}>
+            {(item) => <Rows {...rest} item={item()} />}
           </Show>
-
-          <Show when={transferTo()}>
-            {(target) => (
-              <SplitRow
-                label={`Transfer to ${storeLabel(target())}`}
-                reason={transferReason(target())}
-                onChoose={() => props.onMove(props.item, target(), false)}
-                others={otherTransfers(target())}
-                reasonFor={transferReason}
-                onChooseOther={(store) =>
-                  props.onMove(props.item, store, false)
-                }
-              />
-            )}
-          </Show>
-
-          <Show when={equipOn() || transferTo()}>
-            <ContextMenu.Separator class="mx-3 my-1 border-t border-line" />
-          </Show>
-
-          <Row
-            label={pinned() ? "Unpin" : "Pin"}
-            onChoose={() =>
-              pinned() ? props.onUnpin(props.item) : props.onPin(props.item)
-            }
-          />
-          <Show when={rival()}>
-            {(reference) => (
-              <Row
-                label={`Compare with ${reference().name}`}
-                onChoose={() => props.onCompare(props.item, reference())}
-              />
-            )}
-          </Show>
-          <Row
-            label="Search similar"
-            onChoose={() =>
-              props.onQuery(
-                `exactname:${quoteFilterString(props.item.name.toLowerCase())}`,
-              )
-            }
-          />
         </ContextMenu.Content>
       </ContextMenu.Portal>
     </ContextMenu>

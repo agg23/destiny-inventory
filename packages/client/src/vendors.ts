@@ -9,6 +9,8 @@ import { VendorItemStatus } from "bungie-api-ts/destiny2";
 import type { SlimReward, SlimVendor } from "@dvm/defs-core";
 
 import { fetchRecords } from "./artifacts.ts";
+import { accessToken } from "./auth.ts";
+import { fetchVendor, fetchVendors, type Membership } from "./bungie.ts";
 import { loadConfig } from "./config.ts";
 import { defs } from "./defs.ts";
 import { nextWeekendReset, nextWeeklyReset, xurPresent } from "./reset.ts";
@@ -158,6 +160,53 @@ export type VendorComponents = Record<
 export const TILED: number[] = WATCHED.filter(
   (watch) => watch.mode === "claims",
 ).map((watch) => watch.vendor);
+
+export interface VendorFetch {
+  response: DestinyVendorsResponse;
+  items: VendorItems;
+  components: VendorComponents;
+}
+
+let held: { character: string; fetched: VendorFetch } | undefined = undefined;
+
+/** The last fetch for a character, kept across unmounts */
+export const lastVendorFetch = (
+  character: string | undefined,
+): VendorFetch | undefined =>
+  held && held.character === character ? held.fetched : undefined;
+
+export const fetchVendorState = async (
+  membership: Membership,
+  character: string,
+): Promise<VendorFetch | undefined> => {
+  const token = await accessToken();
+
+  if (token === undefined) {
+    return undefined;
+  }
+
+  const [response, items, ...tiled] = await Promise.all([
+    fetchVendors(membership, character, token),
+    vendorItems(),
+    ...TILED.map((vendor) => fetchVendor(membership, character, vendor, token)),
+  ]);
+
+  const components: VendorComponents = {};
+
+  TILED.forEach((vendor, at) => {
+    const set = tiled[at]?.itemComponents;
+
+    if (set) {
+      components[vendor] = set;
+    }
+  });
+
+  const fetched: VendorFetch = { response, items, components };
+
+  held = { character, fetched };
+
+  return fetched;
+};
 
 /** Plugs the vendors' rolls name, for the on-demand def pull */
 export const vendorPlugHashes = (components: VendorComponents): number[] => {

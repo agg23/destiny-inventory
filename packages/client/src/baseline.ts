@@ -1,6 +1,8 @@
 import type { Baseline as Captured, Reward } from "@dvm/service";
 
 import type { Recalled } from "./activities.ts";
+import { activityTables } from "./activityTables.ts";
+import { cached } from "./cache.ts";
 
 // A live profile deletes a taken reward outright
 const ENDPOINT = "/api/baseline";
@@ -17,7 +19,7 @@ export interface Baseline {
 const BONUS_DROP = "extra_engram";
 const FOCUS = "daily_grind_guaranteed";
 
-export interface Names {
+interface Names {
   (itemHash: number): { name: string; icon: string | undefined } | undefined;
 }
 
@@ -62,8 +64,11 @@ const recall = (rewards: Reward[], named: Names): Recalled => {
   return { flag: "", bonusDrops, focus, bonus };
 };
 
-export const fetchBaseline = async (named: Names): Promise<Baseline> => {
+// The capture only changes at weekly reset
+export const baseline = cached(async (): Promise<Baseline> => {
   const empty: Baseline = { week: undefined, capturedAt: undefined, rows: {} };
+  const tables = await activityTables();
+  const named: Names = (hash) => tables.rewards[hash];
 
   try {
     const response = await fetch(ENDPOINT);
@@ -83,4 +88,4 @@ export const fetchBaseline = async (named: Names): Promise<Baseline> => {
   } catch {
     return empty;
   }
-};
+});

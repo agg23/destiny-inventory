@@ -533,12 +533,12 @@
     pointer-events: none;
   }
 
-  /* Kobalte flags the trigger while its menu is open, so hold the hover treatment */
-  .tile-menu[data-expanded] > .item-tile .tile-edge {
+  /* Hold the hover treatment while this tile's menu is open */
+  .item-tile.menued .tile-edge {
     border-color: #fff;
   }
 
-  .tile-menu[data-expanded] > .item-tile::before {
+  .item-tile.menued::before {
     content: "";
     position: absolute;
     inset: calc(var(--edge) * -1);

@@ -103,7 +103,7 @@ export const ItemIcon = (props: Props) => (
   <Show
     when={props.onSelect}
     fallback={
-      <span class={tileClass(props)}>
+      <span class={tileClass(props)} data-item-index={props.item.index}>
         <Face {...props} />
       </span>
     }
@@ -112,6 +112,7 @@ export const ItemIcon = (props: Props) => (
       <button
         type="button"
         class={tileClass(props)}
+        data-item-index={props.item.index}
         onClick={(e) => onSelect()(props.item, e.shiftKey)}
         onMouseEnter={(e) => preview(props.item, e.currentTarget)}
         onMouseLeave={() => dismiss(props.item)}
