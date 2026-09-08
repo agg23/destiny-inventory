@@ -151,6 +151,32 @@ export const seasonalChallenges = (
   });
 };
 
+/** Payout counters rekeyed from the unlock values the profile uses to the reward items */
+export const payoutsByReward = (rewards: OrderRewards): OrderRewards => {
+  const loaded = manifest();
+  const byUnlockValue =
+    (loaded &&
+      constants(loaded)?.orderRewardsUnlockValueHashesToRewardItemHashes) ??
+    {};
+  const rows: OrderRewards = {};
+
+  for (const [character, counts] of Object.entries(rewards)) {
+    const row: Record<number, number> = {};
+
+    for (const [unlockValue, waiting] of Object.entries(counts)) {
+      const itemHash = byUnlockValue[Number(unlockValue)];
+
+      if (itemHash !== undefined) {
+        row[itemHash] = waiting;
+      }
+    }
+
+    rows[character] = row;
+  }
+
+  return rows;
+};
+
 /** Order rewards earned and waiting to be collected, by payout tier */
 export const orderPayouts = (
   rewards: OrderRewards,
@@ -162,17 +188,10 @@ export const orderPayouts = (
     return [];
   }
 
-  const unclaimed = rewards[character] ?? {};
-  const byUnlockValue =
-    constants(loaded)?.orderRewardsUnlockValueHashesToRewardItemHashes ?? {};
+  const unclaimed = payoutsByReward(rewards)[character] ?? {};
 
-  return Object.entries(unclaimed).flatMap(([unlockValue, waiting]) => {
-    const itemHash = byUnlockValue[Number(unlockValue)];
-
-    if (itemHash === undefined) {
-      return [];
-    }
-
+  return Object.entries(unclaimed).flatMap(([hash, waiting]) => {
+    const itemHash = Number(hash);
     const name =
       loaded.InventoryItem.getOptional(itemHash)?.displayProperties?.name;
 

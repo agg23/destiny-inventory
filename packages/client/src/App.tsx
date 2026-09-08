@@ -195,7 +195,13 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
 
   const feed = () => acquired(stores());
 
-  createEffect(() => syncOrders(stores()));
+  createEffect(() => {
+    const loaded = current();
+
+    if (loaded) {
+      syncOrders(loaded.stores, loaded.orderRewards);
+    }
+  });
 
   let warmedTiles = false;
 
@@ -786,7 +792,6 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
             <Show when={syncError()}>
               {(message) => <span class="text-danger">{message()}</span>}
             </Show>
-
           </div>
         </header>
 

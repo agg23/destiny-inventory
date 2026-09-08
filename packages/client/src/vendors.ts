@@ -1,3 +1,4 @@
+import type { DimItem } from "app/inventory/item-types";
 import type {
   DestinyVendorItemComponentSetOfint32,
   DestinyVendorSaleItemComponent,
@@ -28,6 +29,8 @@ interface Watch {
   mode: Mode;
   category?: string;
   only?: number[];
+  // Stack label of stock the vendor stops offering once you hold it
+  owned?: string;
 }
 
 const EXCHANGE = [2865242233, 825199458, 2001857187, 3612161799];
@@ -40,6 +43,7 @@ export const WATCHED: Watch[] = [
     vendor: 3347378076,
     mode: "offers",
     category: "clan_bounties_vendor_display",
+    owned: "social.clans.",
   },
 ];
 
@@ -229,16 +233,42 @@ const slotsOf = (
     });
 };
 
+const ownedOffers = (held: readonly DimItem[], label: string): Offer[] =>
+  held.flatMap((item) => {
+    const stack = defs()?.InventoryItem.getOptional(item.hash)?.inventory
+      ?.stackUniqueLabel;
+
+    if (stack === undefined || !stack.startsWith(label)) {
+      return [];
+    }
+
+    return [
+      {
+        index: item.hash,
+        itemHash: item.hash,
+        name: item.name,
+        icon: item.icon,
+        quantity: 1,
+        costs: [],
+        available: false,
+        reasons: ["Already held"],
+      },
+    ];
+  });
+
 export const readVendors = (
   response: DestinyVendorsResponse | undefined,
   items: VendorItems,
   variables: Record<number, number>,
+  held: readonly DimItem[],
 ): VendorState[] => {
   if (!response || !defs()) {
     return [];
   }
 
-  return WATCHED.flatMap(({ vendor, mode, category, only }): VendorState[] => {
+  return WATCHED.flatMap((watch): VendorState[] => {
+    const { vendor, mode, category, only, owned } = watch;
+
     const live = response.vendors?.data?.[vendor];
     const def = vendorDef(vendor);
 
@@ -331,7 +361,14 @@ export const readVendors = (
         ? offers.filter((offer) => offer.costs.length > 0)
         : offers;
 
-    return [{ ...shell, refreshesAt, offers: shown }];
+    return [
+      {
+        ...shell,
+        refreshesAt,
+        offers:
+          owned === undefined ? shown : [...shown, ...ownedOffers(held, owned)],
+      },
+    ];
   });
 };
 

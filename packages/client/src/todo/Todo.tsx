@@ -123,7 +123,12 @@ export const Todo = () => {
 
       return fetched === undefined
         ? []
-        : readVendors(fetched.response, fetched.items, values());
+        : readVendors(
+            fetched.response,
+            fetched.items,
+            values(),
+            app.active()?.items ?? [],
+          );
     },
     undefined,
     held<VendorState>(),

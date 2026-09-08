@@ -20,11 +20,11 @@ const STATS = "https://stats.bungie.net/Platform";
 const PAGE = 250;
 
 const COMPONENTS = [
-  // 100 dateLastPlayed, 204 CharacterActivities, 301 order progress, 900 seasonal hub
-  // challenges, 1200 StringVariables
+  // 100 dateLastPlayed, 202 unclaimed order payouts, 204 CharacterActivities, 301 order
+  // progress, 900 seasonal hub challenges, 1200 StringVariables
   100,
-  102, 103, 200, 201, 204, 205, 300, 301, 302, 304, 305, 306, 307, 308, 309,
-  310, 900, 1200,
+  102, 103, 200, 201, 202, 204, 205, 300, 301, 302, 304, 305, 306, 307, 308,
+  309, 310, 900, 1200,
 ];
 
 export interface Membership {
