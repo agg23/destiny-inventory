@@ -774,10 +774,6 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
           <div class="header-status">
             {chrome()?.status}
 
-            <Show when={syncing()}>
-              <span>Syncing history…</span>
-            </Show>
-
             <Show when={failingSince()}>
               {(since) => (
                 <span class="text-warning">
