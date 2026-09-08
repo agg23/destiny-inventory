@@ -1432,8 +1432,13 @@
     height: 3.5rem;
   }
 
-  .table.activities .plate {
+  .table .plate {
     box-shadow: inset 0 -1px 0 var(--line);
+  }
+
+  /* Or the plate's own line stacks on the cell border and the pitch grows */
+  .table td:has(> .plate) {
+    border-bottom: 0;
   }
 
   .table tbody tr.day,
