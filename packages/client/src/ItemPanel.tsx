@@ -321,7 +321,7 @@ const Socket = (props: {
               }}
               src={`${BUNGIE}${plug.plugDef.displayProperties.icon}`}
               loading="lazy"
-              alt={plug.plugDef.displayProperties.name}
+              alt=""
             />
             <Show when={perkFor(plug.plugDef.hash)?.rank}>
               {(rank) => <span class="plug-rank">{rank()}</span>}
@@ -1107,12 +1107,7 @@ export const ItemPower = (props: { item: DimItem }) => (
       </Show>
       <Show when={AMMO[props.item.ammoType]}>
         {(ammo) => (
-          <img
-            class="ammo-icon"
-            src={ammo().url}
-            alt={ammo().name}
-            title={ammo().name}
-          />
+          <img class="ammo-icon" src={ammo().url} alt="" title={ammo().name} />
         )}
       </Show>
     </div>

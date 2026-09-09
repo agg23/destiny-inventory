@@ -27,11 +27,7 @@ export const OrderCard = (props: {
     data-rarity={props.order.rarity}
   >
     <div class="order-head">
-      <img
-        class="glyph"
-        src={`${BUNGIE}${props.order.icon}`}
-        alt={props.order.family}
-      />
+      <img class="glyph" src={`${BUNGIE}${props.order.icon}`} alt="" />
       <span class="order-name">{props.order.name}</span>
       <Show
         when={props.order.expiresAt !== undefined}

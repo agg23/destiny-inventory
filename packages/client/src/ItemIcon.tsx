@@ -44,11 +44,7 @@ const tileClass = (props: Props): string =>
 
 const Face = (props: Props) => (
   <>
-    <img
-      src={`${BUNGIE}${props.item.icon}`}
-      loading="lazy"
-      alt={props.item.name}
-    />
+    <img src={`${BUNGIE}${props.item.icon}`} loading="lazy" alt="" />
     <span class="tile-edge" />
     <Show when={props.badges !== false}>
       <Show when={settings().overlay && props.item.iconOverlay}>

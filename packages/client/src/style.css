@@ -9,6 +9,12 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  /* Keeps alt text from rendering while an icon loads or when it 404s */
+  img {
+    color: transparent;
+    font-size: 0;
+  }
+
   .app-header {
     display: flex;
     flex-direction: column;

@@ -98,11 +98,7 @@ const power = (entry: Available): string | undefined => {
 const where = (entry: Available): string =>
   [entry.typeName, entry.location].filter(Boolean).join(" · ");
 
-const Icon = (props: {
-  icon: string | undefined;
-  alt: string;
-  class?: string;
-}) => (
+const Icon = (props: { icon: string | undefined; class?: string }) => (
   <Show
     when={props.icon}
     fallback={<span class={`glyph bg-surface-raised ${props.class ?? ""}`} />}
@@ -111,7 +107,7 @@ const Icon = (props: {
       <img
         class={`glyph ${props.class ?? ""}`}
         src={`${BUNGIE}${icon()}`}
-        alt={props.alt}
+        alt=""
       />
     )}
   </Show>
@@ -157,7 +153,7 @@ const Named = (props: NamedProps) => {
       onMouseMove={track}
       onMouseLeave={leave}
     >
-      <Icon icon={props.loot.icon} alt="" class="size-(--icon-md)" />
+      <Icon icon={props.loot.icon} class="size-(--icon-md)" />
       <span class="truncate">{props.loot.name}</span>
       <Show when={props.loot.quantity > 1}>
         <span class="text-dim">×{props.loot.quantity}</span>
@@ -226,7 +222,7 @@ const BASE_DROPS = 1;
 const Drops = (props: { entry: Available; glyph: string | undefined }) => (
   <div class="progress-label m-0 w-full items-center justify-start gap-4 tabular-nums">
     <span class="inline-flex items-center gap-1.5">
-      <Icon icon={props.glyph} alt="" class="size-(--icon-sm)" />
+      <Icon icon={props.glyph} class="size-(--icon-sm)" />
       <b>{BASE_DROPS}</b> drop
     </span>
     <Show when={props.entry.bonusDrops}>
@@ -253,7 +249,7 @@ const BonusCount = (props: { count: number; glyph: string | undefined }) => (
         class="ml-2 inline-flex items-center gap-1 text-gold"
         title={REMAINING}
       >
-        <Icon icon={props.glyph} alt="" class="size-(--icon-xs)" />
+        <Icon icon={props.glyph} class="size-(--icon-xs)" />
         {count()}
       </span>
     )}
@@ -642,7 +638,7 @@ const TableRow = (props: RowProps) => (
     <td class="tabular-nums">{power(props.entry) ?? "-"}</td>
     <td class="tabular-nums">
       <span class="inline-flex items-center gap-2">
-        <Icon icon={props.glyph} alt="" class="size-(--icon-xs)" />
+        <Icon icon={props.glyph} class="size-(--icon-xs)" />
         <b>{BASE_DROPS}</b>
         <Show when={props.entry.gear}>
           {(gear) => (

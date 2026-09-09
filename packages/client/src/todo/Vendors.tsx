@@ -19,13 +19,7 @@ const OfferRow = (props: { offer: Offer }) => (
     <td>
       <span class="cell-lead">
         <Show when={props.offer.icon}>
-          {(icon) => (
-            <img
-              class="glyph"
-              src={`${BUNGIE}${icon()}`}
-              alt={props.offer.name}
-            />
-          )}
+          {(icon) => <img class="glyph" src={`${BUNGIE}${icon()}`} alt="" />}
         </Show>
         {props.offer.name}
         <Show when={props.offer.quantity > 1}>
