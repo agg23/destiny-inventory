@@ -536,7 +536,8 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
 
   const refreshAll = async () => {
     if (tab() === "history" || Date.now() - runsAt > OFFSCREEN_RUNS) {
-      await syncNow();
+      // We don't need to block on grabbing runs
+      void syncNow();
     }
 
     await refresh();
@@ -545,7 +546,8 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   const poller = startAutoRefresh({
     onRefresh: () =>
       refreshAll().catch((e: unknown) => console.warn("Refresh failed", e)),
-    busy: () => Boolean(moving()) || current()?.source === "cache",
+    busy: () =>
+      Boolean(moving()) || (current()?.source === "cache" && !liveFailed()),
   });
 
   onCleanup(poller.stop);
@@ -728,7 +730,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
                 disabled={
                   Boolean(moving()) ||
                   refreshing() ||
-                  current()?.source === "cache"
+                  (current()?.source === "cache" && !liveFailed())
                 }
                 onClick={() =>
                   void refreshAll().catch((e: unknown) =>

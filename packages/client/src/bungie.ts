@@ -120,8 +120,8 @@ export const fetchProfile = (
     }/?components=${COMPONENTS.join(",")}`,
     accessToken,
     PLATFORM,
-    // Bungie serves the profile with a max-age, so a refresh can never leave the browser
-    "no-cache",
+    // Force the newest possible response
+    "reload",
   );
 
 const VENDOR_COMPONENTS = [400, 401, 402, 600];
@@ -139,7 +139,7 @@ export const fetchVendors = (
     )}`,
     accessToken,
     PLATFORM,
-    "no-cache",
+    "reload",
   );
 
 // GetVendors answers with an empty itemComponents however they are asked for, so a
@@ -160,7 +160,7 @@ export const fetchVendor = (
     )}`,
     accessToken,
     PLATFORM,
-    "no-cache",
+    "reload",
   );
 
 const character = (membership: Membership, characterId: string): string =>
@@ -180,8 +180,8 @@ export const fetchActivityHistory = async (
     )}/Stats/Activities/?count=${PAGE}&page=${page}`,
     accessToken,
     PLATFORM,
-    // Page 0 grows as you play, and Bungie serves it with a max-age
-    page === 0 ? "no-cache" : "default",
+    // Page 0 grows as you play
+    page === 0 ? "reload" : "default",
   );
 
   // Bungie omits the array entirely once the pages run out
