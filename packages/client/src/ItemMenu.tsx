@@ -191,7 +191,7 @@ const Rows = (props: RowProps) => {
         )}
       </Show>
       <Row
-        label="Search similar"
+        label="Filter to name"
         onChoose={() =>
           props.onQuery(
             `exactname:${quoteFilterString(props.item.name.toLowerCase())}`,
