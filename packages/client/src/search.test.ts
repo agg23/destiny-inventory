@@ -49,6 +49,32 @@ describe("itemFilter", () => {
     expect(found("hunger").length).toBeGreaterThan(found("name:hunger").length);
   });
 
+  // Bare text runs off a prebuilt index, which has to reach as far as DIM's own walk
+  it("reaches perk names on bare text", () => {
+    const [perked] = items.flatMap((item) =>
+      (item.sockets?.allSockets ?? []).flatMap((socket) => {
+        const name = socket.isPerk
+          ? (socket.plugged?.plugDef.displayProperties.name ?? "")
+          : "";
+
+        return /^[a-z]{5,}$/i.test(name)
+          ? [{ item, perk: name.toLowerCase() }]
+          : [];
+      }),
+    );
+
+    expect(found(perked!.perk).map((one) => one.id)).toContain(perked!.item.id);
+    expect(found(`name:${perked!.perk}`).map((one) => one.id)).not.toContain(
+      perked!.item.id,
+    );
+  });
+
+  it("reaches type names on bare text", () => {
+    const item = items.find((one) => one.typeName === "Hand Cannon")!;
+
+    expect(found("cannon").map((one) => one.id)).toContain(item.id);
+  });
+
   it("matches item categories", () => {
     const results = found("is:handcannon");
 

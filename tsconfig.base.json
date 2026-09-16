@@ -27,6 +27,7 @@
       "testing/*": ["packages/move-tests/src/*"],
       "app/i18next-t": ["packages/dim-bridge/src/shims/i18next-t.ts"],
       "app/i18n": ["packages/dim-bridge/src/shims/i18n.ts"],
+      "app/search/text-utils": ["packages/dim-bridge/src/shims/text-utils.ts"],
       "app/utils/sentry": ["packages/dim-bridge/src/shims/sentry.ts"],
       "app/utils/log": ["packages/dim-bridge/src/shims/log.ts"],
       "app/dim-ui/BungieImage": ["packages/dim-bridge/src/shims/bungie-image.ts"],

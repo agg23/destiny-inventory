@@ -23,11 +23,10 @@ import socketFilters from "app/search/items/search-filters/sockets";
 import wishlistFilters from "app/search/items/search-filters/wishlist";
 import statFilters from "app/search/items/search-filters/stats";
 import locationFilters from "app/search/items/search-filters/stores";
-import {
-  autocompleteTermSuggestions,
-  makeFilterComplete,
-} from "app/search/autocomplete";
+import { autocompleteTermSuggestions } from "app/search/autocomplete";
 
+import { makeComplete } from "./complete.ts";
+import { indexKeywords, keywordFilter } from "./keyword.ts";
 import {
   assess,
   ratingFor,
@@ -116,7 +115,8 @@ const ratingFilters: ItemFilterDefinition[] = [
 // and their keywords read as unknown instead of matching nothing
 const FILTERS = [
   ...dupeFilters,
-  ...freeformFilters,
+  ...freeformFilters.filter((one) => one.keywords !== keywordFilter.keywords),
+  keywordFilter,
   ...knownValuesFilters,
   ...simpleRangeFilters,
   ...overloadedRangeFilters,
@@ -201,10 +201,28 @@ const completer = (
 
   const config = buildSearchConfig("en", context, FILTERS_MAP);
 
-  suggesting = { stores, config, complete: makeFilterComplete(config) };
+  suggesting = { stores, config, complete: makeComplete(config) };
 
   return suggesting;
 };
+
+/**
+ * Build the keyword index before first reference
+ */
+export const primeSearch = (
+  stores: DimStore[],
+  definitions: D2ManifestDefinitions | undefined,
+) =>
+  indexKeywords(
+    stores.flatMap((store) => store.items),
+    searchable(definitions),
+    "en",
+  );
+
+export const searchConfig = (
+  stores: DimStore[],
+  definitions: D2ManifestDefinitions | undefined,
+): ItemSearchConfig => completer(stores, definitions).config;
 
 export interface Suggestion {
   query: string;

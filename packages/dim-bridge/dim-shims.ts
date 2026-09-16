@@ -8,6 +8,7 @@ export const SHIMS: { match: RegExp; shim: string }[] = [
   { match: /^(?:.*\/)?utils\/log$/, shim: "log.ts" },
   { match: /^(?:.*\/)?dim-ui\/BungieImage$/, shim: "bungie-image.ts" },
   { match: /^(?:.*\/)?app\/i18n$/, shim: "i18n.ts" },
+  { match: /^(?:.*\/)?app\/search\/text-utils$/, shim: "text-utils.ts" },
   { match: /^(?:.*\/)?app\/i18next-t$/, shim: "i18next-t.ts" },
   { match: /^(?:.*\/)?app\/store\/types$/, shim: "store-types.ts" },
   { match: /^(?:.*\/)?app\/store\/store$/, shim: "store.ts" },
