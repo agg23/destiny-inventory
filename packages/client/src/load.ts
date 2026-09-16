@@ -1,12 +1,13 @@
 import type { DimItem } from "app/inventory/item-types";
 import type { InventoryBuckets } from "app/inventory/inventory-buckets";
 import type { DimStore } from "app/inventory/store-types";
-import type {
-  DestinyCharacterActivitiesComponent,
-  DestinyInventoryItemDefinition,
-  DestinyPlugSetDefinition,
-  DestinyProfileResponse,
-  DestinyRecordComponent,
+import {
+  ComponentPrivacySetting,
+  type DestinyCharacterActivitiesComponent,
+  type DestinyInventoryItemDefinition,
+  type DestinyPlugSetDefinition,
+  type DestinyProfileResponse,
+  type DestinyRecordComponent,
 } from "bungie-api-ts/destiny2";
 
 import { materializeClosure } from "@dvm/defs-core";
@@ -16,6 +17,7 @@ import { buildStoresFrom, storeItems, type Failure } from "./stores.ts";
 import { seedInventory } from "./moves.ts";
 import { fetchRecords, fetchTable, hasArtifact } from "./artifacts.ts";
 import { loadConfig, type ArtifactIndex } from "./config.ts";
+import type { Guest } from "./guest.ts";
 import { loadRolls } from "./rolls.ts";
 import { bootFromSnapshot, saveSnapshot } from "./snapshot.ts";
 import {
@@ -295,6 +297,8 @@ export interface Session {
   plugSets: Record<number, PlugSetDef>;
   hidden: Set<number>;
   minted: number;
+  /** Set only while another account's profile is on screen */
+  guest: Guest | undefined;
 }
 
 export const load = async (
@@ -402,6 +406,7 @@ export const load = async (
       plugSets,
       hidden,
       minted: mintedAt(profile),
+      guest: undefined,
     };
 
     const result: LoadResult = {
@@ -651,6 +656,103 @@ const materializeNew = (session: Session, profile: DestinyProfileResponse) =>
     ...profileItems(profile).map((item) => item.itemHash),
     ...liveReferences(profile),
   ]);
+
+// The store factory bails on a profile with no inventory components
+const withoutInventories = (
+  profile: DestinyProfileResponse,
+): DestinyProfileResponse => {
+  const empty = {
+    data: { items: [] },
+    privacy: ComponentPrivacySetting.Private,
+  };
+
+  const byCharacter = {
+    data: Object.fromEntries(
+      Object.keys(profile.characters?.data ?? {}).map((id) => [
+        id,
+        { items: [] },
+      ]),
+    ),
+    privacy: ComponentPrivacySetting.Private,
+  };
+
+  return {
+    ...profile,
+    profileInventory: profile.profileInventory?.data
+      ? profile.profileInventory
+      : empty,
+    characterInventories: profile.characterInventories?.data
+      ? profile.characterInventories
+      : byCharacter,
+    characterEquipment: profile.characterEquipment?.data
+      ? profile.characterEquipment
+      : byCharacter,
+  };
+};
+
+const guestOf = (membership: Membership, profile: DestinyProfileResponse) => {
+  const who = profile.profile?.data?.userInfo;
+
+  return {
+    membershipType: membership.membershipType,
+    membershipId: membership.membershipId,
+    name: who?.bungieGlobalDisplayName || who?.displayName || "Guardian",
+    code: who?.bungieGlobalDisplayNameCode,
+    pinned: false,
+  };
+};
+
+/** Another account's profile built against the loaded definitions, and cached nowhere */
+export const loadGuest = async (
+  owner: LoadResult,
+  membership: Membership,
+): Promise<LoadResult> => {
+  const token = await accessToken();
+
+  if (!token) {
+    throw new NotSignedIn();
+  }
+
+  const profile = withoutInventories(await fetchProfile(membership, token));
+
+  const session: Session = {
+    ...owner.session,
+    membership,
+    minted: mintedAt(profile),
+    guest: guestOf(membership, profile),
+  };
+
+  await materializeNew(session, profile);
+
+  const built = buildStoresFrom(
+    session.support,
+    session.items,
+    session.plugSets,
+    profile,
+    session.hidden,
+  );
+
+  return {
+    ...owner,
+    stores: built.stores,
+    buckets: built.buckets,
+    items: storeItems(built.stores),
+    source: "live",
+    playing: playingNow(profile),
+    activities: profile.characterActivities?.data ?? {},
+    variables: stringVariables(profile),
+    records: characterRecords(profile),
+    orderRewards: orderRewards(profile),
+    counts: {
+      ...owner.counts,
+      skipped: built.skipped.reduce((total, group) => total + group.count, 0),
+      hidden: built.hidden,
+    },
+    skipped: built.skipped,
+    degraded: built.degraded,
+    session,
+  };
+};
 
 export const refreshProfile = async (
   first: LoadResult,

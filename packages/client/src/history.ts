@@ -134,6 +134,25 @@ export const syncHistory = async (
   }
 };
 
+/** Most recent page per character, held in memory for a profile that is not ours */
+export const guestHistory = async (
+  membership: Membership,
+  characterIds: string[],
+  accessToken: string,
+  onRuns: (runs: HistoryRun[]) => void,
+): Promise<void> => {
+  for (const characterId of characterIds) {
+    const rows = await fetchActivityHistory(
+      membership,
+      characterId,
+      0,
+      accessToken,
+    );
+
+    onRuns(rows.map((row) => project(characterId, row)));
+  }
+};
+
 // Standing in for a tier Bungie declines to name, so we ask for it only once
 export const NO_TIER = -1;
 

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import { setGuest } from "./guest.ts";
 import {
   activityHref,
   activityLabel,
   readParam,
+  runHref,
   tabHref,
   writeParams,
 } from "./url.ts";
@@ -100,6 +102,20 @@ describe("hrefs", () => {
     expect(activityHref("Grasp of Avarice", "Master")).toBe(
       "/history/activity/Grasp%20of%20Avarice?rung=Master",
     );
+  });
+
+  it("keeps the guest on every path it builds", () => {
+    setGuest({ membershipType: 3, membershipId: "4611686018468466126" });
+
+    expect(tabHref("history")).toBe("/history?guest=3_4611686018468466126");
+    expect(activityHref("Grasp of Avarice", "Master")).toBe(
+      "/history/activity/Grasp%20of%20Avarice?rung=Master&guest=3_4611686018468466126",
+    );
+    expect(runHref("Grasp of Avarice", undefined, "17")).toBe(
+      "/history/activity/Grasp%20of%20Avarice?guest=3_4611686018468466126&run=17",
+    );
+
+    setGuest(undefined);
   });
 });
 

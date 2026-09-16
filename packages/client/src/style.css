@@ -373,6 +373,58 @@
     gap: var(--space-4);
   }
 
+  .guest-panel {
+    width: 320px;
+  }
+
+  .guest-list {
+    display: flex;
+    flex-direction: column;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+
+  .app-header.guest {
+    background: color-mix(in srgb, var(--warning) 8%, var(--bg));
+    border-bottom-color: color-mix(in srgb, var(--warning) 45%, transparent);
+  }
+
+  /* Full bleed across the header, which pads itself */
+  .guest-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    margin: calc(var(--space-5) * -1) calc(var(--space-5) * -1) 0;
+    padding: var(--space-4) var(--space-5);
+    background: color-mix(in srgb, var(--warning) 16%, var(--bg));
+    box-shadow: inset 0 -1px 0
+      color-mix(in srgb, var(--warning) 40%, transparent);
+    color: var(--warning);
+  }
+
+  .guest-banner svg {
+    width: var(--icon-sm);
+    height: var(--icon-sm);
+  }
+
+  .guest-who {
+    font-size: var(--text-md);
+    letter-spacing: var(--track-caps);
+  }
+
+  .guest-note {
+    margin-right: auto;
+    font-size: var(--text-sm);
+    letter-spacing: var(--track-caps);
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--warning) 70%, transparent);
+  }
+
+  .nav-tab:disabled {
+    cursor: default;
+    opacity: 0.35;
+  }
+
   .slider {
     display: flex;
     flex-direction: column;

@@ -1,3 +1,5 @@
+import { guest, guestParam } from "./guest.ts";
+
 export interface Codec<T> {
   read: (raw: string | undefined) => T;
   write: (value: T) => string | undefined;
@@ -49,6 +51,7 @@ export type HistoryTab = (typeof HISTORY_TABS)[number];
 
 export const PARAMS = {
   q: filled(""),
+  guest: text(),
   character: text(),
   pin: ids(),
   realm: text(),
@@ -96,8 +99,19 @@ export const TABS = ["vault", "activities", "todo", "history"] as const;
 
 export type Tab = (typeof TABS)[number];
 
+// A path drops every param it does not spell out, and leaving a guest has to be deliberate
+const scoped = (href: string): string => {
+  const who = guest();
+
+  if (who === undefined) {
+    return href;
+  }
+
+  return `${href}${href.includes("?") ? "&" : "?"}guest=${guestParam(who)}`;
+};
+
 // Each tab starts with a clean filter
-export const tabHref = (tab: Tab): string => `/${tab}`;
+export const tabHref = (tab: Tab): string => scoped(`/${tab}`);
 
 // The router hands back the path segment still encoded
 export const activityLabel = (raw: string | undefined): string | undefined => {
@@ -113,9 +127,11 @@ export const activityLabel = (raw: string | undefined): string | undefined => {
 };
 
 export const activityHref = (label: string, rung: string | undefined): string =>
-  `/history/activity/${encodeURIComponent(label)}${
-    rung === undefined ? "" : `?rung=${encodeURIComponent(rung)}`
-  }`;
+  scoped(
+    `/history/activity/${encodeURIComponent(label)}${
+      rung === undefined ? "" : `?rung=${encodeURIComponent(rung)}`
+    }`,
+  );
 
 export const runHref = (
   label: string,

@@ -5,6 +5,7 @@ import { quoteFilterString } from "app/search/query-parser";
 import { For, Show, splitProps, type JSX } from "solid-js";
 
 import { comparable } from "./compare.ts";
+import { guest } from "./guest.ts";
 import {
   defaultEquip,
   defaultTransfer,
@@ -146,34 +147,36 @@ const Rows = (props: RowProps) => {
 
   return (
     <>
-      <Show when={equipOn()}>
-        {(target) => (
-          <SplitRow
-            label={`Equip on ${storeLabel(target())}`}
-            reason={equipReason()}
-            onChoose={() => props.onMove(props.item, target(), true)}
-            others={otherEquips(target())}
-            reasonFor={equipReason}
-            onChooseOther={(store) => props.onMove(props.item, store, true)}
-          />
-        )}
-      </Show>
+      <Show when={!guest()}>
+        <Show when={equipOn()}>
+          {(target) => (
+            <SplitRow
+              label={`Equip on ${storeLabel(target())}`}
+              reason={equipReason()}
+              onChoose={() => props.onMove(props.item, target(), true)}
+              others={otherEquips(target())}
+              reasonFor={equipReason}
+              onChooseOther={(store) => props.onMove(props.item, store, true)}
+            />
+          )}
+        </Show>
 
-      <Show when={transferTo()}>
-        {(target) => (
-          <SplitRow
-            label={`Transfer to ${storeLabel(target())}`}
-            reason={transferReason(target())}
-            onChoose={() => props.onMove(props.item, target(), false)}
-            others={otherTransfers(target())}
-            reasonFor={transferReason}
-            onChooseOther={(store) => props.onMove(props.item, store, false)}
-          />
-        )}
-      </Show>
+        <Show when={transferTo()}>
+          {(target) => (
+            <SplitRow
+              label={`Transfer to ${storeLabel(target())}`}
+              reason={transferReason(target())}
+              onChoose={() => props.onMove(props.item, target(), false)}
+              others={otherTransfers(target())}
+              reasonFor={transferReason}
+              onChooseOther={(store) => props.onMove(props.item, store, false)}
+            />
+          )}
+        </Show>
 
-      <Show when={equipOn() || transferTo()}>
-        <ContextMenu.Separator class="mx-3 my-1 border-t border-line" />
+        <Show when={equipOn() || transferTo()}>
+          <ContextMenu.Separator class="mx-3 my-1 border-t border-line" />
+        </Show>
       </Show>
 
       <Row

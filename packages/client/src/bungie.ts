@@ -61,10 +61,71 @@ const call = async <T>(
   return body.Response;
 };
 
+const post = async <T>(path: string, body: unknown): Promise<T> => {
+  const { apiKey } = await loadConfig();
+
+  const response = await fetch(`${PLATFORM}${path}`, {
+    method: "POST",
+    headers: { "X-API-Key": apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const envelope = (await response.json()) as Envelope<T>;
+
+  if (envelope.ErrorCode !== 1) {
+    throw new Error(`Bungie ${envelope.ErrorStatus}: ${envelope.Message}`);
+  }
+
+  return envelope.Response;
+};
+
 export interface UserMemberships {
   destinyMemberships: Membership[];
   primaryMembershipId?: string;
 }
+
+interface CrossSaved extends Membership {
+  crossSaveOverride: number;
+}
+
+interface SearchResult {
+  bungieGlobalDisplayName: string;
+  bungieGlobalDisplayNameCode?: number;
+  destinyMemberships: CrossSaved[];
+}
+
+export interface Player {
+  name: string;
+  code: number | undefined;
+  membership: Membership;
+}
+
+// Cross save leaves one account holding the characters, and the others empty
+const played = (memberships: CrossSaved[]): Membership | undefined =>
+  memberships.find((one) => one.crossSaveOverride === one.membershipType) ??
+  memberships[0];
+
+/** Bungie name prefix search, which answers with at most 20 players */
+export const searchPlayers = async (prefix: string): Promise<Player[]> => {
+  const response = await post<{ searchResults: SearchResult[] }>(
+    "/User/Search/GlobalName/0/",
+    { displayNamePrefix: prefix },
+  );
+
+  return response.searchResults.flatMap((result) => {
+    const membership = played(result.destinyMemberships);
+
+    return membership === undefined
+      ? []
+      : [
+          {
+            name: result.bungieGlobalDisplayName,
+            code: result.bungieGlobalDisplayNameCode,
+            membership,
+          },
+        ];
+  });
+};
 
 export const currentMemberships = (
   accessToken: string,

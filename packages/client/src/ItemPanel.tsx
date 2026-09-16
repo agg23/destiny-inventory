@@ -20,6 +20,7 @@ import { createMemo, For, Show, type JSX } from "solid-js";
 
 import { BUNGIE } from "./bungie.ts";
 import { delta, TOTAL, type Delta } from "./compare.ts";
+import { guest } from "./guest.ts";
 import {
   defaultEquip,
   defaultTransfer,
@@ -87,41 +88,45 @@ export const Moves = (props: MoveProps) => {
     }));
 
   return (
-    <div class="flex flex-col items-stretch gap-1.5">
-      <Show when={transferTo()}>
-        {(target) => (
-          <SplitButton
-            block
-            size="xs"
-            label={
-              props.compact
-                ? "Transfer"
-                : `Transfer to ${storeLabel(target())}`
-            }
-            disabled={!!props.moving || !!blocked(target())}
-            title={blocked(target())}
-            onPrimary={() => act(target(), false, false)}
-            choices={choices(transfers(), false)}
-          />
-        )}
-      </Show>
-      <Show when={equipOn()}>
-        {(target) => (
-          <SplitButton
-            block
-            size="xs"
-            label={props.compact ? "Equip" : `Equip on ${storeLabel(target())}`}
-            disabled={!!props.moving || !!pullBlocked(props.item)}
-            title={pullBlocked(props.item)}
-            onPrimary={() => act(target(), true, false)}
-            choices={choices(equips(), true)}
-          />
-        )}
-      </Show>
-      <Show when={props.moving}>
-        {(status) => <p class="text-muted">{status()}</p>}
-      </Show>
-    </div>
+    <Show when={!guest()}>
+      <div class="flex flex-col items-stretch gap-1.5">
+        <Show when={transferTo()}>
+          {(target) => (
+            <SplitButton
+              block
+              size="xs"
+              label={
+                props.compact
+                  ? "Transfer"
+                  : `Transfer to ${storeLabel(target())}`
+              }
+              disabled={!!props.moving || !!blocked(target())}
+              title={blocked(target())}
+              onPrimary={() => act(target(), false, false)}
+              choices={choices(transfers(), false)}
+            />
+          )}
+        </Show>
+        <Show when={equipOn()}>
+          {(target) => (
+            <SplitButton
+              block
+              size="xs"
+              label={
+                props.compact ? "Equip" : `Equip on ${storeLabel(target())}`
+              }
+              disabled={!!props.moving || !!pullBlocked(props.item)}
+              title={pullBlocked(props.item)}
+              onPrimary={() => act(target(), true, false)}
+              choices={choices(equips(), true)}
+            />
+          )}
+        </Show>
+        <Show when={props.moving}>
+          {(status) => <p class="text-muted">{status()}</p>}
+        </Show>
+      </div>
+    </Show>
   );
 };
 

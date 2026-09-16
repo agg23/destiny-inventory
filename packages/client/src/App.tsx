@@ -6,6 +6,7 @@ import {
   createContext,
   createEffect,
   createMemo,
+  createRenderEffect,
   createResource,
   createSignal,
   For,
@@ -20,21 +21,39 @@ import {
 import { activeStore, NOBODY, observe, prefer, type Active } from "./active.ts";
 import { activityTables } from "./activityTables.ts";
 import { accessToken, beginLogin, signedIn, signOut } from "./auth.ts";
-import { fetchCarnageReport } from "./bungie.ts";
+import { fetchCarnageReport, type Membership } from "./bungie.ts";
 import { acquired } from "./arrivals.ts";
 import { chrome } from "./chrome.tsx";
 import { comparable } from "./compare.ts";
 import { defs } from "./defs.ts";
 import { messageOf } from "./error.ts";
+import {
+  guestLabel,
+  guestParam,
+  readGuestParam,
+  rememberedGuests,
+  rememberGuest,
+  sameMembership,
+  setGuest,
+  type Guest,
+} from "./guest.ts";
+import { GuestPicker } from "./GuestPicker.tsx";
 import { HoverCard } from "./HoverCard.tsx";
 import {
+  guestHistory,
   storedRuns,
   syncHistory,
   syncTiers,
   timingsByHash,
   type HistoryRun,
 } from "./history.ts";
-import { load, NotSignedIn, refreshProfile, type LoadResult } from "./load.ts";
+import {
+  load,
+  loadGuest,
+  NotSignedIn,
+  refreshProfile,
+  type LoadResult,
+} from "./load.ts";
 import { currentStores, moveItem, subscribeStores } from "./moves.ts";
 import { syncOrders } from "./orders.ts";
 import { plugIcons, tileIcons, warmIcons } from "./preload.ts";
@@ -50,6 +69,7 @@ import { Settings } from "./Settings.tsx";
 import { settings } from "./settings.ts";
 import { showToast, Toasts } from "./toast.tsx";
 import { Button } from "./ui/Button.tsx";
+import { GuestGlyph } from "./ui/GuestGlyph.tsx";
 import { PanelGlyph } from "./ui/PanelGlyph.tsx";
 import { RefreshGlyph } from "./ui/RefreshGlyph.tsx";
 import { SignOutGlyph } from "./ui/SignOutGlyph.tsx";
@@ -165,6 +185,13 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     undefined,
   );
   const character = () => url.get("character");
+  const viewing = createMemo<Membership | undefined>((was) => {
+    const next = readGuestParam(url.get("guest"));
+
+    return sameMembership(was, next) ? was : next;
+  });
+
+  createRenderEffect(() => setGuest(viewing()));
   const [active, setActive] = createSignal<Active>(
     character() === undefined ? NOBODY : prefer(NOBODY, character() ?? ""),
   );
@@ -227,9 +254,46 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   const feed = () => acquired(stores());
 
   createEffect(() => {
+    const who = current()?.session.guest;
+
+    if (who) {
+      rememberGuest(who);
+    }
+  });
+
+  const onGuest = (who: Guest) => {
+    rememberGuest(who);
+    url.push({ guest: guestParam(who), character: undefined, pin: [] });
+  };
+
+  const onLeave = () => {
+    url.push({ guest: undefined, character: undefined, pin: [] });
+  };
+
+  const guestName = () => {
+    const who = viewing();
+
+    if (!who) {
+      return "";
+    }
+
+    const held = rememberedGuests().find((entry) => sameMembership(entry, who));
+
+    if (held) {
+      return guestLabel(held);
+    }
+
+    const loaded = current()?.session.guest;
+
+    return loaded && sameMembership(loaded, who)
+      ? guestLabel(loaded)
+      : "Loading";
+  };
+
+  createEffect(() => {
     const loaded = current();
 
-    if (loaded) {
+    if (loaded && !viewing()) {
       syncOrders(loaded.stores, loaded.orderRewards);
     }
   });
@@ -283,12 +347,27 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   });
 
   const error = () => result.error as Error | undefined;
-  const current = () => (error() ? undefined : upgraded() ?? result());
+  const owned = () => (error() ? undefined : upgraded() ?? result());
+
+  const [guestResult, { refetch: refetchGuest }] = createResource(
+    () => (owned() === undefined ? undefined : viewing()),
+    (who) => loadGuest(owned()!, who),
+  );
+
+  const guestError = () => guestResult.error as Error | undefined;
+  const current = () => (viewing() ? guestResult() : owned());
   const needsSignIn = () =>
     !authed() || expired() || error() instanceof NotSignedIn;
 
   const tab = (): Tab =>
     TABS.find((one) => location.pathname.startsWith(`/${one}`)) ?? "vault";
+
+  // Vendors and orders need that account's own token
+  createEffect(() => {
+    if (viewing() && tab() === "todo") {
+      navigate(tabHref("vault"), { replace: true });
+    }
+  });
 
   const onQuery = (value: string) => {
     setTyped(value);
@@ -326,8 +405,9 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     ),
   );
 
-  // The engine mutates its own stores
-  const stores = () => moved() ?? current()?.stores ?? [];
+  // The engine mutates its own stores, and it is never seeded with a guest
+  const stores = () =>
+    (viewing() ? current()?.stores : moved() ?? current()?.stores) ?? [];
 
   // Only the vault runs the item filter, so a stale ?q= cannot skew the counts on another tab
   const vaultQuery = () => (tab() === "vault" ? typed() : "");
@@ -396,13 +476,24 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     setSyncing(true);
 
     try {
-      if (runs().length === 0) {
+      if (!session.guest && runs().length === 0) {
         setRuns(await storedRuns(session.store));
       }
 
       const token = await accessToken();
 
       if (!token) {
+        return;
+      }
+
+      if (session.guest) {
+        await guestHistory(
+          session.membership,
+          characterIds(),
+          token,
+          (fresh) => setRuns((was) => absorb(was, fresh)),
+        );
+
         return;
       }
 
@@ -432,16 +523,23 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     }
   };
 
-  let syncStarted = false;
+  let syncedFor: string | undefined = undefined;
 
   createEffect(() => {
     const loaded = current();
 
-    if (syncStarted || !loaded || characterIds().length === 0) {
+    if (!loaded || characterIds().length === 0) {
       return;
     }
 
-    syncStarted = true;
+    const who = loaded.session.membership.membershipId;
+
+    if (syncedFor === who) {
+      return;
+    }
+
+    syncedFor = who;
+    setRuns([]);
     void syncRuns(loaded.session);
   });
 
@@ -550,6 +648,19 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
       return;
     }
 
+    if (viewing()) {
+      setRefreshing(true);
+
+      try {
+        await refetchGuest();
+        setRefreshedAt(Date.now());
+      } finally {
+        setRefreshing(false);
+      }
+
+      return;
+    }
+
     setRefreshing(true);
 
     try {
@@ -591,7 +702,9 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     onRefresh: () =>
       refreshAll().catch((e: unknown) => console.warn("Refresh failed", e)),
     busy: () =>
-      Boolean(moving()) || (current()?.source === "cache" && !liveFailed()),
+      Boolean(moving()) ||
+      Boolean(viewing()) ||
+      (current()?.source === "cache" && !liveFailed()),
   });
 
   onCleanup(poller.stop);
@@ -620,6 +733,10 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   };
 
   const onMove = (item: DimItem, target: DimStore, equip: boolean) => {
+    if (viewing()) {
+      return;
+    }
+
     setMoving(`${equip ? "Equipping" : "Moving"} ${item.name}`);
 
     moveItem(item, target, equip)
@@ -639,7 +756,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   };
 
   const onCollect = (items: DimItem[], target: DimStore) => {
-    if (moving() || items.length === 0) {
+    if (viewing() || moving() || items.length === 0) {
       return;
     }
 
@@ -715,13 +832,29 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
           </div>
         }
       >
-        <header class="app-header" ref={(el) => (head = el)}>
+        <header
+          class="app-header"
+          classList={{ guest: Boolean(viewing()) }}
+          ref={(el) => (head = el)}
+        >
+          <Show when={viewing()}>
+            <div class="guest-banner">
+              <GuestGlyph />
+              <span class="guest-who">{guestName()}</span>
+              <span class="guest-note">Read only</span>
+              <Button size="xs" variant="light" onClick={onLeave}>
+                Leave
+              </Button>
+            </div>
+          </Show>
+
           <div class="header-bar">
             <nav class="nav-subtabs">
               <For each={TABS}>
                 {(one) => (
                   <TabButton
                     active={tab() === one}
+                    disabled={one === "todo" && Boolean(viewing())}
                     onClick={() => navigate(tabHref(one))}
                   >
                     {LABELS[one]}
@@ -795,6 +928,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
                   <PanelGlyph slashed={!railCollapsed()} />
                 </button>
               </Show>
+              <GuestPicker onChoose={onGuest} />
               <Settings />
               <span class="header-rule" aria-hidden="true" />
               <button
@@ -834,6 +968,10 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
             <Show when={syncError()}>
               {(message) => <span class="text-danger">{message()}</span>}
             </Show>
+
+            <Show when={guestError()}>
+              {(e) => <span class="text-danger">{e().message}</span>}
+            </Show>
           </div>
         </header>
 
@@ -841,7 +979,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
           {(e) => <p class="p-3 text-danger">{e().message}</p>}
         </Show>
 
-        <Show when={result.loading && !current()}>
+        <Show when={(result.loading || guestResult.loading) && !current()}>
           <div class="loading">
             <span class="spinner" aria-hidden="true" />
             <p class="text-muted">Loading inventory</p>

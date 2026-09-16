@@ -17,6 +17,7 @@ import {
   activityHref,
   activityLabel,
   runHref,
+  tabHref,
   type HistoryTab,
 } from "../url.ts";
 import { activityArt } from "../activities.ts";
@@ -73,7 +74,7 @@ export const History = () => {
       : app.runs().find((one) => one.instanceId === id);
   };
 
-  const leave = () => navigate("/history");
+  const leave = () => navigate(tabHref("history"));
 
   // The sync may not have reached these runs yet
   const empty = () => page() !== undefined && forActivity().length === 0;
