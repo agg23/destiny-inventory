@@ -19,6 +19,11 @@ crons = ["5 17 * * *"]
 # binding = "BASELINE"
 # id = "<paste>"
 
+[[d1_databases]]
+binding = "TAGS"
+database_name = "dvm-tags"
+database_id = "f2f5ffd0-56d8-498e-972c-234a176b68f5"
+
 # Any public Destiny profile, as "<membershipType>/<membershipId>". Component 204 needs no
 # OAuth, so this reads nothing privileged
 # [vars]

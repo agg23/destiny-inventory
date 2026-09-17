@@ -1,25 +1,42 @@
 import { readBaseline, type Reference, type Store } from "./baseline.ts";
 import type { ArtifactLoader } from "./loader.ts";
-import { exchangeCode, refreshTokens, type OAuthConfig } from "./oauth.ts";
+import {
+  exchangeCode,
+  refreshTokens,
+  type OAuthConfig,
+  type Tokens,
+} from "./oauth.ts";
+import {
+  mintSession,
+  readSession,
+  SESSION_MS,
+  type Session,
+} from "./session.ts";
+import { parseWrite, type TagStore } from "./tags.ts";
 
 export interface ServiceConfig {
   apiKey: string;
   clientId: string;
   clientSecret: string;
+  /** Signs the session token that proves who a tag request is from */
+  sessionSecret: string;
   allowedOrigin: string;
   /** Where OAuth has to start, which is the one origin Bungie has registered */
   authOrigin: string;
   loader: ArtifactLoader;
   /** Absent until a KV namespace is bound, in which case tiles simply omit what was spent */
   baseline?: { store: Store; reference: Reference };
+  tags: TagStore;
 }
 
 // Content-hashed names only, so a request can never walk out of the artifact directory
 const ARTIFACT_NAME = /^[A-Za-z0-9._-]+$/;
 
+const BEARER = "Bearer ";
+
 const cors = (origin: string): Record<string, string> => ({
   "Access-Control-Allow-Origin": origin,
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 });
 
@@ -34,6 +51,62 @@ export const createHandler = (config: ServiceConfig) => {
     apiKey: config.apiKey,
     clientId: config.clientId,
     clientSecret: config.clientSecret,
+  };
+
+  const withSession = async (tokens: Tokens) => ({
+    ...tokens,
+    session: await mintSession(
+      config.sessionSecret,
+      tokens.membership_id,
+      Date.now() + SESSION_MS,
+    ),
+  });
+
+  const sessionOf = (request: Request): Promise<Session | undefined> => {
+    const header = request.headers.get("Authorization") ?? "";
+
+    if (!header.startsWith(BEARER)) {
+      return Promise.resolve(undefined);
+    }
+
+    return readSession(
+      config.sessionSecret,
+      header.slice(BEARER.length),
+      Date.now(),
+    );
+  };
+
+  // The membership comes from the verified session, never from the request
+  const tags = async (request: Request): Promise<Response> => {
+    const session = await sessionOf(request);
+
+    if (!session) {
+      return json({ error: "Sign in required" }, config.allowedOrigin, 401);
+    }
+
+    if (request.method === "GET") {
+      const raw = Number(new URL(request.url).searchParams.get("since"));
+      const since = Number.isSafeInteger(raw) && raw > 0 ? raw : 0;
+
+      return json(
+        {
+          ...(await config.tags.read(session.membershipId, since)),
+          now: Date.now(),
+        },
+        config.allowedOrigin,
+      );
+    }
+
+    const changes = parseWrite(await request.json());
+
+    if (!changes) {
+      return json({ error: "Bad tag changes" }, config.allowedOrigin, 400);
+    }
+
+    const now = Date.now();
+    await config.tags.write(session.membershipId, changes, now);
+
+    return json({ now }, config.allowedOrigin);
   };
 
   return async (request: Request): Promise<Response> => {
@@ -104,10 +177,20 @@ export const createHandler = (config: ServiceConfig) => {
         });
       }
 
+      if (
+        pathname === "/tags" &&
+        (request.method === "GET" || request.method === "POST")
+      ) {
+        return tags(request);
+      }
+
       if (pathname === "/auth/token" && request.method === "POST") {
         const { code } = (await request.json()) as { code: string };
 
-        return json(await exchangeCode(oauth, code), config.allowedOrigin);
+        return json(
+          await withSession(await exchangeCode(oauth, code)),
+          config.allowedOrigin,
+        );
       }
 
       if (pathname === "/auth/refresh" && request.method === "POST") {
@@ -116,7 +199,7 @@ export const createHandler = (config: ServiceConfig) => {
         };
 
         return json(
-          await refreshTokens(oauth, refreshToken),
+          await withSession(await refreshTokens(oauth, refreshToken)),
           config.allowedOrigin,
         );
       }

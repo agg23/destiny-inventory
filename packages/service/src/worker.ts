@@ -5,10 +5,21 @@ import {
   type ArtifactLoader,
   type Reference,
   type Store,
+  type TagStore,
 } from "./core/index.ts";
 
 interface Assets {
   fetch: (request: Request) => Promise<Response>;
+}
+
+interface Statement {
+  bind: (...values: unknown[]) => Statement;
+  all: <T>() => Promise<{ results: T[] }>;
+}
+
+interface Database {
+  prepare: (query: string) => Statement;
+  batch: (statements: Statement[]) => Promise<unknown>;
 }
 
 interface Env {
@@ -16,9 +27,11 @@ interface Env {
   BUNGIE_API_KEY: string;
   BUNGIE_CLIENT_ID: string;
   BUNGIE_CLIENT_SECRET: string;
+  SESSION_SECRET: string;
   ALLOWED_ORIGIN?: string;
   /** Bound only once a KV namespace exists, and the baseline is skipped until it does */
   BASELINE?: Store;
+  TAGS: Database;
   /** Any public profile. It is read at reset, when every account still has its full week */
   BASELINE_MEMBERSHIP?: string;
 }
@@ -39,6 +52,108 @@ const baselineOf = (env: Env) => {
     ? { store: env.BASELINE, reference: who }
     : undefined;
 };
+
+interface DefRow {
+  id: string;
+  label: string;
+  color: string;
+  position: number;
+  removed: number;
+  updated_at: number;
+}
+
+interface ItemRow {
+  instance_id: string;
+  item_hash: number;
+  tag_id: string;
+  removed: number;
+  updated_at: number;
+}
+
+const READ_DEFS =
+  "SELECT id, label, color, position, removed, updated_at FROM tag_defs WHERE membership_id = ? AND updated_at > ?";
+
+const READ_ITEMS =
+  "SELECT instance_id, item_hash, tag_id, removed, updated_at FROM item_tags WHERE membership_id = ? AND updated_at > ?";
+
+const WRITE_DEF = `INSERT INTO tag_defs (membership_id, id, label, color, position, removed, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (membership_id, id) DO UPDATE SET
+  label = excluded.label,
+  color = excluded.color,
+  position = excluded.position,
+  removed = excluded.removed,
+  updated_at = excluded.updated_at`;
+
+const WRITE_ITEM = `INSERT INTO item_tags (membership_id, instance_id, item_hash, tag_id, removed, updated_at)
+VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT (membership_id, instance_id, tag_id) DO UPDATE SET
+  item_hash = excluded.item_hash,
+  removed = excluded.removed,
+  updated_at = excluded.updated_at`;
+
+const tagStore = (db: Database): TagStore => ({
+  read: async (membershipId, since) => {
+    const [defs, items] = await Promise.all([
+      db.prepare(READ_DEFS).bind(membershipId, since).all<DefRow>(),
+      db.prepare(READ_ITEMS).bind(membershipId, since).all<ItemRow>(),
+    ]);
+
+    return {
+      defs: defs.results.map((row) => ({
+        id: row.id,
+        label: row.label,
+        color: row.color,
+        position: row.position,
+        removed: row.removed === 1,
+        updatedAt: row.updated_at,
+      })),
+      items: items.results.map((row) => ({
+        instanceId: row.instance_id,
+        itemHash: row.item_hash,
+        tagId: row.tag_id,
+        removed: row.removed === 1,
+        updatedAt: row.updated_at,
+      })),
+    };
+  },
+
+  write: async (membershipId, changes, now) => {
+    const statements = [
+      ...changes.defs.map((def) =>
+        db
+          .prepare(WRITE_DEF)
+          .bind(
+            membershipId,
+            def.id,
+            def.label,
+            def.color,
+            def.position,
+            def.removed ? 1 : 0,
+            now,
+          ),
+      ),
+      ...changes.items.map((item) =>
+        db
+          .prepare(WRITE_ITEM)
+          .bind(
+            membershipId,
+            item.instanceId,
+            item.itemHash,
+            item.tagId,
+            item.removed ? 1 : 0,
+            now,
+          ),
+      ),
+    ];
+
+    if (statements.length === 0) {
+      return;
+    }
+
+    await db.batch(statements);
+  },
+});
 
 // Artifacts ship as static assets, so the isolate never holds a definition table. Only the
 // index is read here; the chunks are fetched by the client straight from the asset handler
@@ -87,10 +202,12 @@ export default {
       apiKey: env.BUNGIE_API_KEY,
       clientId: env.BUNGIE_CLIENT_ID,
       clientSecret: env.BUNGIE_CLIENT_SECRET,
+      sessionSecret: env.SESSION_SECRET,
       allowedOrigin: env.ALLOWED_ORIGIN ?? url.origin,
       authOrigin: url.origin,
       loader: assetLoader(env, url.origin),
       baseline: baselineOf(env),
+      tags: tagStore(env.TAGS),
     });
 
     const inner = new Request(
