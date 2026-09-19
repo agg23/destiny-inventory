@@ -16,6 +16,7 @@ interface Tokens {
   accessExpires: number;
   refreshToken?: string;
   refreshExpires?: number;
+  session?: string;
 }
 
 interface TokenResponse {
@@ -23,6 +24,7 @@ interface TokenResponse {
   expires_in: number;
   refresh_token?: string;
   refresh_expires_in?: number;
+  session?: string;
 }
 
 const read = (): Tokens | undefined => {
@@ -41,6 +43,7 @@ const write = (response: TokenResponse): Tokens => {
     refreshExpires: response.refresh_expires_in
       ? now + response.refresh_expires_in * 1000
       : undefined,
+    session: response.session,
   };
 
   localStorage.setItem(TOKENS, JSON.stringify(tokens));
@@ -99,6 +102,31 @@ export const beginLogin = async () => {
   url.searchParams.set("state", state);
 
   location.assign(url.toString());
+};
+
+/** Forces a fresh session token, for when the service rejects the held one */
+export const renewSession = async (): Promise<string | undefined> => {
+  const tokens = read();
+
+  if (!tokens?.refreshToken || (tokens.refreshExpires ?? 0) < Date.now()) {
+    return undefined;
+  }
+
+  return write(
+    await post("/api/auth/refresh", { refreshToken: tokens.refreshToken }),
+  ).session;
+};
+
+/** Signed proof of identity for our own endpoints, minted alongside the Bungie tokens */
+export const sessionToken = async (): Promise<string | undefined> => {
+  const tokens = read();
+
+  if (!tokens) {
+    return undefined;
+  }
+
+  // Sessions landed after tokens did, so a sign in from before this has to refresh once
+  return tokens.session ?? (await renewSession());
 };
 
 export const accessToken = async (): Promise<string | undefined> => {

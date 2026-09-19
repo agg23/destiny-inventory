@@ -1,3 +1,4 @@
+import { DropdownMenu } from "@kobalte/core/dropdown-menu";
 import type {
   DimItem,
   DimPlug,
@@ -21,6 +22,7 @@ import { createMemo, For, Show, type JSX } from "solid-js";
 import { BUNGIE } from "./bungie.ts";
 import { delta, TOTAL, type Delta } from "./compare.ts";
 import { guest } from "./guest.ts";
+import { setOnlyTag, tagDefs, tagFor } from "./tags.ts";
 import {
   defaultEquip,
   defaultTransfer,
@@ -1008,7 +1010,11 @@ export const ItemDetails = (props: {
   );
 };
 
-export const ItemHead = (props: { item: DimItem; compact?: boolean }) => (
+export const ItemHead = (props: {
+  item: DimItem;
+  compact?: boolean;
+  taggable?: boolean;
+}) => (
   <>
     <div
       class={`tooltip-header ${props.item.rarity.toLowerCase()}`}
@@ -1051,7 +1057,7 @@ export const ItemHead = (props: { item: DimItem; compact?: boolean }) => (
         "border-b border-line": props.compact,
       }}
     >
-      <ItemPower item={props.item} />
+      <ItemPower item={props.item} taggable={props.taggable} />
     </div>
   </>
 );
@@ -1063,58 +1069,114 @@ const AMMO: Record<number, { url: string; name: string }> = {
   3: { url: ammoHeavy, name: "Heavy" },
 };
 
-export const ItemPower = (props: { item: DimItem }) => (
-  <Show
-    when={
-      props.item.power > 0 ||
-      props.item.element ||
-      props.item.energy ||
-      props.item.breakerType
-    }
-  >
-    <div class="tooltip-power">
-      <Show when={props.item.power > 0}>
-        <span class="power-value">{props.item.power}</span>
-      </Show>
-      <Show when={props.item.element}>
-        {(element) => (
-          <span class="power-type">
-            <Show when={element().displayProperties.icon}>
-              {(icon) => (
-                <img class="element-icon" src={`${BUNGIE}${icon()}`} alt="" />
-              )}
-            </Show>
-            {element().displayProperties.name}
-          </span>
-        )}
-      </Show>
-      <Show when={props.item.breakerType}>
-        {(breaker) => (
-          <span
-            class="power-type"
-            title={breaker().displayProperties.description}
+const TagControl = (props: { item: DimItem }) => {
+  const current = () => tagFor(props.item.id);
+  const label = () => current()?.label ?? "No tag";
+  const tint = () => `var(--color-${current()?.color ?? "line-bright"})`;
+
+  return (
+    <DropdownMenu gutter={4} placement="bottom-end" modal={false} preventScroll={false}>
+      <DropdownMenu.Trigger
+        class="tag-control"
+        classList={{ tagged: !!current() }}
+        style={{ "--tag": tint() }}
+        aria-label={current() ? `Tag: ${current()!.label}` : "No tag"}
+        title={label()}
+      >
+        {label()}
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          data-menu="tag"
+          class="menu-list z-4 min-w-32 bg-panel-raised shadow-[inset_0_0_0_1px_var(--color-line-bright),0_8px_24px_#000c]"
+        >
+          <DropdownMenu.Item
+            class="menu-item flex items-center gap-2 px-3 py-2 text-sm tracking-caps outline-none data-[highlighted]:border-fg data-[highlighted]:bg-surface-active data-[highlighted]:text-fg"
+            onSelect={() => setOnlyTag(props.item.id, props.item.hash, undefined)}
           >
-            <Show when={breaker().displayProperties.icon}>
-              {(icon) => (
-                <img class="breaker-icon" src={`${BUNGIE}${icon()}`} alt="" />
-              )}
-            </Show>
-            {breaker().displayProperties.name}
-          </span>
-        )}
-      </Show>
-      <Show when={props.item.energy}>
-        {(energy) => (
-          <span class="power-type">
-            Energy {energy().energyUsed}/{energy().energyCapacity}
-          </span>
-        )}
-      </Show>
-      <Show when={AMMO[props.item.ammoType]}>
-        {(ammo) => (
-          <img class="ammo-icon" src={ammo().url} alt="" title={ammo().name} />
-        )}
-      </Show>
-    </div>
-  </Show>
-);
+            <span class="tag-dot none" />
+            No tag
+          </DropdownMenu.Item>
+          <For each={tagDefs()}>
+            {(def) => (
+              <DropdownMenu.Item
+                class="menu-item flex items-center gap-2 px-3 py-2 text-sm tracking-caps outline-none data-[highlighted]:border-fg data-[highlighted]:bg-surface-active data-[highlighted]:text-fg"
+                onSelect={() => setOnlyTag(props.item.id, props.item.hash, def.id)}
+              >
+                <span
+                  class="tag-dot"
+                  style={{ "background-color": `var(--color-${def.color})` }}
+                />
+                {def.label}
+              </DropdownMenu.Item>
+            )}
+          </For>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu>
+  );
+};
+
+export const ItemPower = (props: { item: DimItem; taggable?: boolean }) => {
+  const armor = () => props.item.bucket.inArmor;
+
+  return (
+    <Show
+      when={
+        props.item.power > 0 ||
+        props.item.element ||
+        props.item.energy ||
+        props.item.breakerType ||
+        (props.taggable && props.item.id !== "0")
+      }
+    >
+      <div class="tooltip-power">
+        <span class="power-facts">
+          <Show when={props.item.power > 0}>
+            <span class="power-value">{props.item.power}</span>
+          </Show>
+          <Show when={!armor() && AMMO[props.item.ammoType]}>
+            {(ammo) => (
+              <img
+                class="ammo-icon"
+                src={ammo().url}
+                alt=""
+                title={ammo().name}
+              />
+            )}
+          </Show>
+          <Show when={!armor() && props.item.element?.displayProperties.icon}>
+            {(icon) => (
+              <img
+                class="element-icon"
+                src={`${BUNGIE}${icon()}`}
+                alt=""
+                title={props.item.element?.displayProperties.name}
+              />
+            )}
+          </Show>
+          <Show when={props.item.breakerType?.displayProperties.icon}>
+            {(icon) => (
+              <img
+                class="breaker-icon"
+                src={`${BUNGIE}${icon()}`}
+                alt=""
+                title={props.item.breakerType?.displayProperties.name}
+              />
+            )}
+          </Show>
+          <Show when={armor() && props.item.energy}>
+            {(energy) => (
+              <span class="power-type">
+                Energy {energy().energyUsed}/{energy().energyCapacity}
+              </span>
+            )}
+          </Show>
+        </span>
+        <Show when={props.taggable && props.item.id !== "0"}>
+          <TagControl item={props.item} />
+        </Show>
+      </div>
+    </Show>
+  );
+};

@@ -95,7 +95,7 @@ export const Compare = (props: Props) => {
                     </span>
                   )}
                 </Show>
-                <ItemHead item={item} compact />
+                <ItemHead item={item} compact taggable />
                 <IconButton
                   type="button"
                   variant="ghost"

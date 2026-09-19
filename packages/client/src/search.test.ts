@@ -8,6 +8,7 @@ import { getTestDefinitions, getTestProfile } from "testing/test-utils.ts";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { completion, itemFilter, suggest, valid } from "./search.ts";
+import { setOnlyTag } from "./tags.ts";
 
 let defs: D2ManifestDefinitions;
 let stores: DimStore[] = [];
@@ -238,12 +239,30 @@ describe("valid", () => {
   });
 
   it("rejects a filter we do not carry", () => {
-    expect(valid("tag:junk")).toBe(false);
+    expect(valid("note:junk")).toBe(false);
   });
 
   it("accepts a set bonus rating, whole or by size", () => {
     expect(valid("setbonus:s")).toBe(true);
     expect(valid("setbonus:4pc:s")).toBe(true);
     expect(valid("setbonus:3pc:s")).toBe(false);
+  });
+});
+
+describe("tag filter", () => {
+  it("matches only the instance that carries the tag", () => {
+    const [target] = items.filter((item) => item.id !== "0");
+
+    expect(target).toBeDefined();
+    expect(valid("tag:keep")).toBe(true);
+    expect(found("tag:keep")).toEqual([]);
+
+    setOnlyTag(target!.id, target!.hash, "keep");
+
+    expect(found("tag:keep").map((item) => item.id)).toEqual([target!.id]);
+
+    setOnlyTag(target!.id, target!.hash, undefined);
+
+    expect(found("tag:keep")).toEqual([]);
   });
 });

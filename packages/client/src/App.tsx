@@ -21,6 +21,7 @@ import {
 import { activeStore, NOBODY, observe, prefer, type Active } from "./active.ts";
 import { activityTables } from "./activityTables.ts";
 import { accessToken, beginLogin, signedIn, signOut } from "./auth.ts";
+import { syncTags } from "./tags.ts";
 import { fetchCarnageReport, type Membership } from "./bungie.ts";
 import { acquired } from "./arrivals.ts";
 import { chrome } from "./chrome.tsx";
@@ -220,6 +221,12 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     () => load(setUpgraded, onLiveError, props.primed),
     { initialValue: props.primed },
   );
+
+  createEffect(() => {
+    if (authed()) {
+      void syncTags();
+    }
+  });
 
   let head: HTMLElement | undefined = undefined;
 

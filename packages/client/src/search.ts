@@ -34,6 +34,7 @@ import {
   rollsByHash,
   setRatings,
 } from "./rolls.ts";
+import { tagDefs, tagFor } from "./tags.ts";
 import { buildFiltersMap, buildSearchConfig } from "app/search/search-config";
 import {
   makeSearchFilterFactory,
@@ -111,7 +112,22 @@ const ratingFilters: ItemFilterDefinition[] = [
   },
 ];
 
-// Tags, notes and loadouts arrive with DIM Sync, so those filter sets are left out
+const tagFilters: ItemFilterDefinition[] = [
+  {
+    keywords: ["tag"],
+    description: "Items carrying one of your specified tags",
+    format: "freeform",
+    suggestions: tagDefs().map((def) => def.id),
+    destinyVersion: 2,
+    filter: ({ filterValue }) => {
+      const wanted = filterValue.toLowerCase();
+
+      return (item) => tagFor(item.id)?.id === wanted;
+    },
+  },
+];
+
+// Notes and loadouts would arrive with DIM Sync, so those filter sets are left out
 // and their keywords read as unknown instead of matching nothing
 const FILTERS = [
   ...dupeFilters,
@@ -127,6 +143,7 @@ const FILTERS = [
   ...advancedFilters,
   ...wishlistFilters,
   ...ratingFilters,
+  ...tagFilters,
 ];
 
 const FILTERS_MAP = buildFiltersMap(2, FILTERS);

@@ -5,6 +5,7 @@ import { BUNGIE } from "./bungie.ts";
 import { dismiss, preview } from "./preview.ts";
 import { assess, setRatings, type AegisSetBonus } from "./rolls.ts";
 import { settings } from "./settings.ts";
+import { tagFor } from "./tags.ts";
 
 interface Props {
   item: DimItem;
@@ -64,6 +65,14 @@ const Face = (props: Props) => (
         {(value) => <span class="item-quantity">{value()}</span>}
       </Show>
       <span class="tile-icons">
+        <Show when={tagFor(props.item.id)}>
+          {(def) => (
+            <span
+              class="tag-dot"
+              style={{ "background-color": `var(--color-${def().color})` }}
+            />
+          )}
+        </Show>
         <Show when={props.item.element?.displayProperties.icon}>
           {(icon) => <img src={`${BUNGIE}${icon()}`} alt="" />}
         </Show>

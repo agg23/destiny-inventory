@@ -16,6 +16,7 @@ import {
   transferTargets,
 } from "./moveTargets.ts";
 import { clear } from "./preview.ts";
+import { setOnlyTag, tagDefs, tagFor } from "./tags.ts";
 import { cn } from "./ui/cn.ts";
 
 interface Props {
@@ -114,6 +115,52 @@ const SplitRow = (props: SplitProps) => (
   </div>
 );
 
+const TagRows = (props: { item: DimItem }) => (
+  <ContextMenu.Sub gutter={2}>
+    <ContextMenu.SubTrigger class={cn(ROW, "flex items-center gap-2")}>
+      <span class="min-w-0 flex-1">Tag</span>
+      <span class="text-dim">{tagFor(props.item.id)?.label ?? "No tag"}</span>
+      <svg viewBox="0 0 6 10" width="6" height="10" aria-hidden="true">
+        <path d="M0 0v10l6-5z" fill="currentColor" />
+      </svg>
+    </ContextMenu.SubTrigger>
+    <ContextMenu.Portal>
+      <ContextMenu.SubContent data-menu="item" class={SUB_PANEL}>
+        <ContextMenu.RadioGroup
+          value={tagFor(props.item.id)?.id ?? ""}
+          onChange={(id) =>
+            setOnlyTag(props.item.id, props.item.hash, id === "" ? undefined : id)
+          }
+        >
+          <ContextMenu.RadioItem
+            class={cn(ROW, "flex items-center gap-2")}
+            value=""
+            closeOnSelect={false}
+          >
+            <span class="tag-dot none" />
+            <span class="min-w-0 flex-1">No tag</span>
+          </ContextMenu.RadioItem>
+          <For each={tagDefs()}>
+            {(def) => (
+              <ContextMenu.RadioItem
+                class={cn(ROW, "flex items-center gap-2")}
+                value={def.id}
+                closeOnSelect={false}
+              >
+                <span
+                  class="tag-dot"
+                  style={{ "background-color": `var(--color-${def.color})` }}
+                />
+                <span class="min-w-0 flex-1">{def.label}</span>
+              </ContextMenu.RadioItem>
+            )}
+          </For>
+        </ContextMenu.RadioGroup>
+      </ContextMenu.SubContent>
+    </ContextMenu.Portal>
+  </ContextMenu.Sub>
+);
+
 const Rows = (props: RowProps) => {
   const pinned = () => props.pinned.some((one) => one.id === props.item.id);
 
@@ -174,7 +221,11 @@ const Rows = (props: RowProps) => {
           )}
         </Show>
 
-        <Show when={equipOn() || transferTo()}>
+        <Show when={props.item.id !== "0"}>
+          <TagRows item={props.item} />
+        </Show>
+
+        <Show when={equipOn() || transferTo() || props.item.id !== "0"}>
           <ContextMenu.Separator class="mx-3 my-1 border-t border-line" />
         </Show>
       </Show>

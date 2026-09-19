@@ -46,7 +46,7 @@ const RivalNote = (props: { verdict: Verdict }) => (
 
 export const HoverCard = (props: Props) => (
   <AnchoredPanel class="item-tooltip hover-card" cursorX={props.cursorX}>
-    <ItemHead item={props.item} />
+    <ItemHead item={props.item} taggable />
     <Show when={props.verdict}>
       {(verdict) => <RivalNote verdict={verdict()} />}
     </Show>
