@@ -167,7 +167,8 @@ export const completeLogin = async (): Promise<boolean> => {
   const hash = new URLSearchParams(location.hash.slice(1));
   const forwarded = hash.get("refresh_token");
 
-  if (forwarded) {
+  // Anywhere but the dev origin this is a login CSRF
+  if (forwarded && location.origin === DEV_ORIGIN) {
     write({
       access_token: "",
       expires_in: 0,
