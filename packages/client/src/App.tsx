@@ -81,15 +81,17 @@ const PINS = 2;
 
 const LABELS: Record<Tab, string> = {
   vault: "Vault",
+  triage: "Triage",
   activities: "Activities",
   todo: "Todo",
   history: "History",
 };
 
-const RAILED: Tab[] = ["vault", "todo"];
+const RAILED: Tab[] = ["vault", "triage", "todo"];
 
 const SCOPES: Record<Tab, string> = {
   vault: "Filter items",
+  triage: "Filter items",
   activities: "Filter activities",
   todo: "Filter todos",
   history: "Filter runs",
@@ -416,8 +418,10 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   const stores = () =>
     (viewing() ? current()?.stores : moved() ?? current()?.stores) ?? [];
 
-  // Only the vault runs the item filter, so a stale ?q= cannot skew the counts on another tab
-  const vaultQuery = () => (tab() === "vault" ? typed() : "");
+  const filtersItems = () => tab() === "vault" || tab() === "triage";
+
+  // Only item tabs run the item filter, so a stale ?q= cannot skew the counts on another tab
+  const itemQuery = () => (filtersItems() ? typed() : "");
 
   createEffect(() => {
     const held = stores();
@@ -429,7 +433,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   });
 
   const filter = createMemo(() =>
-    itemFilter(previewQuery() ?? vaultQuery(), stores(), defs()),
+    itemFilter(previewQuery() ?? itemQuery(), stores(), defs()),
   );
 
   const matched = createMemo<Matched>(
@@ -871,7 +875,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
             </nav>
 
             <Show
-              when={tab() === "vault"}
+              when={filtersItems()}
               fallback={
                 <input
                   class="text-input inline header-filter"

@@ -30,6 +30,7 @@ interface Props {
   onUnpin: (item: DimItem) => void;
   onCompare: (item: DimItem, rival: DimItem) => void;
   onQuery: (query: string) => void;
+  onTag?: (item: DimItem, tagId: string | undefined) => void;
   onOpenChange: (open: boolean) => void;
   children: JSX.Element;
 }
@@ -115,7 +116,10 @@ const SplitRow = (props: SplitProps) => (
   </div>
 );
 
-const TagRows = (props: { item: DimItem }) => (
+const TagRows = (props: {
+  item: DimItem;
+  onTag?: (item: DimItem, tagId: string | undefined) => void;
+}) => (
   <ContextMenu.Sub gutter={2}>
     <ContextMenu.SubTrigger class={cn(ROW, "flex items-center gap-2")}>
       <span class="min-w-0 flex-1">Tag</span>
@@ -128,9 +132,17 @@ const TagRows = (props: { item: DimItem }) => (
       <ContextMenu.SubContent data-menu="item" class={SUB_PANEL}>
         <ContextMenu.RadioGroup
           value={tagFor(props.item.id)?.id ?? ""}
-          onChange={(id) =>
-            setOnlyTag(props.item.id, props.item.hash, id === "" ? undefined : id)
-          }
+          onChange={(id) => {
+            const tagId = id === "" ? undefined : id;
+
+            if (props.onTag) {
+              props.onTag(props.item, tagId);
+
+              return;
+            }
+
+            setOnlyTag(props.item.id, props.item.hash, tagId);
+          }}
         >
           <ContextMenu.RadioItem
             class={cn(ROW, "flex items-center gap-2")}
@@ -222,7 +234,7 @@ const Rows = (props: RowProps) => {
         </Show>
 
         <Show when={props.item.id !== "0"}>
-          <TagRows item={props.item} />
+          <TagRows item={props.item} onTag={props.onTag} />
         </Show>
 
         <Show when={equipOn() || transferTo() || props.item.id !== "0"}>

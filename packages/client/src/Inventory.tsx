@@ -126,7 +126,6 @@ export const Inventory = (props: Props) => {
       ? uncategorized()
       : (props.buckets.byCategory[category] ?? []);
 
-  // Misses get hidden instead. Remounting ~1000 tiles when a query widens is a visible hitch
   const cells = createMemo(() => {
     const built = new Map<string, DimItem[]>();
 
@@ -300,7 +299,9 @@ export const Inventory = (props: Props) => {
                                       (pin) => pin.id === item.id,
                                     )}
                                     class={tileState(item)}
-                                    onSelect={props.onSelect}
+                                    onSelect={(one, event) =>
+                                      props.onSelect(one, event.shiftKey)
+                                    }
                                   />
                                 )}
                               </For>

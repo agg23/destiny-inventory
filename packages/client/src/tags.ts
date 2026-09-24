@@ -16,6 +16,18 @@ interface Held {
   since: number;
 }
 
+export interface TagTarget {
+  instanceId: string;
+  itemHash: number;
+}
+
+export interface TagSnapshot extends TagTarget {
+  tagId: string | undefined;
+}
+
+// Tags a bulk action leaves alone while the guard is on
+const PROTECTED = new Set(["favorite", "keep"]);
+
 const EMPTY: Held = { defs: [], items: [], since: 0 };
 
 // Colors from tokens.css
@@ -279,18 +291,12 @@ export const saveTagDef = async (def: TagDefChange): Promise<boolean> => {
   return true;
 };
 
-/** Sets the tag an item carries, clearing any other. Undefined leaves it untagged */
-export const setOnlyTag = (
-  instanceId: string,
-  itemHash: number,
+const changesFor = (
+  target: TagTarget,
   tagId: string | undefined,
-): void => {
-  // DIM gives every non-instanced item the same id, and one tag would land on all of them
-  if (instanceId === "0") {
-    return;
-  }
-
-  const updatedAt = Date.now();
+  updatedAt: number,
+): ItemTag[] => {
+  const { instanceId, itemHash } = target;
   const current = assigned().get(instanceId);
 
   const cleared = [...(current ?? [])]
@@ -303,14 +309,65 @@ export const setOnlyTag = (
       updatedAt,
     }));
 
+  return tagId === undefined
+    ? cleared
+    : [...cleared, { instanceId, itemHash, tagId, removed: false, updatedAt }];
+};
+
+// DIM gives every non-instanced item the same id, and one tag would land on all of them
+const taggable = (target: TagTarget): boolean => target.instanceId !== "0";
+
+/** Sets the tag an item carries, clearing any other. Undefined leaves it untagged */
+export const setOnlyTag = (
+  instanceId: string,
+  itemHash: number,
+  tagId: string | undefined,
+): void => {
+  const target = { instanceId, itemHash };
+
+  if (!taggable(target)) {
+    return;
+  }
+
+  queue(changesFor(target, tagId, Date.now()));
+};
+
+/** Sets one tag across many items, flushed as a single write */
+export const setOnlyTagMany = (
+  targets: TagTarget[],
+  tagId: string | undefined,
+): void => {
+  const updatedAt = Date.now();
+
   queue(
-    tagId === undefined
-      ? cleared
-      : [
-          ...cleared,
-          { instanceId, itemHash, tagId, removed: false, updatedAt },
-        ],
+    targets
+      .filter(taggable)
+      .flatMap((target) => changesFor(target, tagId, updatedAt)),
   );
+};
+
+/** What the items carry now, enough to put them back after one bulk write */
+export const snapshotTags = (targets: TagTarget[]): TagSnapshot[] =>
+  targets.map((target) => ({
+    ...target,
+    tagId: tagFor(target.instanceId)?.id,
+  }));
+
+export const restoreTags = (snapshot: TagSnapshot[]): void => {
+  const updatedAt = Date.now();
+
+  queue(
+    snapshot
+      .filter(taggable)
+      .flatMap((one) => changesFor(one, one.tagId, updatedAt)),
+  );
+};
+
+/** Whether the item carries a tag that guarded bulk actions skip */
+export const protectedTag = (instanceId: string): boolean => {
+  const def = tagFor(instanceId);
+
+  return def !== undefined && PROTECTED.has(def.id);
 };
 
 publishDefs();

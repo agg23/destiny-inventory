@@ -10,7 +10,7 @@ import { tagFor } from "./tags.ts";
 interface Props {
   item: DimItem;
   selected?: boolean;
-  onSelect?: (item: DimItem, additive: boolean) => void;
+  onSelect?: (item: DimItem, event: MouseEvent) => void;
   badges?: boolean;
   class?: string;
 }
@@ -118,7 +118,7 @@ export const ItemIcon = (props: Props) => (
         type="button"
         class={tileClass(props)}
         data-item-index={props.item.index}
-        onClick={(e) => onSelect()(props.item, e.shiftKey)}
+        onClick={(e) => onSelect()(props.item, e)}
         onMouseEnter={(e) => preview(props.item, e.currentTarget)}
         onMouseLeave={() => dismiss(props.item)}
       >

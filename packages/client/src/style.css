@@ -1704,4 +1704,122 @@
       transform: translateY(1rem);
     }
   }
+
+  .triage {
+    padding-bottom: var(--space-6);
+  }
+
+  .triage-slot {
+    padding: var(--space-2) 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .triage-slot .bucket-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-2);
+    font-size: var(--text-sm);
+    letter-spacing: var(--track-caps);
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .triage-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, var(--tile));
+    gap: var(--space-2);
+  }
+
+  .triage-grid .item-tile.small {
+    width: var(--tile);
+    height: var(--tile);
+  }
+
+  /* The framework's white hover wash swallows a 1px gold edge */
+  .triage-grid .item-tile.selected .tile-edge {
+    border-width: 3px;
+  }
+
+  .triage-grid .item-tile.selected::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: color-mix(in srgb, var(--light) 18%, transparent);
+    pointer-events: none;
+  }
+
+  /* Selection owns the gold edge, so the pin gets the outline instead */
+  .triage-grid .item-tile.pinned {
+    outline: 1px solid var(--fg);
+    outline-offset: 1px;
+  }
+
+  .triage-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-4);
+  }
+
+  .triage-scope,
+  .triage-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .triage-scope {
+    font-size: var(--text-md);
+    color: var(--text);
+  }
+
+  .keep-box {
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--line-bright);
+    font-size: var(--text-sm);
+    letter-spacing: var(--track-caps);
+    text-transform: uppercase;
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  .keep-box:has(:checked) {
+    border-color: var(--good);
+    color: color-mix(in srgb, white 25%, var(--good));
+  }
+
+  /* Raw error red is 3.4:1 on the header. Lightened it clears AA, like the framework's own accent text */
+  .triage-groups {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+  }
+
+  .triage-groups .menu-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    max-width: 260px;
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .triage-groups .menu-item.selected {
+    box-shadow: inset 0 0 0 1px var(--light);
+    color: var(--fg);
+  }
+
+  /* The framework pins .item-tooltip to 22rem, which is the rail's width */
+  .triage .compare {
+    width: 100%;
+    max-width: none;
+    overflow-x: auto;
+  }
+
+  .tag-button {
+    box-shadow: inset 0 0 0 1px var(--tag-color);
+    color: color-mix(in srgb, white 25%, var(--tag-color));
+  }
 }

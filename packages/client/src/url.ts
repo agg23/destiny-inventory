@@ -28,6 +28,11 @@ const flag = (): Codec<boolean> => ({
   write: (value) => (value ? "1" : undefined),
 });
 
+const flagOn = (): Codec<boolean> => ({
+  read: (raw) => raw !== "0",
+  write: (value) => (value ? undefined : "0"),
+});
+
 const count = (): Codec<number | undefined> => ({
   read: (raw) => {
     const parsed = raw === undefined ? Number.NaN : Number.parseInt(raw, 10);
@@ -49,6 +54,14 @@ export const HISTORY_TABS = ["recent", "series", "map"] as const;
 
 export type HistoryTab = (typeof HISTORY_TABS)[number];
 
+export const TRIAGE_STEPS = ["tag", "compare", "trash"] as const;
+
+export type TriageStep = (typeof TRIAGE_STEPS)[number];
+
+export const TRIAGE_SORTS = ["received", "power", "name", "type"] as const;
+
+export type TriageSort = (typeof TRIAGE_SORTS)[number];
+
 export const PARAMS = {
   q: filled(""),
   guest: text(),
@@ -66,6 +79,12 @@ export const PARAMS = {
   shown: count(),
   rung: text(),
   run: text(),
+  step: choice(TRIAGE_STEPS, "tag"),
+  sort: choice(TRIAGE_SORTS, "received"),
+  tagged: flag(),
+  guard: flagOn(),
+  tag: filled("junk"),
+  group: count(),
 };
 
 export type Params = {
@@ -95,7 +114,13 @@ export const writeParams = (
   return written;
 };
 
-export const TABS = ["vault", "activities", "todo", "history"] as const;
+export const TABS = [
+  "vault",
+  "triage",
+  "activities",
+  "todo",
+  "history",
+] as const;
 
 export type Tab = (typeof TABS)[number];
 

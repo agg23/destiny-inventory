@@ -19,7 +19,10 @@ interface Props {
   active: DimStore | undefined;
   onMove: (item: DimItem, target: DimStore, equip: boolean) => void;
   onPrefer: (target: DimStore) => void;
-  onUnpin: (item: DimItem) => void;
+  onUnpin?: (item: DimItem) => void;
+  kept?: (item: DimItem) => boolean;
+  onKeep?: (item: DimItem, keep: boolean) => void;
+  minColumn?: string;
   moving: string | undefined;
 }
 
@@ -68,7 +71,9 @@ export const Compare = (props: Props) => {
   };
 
   const columns = () =>
-    `var(--compare-labels) repeat(${props.items.length}, minmax(0, 1fr))`;
+    `var(--compare-labels) repeat(${props.items.length}, minmax(${
+      props.minColumn ?? "0"
+    }, 1fr))`;
 
   // Every section is placed by row, so the column has to be explicit too
   const start = (column: number) =>
@@ -96,17 +101,35 @@ export const Compare = (props: Props) => {
                   )}
                 </Show>
                 <ItemHead item={item} compact taggable />
-                <IconButton
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  place="absolute"
-                  class="top-[10px] right-[10px] size-6 min-w-0 p-0"
-                  label={`Unpin ${item.name}`}
-                  onClick={() => props.onUnpin(item)}
-                >
-                  ✕
-                </IconButton>
+                <Show when={props.onUnpin}>
+                  {(onUnpin) => (
+                    <IconButton
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      place="absolute"
+                      class="top-[10px] right-[10px] size-6 min-w-0 p-0"
+                      label={`Unpin ${item.name}`}
+                      onClick={() => onUnpin()(item)}
+                    >
+                      ✕
+                    </IconButton>
+                  )}
+                </Show>
+                <Show when={props.onKeep}>
+                  {(onKeep) => (
+                    <label class="keep-box mt-1.5 flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={props.kept?.(item) ?? false}
+                        onChange={(event) =>
+                          onKeep()(item, event.currentTarget.checked)
+                        }
+                      />
+                      Keep this one
+                    </label>
+                  )}
+                </Show>
               </div>
             )}
           </For>
