@@ -299,7 +299,9 @@
     height: var(--tile);
   }
 
-  .row .item-grid.character:has(> :nth-child(2)) .item-tile.equipped {
+  .row
+    .item-grid.character:has(> :nth-child(2 of :not(.hidden)))
+    .item-tile.equipped {
     grid-column: 1 / -1;
     grid-row: span 2;
     align-self: start;
@@ -307,7 +309,10 @@
   }
 
   /* Rows size to the spanned tile without this, halving the empty row */
-  .row .item-grid.character:has(> :nth-child(2)):has(.item-tile.equipped) {
+  .row
+    .item-grid.character:has(> :nth-child(2 of :not(.hidden))):has(
+      .item-tile.equipped:not(.hidden)
+    ) {
     grid-auto-rows: var(--tile);
     background-image: linear-gradient(var(--line-bright), var(--line-bright));
     background-size: 100% 1px;

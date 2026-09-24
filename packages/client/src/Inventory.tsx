@@ -80,6 +80,20 @@ export const Inventory = (props: Props) => {
   const occupied = (bucket: InventoryBucket) =>
     shown().some((store) => byStore().get(store.id)?.has(bucket.hash));
 
+  const hits = createMemo(() => {
+    const found = new Set<DimItem>();
+
+    for (const buckets of byStore().values()) {
+      for (const items of buckets.values()) {
+        for (const item of items) {
+          found.add(item);
+        }
+      }
+    }
+
+    return found;
+  });
+
   // Quests and Orders carry no sort
   const uncategorized = createMemo<InventoryBucket[]>(
     () => {
@@ -112,13 +126,21 @@ export const Inventory = (props: Props) => {
       ? uncategorized()
       : (props.buckets.byCategory[category] ?? []);
 
+  // Misses get hidden instead. Remounting ~1000 tiles when a query widens is a visible hitch
   const cells = createMemo(() => {
     const built = new Map<string, DimItem[]>();
 
-    for (const [id, buckets] of byStore()) {
-      for (const [hash, items] of buckets) {
-        built.set(`${id}:${hash}`, ordered(items));
+    for (const store of props.stores) {
+      for (const item of store.items) {
+        const key = `${store.id}:${item.location.hash}`;
+        const items = built.get(key) ?? [];
+        items.push(item);
+        built.set(key, items);
       }
+    }
+
+    for (const [key, items] of built) {
+      built.set(key, ordered(items));
     }
 
     return built;
@@ -127,6 +149,9 @@ export const Inventory = (props: Props) => {
   const cell = (store: DimStore, bucket: InventoryBucket) =>
     cells().get(`${store.id}:${bucket.hash}`) ?? [];
 
+  const present = (bucket: InventoryBucket) =>
+    shown().some((store) => cell(store, bucket).length > 0);
+
   const [menuFor, setMenuFor] = createSignal<DimItem | undefined>(undefined);
   const [menuOpen, setMenuOpen] = createSignal(false);
 
@@ -134,6 +159,7 @@ export const Inventory = (props: Props) => {
     [
       previewed()?.item.index === item.index ? "hovered" : "",
       menuOpen() && menuFor()?.index === item.index ? "menued" : "",
+      hits().has(item) ? "" : "hidden",
     ]
       .filter((part) => part.length > 0)
       .join(" ");
@@ -217,8 +243,14 @@ export const Inventory = (props: Props) => {
 
         <For each={SECTIONS}>
           {(category) => (
-            <Show when={bucketsIn(category).some((bucket) => occupied(bucket))}>
-              <section>
+            <Show when={bucketsIn(category).some((bucket) => present(bucket))}>
+              <section
+                classList={{
+                  hidden: !bucketsIn(category).some((bucket) =>
+                    occupied(bucket),
+                  ),
+                }}
+              >
                 <h2 class="section-label mt-4 mb-1.5">
                   {category}
                   <Show when={category === "Postmaster" && collectible()}>
@@ -246,8 +278,11 @@ export const Inventory = (props: Props) => {
                 </h2>
                 <Index each={bucketsIn(category)}>
                   {(bucket) => (
-                    <Show when={occupied(bucket())}>
-                      <div class="row">
+                    <Show when={present(bucket())}>
+                      <div
+                        class="row"
+                        classList={{ hidden: !occupied(bucket()) }}
+                      >
                         <h3 class="bucket-label">
                           {bucket().name || `Bucket ${bucket().hash}`}
                         </h3>
