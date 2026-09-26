@@ -54,6 +54,7 @@ import {
   NotSignedIn,
   refreshProfile,
   type LoadResult,
+  type RefreshOutcome,
 } from "./load.ts";
 import { currentStores, moveItem, subscribeStores } from "./moves.ts";
 import { syncOrders } from "./orders.ts";
@@ -359,7 +360,8 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   const owned = () => (error() ? undefined : upgraded() ?? result());
 
   const [guestResult, { refetch: refetchGuest }] = createResource(
-    () => (owned() === undefined ? undefined : viewing()),
+    // A snapshot paint has no definitions to build a guest against
+    () => (owned()?.session.support.size ? viewing() : undefined),
     (who) => loadGuest(owned()!, who),
   );
 
@@ -652,6 +654,25 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   const panelLabel = () =>
     railCollapsed() ? "Show side panel" : "Hide side panel";
 
+  const retryLoad = async (loaded: LoadResult): Promise<RefreshOutcome> => {
+    const failure: { error?: unknown } = {};
+
+    // A failed primed load hands the snapshot back instead of throwing
+    const result = await load(
+      setUpgraded,
+      (e) => {
+        failure.error = e;
+      },
+      loaded,
+    );
+
+    if ("error" in failure) {
+      throw failure.error;
+    }
+
+    return { status: "updated", playing: result.playing, result };
+  };
+
   const refresh = async () => {
     const loaded = current();
 
@@ -675,7 +696,11 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     setRefreshing(true);
 
     try {
-      const outcome = await refreshProfile(loaded);
+      // Only the snapshot is on screen after a failed live load
+      const outcome =
+        loaded.session.support.size === 0
+          ? await retryLoad(loaded)
+          : await refreshProfile(loaded);
 
       setFailingSince(undefined);
       setActive((was) => observe(was, outcome.playing));
