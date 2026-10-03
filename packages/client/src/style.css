@@ -1768,7 +1768,8 @@
   }
 
   .triage-slot .bucket-label,
-  .collections-slot .bucket-label {
+  .collections-slot .bucket-label,
+  .collections-set .bucket-label {
     display: flex;
     align-items: center;
     gap: var(--space-3);
@@ -1921,6 +1922,69 @@
   .weapon-page .item-tile.small {
     width: var(--tile);
     height: var(--tile);
+  }
+
+  .collections-sets {
+    display: grid;
+    grid-template-columns: repeat(
+      auto-fill,
+      minmax(calc(var(--tile) * 5 + var(--space-2) * 4), 1fr)
+    );
+    gap: var(--space-4) var(--space-6);
+    padding: var(--space-2) 0;
+  }
+
+  .collections-slot + .collections-sets {
+    border-top: 1px solid var(--line);
+  }
+
+  .collections-set .item-grid {
+    grid-template-columns: repeat(5, var(--tile));
+  }
+
+  .collections-set-bonus {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    margin: var(--space-4) 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--text-sm);
+  }
+
+  .collections-set-bonus li {
+    display: grid;
+    grid-template-columns: 1.25rem minmax(0, 1fr);
+    gap: var(--space-4);
+    align-items: start;
+  }
+
+  .collections-set-bonus img {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .collections-set-bonus div {
+    grid-column: 2;
+  }
+
+  .collections-set-bonus b {
+    display: block;
+    font-weight: normal;
+    color: var(--text);
+  }
+
+  .collections-set-bonus span {
+    display: block;
+    white-space: pre-wrap;
+    color: var(--muted);
+  }
+
+  .collections-set-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .item-tile.uncollected {

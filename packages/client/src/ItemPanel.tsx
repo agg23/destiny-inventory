@@ -41,6 +41,7 @@ import {
   benefits,
   catalysts,
   intrinsics,
+  isIntrinsicPlug,
   setBonus,
   type CatalystState,
   type StatChange,
@@ -359,12 +360,20 @@ const Category = (props: {
   onlyPlugged?: boolean;
   onToggleAll?: () => void;
 }) => {
+  // Year one armor perk sockets hold nameless placeholders
+  const blank = (socket: DimSocket) =>
+    [socket.plugged, ...socket.plugOptions].every(
+      (plug) => !plug?.plugDef.displayProperties?.icon,
+    );
+
   const sockets = () =>
     getSocketsByIndexes(props.sockets, props.category.socketIndexes).filter(
       (socket) =>
-        props.onlyPlugged
+        !blank(socket) &&
+        !isIntrinsicPlug(socket.plugged) &&
+        (props.onlyPlugged
           ? socket.plugged
-          : socket.plugged ?? socket.plugOptions.length > 0,
+          : socket.plugged ?? socket.plugOptions.length > 0),
     );
 
   const rollable = () =>
@@ -699,7 +708,7 @@ export const SetBonus = (props: { item: DimItem }) => {
     <Show when={bonus()}>
       {(set) => (
         <>
-          <h4 class="section-label">{set().name}</h4>
+          <h4 class="section-label mt-3">{set().name}</h4>
           <For each={set().perks}>
             {(perk) => {
               const rated = () => setBonusFor(perk.hash);
@@ -1079,7 +1088,10 @@ export const ItemDetails = (props: {
             <Masterwork item={props.item} />
             <Archetype item={props.item} />
             <Intrinsics item={props.item} />
-            <Stats item={props.item} against={props.against} />
+            {/* A definition's armor stats are placeholders */}
+            <Show when={!uninstanced() || !props.item.bucket.inArmor}>
+              <Stats item={props.item} against={props.against} />
+            </Show>
           </div>
           <div class="tooltip-body">
             {perks}

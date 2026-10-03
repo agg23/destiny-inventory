@@ -70,6 +70,10 @@ export const LAYOUTS = ["grid", "list"] as const;
 
 export type Layout = (typeof LAYOUTS)[number];
 
+export const KINDS = ["weapon", "armor"] as const;
+
+export type Kind = (typeof KINDS)[number];
+
 export const PARAMS = {
   q: filled(""),
   guest: text(),
@@ -93,6 +97,7 @@ export const PARAMS = {
   guard: flagOn(),
   tag: filled("junk"),
   group: count(),
+  kind: choice(KINDS, "weapon"),
   by: choice(GROUPINGS, "type"),
   layout: choice(LAYOUTS, "grid"),
 };
@@ -186,7 +191,7 @@ export const collectionsHref = (
   return scoped(search === "" ? path : `${path}?${search}`);
 };
 
-export const weaponHref = (
+export const entryHref = (
   itemHash: number,
   patch: Partial<Params> = {},
 ): string => collectionsHref(`/collections/${itemHash}`, patch);

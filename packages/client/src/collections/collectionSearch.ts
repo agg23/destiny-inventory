@@ -7,6 +7,7 @@ import type {
 } from "app/search/items/item-filter-types";
 import knownValuesFilters, {
   ammoTypeFilter,
+  classFilter,
   damageFilter,
   itemCategoryFilter,
   itemTypeFilter,
@@ -30,20 +31,22 @@ import {
   OTHER,
   STATUSES,
   type Collections,
+  type Entry,
+  type EntryFacts,
   type Weapon,
-  type WeaponFacts,
 } from "../collections.ts";
 import { makeComplete } from "../complete.ts";
 import { defs } from "../defs.ts";
 import type { SearchEngine, Suggestion } from "../search.ts";
+import type { Kind } from "../url.ts";
 import { weaponPerks, type PerkText } from "./weaponPerks.ts";
 
 interface Context {
-  facts: WeaponFacts;
+  facts: EntryFacts;
   language: "en";
 }
 
-type StandIn = DimItem & { weapon: Weapon };
+type StandIn = DimItem & { entry: Entry };
 
 const NAME_FILTERS = new Set(["keyword", "name", "exactname"]);
 
@@ -54,14 +57,18 @@ const SEARCH_FILTERS = new Set([
   "exactperk",
 ]);
 
-const weaponOf = (item: DimItem): Weapon => (item as StandIn).weapon;
+const entryOf = (item: DimItem): Entry => (item as StandIn).entry;
 
-const factsOf = (args: unknown): WeaponFacts => (args as Context).facts;
+const factsOf = (args: unknown): EntryFacts => (args as Context).facts;
 
 const perksOf = (
   pool: Map<Weapon, PerkText[]> | undefined,
   item: DimItem,
-): PerkText[] => pool?.get(weaponOf(item)) ?? [];
+): PerkText[] => {
+  const entry = entryOf(item);
+
+  return entry.kind === "weapon" ? (pool?.get(entry) ?? []) : [];
+};
 
 // Won't be undefined, known-values ships it
 const rarityFilter = knownValuesFilters.find(
@@ -69,19 +76,29 @@ const rarityFilter = knownValuesFilters.find(
     Array.isArray(filter.keywords) && filter.keywords.includes("legendary"),
 )!;
 
-const weaponFilters: ItemFilterDefinition[] = [
+const entryFilters: ItemFilterDefinition[] = [
   rarityFilter,
   itemCategoryFilter,
   damageFilter,
   ammoTypeFilter,
+  classFilter,
   {
     ...itemTypeFilter,
-    keywords: ["kineticslot", "energy", "power"],
-    description: "Shows weapons based on their slot",
+    keywords: [
+      "kineticslot",
+      "energy",
+      "power",
+      "helmet",
+      "gauntlets",
+      "chest",
+      "leg",
+      "classitem",
+    ],
+    description: "Shows items based on their slot",
   },
   {
     keywords: ["name", "exactname"],
-    description: "Shows weapons by name",
+    description: "Shows items by name",
     format: "freeform",
     suggestionsGenerator: ({ allItems }) =>
       allItems?.map(
@@ -95,7 +112,7 @@ const weaponFilters: ItemFilterDefinition[] = [
   },
   {
     keywords: "keyword",
-    description: "Shows weapons by name",
+    description: "Shows items by name",
     format: "freeform",
     filter: ({ filterValue, language }) => {
       const test = matchText(filterValue, language, false);
@@ -151,32 +168,34 @@ const weaponFilters: ItemFilterDefinition[] = [
   },
   {
     keywords: "source",
-    description: "Shows weapons based on where they drop",
+    description: "Shows items based on where they drop",
     format: "query",
     suggestions: [...Object.keys(D2Sources), OTHER],
     destinyVersion: 2,
     filter: ({ filterValue }) => {
       if (filterValue !== OTHER) {
-        return (item) => weaponOf(item).sourceKeys.includes(filterValue);
+        return (item) => entryOf(item).sourceKeys.includes(filterValue);
       }
 
+      const index = collections();
       const others = new Set(
-        collections()
-          ?.sections.source.flatMap((section) => section.groups)
-          .find((group) => group.key === OTHER)?.weapons,
+        [...(index?.sections.source ?? []), ...(index?.armorSections ?? [])]
+          .flatMap((section) => section.groups)
+          .filter((group) => group.key === OTHER)
+          .flatMap((group) => group.entries),
       );
 
-      return (item) => others.has(weaponOf(item));
+      return (item) => others.has(entryOf(item));
     },
   },
   {
     keywords: "status",
-    description: "Shows weapons you hold, have collected, or have not",
+    description: "Shows items you hold, have collected, or have not",
     format: "query",
     suggestions: [...STATUSES],
     destinyVersion: 2,
     filter: (args) => (item) =>
-      factsOf(args).ownership(weaponOf(item)) === args.filterValue,
+      factsOf(args).ownership(entryOf(item)) === args.filterValue,
   },
   {
     keywords: "catalyst",
@@ -185,7 +204,7 @@ const weaponFilters: ItemFilterDefinition[] = [
     suggestions: [...CATALYSTS],
     destinyVersion: 2,
     filter: (args) => (item) => {
-      const catalyst = factsOf(args).catalyst(weaponOf(item));
+      const catalyst = factsOf(args).catalyst(entryOf(item));
 
       if (!catalyst) {
         return false;
@@ -202,41 +221,50 @@ const weaponFilters: ItemFilterDefinition[] = [
   },
 ];
 
-const FILTERS_MAP = buildFiltersMap(2, weaponFilters);
+const FILTERS_MAP = buildFiltersMap(2, entryFilters);
+
+// DestinyClass.Unknown
+const ANY_CLASS = 3;
 
 interface Built {
   index: Collections;
   perks: ReturnType<typeof weaponPerks>;
-  standIns: Map<Weapon, DimItem>;
+  standIns: Map<Entry, DimItem>;
   config: ItemSearchConfig;
   complete: (term: string) => string[];
 }
 
-let built: Built | undefined = undefined;
+const built = new Map<Kind, Built>();
 
 // DIM's filters only read these fields
-const prepare = (index: Collections): Built => {
+const prepare = (index: Collections, kind: Kind): Built => {
   const perks = weaponPerks();
+  const held = built.get(kind);
 
-  if (built?.index === index && built.perks === perks) {
-    return built;
+  if (held?.index === index && held.perks === perks) {
+    return held;
   }
 
-  const standIns = new Map<Weapon, DimItem>();
+  const standIns = new Map<Entry, DimItem>();
 
-  for (const weapon of index.weapons) {
-    standIns.set(weapon, {
-      weapon,
-      hash: weapon.newestItemHash,
-      name: weapon.name,
-      rarity: weapon.rarity,
-      itemCategoryHashes: weapon.itemCategoryHashes,
-      ammoType: weapon.ammoType,
+  for (const entry of kind === "weapon" ? index.weapons : index.armor) {
+    standIns.set(entry, {
+      entry,
+      hash: entry.newestItemHash,
+      name: entry.name,
+      rarity: entry.rarity,
+      itemCategoryHashes: entry.itemCategoryHashes,
+      classType: entry.kind === "armor" ? entry.classType : ANY_CLASS,
+      ammoType: entry.kind === "weapon" ? entry.ammoType : 0,
       element:
-        weapon.damageTypeHash === undefined
+        entry.kind === "armor" || entry.damageTypeHash === undefined
           ? null
-          : (defs()?.DamageType.getOptional(weapon.damageTypeHash) ?? null),
-      bucket: { hash: weapon.bucketHash, inWeapons: true },
+          : (defs()?.DamageType.getOptional(entry.damageTypeHash) ?? null),
+      bucket: {
+        hash: entry.bucketHash,
+        inWeapons: entry.kind === "weapon",
+        inArmor: entry.kind === "armor",
+      },
     } as unknown as StandIn);
   }
 
@@ -253,7 +281,7 @@ const prepare = (index: Collections): Built => {
     complete: makeComplete(config),
   };
 
-  built = prepared;
+  built.set(kind, prepared);
 
   return prepared;
 };
@@ -261,14 +289,14 @@ const prepare = (index: Collections): Built => {
 const valid = (query: string): boolean =>
   parseAndValidateQuery(query, FILTERS_MAP).valid;
 
-const suggest = (query: string, caret: number): Suggestion[] => {
+const suggest = (kind: Kind, query: string, caret: number): Suggestion[] => {
   const index = collections();
 
   if (!index) {
     return [];
   }
 
-  const { config, complete } = prepare(index);
+  const { config, complete } = prepare(index, kind);
 
   return autocompleteTermSuggestions(query, caret, complete, config).flatMap(
     (item) =>
@@ -284,37 +312,50 @@ const suggest = (query: string, caret: number): Suggestion[] => {
   );
 };
 
-const completion = (query: string, caret: number): string | undefined => {
+const completion = (
+  kind: Kind,
+  query: string,
+  caret: number,
+): string | undefined => {
   if (query === "" || valid(query)) {
     return undefined;
   }
 
-  const [first] = suggest(query, caret);
+  const [first] = suggest(kind, query, caret);
 
   return first?.query.startsWith(query) ? first.query : undefined;
 };
 
-export const WEAPON_SEARCH: SearchEngine = {
-  suggest,
-  completion,
+const engine = (kind: Kind, recents: string): SearchEngine => ({
+  suggest: (query, caret) => suggest(kind, query, caret),
+  completion: (query, caret) => completion(kind, query, caret),
   valid,
-  recents: "dvm.weaponSearches",
+  recents,
+});
+
+export const SEARCHES: Record<Kind, SearchEngine> = {
+  weapon: engine("weapon", "dvm.weaponSearches"),
+  armor: engine("armor", "dvm.armorSearches"),
 };
 
-/** Compile a query into a weapon predicate. An unfinished term is completed */
-export const weaponFilter = (
+/** Compile a query into a predicate over one kind's entries. An unfinished term is completed */
+export const collectionFilter = (
   index: Collections,
+  kind: Kind,
   query: string,
-  facts: WeaponFacts,
-): ((weapon: Weapon) => boolean) => {
-  const { config, standIns } = prepare(index);
-  // The weapon filters read nothing else off the context
+  facts: EntryFacts,
+): ((entry: Entry) => boolean) => {
+  const { config, standIns } = prepare(index, kind);
+  // The filters read nothing else off the context
   const context = { facts, language: "en" } as Context as never;
-  const applied = completion(query, query.length) ?? query;
+  const applied = completion(kind, query, query.length) ?? query;
   const test = makeSearchFilterFactory(config, context)(applied);
 
-  // Every weapon in the index has one
-  return (weapon) => !!test(standIns.get(weapon)!);
+  return (entry) => {
+    const standIn = standIns.get(entry);
+
+    return !!standIn && !!test(standIn);
+  };
 };
 
 const filterArgs = (query: string, types: Set<string>): string[] => {
@@ -339,6 +380,6 @@ const filterArgs = (query: string, types: Set<string>): string[] => {
 export const queryName = (query: string): string =>
   filterArgs(query, NAME_FILTERS).join(" ");
 
-/** Whether a query looks for weapons by name or perk, outside any not */
+/** Whether a query looks for items by name or perk, outside any not */
 export const isSearch = (query: string): boolean =>
   filterArgs(query, SEARCH_FILTERS).length > 0;

@@ -5,11 +5,15 @@ import { createMemo, createResource, createSignal, For, Show } from "solid-js";
 
 import { useApp } from "../App.tsx";
 import {
+  CLASSES,
+  isArmorRailTerm,
   isRailTerm,
   queryPicks,
   sourceLabel,
+  termValue,
+  withClass,
   withTerms,
-  type Weapon,
+  type Entry,
 } from "../collections.ts";
 import { fakeItems } from "../fakeItems.ts";
 import { ItemIcon } from "../ItemIcon.tsx";
@@ -18,7 +22,7 @@ import { useUrl } from "../router.ts";
 import { Button } from "../ui/Button.tsx";
 import { collectionsHref, vaultHref } from "../url.ts";
 import { useCollectionData } from "./collectionData.ts";
-import { weaponFilter } from "./weaponSearch.ts";
+import { collectionFilter } from "./collectionSearch.ts";
 
 const KILL_LABELS: Record<string, string> = {
   pve: "PvE",
@@ -26,10 +30,13 @@ const KILL_LABELS: Record<string, string> = {
   gambit: "Gambit",
 };
 
-const vaultQuery = (weapon: Weapon): string =>
-  `name:"${weapon.name}" is:${weapon.rarity.toLowerCase()}`;
+const vaultQuery = (entry: Entry): string => {
+  const query = `name:"${entry.name}" is:${entry.rarity.toLowerCase()}`;
 
-const Copies = (props: { weapon: Weapon; copies: DimItem[] }) => {
+  return entry.kind === "armor" ? withClass(query, entry.classType) : query;
+};
+
+const Copies = (props: { entry: Entry; copies: DimItem[] }) => {
   const navigate = useNavigate();
 
   return (
@@ -43,7 +50,7 @@ const Copies = (props: { weapon: Weapon; copies: DimItem[] }) => {
                 <ItemIcon
                   item={copy}
                   onSelect={() =>
-                    navigate(vaultHref(vaultQuery(props.weapon), copy.id))
+                    navigate(vaultHref(vaultQuery(props.entry), copy.id))
                   }
                 />
                 <Show when={getItemKillTrackerInfo(copy)}>
@@ -63,7 +70,7 @@ const Copies = (props: { weapon: Weapon; copies: DimItem[] }) => {
   );
 };
 
-export const WeaponPage = () => {
+export const EntryPage = () => {
   const app = useApp();
   const params = useParams();
   const navigate = useNavigate();
@@ -71,14 +78,14 @@ export const WeaponPage = () => {
   const data = useCollectionData();
   const [allPerks, setAllPerks] = createSignal(true);
 
-  const weapon = createMemo(() =>
+  const entry = createMemo(() =>
     data.index()?.byItemHash.get(Number(params.hash)),
   );
 
   const [versions] = createResource(
     () => {
       const loaded = app.loaded();
-      const found = weapon();
+      const found = entry();
 
       return loaded && found ? { loaded, found } : undefined;
     },
@@ -86,7 +93,7 @@ export const WeaponPage = () => {
   );
 
   const newest = () => {
-    const found = weapon();
+    const found = entry();
 
     return found ? versions.latest?.get(found.newestItemHash) : undefined;
   };
@@ -95,26 +102,38 @@ export const WeaponPage = () => {
     data.acquired.latest?.has(collectibleHash);
 
   const back = () => {
-    const found = weapon();
+    const found = entry();
+    const kind = found?.kind ?? url.get("kind");
     const by = url.get("by");
-    const query = url.get("q");
     const index = data.index();
-    const groups = (index?.sections[by] ?? []).flatMap(
-      (section) => section.groups,
-    );
+    const railTerm = kind === "weapon" ? isRailTerm : isArmorRailTerm;
+    const query = url.get("q");
+
+    const groups = (
+      (kind === "weapon" ? index?.sections[by] : index?.armorSections) ?? []
+    ).flatMap((section) => section.groups);
     const holding = groups.filter(
-      (group) => found && group.weapons.includes(found),
+      (group) => found && group.entries.includes(found),
     );
     const group = holding.find((one) => queryPicks(query, one)) ?? holding[0];
     const terms = group?.terms ?? [];
-    const scoped = withTerms(query, isRailTerm, terms);
-    const shown = !found || !index || weaponFilter(index, scoped, data)(found);
+    const scoped = withTerms(query, railTerm, terms);
+    const tested =
+      found?.kind === "armor"
+        ? withClass(scoped, data.lastPlayedClass())
+        : scoped;
+    const shown =
+      !found || !index || collectionFilter(index, kind, tested, data)(found);
+    const className = termValue(query, "is", CLASSES);
 
     navigate(
       collectionsHref("/collections", {
+        kind,
         by,
         layout: url.get("layout"),
-        q: shown ? scoped : terms.join(" "),
+        q: shown
+          ? scoped
+          : [...terms, ...(className ? [`is:${className}`] : [])].join(" "),
       }),
     );
   };
@@ -126,7 +145,7 @@ export const WeaponPage = () => {
       </Button>
 
       <Show
-        when={weapon()}
+        when={entry()}
         fallback={
           <Show
             when={data.index()}
@@ -137,7 +156,7 @@ export const WeaponPage = () => {
               </div>
             }
           >
-            <p class="text-muted">Unknown weapon</p>
+            <p class="text-muted">Unknown item</p>
           </Show>
         }
       >
@@ -161,7 +180,9 @@ export const WeaponPage = () => {
             <div class="weapon-facts">
               <div class="weapon-block">
                 <h4 class="section-label">
-                  {found().itemHashes.length > 1 ? "Versions" : "Collection"}
+                  {found().collectibleHashes.length > 1
+                    ? "Versions"
+                    : "Collection"}
                 </h4>
                 <ul class="weapon-versions">
                   <For each={found().collectibleHashes}>
@@ -205,7 +226,7 @@ export const WeaponPage = () => {
                 </ul>
               </div>
 
-              <Copies weapon={found()} copies={data.copiesOf(found())} />
+              <Copies entry={found()} copies={data.copiesOf(found())} />
 
               <div>
                 <Show

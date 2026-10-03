@@ -10,8 +10,8 @@ import {
   ownershipOf,
   primeCollections,
   type Catalyst,
+  type Entry,
   type Ownership,
-  type Weapon,
 } from "../collections.ts";
 import { fakeItems } from "../fakeItems.ts";
 import { dismiss, preview } from "../preview.ts";
@@ -37,24 +37,26 @@ export const useCollectionData = () => {
 
   const copies = createMemo(() => copiesByKey(app.stores()));
 
-  const copiesOf = (weapon: Weapon): DimItem[] =>
-    copies().get(weapon.key) ?? [];
+  const copiesOf = (entry: Entry): DimItem[] => copies().get(entry.key) ?? [];
 
-  const ownership = (weapon: Weapon): Ownership | undefined =>
-    ownershipOf(weapon, copies().get(weapon.key), acquired.latest);
+  const ownership = (entry: Entry): Ownership | undefined =>
+    ownershipOf(entry, copies().get(entry.key), acquired.latest);
 
-  const catalyst = (weapon: Weapon): Catalyst | undefined =>
-    catalystFor(weapon, app.loaded()?.records ?? {});
+  const catalyst = (entry: Entry): Catalyst | undefined =>
+    catalystFor(entry, app.loaded()?.records ?? {});
 
-  return { index, acquired, copiesOf, ownership, catalyst };
+  const lastPlayedClass = (): number =>
+    app.stores().find((store) => store.current)?.classType ?? 0;
+
+  return { index, acquired, copiesOf, ownership, catalyst, lastPlayedClass };
 };
 
 export type CollectionData = ReturnType<typeof useCollectionData>;
 
-const cardNotes = (data: CollectionData, weapon: Weapon): string[] => {
+const cardNotes = (data: CollectionData, entry: Entry): string[] => {
   const notes: string[] = [];
-  const ownership = data.ownership(weapon);
-  const copies = data.copiesOf(weapon).length;
+  const ownership = data.ownership(entry);
+  const copies = data.copiesOf(entry).length;
 
   if (ownership === "neverseen") {
     notes.push("Never seen");
@@ -70,25 +72,25 @@ const cardNotes = (data: CollectionData, weapon: Weapon): string[] => {
 };
 
 /** Builds the definition item on first hover, then opens the card if still hovered */
-export const useWeaponPreview = (data: CollectionData) => {
+export const useEntryPreview = (data: CollectionData) => {
   const app = useApp();
 
   let hovered: number | undefined = undefined;
   let shown: DimItem | undefined = undefined;
 
-  const enter = (weapon: Weapon, element: HTMLElement) => {
+  const enter = (entry: Entry, element: HTMLElement) => {
     const loaded = app.loaded();
 
     if (!loaded) {
       return;
     }
 
-    hovered = weapon.newestItemHash;
+    hovered = entry.newestItemHash;
 
-    void fakeItems(loaded, [weapon.newestItemHash]).then((built) => {
-      const item = built.get(weapon.newestItemHash);
+    void fakeItems(loaded, [entry.newestItemHash]).then((built) => {
+      const item = built.get(entry.newestItemHash);
 
-      if (item && hovered === weapon.newestItemHash) {
+      if (item && hovered === entry.newestItemHash) {
         shown = item;
         preview(
           item,
@@ -96,7 +98,7 @@ export const useWeaponPreview = (data: CollectionData) => {
           undefined,
           undefined,
           false,
-          cardNotes(data, weapon),
+          cardNotes(data, entry),
         );
       }
     });

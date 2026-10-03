@@ -9,6 +9,7 @@ import { plainString } from "app/search/text-utils";
 import type {
   DestinyInventoryItemDefinition,
   DestinyObjectiveProgress,
+  DestinyEquipableItemSetDefinition,
   DestinyPresentationNodeDefinition,
 } from "bungie-api-ts/destiny2";
 import exoticToCatalystRecordHash from "data/d2/exotic-to-catalyst-record.json" with { type: "json" };
@@ -28,9 +29,11 @@ import { CORE } from "./store.ts";
 import type { Grouping } from "./url.ts";
 
 const WEAPONS_NODE = 1528930164;
+const ARMOR_NODE = 1605042242;
 
-// Exotics sit under Items > Exotic, split by slot
+// Exotics sit under Items > Exotic, split by slot or class
 const EXOTIC_WEAPONS_NODE = 2214408526;
+const EXOTIC_ARMOR_NODE = 1789205056;
 
 // DestinyCollectibleState
 const NOT_ACQUIRED = 1;
@@ -41,6 +44,7 @@ const OBJECTIVE_NOT_COMPLETED = 4;
 const OBSCURED = 8;
 
 // DestinyItemType
+const ARMOR = 2;
 const WEAPON = 3;
 
 // DestinyAmmunitionType
@@ -55,7 +59,7 @@ const CATALYST_RECORDS = exoticToCatalystRecordHash as Record<
   number | undefined
 >;
 
-export interface Weapon {
+interface Collected {
   key: string;
   name: string;
   plainName: string;
@@ -65,17 +69,33 @@ export interface Weapon {
   collectibleHashes: number[];
   icon: string;
   watermark: string | undefined;
-  damageTypeHash: number | undefined;
-  ammoType: number;
   itemCategoryHashes: number[];
   bucketHash: number;
   typeName: string;
-  typeKey: string;
   sources: string[];
   sourceKeys: string[];
   index: number;
+}
+
+export interface Weapon extends Collected {
+  kind: "weapon";
+  damageTypeHash: number | undefined;
+  ammoType: number;
+  typeKey: string;
   catalystRecordHash: number | undefined;
 }
+
+export interface Armor extends Collected {
+  kind: "armor";
+  classType: number;
+  /** Keyed by class and Bungie's set node name, undefined for exotics */
+  setKey: string | undefined;
+  setName: string | undefined;
+  /** The set bonus, from an Edge of Fate reissue when the collectible predates it */
+  itemSetHash: number | undefined;
+}
+
+export type Entry = Weapon | Armor;
 
 export type Ownership = "owned" | "unlocked" | "neverseen";
 
@@ -91,7 +111,7 @@ export interface Group {
   label: string;
   /** The query terms that pick this group, like is:autorifle is:primary */
   terms: string[];
-  weapons: Weapon[];
+  entries: Entry[];
 }
 
 export interface Section {
@@ -101,9 +121,11 @@ export interface Section {
 
 export interface Collections {
   weapons: Weapon[];
-  byItemHash: Map<number, Weapon>;
+  armor: Armor[];
+  byItemHash: Map<number, Entry>;
   collectibles: Record<number, SlimCollectible>;
   sections: Record<Grouping, Section[]>;
+  armorSections: Section[];
 }
 
 const SOURCE_SECTIONS: { label: string; keys: [string, string][] }[] = [
@@ -153,6 +175,22 @@ const SOURCE_SECTIONS: { label: string; keys: [string, string][] }[] = [
       ["trials", "Trials of Osiris"],
       ["ironbanner", "Iron Banner"],
       ["gambit", "Gambit"],
+      ["gambitprime", "Gambit Prime"],
+    ],
+  },
+  {
+    label: "Destinations",
+    keys: [
+      ["kepler", "Kepler"],
+      ["paleheart", "The Pale Heart"],
+      ["neomuna", "Neomuna"],
+      ["throneworld", "Throne World"],
+      ["europa", "Europa"],
+      ["moon", "The Moon"],
+      ["dreaming", "Dreaming City"],
+      ["tangled", "Tangled Shore"],
+      ["nessus", "Nessus"],
+      ["edz", "European Dead Zone"],
     ],
   },
   {
@@ -164,11 +202,18 @@ const SOURCE_SECTIONS: { label: string; keys: [string, string][] }[] = [
       ["events", "Events"],
       ["gunsmith", "Gunsmith"],
       ["exoticquest", "Exotic quests"],
+      ["eververse", "Eververse"],
     ],
   },
 ];
 
 export const OTHER = "other";
+
+export const EXOTIC = "exotic";
+
+export const CLASSES = ["titan", "hunter", "warlock"] as const;
+
+export type ClassName = (typeof CLASSES)[number];
 
 const AMMO_NAMES = new Map<number, string>(
   Object.entries(d2AmmoTypes).map(([name, ammo]) => [ammo, name]),
@@ -182,6 +227,21 @@ export const isRailTerm = (key: string | undefined, value: string): boolean =>
   (key === "is" &&
     (CATEGORY_KEYWORDS.has(value) ||
       (d2AmmoTypes as Record<string, number>)[value] !== undefined));
+
+/** The armor rail only writes sources and the exotics entry */
+export const isArmorRailTerm = (
+  key: string | undefined,
+  value: string,
+): boolean => key === "source" || (key === "is" && value === EXOTIC);
+
+/** The query with a class term added when it names none */
+export const withClass = (query: string, classType: number): string => {
+  if (termValue(query, "is", CLASSES) !== undefined) {
+    return query;
+  }
+
+  return `${query} is:${CLASSES[classType] ?? CLASSES[0]}`.trim();
+};
 
 // DIM's own item-to-term mapping
 const categoryTerm = (weapon: Weapon): string =>
@@ -242,6 +302,9 @@ const readItems = async (
   return found;
 };
 
+const armorKey = (name: string, rarity: string, classType: number): string =>
+  `${name}|${rarity}|${classType}`;
+
 const rarityOf = (item: DestinyInventoryItemDefinition): string =>
   ItemRarityMap[item.inventory?.tierType ?? 0] ?? "Common";
 
@@ -293,10 +356,105 @@ const buildCollections = async (session: Session): Promise<Collections> => {
     }
   }
 
-  const items = await readItems(
-    session,
-    placed.map((entry) => entry.collectible.itemHash),
+  const armorPlaced: {
+    collectible: SlimCollectible;
+    setName: string | undefined;
+  }[] = [];
+
+  for (const classNode of childrenOf(ARMOR_NODE)) {
+    for (const category of childrenOf(classNode.hash)) {
+      for (const set of childrenOf(category.hash)) {
+        for (const child of set.children.collectibles) {
+          const collectible = collectibles[child.collectibleHash];
+
+          if (collectible) {
+            armorPlaced.push({
+              collectible,
+              setName: set.displayProperties.name,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  for (const classNode of childrenOf(EXOTIC_ARMOR_NODE)) {
+    for (const child of classNode.children.collectibles) {
+      const collectible = collectibles[child.collectibleHash];
+
+      if (collectible) {
+        armorPlaced.push({ collectible, setName: undefined });
+      }
+    }
+  }
+
+  const itemSets = Object.values(
+    (session.support.get("EquipableItemSet") ?? {}) as Record<
+      number,
+      DestinyEquipableItemSetDefinition
+    >,
   );
+
+  const items = await readItems(session, [
+    ...placed.map((entry) => entry.collectible.itemHash),
+    ...armorPlaced.map((entry) => entry.collectible.itemHash),
+    ...itemSets.flatMap((set) => set.setItems),
+  ]);
+
+  const collected = (
+    key: string,
+    item: DestinyInventoryItemDefinition,
+    collectible: SlimCollectible,
+  ) => {
+    const name = item.displayProperties.name;
+
+    return {
+      key,
+      name,
+      plainName: plainString(name.toLowerCase(), "en"),
+      rarity: rarityOf(item),
+      newestItemHash: item.hash,
+      itemHashes: [item.hash],
+      collectibleHashes: [collectible.hash],
+      icon: item.displayProperties.icon ?? "",
+      watermark: item.iconWatermark || undefined,
+      itemCategoryHashes: categoriesOf(item),
+      bucketHash: item.inventory?.bucketTypeHash ?? 0,
+      typeName: item.itemTypeDisplayName ?? "",
+      sources: collectible.sourceString ? [collectible.sourceString] : [],
+      sourceKeys: sourceKeysOf(collectible),
+      index: collectible.index,
+    };
+  };
+
+  const merge = (
+    held: Entry,
+    item: DestinyInventoryItemDefinition,
+    collectible: SlimCollectible,
+  ) => {
+    held.itemHashes.push(item.hash);
+    held.collectibleHashes.push(collectible.hash);
+
+    if (
+      collectible.sourceString &&
+      !held.sources.includes(collectible.sourceString)
+    ) {
+      held.sources.push(collectible.sourceString);
+    }
+
+    for (const sourceKey of sourceKeysOf(collectible)) {
+      if (!held.sourceKeys.includes(sourceKey)) {
+        held.sourceKeys.push(sourceKey);
+      }
+    }
+
+    if (collectible.index > held.index) {
+      held.index = collectible.index;
+      held.newestItemHash = item.hash;
+      held.icon = item.displayProperties.icon ?? held.icon;
+      held.watermark = item.iconWatermark || held.watermark;
+    }
+  };
 
   const byKey = new Map<string, Weapon>();
   const typeLabels = new Map<string, string>();
@@ -309,12 +467,9 @@ const buildCollections = async (session: Session): Promise<Collections> => {
       continue;
     }
 
-    const name = item.displayProperties.name;
-    const rarity = rarityOf(item);
-    const key = `${name}|${rarity}`;
+    const key = `${item.displayProperties.name}|${rarityOf(item)}`;
     const typeKey = `${item.equippingBlock?.ammoType ?? 0}:${item.itemSubType}`;
     const held = byKey.get(key);
-    const sourceKeys = sourceKeysOf(collectible);
 
     if (typeLabel !== undefined && !typeLabels.has(typeKey)) {
       typeLabels.set(typeKey, typeLabel);
@@ -322,63 +477,91 @@ const buildCollections = async (session: Session): Promise<Collections> => {
 
     if (!held) {
       byKey.set(key, {
-        key,
-        name,
-        plainName: plainString(name.toLowerCase(), "en"),
-        rarity,
-        newestItemHash: item.hash,
-        itemHashes: [item.hash],
-        collectibleHashes: [collectible.hash],
-        icon: item.displayProperties.icon ?? "",
-        watermark: item.iconWatermark || undefined,
+        ...collected(key, item, collectible),
+        kind: "weapon",
         damageTypeHash: item.damageTypeHashes?.[0],
         ammoType: item.equippingBlock?.ammoType ?? 0,
-        itemCategoryHashes: categoriesOf(item),
-        bucketHash: item.inventory?.bucketTypeHash ?? 0,
-        typeName: item.itemTypeDisplayName ?? "",
         typeKey,
-        sources: collectible.sourceString ? [collectible.sourceString] : [],
-        sourceKeys,
-        index: collectible.index,
         catalystRecordHash: CATALYST_RECORDS[item.hash],
       });
 
       continue;
     }
 
-    held.itemHashes.push(item.hash);
-    held.collectibleHashes.push(collectible.hash);
+    merge(held, item, collectible);
     held.catalystRecordHash ??= CATALYST_RECORDS[item.hash];
+  }
 
-    if (
-      collectible.sourceString &&
-      !held.sources.includes(collectible.sourceString)
-    ) {
-      held.sources.push(collectible.sourceString);
+  const armorByKey = new Map<string, Armor>();
+
+  for (const { collectible, setName } of armorPlaced) {
+    const item = items.get(collectible.itemHash);
+
+    // Ornament sets sit beside the armor
+    if (item?.itemType !== ARMOR || !item.displayProperties?.name) {
+      continue;
     }
 
-    for (const sourceKey of sourceKeys) {
-      if (!held.sourceKeys.includes(sourceKey)) {
-        held.sourceKeys.push(sourceKey);
+    const key = armorKey(
+      item.displayProperties.name,
+      rarityOf(item),
+      item.classType,
+    );
+    const held = armorByKey.get(key);
+
+    if (!held) {
+      armorByKey.set(key, {
+        ...collected(key, item, collectible),
+        kind: "armor",
+        classType: item.classType,
+        setKey:
+          setName === undefined ? undefined : `${item.classType}|${setName}`,
+        setName,
+        itemSetHash: item.equippingBlock?.equipableItemSetHash,
+      });
+
+      continue;
+    }
+
+    merge(held, item, collectible);
+    held.itemSetHash ??= item.equippingBlock?.equipableItemSetHash;
+  }
+
+  // Reissues with set bonuses often have no collectible of their own
+  for (const set of itemSets) {
+    for (const hash of set.setItems) {
+      const item = items.get(hash);
+      const held =
+        item &&
+        armorByKey.get(
+          armorKey(item.displayProperties.name, rarityOf(item), item.classType),
+        );
+
+      if (!item || !held) {
+        continue;
       }
-    }
 
-    if (collectible.index > held.index) {
-      held.index = collectible.index;
-      held.newestItemHash = item.hash;
-      held.icon = item.displayProperties.icon ?? held.icon;
-      held.watermark = item.iconWatermark || held.watermark;
+      held.itemSetHash = set.hash;
+
+      if (!held.itemHashes.includes(hash)) {
+        held.itemHashes.push(hash);
+        held.newestItemHash = hash;
+        held.icon = item.displayProperties.icon ?? held.icon;
+        held.watermark = item.iconWatermark || held.watermark;
+      }
     }
   }
 
-  const weapons = [...byKey.values()].sort(
-    (one, other) => other.index - one.index,
-  );
-  const byItemHash = new Map<number, Weapon>();
+  const newestFirst = <T extends Entry>(entries: Iterable<T>): T[] =>
+    [...entries].sort((one, other) => other.index - one.index);
 
-  for (const weapon of weapons) {
-    for (const hash of weapon.itemHashes) {
-      byItemHash.set(hash, weapon);
+  const weapons = newestFirst(byKey.values());
+  const armor = newestFirst(armorByKey.values());
+  const byItemHash = new Map<number, Entry>();
+
+  for (const entry of [...weapons, ...armor]) {
+    for (const hash of entry.itemHashes) {
+      byItemHash.set(hash, entry);
     }
   }
 
@@ -402,7 +585,7 @@ const buildCollections = async (session: Session): Promise<Collections> => {
           label: typeLabel,
           terms:
             category === "" ? [] : [category, `is:${AMMO_NAMES.get(ammo)}`],
-          weapons: held,
+          entries: held,
         };
       }),
   }));
@@ -413,7 +596,7 @@ const buildCollections = async (session: Session): Promise<Collections> => {
   for (const group of typeSections.flatMap((section) => section.groups)) {
     const category = group.terms[0];
 
-    if (category !== undefined && group.weapons.length > 0) {
+    if (category !== undefined && group.entries.length > 0) {
       categoryCount.set(category, (categoryCount.get(category) ?? 0) + 1);
     }
   }
@@ -428,37 +611,62 @@ const buildCollections = async (session: Session): Promise<Collections> => {
     SOURCE_SECTIONS.flatMap((section) => section.keys.map(([key]) => key)),
   );
 
-  const sourceSections: Section[] = SOURCE_SECTIONS.map((section) => ({
-    label: section.label,
-    groups: section.keys.map(([key, label]) => ({
-      key,
-      label,
-      terms: [`source:${key}`],
-      weapons: weapons.filter((weapon) => weapon.sourceKeys.includes(key)),
-    })),
-  }));
+  const sourceSections = (entries: Entry[]): Section[] => {
+    const sections = SOURCE_SECTIONS.map((section) => ({
+      label: section.label,
+      groups: section.keys.map(([key, label]) => ({
+        key,
+        label,
+        terms: [`source:${key}`],
+        entries: entries.filter((entry) => entry.sourceKeys.includes(key)),
+      })),
+    }));
 
-  sourceSections[sourceSections.length - 1]!.groups.push({
-    key: OTHER,
-    label: "Everything else",
-    terms: [`source:${OTHER}`],
-    weapons: weapons.filter(
-      (weapon) => !weapon.sourceKeys.some((key) => listed.has(key)),
-    ),
-  });
+    sections[sections.length - 1]!.groups.push({
+      key: OTHER,
+      label: "Everything else",
+      terms: [`source:${OTHER}`],
+      entries: entries.filter(
+        (entry) => !entry.sourceKeys.some((key) => listed.has(key)),
+      ),
+    });
+
+    return sections;
+  };
 
   const filled = (sections: Section[]): Section[] =>
     sections.flatMap((section) => {
-      const groups = section.groups.filter((group) => group.weapons.length > 0);
+      const groups = section.groups.filter((group) => group.entries.length > 0);
 
       return groups.length === 0 ? [] : [{ ...section, groups }];
     });
 
+  // Exotics have no set
+  const armorSections: Section[] = [
+    {
+      label: "",
+      groups: [
+        {
+          key: EXOTIC,
+          label: "Exotics",
+          terms: [`is:${EXOTIC}`],
+          entries: armor.filter((piece) => piece.setKey === undefined),
+        },
+      ],
+    },
+    ...sourceSections(armor.filter((piece) => piece.setKey !== undefined)),
+  ];
+
   return {
     weapons,
+    armor,
     byItemHash,
     collectibles,
-    sections: { type: filled(typeSections), source: filled(sourceSections) },
+    sections: {
+      type: filled(typeSections),
+      source: filled(sourceSections(weapons)),
+    },
+    armorSections: filled(armorSections),
   };
 };
 
@@ -550,20 +758,22 @@ const SOURCE_PREFIX = /^Source:\s*/;
 export const sourceLabel = (sourceString: string): string =>
   sourceString.replace(SOURCE_PREFIX, "");
 
-export const isCollected = (weapon: Weapon, acquired: Set<number>): boolean =>
-  weapon.collectibleHashes.some((hash) => acquired.has(hash));
+export const isCollected = (entry: Entry, acquired: Set<number>): boolean =>
+  entry.collectibleHashes.some((hash) => acquired.has(hash));
 
-/** Held weapons keyed like Weapon.key, since reissues get new hashes */
+/** Held weapons and armor keyed like Entry.key, since reissues get new hashes */
 export const copiesByKey = (stores: DimStore[]): Map<string, DimItem[]> => {
   const copies = new Map<string, DimItem[]>();
 
   for (const store of stores) {
     for (const item of store.items) {
-      if (!item.bucket.inWeapons) {
+      if (!item.bucket.inWeapons && !item.bucket.inArmor) {
         continue;
       }
 
-      const key = `${item.name}|${item.rarity}`;
+      const key = item.bucket.inArmor
+        ? armorKey(item.name, item.rarity, item.classType)
+        : `${item.name}|${item.rarity}`;
       const held = copies.get(key);
 
       if (held) {
@@ -579,7 +789,7 @@ export const copiesByKey = (stores: DimStore[]): Map<string, DimItem[]> => {
 
 /** Undefined until collection state arrives, unless a copy is held */
 export const ownershipOf = (
-  weapon: Weapon,
+  entry: Entry,
   copies: DimItem[] | undefined,
   acquired: Set<number> | undefined,
 ): Ownership | undefined => {
@@ -591,7 +801,7 @@ export const ownershipOf = (
     return undefined;
   }
 
-  return isCollected(weapon, acquired) ? "unlocked" : "neverseen";
+  return isCollected(entry, acquired) ? "unlocked" : "neverseen";
 };
 
 const catalystRecord = (
@@ -634,9 +844,12 @@ const catalystRecord = (
 };
 
 export const catalystFor = (
-  weapon: Weapon,
+  entry: Entry,
   records: CharacterRecords,
-): Catalyst | undefined => catalystRecord(weapon.catalystRecordHash, records);
+): Catalyst | undefined =>
+  entry.kind === "weapon"
+    ? catalystRecord(entry.catalystRecordHash, records)
+    : undefined;
 
 /** The account's catalyst triumph for one exotic item hash */
 export const catalystForItem = (
@@ -645,18 +858,21 @@ export const catalystForItem = (
 ): Catalyst | undefined => catalystRecord(CATALYST_RECORDS[itemHash], records);
 
 /** Names starting with the text first, keeping the index order otherwise */
-export const rankByName = (weapons: Weapon[], name: string): Weapon[] => {
+export const rankByName = <T extends Entry>(
+  entries: T[],
+  name: string,
+): T[] => {
   const needle = plainString(name.trim().toLowerCase(), "en");
 
   return [
-    ...weapons.filter((weapon) => weapon.plainName.startsWith(needle)),
-    ...weapons.filter((weapon) => !weapon.plainName.startsWith(needle)),
+    ...entries.filter((entry) => entry.plainName.startsWith(needle)),
+    ...entries.filter((entry) => !entry.plainName.startsWith(needle)),
   ];
 };
 
-export interface WeaponFacts {
-  ownership: (weapon: Weapon) => Ownership | undefined;
-  catalyst: (weapon: Weapon) => Catalyst | undefined;
+export interface EntryFacts {
+  ownership: (entry: Entry) => Ownership | undefined;
+  catalyst: (entry: Entry) => Catalyst | undefined;
 }
 
 export const RARITIES = [

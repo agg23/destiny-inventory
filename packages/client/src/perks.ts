@@ -1,5 +1,6 @@
 import type { DimItem, DimPlug } from "app/inventory/item-types";
 import type {
+  DestinyEquipableItemSetDefinition,
   DestinyInventoryItemDefinition,
   DestinyObjectiveProgress,
 } from "bungie-api-ts/destiny2";
@@ -85,6 +86,10 @@ const INTRINSICS = 1744546145;
 
 // SocketCategoryHashes.IntrinsicTraits
 const INTRINSIC_TRAITS = 3956125808;
+
+/** Frames and exotic perks */
+export const isIntrinsicPlug = (plug: DimPlug | null | undefined): boolean =>
+  plug?.plugDef.plug.plugCategoryHash === INTRINSICS;
 
 const change = (item: DimItem, hash: number, value: number): StatChange[] => {
   const own = item.stats?.find((stat) => stat.statHash === hash);
@@ -188,6 +193,7 @@ export const benefits = (item: DimItem): Benefit[] => {
         if (
           isSocketEmpty(socket) ||
           isArmorArchetypePlug(plug) ||
+          isIntrinsicPlug(plug) ||
           plug.plugDef.plug.plugCategoryIdentifier.includes("trackers") ||
           plug.plugDef.plug.plugCategoryHash === EMPTY_EXOTIC_MASTERWORK
         ) {
@@ -207,11 +213,15 @@ export const benefits = (item: DimItem): Benefit[] => {
 };
 
 // The numbers live on the sandbox perks
-export const setBonus = (item: DimItem): SetBonus | undefined => {
-  const set = item.setBonus;
+export const setBonus = (item: DimItem): SetBonus | undefined =>
+  item.setBonus ? setBonusOf(item.setBonus) : undefined;
+
+export const setBonusOf = (
+  set: DestinyEquipableItemSetDefinition,
+): SetBonus | undefined => {
   const table = defs()?.SandboxPerk;
 
-  if (!set || !table) {
+  if (!table) {
     return undefined;
   }
 
@@ -256,7 +266,7 @@ export const archetype = (item: DimItem): Archetype | undefined => {
   return { name, description, icon: hasIcon ? icon : undefined };
 };
 
-/** The plugged intrinsic perks, leaving out the armor archetype */
+/** The plugged intrinsic perks in any socket category, leaving out the armor archetype */
 export const intrinsics = (item: DimItem): Benefit[] => {
   const sockets = item.sockets;
 
@@ -264,21 +274,28 @@ export const intrinsics = (item: DimItem): Benefit[] => {
     return [];
   }
 
-  return sockets.categories
-    .filter((category) => category.category.hash === INTRINSIC_TRAITS)
-    .flatMap((category) =>
-      getSocketsByIndexes(sockets, category.socketIndexes).flatMap((socket) => {
-        const plug = socket.plugged;
+  const traits = new Set(
+    sockets.categories
+      .filter((category) => category.category.hash === INTRINSIC_TRAITS)
+      .flatMap((category) => category.socketIndexes),
+  );
 
-        if (!plug || isSocketEmpty(socket) || isArmorArchetypePlug(plug)) {
-          return [];
-        }
+  return sockets.allSockets.flatMap((socket) => {
+    const plug = socket.plugged;
 
-        const benefit = benefitFor(item, plug);
+    if (
+      !plug ||
+      isSocketEmpty(socket) ||
+      isArmorArchetypePlug(plug) ||
+      (!traits.has(socket.socketIndex) && !isIntrinsicPlug(plug))
+    ) {
+      return [];
+    }
 
-        return benefit ? [benefit] : [];
-      }),
-    );
+    const benefit = benefitFor(item, plug);
+
+    return benefit ? [benefit] : [];
+  });
 };
 
 const catalystLines = (

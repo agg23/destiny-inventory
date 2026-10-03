@@ -39,10 +39,10 @@ import {
   rankByName,
 } from "./collections.ts";
 import {
+  collectionFilter,
   queryName,
-  WEAPON_SEARCH,
-  weaponFilter,
-} from "./collections/weaponSearch.ts";
+  SEARCHES,
+} from "./collections/collectionSearch.ts";
 import { comparable } from "./compare.ts";
 import { defs } from "./defs.ts";
 import { messageOf } from "./error.ts";
@@ -94,7 +94,7 @@ import { PanelGlyph } from "./ui/PanelGlyph.tsx";
 import { RefreshGlyph } from "./ui/RefreshGlyph.tsx";
 import { SignOutGlyph } from "./ui/SignOutGlyph.tsx";
 import { TabButton } from "./ui/TabButton.tsx";
-import { tabHref, TABS, weaponHref, type Tab } from "./url.ts";
+import { entryHref, tabHref, TABS, type Kind, type Tab } from "./url.ts";
 
 const PINS = 2;
 
@@ -105,6 +105,11 @@ const LABELS: Record<Tab, string> = {
   activities: "Activities",
   todo: "Todo",
   history: "History",
+};
+
+const KIND_SCOPES: Record<Kind, string> = {
+  weapon: "Filter weapons",
+  armor: "Filter armor",
 };
 
 const RAILED: Tab[] = ["vault", "triage", "todo"];
@@ -371,13 +376,20 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     });
   });
 
-  createEffect(() => {
-    const next = setActive((was) => observe(was, current()?.playing));
+  createEffect(
+    on(
+      () => current()?.playing,
+      (playing) => {
+        const was = active();
+        const next = observe(was, playing);
+        setActive(next);
 
-    if (next.override === undefined && character() !== undefined) {
-      url.replace({ character: undefined });
-    }
-  });
+        if (was.override !== undefined && next.override === undefined) {
+          url.replace({ character: undefined });
+        }
+      },
+    ),
+  );
 
   const error = () => result.error as Error | undefined;
   const owned = () => (error() ? undefined : upgraded() ?? result());
@@ -957,8 +969,8 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
                 >
                   <SearchBar
                     query={typed()}
-                    placeholder={SCOPES.collections}
-                    engine={WEAPON_SEARCH}
+                    placeholder={KIND_SCOPES[url.get("kind")]}
+                    engine={SEARCHES[url.get("kind")]}
                     onQuery={onQuery}
                     onFocus={primeWeapons}
                   />
@@ -981,7 +993,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
 
                   const copies = copiesByKey(stores());
                   const records = current()?.records ?? {};
-                  const test = weaponFilter(built, query, {
+                  const test = collectionFilter(built, "weapon", query, {
                     ownership: (weapon) =>
                       ownershipOf(
                         weapon,
@@ -994,7 +1006,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
                   return rankByName(built.weapons.filter(test), name);
                 }}
                 onWeapon={(weapon) =>
-                  navigate(weaponHref(weapon.newestItemHash))
+                  navigate(entryHref(weapon.newestItemHash))
                 }
                 onFocus={primeWeapons}
               />
