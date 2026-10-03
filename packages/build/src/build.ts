@@ -12,6 +12,7 @@ import {
   slimActivitySet,
   slimActivityType,
   slimChallenge,
+  slimCollectible,
   slimDifficulty,
   slimGraphNode,
   slimItem,
@@ -27,6 +28,7 @@ import type {
   DestinyActivityDefinition,
   DestinyInventoryItemDefinition,
   DestinyObjectiveDefinition,
+  DestinySocketTypeDefinition,
   DestinyVendorDefinition,
 } from "bungie-api-ts/destiny2";
 
@@ -44,14 +46,25 @@ const ACTIVITIES = "DestinyActivityDefinition";
 const VENDORS = "DestinyVendorDefinition";
 const OBJECTIVES = "DestinyObjectiveDefinition";
 const SKULLS = "DestinyActivitySelectableSkullCollectionDefinition";
+const SOCKET_TYPES = "DestinySocketTypeDefinition";
 
-// Activity content ships for a few display fields each, so it is projected on the way out
+const EMPTY_CATALYST = "v400.empty.exotic.masterwork";
+
+// DestinyItemType
+const WEAPON = 3;
+const DUMMY = 20;
+
+// TierType.Exotic
+const EXOTIC = 6;
+
+// Activity content and collectibles ship for a few fields each, so they are projected on the way out
 const SLIM: Record<string, (record: never) => { hash: number }> = {
   DestinyActivityDefinition: slimActivity,
   DestinyActivityDifficultyTierCollectionDefinition: slimDifficulty,
   DestinyActivityModeDefinition: slimMode,
   DestinyActivityModifierDefinition: slimModifier,
   DestinyActivityTypeDefinition: slimActivityType,
+  DestinyCollectibleDefinition: slimCollectible,
   DestinyFireteamFinderActivityGraphDefinition: slimGraphNode,
   DestinyFireteamFinderActivitySetDefinition: slimActivitySet,
   DestinyDestinationDefinition: slimPlace,
@@ -78,6 +91,88 @@ const project = (table: string, contents: RawTable): RawTable => {
   }
 
   return projected;
+};
+
+// Year one exotics leave their second catalyst out of the socket
+const addCatalysts = (
+  tables: Tables,
+  socketTypes: Record<string, DestinySocketTypeDefinition>,
+): number => {
+  const items = Object.values(tables.items) as DestinyInventoryItemDefinition[];
+  const byCategory = new Map<string, DestinyInventoryItemDefinition[]>();
+  let added = 0;
+
+  for (const item of items) {
+    const category = item.plug?.plugCategoryIdentifier;
+
+    if (category && item.itemType !== DUMMY) {
+      byCategory.set(category, [...(byCategory.get(category) ?? []), item]);
+    }
+  }
+
+  for (const weapon of items) {
+    if (weapon.itemType !== WEAPON || weapon.inventory?.tierType !== EXOTIC) {
+      continue;
+    }
+
+    for (const entry of weapon.sockets?.socketEntries ?? []) {
+      const categories = (
+        socketTypes[entry.socketTypeHash]?.plugWhitelist ?? []
+      ).map((allowed) => allowed.categoryIdentifier);
+
+      const masterworks = categories.filter(
+        (category) =>
+          category !== EMPTY_CATALYST && category.endsWith("masterwork"),
+      );
+
+      if (masterworks.length === 0) {
+        continue;
+      }
+
+      const listed = (
+        tables.plugSets[entry.reusablePlugSetHash ?? 0]?.reusablePlugItems ?? []
+      ).some((plug) => {
+        const item = tables.items[plug.plugItemHash];
+
+        return (
+          item !== undefined &&
+          item.itemType !== DUMMY &&
+          item.plug?.plugCategoryIdentifier !== EMPTY_CATALYST
+        );
+      });
+
+      if (listed) {
+        continue;
+      }
+
+      const own = new Set(
+        (entry.reusablePlugItems ?? []).map((plug) => plug.plugItemHash),
+      );
+      const candidates = masterworks
+        .flatMap((category) => byCategory.get(category) ?? [])
+        .filter(
+          (candidate) =>
+            !own.has(candidate.hash) && candidate.displayProperties.name,
+        );
+      const named = candidates.filter(
+        (candidate) =>
+          candidate.displayProperties.name ===
+          `${weapon.displayProperties.name} Catalyst`,
+      );
+      const picked =
+        named.length > 0 ? named : candidates.length === 1 ? candidates : [];
+
+      Object.assign(entry, {
+        reusablePlugItems: [
+          ...(entry.reusablePlugItems ?? []),
+          ...picked.map((plug) => ({ plugItemHash: plug.hash })),
+        ],
+      });
+      added += picked.length;
+    }
+  }
+
+  return added;
 };
 
 const mb = (n: number): string => `${(n / 1_048_576).toFixed(2)} MB`;
@@ -152,6 +247,14 @@ const main = async () => {
     plugSets: manifest.tables.get(PLUG_SETS) as Tables["plugSets"],
   };
 
+  const catalysts = addCatalysts(
+    tables,
+    (manifest.tables.get(SOCKET_TYPES) ?? {}) as Record<
+      string,
+      DestinySocketTypeDefinition
+    >,
+  );
+
   const all = Object.values(tables.items) as DestinyInventoryItemDefinition[];
   const shipped = all.filter(isShipped);
   const shippedHashes = new Set(shipped.map((item) => item.hash));
@@ -166,6 +269,7 @@ const main = async () => {
   }
 
   console.log(`\n${all.length} items, ${shipped.length} shipped`);
+  console.log(`${catalysts} catalysts added to their sockets`);
   console.log(
     `closure: ${closure.items.size} items, ${closure.plugSets.size} plug sets, no dangling references`,
   );

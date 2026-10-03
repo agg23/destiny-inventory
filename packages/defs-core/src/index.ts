@@ -14,7 +14,9 @@ export {
   coreItem,
   detailItem,
   hasDetail,
+  slimCollectible,
   slimItem,
+  type SlimCollectible,
   type SlimItem,
 } from "./projection.ts";
 export { isShipped } from "./shipped.ts";

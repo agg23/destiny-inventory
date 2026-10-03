@@ -164,7 +164,13 @@ const Weapons = (props: { entry: DestinyPostGameCarnageReportEntry }) => {
                 const found = item();
 
                 if (found) {
-                  preview(found, event.currentTarget, event.clientX);
+                  preview(
+                    found,
+                    event.currentTarget,
+                    event.clientX,
+                    undefined,
+                    true,
+                  );
                 }
               };
 

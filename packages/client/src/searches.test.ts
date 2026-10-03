@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { forgetSearch, recentSearches, rememberSearch } from "./searches.ts";
+import {
+  forgetSearch,
+  ITEM_SEARCHES,
+  recentSearches,
+  rememberSearch,
+} from "./searches.ts";
 
 const store = new Map<string, string>();
 
@@ -17,41 +22,44 @@ describe("rememberSearch", () => {
   beforeEach(() => store.clear());
 
   it("keeps the newest first", () => {
-    rememberSearch("is:weapon");
-    rememberSearch("is:armor");
+    rememberSearch("is:weapon", ITEM_SEARCHES);
+    rememberSearch("is:armor", ITEM_SEARCHES);
 
-    expect(recentSearches()).toEqual(["is:armor", "is:weapon"]);
+    expect(recentSearches(ITEM_SEARCHES)).toEqual(["is:armor", "is:weapon"]);
   });
 
   it("moves a repeat to the front instead of duplicating it", () => {
-    rememberSearch("is:weapon");
-    rememberSearch("is:armor");
+    rememberSearch("is:weapon", ITEM_SEARCHES);
+    rememberSearch("is:armor", ITEM_SEARCHES);
 
-    expect(rememberSearch("is:weapon")).toEqual(["is:weapon", "is:armor"]);
+    expect(rememberSearch("is:weapon", ITEM_SEARCHES)).toEqual([
+      "is:weapon",
+      "is:armor",
+    ]);
   });
 
   it("caps the list", () => {
     for (let index = 0; index < 25; index += 1) {
-      rememberSearch(`power:>${index}`);
+      rememberSearch(`power:>${index}`, ITEM_SEARCHES);
     }
 
-    expect(recentSearches().length).toBe(20);
+    expect(recentSearches(ITEM_SEARCHES).length).toBe(20);
   });
 
   it("ignores an empty query", () => {
-    expect(rememberSearch("   ")).toEqual([]);
+    expect(rememberSearch("   ", ITEM_SEARCHES)).toEqual([]);
   });
 
   it("survives junk in storage", () => {
     store.set("dvm.searches", "{oh no");
 
-    expect(recentSearches()).toEqual([]);
+    expect(recentSearches(ITEM_SEARCHES)).toEqual([]);
   });
 
   it("forgets one entry", () => {
-    rememberSearch("is:weapon");
-    rememberSearch("is:armor");
+    rememberSearch("is:weapon", ITEM_SEARCHES);
+    rememberSearch("is:armor", ITEM_SEARCHES);
 
-    expect(forgetSearch("is:weapon")).toEqual(["is:armor"]);
+    expect(forgetSearch("is:weapon", ITEM_SEARCHES)).toEqual(["is:armor"]);
   });
 });

@@ -70,7 +70,7 @@ const SUPPORT = [
 const CURRENT = "current";
 
 // Bumped whenever the shipped def shape changes, so cached records get refetched
-const SHAPE = 4;
+const SHAPE = 7;
 
 const stamp = (version: string): string => `${version}/${SHAPE}`;
 
@@ -185,8 +185,8 @@ const fetchSupport = async (index: ArtifactIndex) => {
   return tables;
 };
 
-// Tier 1 and tier 2 are separate stores
-const readMerged = async (
+/** Reads items from tier 1 and tier 2, which are separate stores */
+export const readMerged = async (
   store: DefStore,
   hashes: number[],
 ): Promise<ItemDef[]> => {
@@ -642,10 +642,15 @@ export const materializeItems = async (
     return;
   }
 
-  const closure = await materializeClosure(missing, {
-    items: (wanted) => readMerged(session.store, wanted),
-    plugSets: (wanted) => session.store.getMany<PlugSetDef>(PLUG_SETS, wanted),
-  });
+  const closure = await materializeClosure(
+    missing,
+    {
+      items: (wanted) => readMerged(session.store, wanted),
+      plugSets: (wanted) =>
+        session.store.getMany<PlugSetDef>(PLUG_SETS, wanted),
+    },
+    session,
+  );
 
   Object.assign(session.items, closure.items);
   Object.assign(session.plugSets, closure.plugSets);

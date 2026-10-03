@@ -38,8 +38,10 @@ export const fakeItems = async (
 
   const table = defs();
 
+  const found = builtFakes(wanted);
+
   if (!table) {
-    return builtFakes(wanted);
+    return found;
   }
 
   const context = {
@@ -57,12 +59,19 @@ export const fakeItems = async (
 
     const item = makeFakeItem(context, hash);
 
-    if (item) {
+    if (!item) {
+      continue;
+    }
+
+    found.set(hash, item);
+
+    // Core defs carry no sockets, so these get rebuilt once detail lands
+    if (loaded.tier === "detail") {
       FAKES.set(hash, item);
     }
   }
 
-  return builtFakes(wanted);
+  return found;
 };
 
 export interface VendorTile {

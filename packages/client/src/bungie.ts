@@ -185,6 +185,20 @@ export const fetchProfile = (
     "reload",
   );
 
+// Fetched apart from the profile, it is large and only Collections reads it
+const COLLECTIBLES = 800;
+
+export const fetchCollectibles = (
+  membership: Membership,
+  accessToken: string,
+): Promise<DestinyProfileResponse> =>
+  call<DestinyProfileResponse>(
+    `/Destiny2/${membership.membershipType}/Profile/${
+      membership.membershipId
+    }/?components=${COLLECTIBLES}`,
+    accessToken,
+  );
+
 const VENDOR_COMPONENTS = [400, 401, 402, 600];
 
 export const fetchVendors = (

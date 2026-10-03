@@ -3,6 +3,8 @@ import { render } from "solid-js/web";
 
 import { Activities } from "./Activities.tsx";
 import { App } from "./App.tsx";
+import { Collections } from "./collections/Collections.tsx";
+import { WeaponPage } from "./collections/WeaponPage.tsx";
 import { History } from "./history/History.tsx";
 import { Todo } from "./todo/Todo.tsx";
 import { Triage } from "./triage/Triage.tsx";
@@ -56,6 +58,8 @@ const start = async () => {
       <Router root={(props) => <App primed={primed}>{props.children}</App>}>
         <Route path="/vault" component={Vault} />
         <Route path="/triage" component={Triage} />
+        <Route path="/collections" component={Collections} />
+        <Route path="/collections/:hash" component={WeaponPage} />
         <Route path="/activities" component={Activities} />
         <Route path="/todo" component={Todo} />
         <Route

@@ -14,13 +14,16 @@ import {
   isEnhancedPerk,
   socketContainsIntrinsicPlug,
 } from "app/utils/socket-utils";
+import type { DestinyObjectiveProgress } from "bungie-api-ts/destiny2";
 import ammoHeavy from "destiny-icons/general/ammo-heavy.svg?inline";
 import ammoPrimary from "destiny-icons/general/ammo-primary.svg?inline";
 import ammoSpecial from "destiny-icons/general/ammo-special.svg?inline";
 import { createMemo, For, Show, type JSX } from "solid-js";
 
 import { BUNGIE } from "./bungie.ts";
+import type { Catalyst } from "./collections.ts";
 import { delta, TOTAL, type Delta } from "./compare.ts";
+import { defs } from "./defs.ts";
 import { guest } from "./guest.ts";
 import { setOnlyTag, tagDefs, tagFor } from "./tags.ts";
 import {
@@ -33,7 +36,15 @@ import {
   transferTargets,
 } from "./moveTargets.ts";
 import { dismissPerk, previewPerk } from "./perkPreview.ts";
-import { archetype, benefits, setBonus, type StatChange } from "./perks.ts";
+import {
+  archetype,
+  benefits,
+  catalysts,
+  intrinsics,
+  setBonus,
+  type CatalystState,
+  type StatChange,
+} from "./perks.ts";
 import {
   assess,
   perkFor,
@@ -484,6 +495,132 @@ export const Archetype = (props: { item: DimItem }) => {
   );
 };
 
+const Intrinsics = (props: { item: DimItem }) => {
+  const list = createMemo(() => intrinsics(props.item));
+
+  return (
+    <For each={list()}>
+      {(intrinsic) => (
+        <div class="tooltip-perk items-start">
+          <PerkIcon icon={intrinsic.icon} square />
+          <div class="perk-text">
+            <b>{intrinsic.name}</b>
+            <Changes stats={intrinsic.stats} />
+            <Show when={intrinsic.description}>
+              <span class="block whitespace-pre-wrap">
+                {intrinsic.description}
+              </span>
+            </Show>
+          </div>
+        </div>
+      )}
+    </For>
+  );
+};
+
+const STATE_LABELS: Record<CatalystState, string> = {
+  missing: "Missing",
+  obtained: "Obtained",
+  complete: "Complete",
+};
+
+const Objectives = (props: { objectives: DestinyObjectiveProgress[] }) => (
+  <ul class="weapon-objectives mt-1.5">
+    <For each={props.objectives}>
+      {(objective) => (
+        <li>
+          <div class="progress objective">
+            <span
+              class="progress-fill"
+              style={{
+                width: `${
+                  Math.min(
+                    1,
+                    (objective.progress ?? 0) /
+                      Math.max(1, objective.completionValue),
+                  ) * 100
+                }%`,
+              }}
+            />
+            <span class="progress-text">
+              <span class="truncate">
+                {defs()?.Objective.getOptional(objective.objectiveHash)
+                  ?.progressDescription ?? ""}
+              </span>
+              <span class="shrink-0 pl-2 tabular-nums">
+                {(objective.progress ?? 0).toLocaleString()}/
+                {objective.completionValue.toLocaleString()}
+              </span>
+            </span>
+          </div>
+        </li>
+      )}
+    </For>
+  </ul>
+);
+
+const Catalysts = (props: { item: DimItem; account?: Catalyst }) => {
+  const list = createMemo(() => catalysts(props.item, props.account));
+
+  return (
+    <Show when={list().length > 0}>
+      <div class="perk-group">
+        <h4 class="section-label mt-3 mb-1.5">
+          {list().length > 1 ? "Catalysts" : "Catalyst"}
+        </h4>
+        <For each={list()}>
+          {(catalyst) => (
+            <div class="tooltip-perk items-start">
+              <PerkIcon icon={catalyst.icon} square />
+              <div class="perk-text">
+                <b>
+                  {catalyst.name}
+                  <Show when={catalyst.state}>
+                    {(state) => (
+                      <>
+                        {" "}
+                        <span
+                          class="tag"
+                          classList={{ "text-muted": state() === "missing" }}
+                        >
+                          {STATE_LABELS[state()]}
+                        </span>
+                      </>
+                    )}
+                  </Show>
+                  <Show when={catalyst.inserted}>
+                    {" "}
+                    <span class="tag">Inserted</span>
+                  </Show>
+                </b>
+                <Changes stats={catalyst.stats} />
+                <For each={catalyst.lines}>
+                  {(line) => (
+                    <span class="block whitespace-pre-wrap">
+                      <Show when={line.name}>
+                        {(name) => <span class="text-light">{name()}: </span>}
+                      </Show>
+                      {line.description}
+                    </span>
+                  )}
+                </For>
+                <Show
+                  when={
+                    catalyst.state === "obtained" &&
+                    catalyst.objectives.length > 0
+                  }
+                >
+                  <Objectives objectives={catalyst.objectives} />
+                </Show>
+              </div>
+            </div>
+          )}
+        </For>
+      </div>
+    </Show>
+  );
+};
+
 const masterworkHashes = (item: DimItem): Set<number> =>
   new Set(
     (item.masterworkInfo?.stats ?? [])
@@ -889,6 +1026,9 @@ export const ItemDetails = (props: {
   onToggleAllPerks?: () => void;
   lead?: JSX.Element;
   trail?: JSX.Element;
+  hideRollWarning?: boolean;
+  /** The account's catalyst triumph, for catalyst state and progress */
+  catalyst?: Catalyst;
 }) => {
   // An uninstanced item carries no roll
   const uninstanced = () => props.item.id === "0";
@@ -903,7 +1043,7 @@ export const ItemDetails = (props: {
   });
 
   const warning = (
-    <Show when={uninstanced()}>
+    <Show when={uninstanced() && !props.hideRollWarning}>
       <p class="m-0 text-sm text-warning">
         <b class="tracking-wide uppercase">Generic roll</b>
         <span class="block">
@@ -918,7 +1058,7 @@ export const ItemDetails = (props: {
     <Perks
       item={props.item}
       all={props.allPerks}
-      onlyPlugged={uninstanced()}
+      onlyPlugged={uninstanced() && !props.allPerks}
       onToggleAll={props.onToggleAllPerks}
     />
   );
@@ -931,17 +1071,19 @@ export const ItemDetails = (props: {
           <div class="tooltip-body">
             <AegisNote item={props.item} />
           </div>
-          <Show when={uninstanced()}>
+          <Show when={uninstanced() && !props.hideRollWarning}>
             <div class="tooltip-body">{warning}</div>
           </Show>
           <div class="tooltip-body">
             {props.lead}
             <Masterwork item={props.item} />
             <Archetype item={props.item} />
+            <Intrinsics item={props.item} />
             <Stats item={props.item} against={props.against} />
           </div>
           <div class="tooltip-body">
             {perks}
+            <Catalysts item={props.item} account={props.catalyst} />
             <SetBonus item={props.item} />
             {props.trail}
           </div>
@@ -961,6 +1103,7 @@ export const ItemDetails = (props: {
             <div class="stat-lead">
               <Masterwork item={props.item} />
               <Archetype item={props.item} />
+              <Intrinsics item={props.item} />
             </div>
           </div>
           <For each={place().stats}>
@@ -999,6 +1142,7 @@ export const ItemDetails = (props: {
           </For>
           <div class="min-w-0 self-start pt-2" style={cell(perksRow())}>
             {perks}
+            <Catalysts item={props.item} account={props.catalyst} />
           </div>
           <div class="min-w-0 self-start pt-6" style={cell(perksRow() + 1)}>
             <SetBonus item={props.item} />
@@ -1014,6 +1158,7 @@ export const ItemHead = (props: {
   item: DimItem;
   compact?: boolean;
   taggable?: boolean;
+  notes?: string[];
 }) => (
   <>
     <div
@@ -1057,7 +1202,11 @@ export const ItemHead = (props: {
         "border-b border-line": props.compact,
       }}
     >
-      <ItemPower item={props.item} taggable={props.taggable} />
+      <ItemPower
+        item={props.item}
+        taggable={props.taggable}
+        notes={props.notes}
+      />
     </div>
   </>
 );
@@ -1117,8 +1266,13 @@ const TagControl = (props: { item: DimItem }) => {
   );
 };
 
-export const ItemPower = (props: { item: DimItem; taggable?: boolean }) => {
+export const ItemPower = (props: {
+  item: DimItem;
+  taggable?: boolean;
+  notes?: string[];
+}) => {
   const armor = () => props.item.bucket.inArmor;
+  const notes = () => props.notes ?? [];
 
   return (
     <Show
@@ -1127,7 +1281,8 @@ export const ItemPower = (props: { item: DimItem; taggable?: boolean }) => {
         props.item.element ||
         props.item.energy ||
         props.item.breakerType ||
-        (props.taggable && props.item.id !== "0")
+        (props.taggable && props.item.id !== "0") ||
+        notes().length > 0
       }
     >
       <div class="tooltip-power">
@@ -1175,6 +1330,9 @@ export const ItemPower = (props: { item: DimItem; taggable?: boolean }) => {
         </span>
         <Show when={props.taggable && props.item.id !== "0"}>
           <TagControl item={props.item} />
+        </Show>
+        <Show when={notes().length > 0}>
+          <span class="power-notes">{notes().join(" · ")}</span>
         </Show>
       </div>
     </Show>

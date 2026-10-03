@@ -1,16 +1,19 @@
-import type { DimStore } from "app/inventory/store-types";
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 
-import { defs } from "./defs.ts";
-import { completion, suggest, valid } from "./search.ts";
+import { BUNGIE } from "./bungie.ts";
+import type { Weapon } from "./collections.ts";
+import type { SearchEngine } from "./search.ts";
 import { forgetSearch, recentSearches, rememberSearch } from "./searches.ts";
 
 interface Props {
   query: string;
   placeholder: string;
-  stores: DimStore[];
+  engine: SearchEngine;
   onQuery: (value: string) => void;
-  onPreview: (value: string | undefined) => void;
+  onPreview?: (value: string | undefined) => void;
+  weapons?: (query: string) => Weapon[];
+  onWeapon?: (weapon: Weapon) => void;
+  onFocus?: () => void;
 }
 
 interface Row {
@@ -24,22 +27,23 @@ const COMPLETIONS = 6;
 
 const RECENTS = 3;
 
+const WEAPONS = 3;
+
 export const SearchBar = (props: Props) => {
   const [open, setOpen] = createSignal(false);
   const [focused, setFocused] = createSignal(false);
   const [caret, setCaret] = createSignal(0);
   const [highlight, setHighlight] = createSignal(-1);
-  const [remembered, setRemembered] = createSignal(recentSearches());
+  const [remembered, setRemembered] = createSignal(
+    recentSearches(props.engine.recents),
+  );
 
   let field: HTMLInputElement | undefined = undefined;
 
   const completions = createMemo(() =>
     props.query === ""
       ? []
-      : suggest(props.query, caret(), props.stores, defs()).slice(
-          0,
-          COMPLETIONS,
-        ),
+      : props.engine.suggest(props.query, caret()).slice(0, COMPLETIONS),
   );
 
   const rows = createMemo<Row[]>(() => {
@@ -71,10 +75,31 @@ export const SearchBar = (props: Props) => {
     return [...completed, ...past];
   });
 
+  const weaponRows = createMemo(() => {
+    const query = props.query.trim();
+
+    if (query.length < 2) {
+      return [];
+    }
+
+    return props.weapons?.(query).slice(0, WEAPONS) ?? [];
+  });
+
+  const total = () => rows().length + weaponRows().length;
+
   const highlighted = () => (open() ? rows()[highlight()] : undefined);
 
+  const highlightedWeapon = () =>
+    open() ? weaponRows()[highlight() - rows().length] : undefined;
+
+  const openWeapon = (weapon: Weapon) => {
+    setOpen(false);
+    setHighlight(-1);
+    props.onWeapon?.(weapon);
+  };
+
   // Arrow keys walk the list without touching the query, so the grid follows the highlight
-  createEffect(() => props.onPreview(highlighted()?.query));
+  createEffect(() => props.onPreview?.(highlighted()?.query));
 
   // Only trails the caret, so an edit in the middle of a query gets no ghost
   const suggested = createMemo(() => {
@@ -82,7 +107,7 @@ export const SearchBar = (props: Props) => {
       return "";
     }
 
-    const full = completion(props.query, caret(), props.stores, defs());
+    const full = props.engine.completion(props.query, caret());
 
     return full === undefined ? "" : full.slice(props.query.length);
   });
@@ -127,13 +152,13 @@ export const SearchBar = (props: Props) => {
 
   // A typo is not worth offering back, so only a query that parses is kept
   const commit = (query: string) => {
-    if (valid(query)) {
-      setRemembered(rememberSearch(query));
+    if (props.engine.valid(query)) {
+      setRemembered(rememberSearch(query, props.engine.recents));
     }
   };
 
   const move = (by: number) => {
-    const count = rows().length;
+    const count = total();
 
     if (count === 0) {
       return;
@@ -160,6 +185,10 @@ export const SearchBar = (props: Props) => {
     }
 
     if (event.key === "Tab" || event.key === "ArrowRight") {
+      if (highlightedWeapon()) {
+        return;
+      }
+
       const pick = chosen();
 
       if (pick !== undefined) {
@@ -171,6 +200,15 @@ export const SearchBar = (props: Props) => {
     }
 
     if (event.key === "Enter") {
+      const weapon = highlightedWeapon();
+
+      if (weapon) {
+        event.preventDefault();
+        openWeapon(weapon);
+
+        return;
+      }
+
       const pick = chosen();
 
       if (pick !== undefined) {
@@ -227,7 +265,7 @@ export const SearchBar = (props: Props) => {
   };
 
   const drop = (query: string) => {
-    setRemembered(forgetSearch(query));
+    setRemembered(forgetSearch(query, props.engine.recents));
     field?.focus();
   };
 
@@ -259,6 +297,7 @@ export const SearchBar = (props: Props) => {
         onFocus={() => {
           setFocused(true);
           setOpen(true);
+          props.onFocus?.();
         }}
         onBlur={onBlur}
       />
@@ -273,7 +312,7 @@ export const SearchBar = (props: Props) => {
         </div>
       </Show>
 
-      <Show when={open() && rows().length > 0}>
+      <Show when={open() && total() > 0}>
         <ul
           class="picker-menu search-menu"
           role="listbox"
@@ -317,6 +356,37 @@ export const SearchBar = (props: Props) => {
               </li>
             )}
           </For>
+
+          <Show when={weaponRows().length > 0}>
+            <li class="search-heading" role="presentation">
+              Collections
+            </li>
+            <For each={weaponRows()}>
+              {(weapon, index) => (
+                <li
+                  role="option"
+                  aria-selected={highlight() === rows().length + index()}
+                  class="search-row search-weapon selectable"
+                  classList={{
+                    active: highlight() === rows().length + index(),
+                  }}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onMouseEnter={() => setHighlight(rows().length + index())}
+                  onClick={() => openWeapon(weapon)}
+                >
+                  <img src={`${BUNGIE}${weapon.icon}`} alt="" />
+                  <span
+                    class={`search-row-query text-${weapon.rarity.toLowerCase()}`}
+                  >
+                    {weapon.name}
+                  </span>
+                  <span class="search-row-help">
+                    {weapon.rarity} {weapon.typeName}
+                  </span>
+                </li>
+              )}
+            </For>
+          </Show>
         </ul>
       </Show>
     </div>

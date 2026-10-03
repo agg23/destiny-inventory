@@ -1,4 +1,5 @@
 import type {
+  DestinyCollectibleDefinition,
   DestinyDisplayPropertiesDefinition,
   DestinyInventoryItemDefinition,
 } from "bungie-api-ts/destiny2";
@@ -56,3 +57,26 @@ export const hasDetail = (item: DestinyInventoryItemDefinition): boolean =>
   item.sockets !== undefined ||
   item.plug !== undefined ||
   item.perks !== undefined;
+
+export interface SlimCollectible {
+  hash: number;
+  index: number;
+  itemHash: number;
+  scope: number;
+  sourceString: string;
+  sourceHash: number | undefined;
+  parentNodeHashes: number[];
+}
+
+/** A collectible's source and place in the tree; its item carries the name and icon */
+export const slimCollectible = (
+  collectible: DestinyCollectibleDefinition,
+): SlimCollectible => ({
+  hash: collectible.hash,
+  index: collectible.index,
+  itemHash: collectible.itemHash,
+  scope: collectible.scope,
+  sourceString: collectible.sourceString,
+  sourceHash: collectible.sourceHash,
+  parentNodeHashes: collectible.parentNodeHashes ?? [],
+});

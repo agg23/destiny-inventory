@@ -34,6 +34,7 @@ import {
   rollsByHash,
   setRatings,
 } from "./rolls.ts";
+import { ITEM_SEARCHES } from "./searches.ts";
 import { tagDefs, tagFor } from "./tags.ts";
 import { buildFiltersMap, buildSearchConfig } from "app/search/search-config";
 import {
@@ -367,3 +368,23 @@ export const itemFilter = (
 
   return makeSearchFilterFactory(CONFIG, context)(applied);
 };
+
+/** What the search field needs from whatever it searches */
+export interface SearchEngine {
+  suggest: (query: string, caret: number) => Suggestion[];
+  completion: (query: string, caret: number) => string | undefined;
+  valid: (query: string) => boolean;
+  /** Where this search keeps its recent queries */
+  recents: string;
+}
+
+export const itemSearch = (
+  stores: () => DimStore[],
+  definitions: () => D2ManifestDefinitions | undefined,
+): SearchEngine => ({
+  suggest: (query, caret) => suggest(query, caret, stores(), definitions()),
+  completion: (query, caret) =>
+    completion(query, caret, stores(), definitions()),
+  valid,
+  recents: ITEM_SEARCHES,
+});

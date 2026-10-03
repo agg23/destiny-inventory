@@ -2,6 +2,7 @@ import type { DimItem } from "app/inventory/item-types";
 import { Show } from "solid-js";
 
 import type { Verdict } from "./arrivals.ts";
+import type { Catalyst } from "./collections.ts";
 import { ItemDetails, ItemHead } from "./ItemPanel.tsx";
 import { AnchoredPanel } from "./ui/AnchoredPanel.tsx";
 
@@ -10,6 +11,9 @@ interface Props {
   against: DimItem | undefined;
   verdict: Verdict | undefined;
   cursorX: number | undefined;
+  rollWarning: boolean;
+  notes: string[];
+  catalyst: Catalyst | undefined;
 }
 
 const RivalNote = (props: { verdict: Verdict }) => (
@@ -46,10 +50,15 @@ const RivalNote = (props: { verdict: Verdict }) => (
 
 export const HoverCard = (props: Props) => (
   <AnchoredPanel class="item-tooltip hover-card" cursorX={props.cursorX}>
-    <ItemHead item={props.item} taggable />
+    <ItemHead item={props.item} taggable notes={props.notes} />
     <Show when={props.verdict}>
       {(verdict) => <RivalNote verdict={verdict()} />}
     </Show>
-    <ItemDetails item={props.item} against={props.against} />
+    <ItemDetails
+      item={props.item}
+      against={props.against}
+      hideRollWarning={!props.rollWarning}
+      catalyst={props.catalyst}
+    />
   </AnchoredPanel>
 );

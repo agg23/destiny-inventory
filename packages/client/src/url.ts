@@ -62,6 +62,14 @@ export const TRIAGE_SORTS = ["received", "power", "name", "type"] as const;
 
 export type TriageSort = (typeof TRIAGE_SORTS)[number];
 
+export const GROUPINGS = ["type", "source"] as const;
+
+export type Grouping = (typeof GROUPINGS)[number];
+
+export const LAYOUTS = ["grid", "list"] as const;
+
+export type Layout = (typeof LAYOUTS)[number];
+
 export const PARAMS = {
   q: filled(""),
   guest: text(),
@@ -85,6 +93,8 @@ export const PARAMS = {
   guard: flagOn(),
   tag: filled("junk"),
   group: count(),
+  by: choice(GROUPINGS, "type"),
+  layout: choice(LAYOUTS, "grid"),
 };
 
 export type Params = {
@@ -117,6 +127,7 @@ export const writeParams = (
 export const TABS = [
   "vault",
   "triage",
+  "collections",
   "activities",
   "todo",
   "history",
@@ -157,6 +168,38 @@ export const activityHref = (label: string, rung: string | undefined): string =>
       rung === undefined ? "" : `?rung=${encodeURIComponent(rung)}`
     }`,
   );
+
+export const collectionsHref = (
+  path: string,
+  patch: Partial<Params>,
+): string => {
+  const params = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(writeParams(patch))) {
+    if (value !== undefined) {
+      params.set(key, value);
+    }
+  }
+
+  const search = params.toString();
+
+  return scoped(search === "" ? path : `${path}?${search}`);
+};
+
+export const weaponHref = (
+  itemHash: number,
+  patch: Partial<Params> = {},
+): string => collectionsHref(`/collections/${itemHash}`, patch);
+
+export const vaultHref = (query: string, pin: string | undefined): string => {
+  const params = new URLSearchParams({ q: query });
+
+  if (pin !== undefined) {
+    params.set("pin", pin);
+  }
+
+  return scoped(`/vault?${params.toString()}`);
+};
 
 export const runHref = (
   label: string,

@@ -1,9 +1,9 @@
-const KEY = "dvm.searches";
+export const ITEM_SEARCHES = "dvm.searches";
 
 const LIMIT = 20;
 
-const read = (): string[] => {
-  const raw = localStorage.getItem(KEY);
+const read = (key: string): string[] => {
+  const raw = localStorage.getItem(key);
 
   if (raw === null) {
     return [];
@@ -21,30 +21,30 @@ const read = (): string[] => {
 };
 
 /** Past searches, newest first */
-export const recentSearches = (): string[] => read();
+export const recentSearches = (key: string): string[] => read(key);
 
 /** Records a search, moving it to the front if it was already there */
-export const rememberSearch = (query: string): string[] => {
+export const rememberSearch = (query: string, key: string): string[] => {
   const trimmed = query.trim();
 
   if (trimmed === "") {
-    return read();
+    return read(key);
   }
 
-  const kept = [trimmed, ...read().filter((entry) => entry !== trimmed)].slice(
-    0,
-    LIMIT,
-  );
+  const kept = [
+    trimmed,
+    ...read(key).filter((entry) => entry !== trimmed),
+  ].slice(0, LIMIT);
 
-  localStorage.setItem(KEY, JSON.stringify(kept));
+  localStorage.setItem(key, JSON.stringify(kept));
 
   return kept;
 };
 
-export const forgetSearch = (query: string): string[] => {
-  const kept = read().filter((entry) => entry !== query);
+export const forgetSearch = (query: string, key: string): string[] => {
+  const kept = read(key).filter((entry) => entry !== query);
 
-  localStorage.setItem(KEY, JSON.stringify(kept));
+  localStorage.setItem(key, JSON.stringify(kept));
 
   return kept;
 };

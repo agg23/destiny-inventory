@@ -1,3 +1,5 @@
+// @refresh reload
+// Hot swapping App reruns load and keeps the old session alive
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { spaceLeftForItem } from "app/inventory/stores-helpers";
@@ -25,6 +27,22 @@ import { syncTags } from "./tags.ts";
 import { fetchCarnageReport, type Membership } from "./bungie.ts";
 import { acquired } from "./arrivals.ts";
 import { chrome } from "./chrome.tsx";
+import {
+  acquiredFor,
+  catalystFor,
+  catalystForItem,
+  collections,
+  copiesByKey,
+  definedSession,
+  ownershipOf,
+  primeCollections,
+  rankByName,
+} from "./collections.ts";
+import {
+  queryName,
+  WEAPON_SEARCH,
+  weaponFilter,
+} from "./collections/weaponSearch.ts";
 import { comparable } from "./compare.ts";
 import { defs } from "./defs.ts";
 import { messageOf } from "./error.ts";
@@ -66,7 +84,7 @@ import { collapseRail, railCollapsed } from "./rail.ts";
 import { startAutoRefresh } from "./refresh.ts";
 import { useUrl } from "./router.ts";
 import { SearchBar } from "./SearchBar.tsx";
-import { itemFilter, primeSearch } from "./search.ts";
+import { itemFilter, itemSearch, primeSearch } from "./search.ts";
 import { Settings } from "./Settings.tsx";
 import { settings } from "./settings.ts";
 import { showToast, Toasts } from "./toast.tsx";
@@ -76,13 +94,14 @@ import { PanelGlyph } from "./ui/PanelGlyph.tsx";
 import { RefreshGlyph } from "./ui/RefreshGlyph.tsx";
 import { SignOutGlyph } from "./ui/SignOutGlyph.tsx";
 import { TabButton } from "./ui/TabButton.tsx";
-import { tabHref, TABS, type Tab } from "./url.ts";
+import { tabHref, TABS, weaponHref, type Tab } from "./url.ts";
 
 const PINS = 2;
 
 const LABELS: Record<Tab, string> = {
   vault: "Vault",
   triage: "Triage",
+  collections: "Collections",
   activities: "Activities",
   todo: "Todo",
   history: "History",
@@ -93,6 +112,7 @@ const RAILED: Tab[] = ["vault", "triage", "todo"];
 const SCOPES: Record<Tab, string> = {
   vault: "Filter items",
   triage: "Filter items",
+  collections: "Filter weapons",
   activities: "Filter activities",
   todo: "Filter todos",
   history: "Filter runs",
@@ -171,6 +191,9 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [typed, setTyped] = createSignal(url.get("q"));
+  const [weaponsAcquired, setWeaponsAcquired] = createSignal<
+    Set<number> | undefined
+  >(undefined);
   const [previewQuery, setPreviewQuery] = createSignal<string | undefined>(
     undefined,
   );
@@ -421,6 +444,24 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     (viewing() ? current()?.stores : moved() ?? current()?.stores) ?? [];
 
   const filtersItems = () => tab() === "vault" || tab() === "triage";
+
+  const itemEngine = itemSearch(stores, defs);
+
+  const primeWeapons = () => {
+    const session = definedSession(current()?.session);
+
+    if (!session) {
+      return;
+    }
+
+    primeCollections(session).catch((e: unknown) =>
+      showToast(messageOf(e), "danger"),
+    );
+    acquiredFor(session)
+      .then(setWeaponsAcquired)
+      // Status terms just won't match
+      .catch(() => undefined);
+  };
 
   // Only item tabs run the item filter, so a stale ?q= cannot skew the counts on another tab
   const itemQuery = () => (filtersItems() ? typed() : "");
@@ -902,21 +943,60 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
             <Show
               when={filtersItems()}
               fallback={
-                <input
-                  class="text-input inline header-filter"
-                  type="search"
-                  placeholder={SCOPES[tab()]}
-                  value={typed()}
-                  onInput={(e) => onQuery(e.currentTarget.value)}
-                />
+                <Show
+                  when={tab() === "collections"}
+                  fallback={
+                    <input
+                      class="text-input inline header-filter"
+                      type="search"
+                      placeholder={SCOPES[tab()]}
+                      value={typed()}
+                      onInput={(e) => onQuery(e.currentTarget.value)}
+                    />
+                  }
+                >
+                  <SearchBar
+                    query={typed()}
+                    placeholder={SCOPES.collections}
+                    engine={WEAPON_SEARCH}
+                    onQuery={onQuery}
+                    onFocus={primeWeapons}
+                  />
+                </Show>
               }
             >
               <SearchBar
                 query={typed()}
                 placeholder={SCOPES.vault}
-                stores={stores()}
+                engine={itemEngine}
                 onQuery={onQuery}
                 onPreview={setPreviewQuery}
+                weapons={(query) => {
+                  const built = collections();
+                  const name = queryName(query);
+
+                  if (!built || name.length < 2) {
+                    return [];
+                  }
+
+                  const copies = copiesByKey(stores());
+                  const records = current()?.records ?? {};
+                  const test = weaponFilter(built, query, {
+                    ownership: (weapon) =>
+                      ownershipOf(
+                        weapon,
+                        copies.get(weapon.key),
+                        weaponsAcquired(),
+                      ),
+                    catalyst: (weapon) => catalystFor(weapon, records),
+                  });
+
+                  return rankByName(built.weapons.filter(test), name);
+                }}
+                onWeapon={(weapon) =>
+                  navigate(weaponHref(weapon.newestItemHash))
+                }
+                onFocus={primeWeapons}
               />
             </Show>
 
@@ -1035,6 +1115,12 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
               against={against()}
               verdict={card().verdict}
               cursorX={card().cursorX}
+              rollWarning={card().rollWarning}
+              notes={card().notes}
+              catalyst={catalystForItem(
+                card().item.hash,
+                current()?.records ?? {},
+              )}
             />
           )}
         </Show>

@@ -16,9 +16,11 @@ export interface Materialized {
 }
 
 // Pulls only the closure the profile reaches, so heap tracks the vault rather than the game
+/** Walks the def closure from owned, skipping anything already in known */
 export const materializeClosure = async (
   owned: Iterable<number>,
   tables: AsyncTables,
+  known: Materialized = { items: {}, plugSets: {} },
 ): Promise<Materialized> => {
   const items: Record<number, DestinyInventoryItemDefinition> = {};
   const plugSets: Record<number, DestinyPlugSetDefinition> = {};
@@ -43,14 +45,14 @@ export const materializeClosure = async (
     const nextPlugSets: number[] = [];
 
     const wantItem = (hash: number) => {
-      if (!requestedItems.has(hash)) {
+      if (!requestedItems.has(hash) && !(hash in known.items)) {
         requestedItems.add(hash);
         nextItems.push(hash);
       }
     };
 
     const wantPlugSet = (hash: number) => {
-      if (!requestedPlugSets.has(hash)) {
+      if (!requestedPlugSets.has(hash) && !(hash in known.plugSets)) {
         requestedPlugSets.add(hash);
         nextPlugSets.push(hash);
       }

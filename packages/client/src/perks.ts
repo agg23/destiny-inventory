@@ -1,4 +1,10 @@
 import type { DimItem, DimPlug } from "app/inventory/item-types";
+import type {
+  DestinyInventoryItemDefinition,
+  DestinyObjectiveProgress,
+} from "bungie-api-ts/destiny2";
+
+import type { Catalyst } from "./collections.ts";
 import {
   getArmorArchetype,
   getSocketsByIndexes,
@@ -22,6 +28,26 @@ export interface Benefit {
   intrinsic: boolean;
   description: string;
   stats: StatChange[];
+}
+
+export interface CatalystLine {
+  name: string | undefined;
+  description: string;
+}
+
+export type CatalystState = "missing" | "obtained" | "complete";
+
+export interface CatalystPlug {
+  hash: number;
+  name: string;
+  icon: string | undefined;
+  lines: CatalystLine[];
+  stats: StatChange[];
+  /** Account wide, from the catalyst triumph; undefined without one */
+  state: CatalystState | undefined;
+  objectives: DestinyObjectiveProgress[];
+  /** In this copy's socket */
+  inserted: boolean;
 }
 
 export interface Archetype {
@@ -51,8 +77,14 @@ const EMPTY_EXOTIC_MASTERWORK = 1915962497;
 // ItemPerkVisibility.Hidden
 const HIDDEN = 2;
 
+// DestinyItemType.Dummy
+const DUMMY = 20;
+
 // PlugCategoryHashes.Intrinsics
 const INTRINSICS = 1744546145;
+
+// SocketCategoryHashes.IntrinsicTraits
+const INTRINSIC_TRAITS = 3956125808;
 
 const change = (item: DimItem, hash: number, value: number): StatChange[] => {
   const own = item.stats?.find((stat) => stat.statHash === hash);
@@ -130,7 +162,6 @@ export const benefitFor = (
   };
 };
 
-// The game prints the intrinsic first
 export const benefits = (item: DimItem): Benefit[] => {
   const sockets = item.sockets;
 
@@ -139,7 +170,10 @@ export const benefits = (item: DimItem): Benefit[] => {
   }
 
   return sockets.categories.flatMap((category) => {
-    if (COSMETICS.has(category.category.hash)) {
+    if (
+      COSMETICS.has(category.category.hash) ||
+      category.category.hash === INTRINSIC_TRAITS
+    ) {
       return [];
     }
 
@@ -220,4 +254,193 @@ export const archetype = (item: DimItem): Archetype | undefined => {
   const { name, description, icon, hasIcon } = found.displayProperties;
 
   return { name, description, icon: hasIcon ? icon : undefined };
+};
+
+/** The plugged intrinsic perks, leaving out the armor archetype */
+export const intrinsics = (item: DimItem): Benefit[] => {
+  const sockets = item.sockets;
+
+  if (!sockets) {
+    return [];
+  }
+
+  return sockets.categories
+    .filter((category) => category.category.hash === INTRINSIC_TRAITS)
+    .flatMap((category) =>
+      getSocketsByIndexes(sockets, category.socketIndexes).flatMap((socket) => {
+        const plug = socket.plugged;
+
+        if (!plug || isSocketEmpty(socket) || isArmorArchetypePlug(plug)) {
+          return [];
+        }
+
+        const benefit = benefitFor(item, plug);
+
+        return benefit ? [benefit] : [];
+      }),
+    );
+};
+
+const catalystLines = (
+  plug: DestinyInventoryItemDefinition,
+): CatalystLine[] => {
+  const { name, description } = plug.displayProperties;
+  const table = defs()?.SandboxPerk;
+
+  const perks = (plug.perks ?? []).flatMap((perk) => {
+    const found = table?.getOptional(perk.perkHash);
+
+    if (
+      perk.perkVisibility === HIDDEN ||
+      !found?.isDisplayable ||
+      !found.displayProperties.name
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        name:
+          found.displayProperties.name === name
+            ? undefined
+            : found.displayProperties.name,
+        description: found.displayProperties.description,
+      },
+    ];
+  });
+
+  return perks.length > 0 ? perks : [{ name: undefined, description }];
+};
+
+/** Exotic catalysts and year one masterworks, leaving out legendary masterworks and trackers */
+export const isCatalyst = (def: DestinyInventoryItemDefinition): boolean => {
+  const category = def.plug?.plugCategoryIdentifier ?? "";
+
+  return category === "catalysts" || category.endsWith("masterwork");
+};
+
+const stateOf = (
+  account: Catalyst | undefined,
+  objectives: DestinyObjectiveProgress[],
+): CatalystState | undefined => {
+  if (!account) {
+    return undefined;
+  }
+
+  if (!account.unlocked) {
+    return "missing";
+  }
+
+  if (
+    account.complete ||
+    (objectives.length > 0 &&
+      objectives.every((objective) => objective.complete))
+  ) {
+    return "complete";
+  }
+
+  return "obtained";
+};
+
+/**
+ * Every catalyst the weapon's catalyst socket takes. Year one exotics have two steps, the
+ * catalyst and then a masterwork unlocked by kills; refit exotics offer several at once
+ */
+export const catalysts = (
+  item: DimItem,
+  account: Catalyst | undefined,
+): CatalystPlug[] => {
+  if (!item.isExotic) {
+    return [];
+  }
+
+  const table = defs()?.InventoryItem;
+
+  for (const socket of item.sockets?.allSockets ?? []) {
+    const offered = [
+      ...[...socket.plugOptions, ...(socket.plugSet?.plugs ?? [])].map(
+        (plug) => ({ def: plug.plugDef, stats: changes(item, plug) }),
+      ),
+      // DIM skips this field beside a plug set
+      ...(socket.socketDefinition.reusablePlugItems ?? []).flatMap((plug) => {
+        const def = table?.getOptional(plug.plugItemHash);
+
+        return def
+          ? [
+              {
+                def,
+                stats: (def.investmentStats ?? []).flatMap((stat) =>
+                  stat.isConditionallyActive
+                    ? []
+                    : change(item, stat.statTypeHash, stat.value),
+                ),
+              },
+            ]
+          : [];
+      }),
+    ];
+
+    if (!offered.some(({ def }) => isCatalyst(def))) {
+      continue;
+    }
+
+    const seen = new Set<number>();
+    const listed = offered.filter(({ def }) => {
+      if (
+        seen.has(def.hash) ||
+        !isCatalyst(def) ||
+        def.itemType === DUMMY ||
+        def.plug?.plugCategoryHash === EMPTY_EXOTIC_MASTERWORK ||
+        !def.displayProperties.name
+      ) {
+        return false;
+      }
+
+      seen.add(def.hash);
+
+      return true;
+    });
+
+    const ownHashes = (def: DestinyInventoryItemDefinition): number[] =>
+      def.objectives?.objectiveHashes ?? [];
+    const claimed = new Set(listed.flatMap(({ def }) => ownHashes(def)));
+    // Unclaimed ones are per copy insert or reshape steps, except on a lone catalyst
+    const unclaimed =
+      listed.length === 1
+        ? (account?.objectives ?? []).filter(
+            (objective) => !claimed.has(objective.objectiveHash),
+          )
+        : [];
+
+    // Catalyst before the masterwork its kills unlock
+    const ordered = [
+      ...listed.filter(({ def }) => ownHashes(def).length === 0),
+      ...listed.filter(({ def }) => ownHashes(def).length > 0),
+    ];
+
+    return ordered.map(({ def, stats }) => {
+      const own = new Set(ownHashes(def));
+      const objectives = [
+        ...(account?.objectives ?? []).filter((objective) =>
+          own.has(objective.objectiveHash),
+        ),
+        ...unclaimed,
+      ];
+
+      return {
+        hash: def.hash,
+        name: def.displayProperties.name,
+        icon: def.displayProperties.hasIcon
+          ? def.displayProperties.icon
+          : undefined,
+        lines: catalystLines(def),
+        stats,
+        state: stateOf(account, objectives),
+        objectives,
+        inserted: item.id !== "0" && socket.plugged?.plugDef.hash === def.hash,
+      };
+    });
+  }
+
+  return [];
 };

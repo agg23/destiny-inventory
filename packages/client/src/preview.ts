@@ -11,6 +11,10 @@ export interface Previewed {
   cursorX: number | undefined;
   /** The roll verdict, when the card came from the arrivals rail */
   verdict: Verdict | undefined;
+  /** Warns that a definition item may not match the roll that was used */
+  rollWarning: boolean;
+  /** Short status lines, like collection state on a collections card */
+  notes: string[];
 }
 
 const [shown, setShown] = createSignal<Previewed | undefined>(undefined);
@@ -25,10 +29,12 @@ export const preview = (
   element: HTMLElement,
   cursorX: number | undefined = undefined,
   verdict: Verdict | undefined = undefined,
+  rollWarning: boolean = false,
+  notes: string[] = [],
 ) => {
   const open = () => {
     holdAnchor(element, clear);
-    setShown({ item, cursorX, verdict });
+    setShown({ item, cursorX, verdict, rollWarning, notes });
   };
 
   if (shown()?.item.index === item.index) {
