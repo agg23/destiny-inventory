@@ -1,7 +1,7 @@
 import type { DimItem } from "app/inventory/item-types";
 import { getItemKillTrackerInfo } from "app/utils/item-utils";
 import { A, useNavigate, useParams } from "@solidjs/router";
-import { createMemo, createResource, createSignal, For, Show } from "solid-js";
+import { createMemo, createResource, For, Show } from "solid-js";
 
 import { useApp } from "../App.tsx";
 import {
@@ -78,7 +78,6 @@ export const EntryPage = () => {
   const navigate = useNavigate();
   const url = useUrl();
   const data = useCollectionData();
-  const [allPerks, setAllPerks] = createSignal(true);
 
   const entry = createMemo(() =>
     data.index()?.byItemHash.get(Number(params.hash)),
@@ -170,8 +169,7 @@ export const EntryPage = () => {
                   <ItemHead item={item()} />
                   <ItemDetails
                     item={item()}
-                    allPerks={allPerks()}
-                    onToggleAllPerks={() => setAllPerks((was) => !was)}
+                    allPerks
                     hideRollWarning
                     catalyst={data.catalyst(found())}
                   />
