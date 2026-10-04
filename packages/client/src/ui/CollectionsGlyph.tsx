@@ -1,0 +1,36 @@
+export const CollectionsGlyph = () => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <rect
+      x="4"
+      y="4"
+      width="6.5"
+      height="6.5"
+      stroke="currentColor"
+      stroke-width="1.75"
+    />
+    <rect
+      x="13.5"
+      y="4"
+      width="6.5"
+      height="6.5"
+      stroke="currentColor"
+      stroke-width="1.75"
+    />
+    <rect
+      x="4"
+      y="13.5"
+      width="6.5"
+      height="6.5"
+      stroke="currentColor"
+      stroke-width="1.75"
+    />
+    <rect
+      x="13.5"
+      y="13.5"
+      width="6.5"
+      height="6.5"
+      stroke="currentColor"
+      stroke-width="1.75"
+    />
+  </svg>
+);

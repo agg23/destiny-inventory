@@ -1,4 +1,5 @@
 import { ContextMenu } from "@kobalte/core/context-menu";
+import { useNavigate } from "@solidjs/router";
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { quoteFilterString } from "app/search/query-parser";
@@ -18,6 +19,7 @@ import {
 import { clear } from "./preview.ts";
 import { setOnlyTag, tagDefs, tagFor } from "./tags.ts";
 import { cn } from "./ui/cn.ts";
+import { entryHref } from "./url.ts";
 
 interface Props {
   item: DimItem | undefined;
@@ -174,6 +176,7 @@ const TagRows = (props: {
 );
 
 const Rows = (props: RowProps) => {
+  const navigate = useNavigate();
   const pinned = () => props.pinned.some((one) => one.id === props.item.id);
 
   const rival = () => {
@@ -264,6 +267,18 @@ const Rows = (props: RowProps) => {
           )
         }
       />
+      <Show when={props.item.bucket.inWeapons || props.item.bucket.inArmor}>
+        <Row
+          label="Show in collections"
+          onChoose={() =>
+            navigate(
+              entryHref(props.item.hash, {
+                kind: props.item.bucket.inArmor ? "armor" : "weapon",
+              }),
+            )
+          }
+        />
+      </Show>
     </>
   );
 };

@@ -25,6 +25,7 @@ import { primeWeaponPerks } from "./collections/weaponPerks.ts";
 import { accessToken } from "./auth.ts";
 import { fetchCollectibles } from "./bungie.ts";
 import { NotSignedIn, type CharacterRecords, type Session } from "./load.ts";
+import { defs } from "./defs.ts";
 import { CORE } from "./store.ts";
 import type { Grouping } from "./url.ts";
 
@@ -123,6 +124,7 @@ export interface Collections {
   weapons: Weapon[];
   armor: Armor[];
   byItemHash: Map<number, Entry>;
+  byKey: Map<string, Entry>;
   collectibles: Record<number, SlimCollectible>;
   sections: Record<Grouping, Section[]>;
   armorSections: Section[];
@@ -558,8 +560,11 @@ const buildCollections = async (session: Session): Promise<Collections> => {
   const weapons = newestFirst(byKey.values());
   const armor = newestFirst(armorByKey.values());
   const byItemHash = new Map<number, Entry>();
+  const byEntryKey = new Map<string, Entry>();
 
   for (const entry of [...weapons, ...armor]) {
+    byEntryKey.set(entry.key, entry);
+
     for (const hash of entry.itemHashes) {
       byItemHash.set(hash, entry);
     }
@@ -661,6 +666,7 @@ const buildCollections = async (session: Session): Promise<Collections> => {
     weapons,
     armor,
     byItemHash,
+    byKey: byEntryKey,
     collectibles,
     sections: {
       type: filled(typeSections),
@@ -668,6 +674,31 @@ const buildCollections = async (session: Session): Promise<Collections> => {
     },
     armorSections: filled(armorSections),
   };
+};
+
+/** The entry for any weapon or armor hash, matched by name when that version has no collectible */
+export const entryForHash = (
+  index: Collections,
+  hash: number,
+): Entry | undefined => {
+  const held = index.byItemHash.get(hash);
+
+  if (held) {
+    return held;
+  }
+
+  const item = defs()?.InventoryItem.getOptional(hash);
+  const name = item?.displayProperties?.name;
+
+  if (!item || !name) {
+    return undefined;
+  }
+
+  return index.byKey.get(
+    item.itemType === ARMOR
+      ? armorKey(name, rarityOf(item), item.classType)
+      : `${name}|${rarityOf(item)}`,
+  );
 };
 
 /** The snapshot paint carries a session with no definitions behind it */

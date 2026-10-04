@@ -6,6 +6,7 @@ import { createMemo, createResource, For, Show } from "solid-js";
 import { useApp } from "../App.tsx";
 import {
   CLASSES,
+  entryForHash,
   isArmorRailTerm,
   isRailTerm,
   queryPicks,
@@ -20,11 +21,9 @@ import { ItemIcon } from "../ItemIcon.tsx";
 import { ItemDetails, ItemHead } from "../ItemPanel.tsx";
 import { useUrl } from "../router.ts";
 import { Button } from "../ui/Button.tsx";
-import { collectionsHref, vaultHref } from "../url.ts";
+import { collectionsHref, lightGgHref, vaultHref } from "../url.ts";
 import { useCollectionData } from "./collectionData.ts";
 import { collectionFilter } from "./collectionSearch.ts";
-
-const LIGHT_GG = "https://www.light.gg/db/items/";
 
 const KILL_LABELS: Record<string, string> = {
   pve: "PvE",
@@ -79,9 +78,11 @@ export const EntryPage = () => {
   const url = useUrl();
   const data = useCollectionData();
 
-  const entry = createMemo(() =>
-    data.index()?.byItemHash.get(Number(params.hash)),
-  );
+  const entry = createMemo(() => {
+    const index = data.index();
+
+    return index ? entryForHash(index, Number(params.hash)) : undefined;
+  });
 
   const [versions] = createResource(
     () => {
@@ -108,7 +109,14 @@ export const EntryPage = () => {
     const by = url.get("by");
     const index = data.index();
     const railTerm = kind === "weapon" ? isRailTerm : isArmorRailTerm;
-    const query = url.get("q");
+    const asked = url.get("q");
+    // Opened from the vault on another class's piece
+    const query =
+      found?.kind === "armor" &&
+      found.classType !== data.lastPlayedClass() &&
+      termValue(asked, "is", CLASSES) === undefined
+        ? withClass(asked, found.classType)
+        : asked;
 
     const groups = (
       (kind === "weapon" ? index?.sections[by] : index?.armorSections) ?? []
@@ -246,7 +254,7 @@ export const EntryPage = () => {
                 </Show>
                 <a
                   class="button small"
-                  href={`${LIGHT_GG}${found().newestItemHash}`}
+                  href={lightGgHref(found().newestItemHash)}
                   target="_blank"
                   rel="noreferrer"
                 >

@@ -18,6 +18,7 @@ import type { DestinyObjectiveProgress } from "bungie-api-ts/destiny2";
 import ammoHeavy from "destiny-icons/general/ammo-heavy.svg?inline";
 import ammoPrimary from "destiny-icons/general/ammo-primary.svg?inline";
 import ammoSpecial from "destiny-icons/general/ammo-special.svg?inline";
+import { A } from "@solidjs/router";
 import { createMemo, For, Show, type JSX } from "solid-js";
 
 import { BUNGIE } from "./bungie.ts";
@@ -55,7 +56,10 @@ import {
 } from "./rolls.ts";
 import { shortStat } from "./statNames.ts";
 import { Button } from "./ui/Button.tsx";
+import { CollectionsGlyph } from "./ui/CollectionsGlyph.tsx";
+import { ExternalGlyph } from "./ui/ExternalGlyph.tsx";
 import { SplitButton, type Choice } from "./ui/SplitButton.tsx";
+import { entryHref, lightGgHref } from "./url.ts";
 
 // SocketCategoryHashes for weapon, armor and ghost cosmetics
 const COSMETIC = new Set([2048875504, 1926152773, 2549160099]);
@@ -1181,6 +1185,8 @@ export const ItemHead = (props: {
   item: DimItem;
   compact?: boolean;
   taggable?: boolean;
+  /** Collections and light.gg links */
+  links?: boolean;
   notes?: string[];
 }) => (
   <>
@@ -1228,6 +1234,7 @@ export const ItemHead = (props: {
       <ItemPower
         item={props.item}
         taggable={props.taggable}
+        links={props.links}
         notes={props.notes}
       />
     </div>
@@ -1289,13 +1296,39 @@ const TagControl = (props: { item: DimItem }) => {
   );
 };
 
+const ItemLinks = (props: { item: DimItem }) => (
+  <span class="item-links">
+    <A
+      href={entryHref(props.item.hash, {
+        kind: props.item.bucket.inArmor ? "armor" : "weapon",
+      })}
+      title="Show in collections"
+      aria-label="Show in collections"
+    >
+      <CollectionsGlyph />
+    </A>
+    <a
+      href={lightGgHref(props.item.hash)}
+      target="_blank"
+      rel="noreferrer"
+      title="Show on light.gg"
+      aria-label="Show on light.gg"
+    >
+      <ExternalGlyph />
+    </a>
+  </span>
+);
+
 export const ItemPower = (props: {
   item: DimItem;
   taggable?: boolean;
+  links?: boolean;
   notes?: string[];
 }) => {
   const armor = () => props.item.bucket.inArmor;
   const notes = () => props.notes ?? [];
+  const linked = () =>
+    !!props.links && (props.item.bucket.inWeapons || armor());
 
   return (
     <Show
@@ -1304,6 +1337,7 @@ export const ItemPower = (props: {
         props.item.element ||
         props.item.energy ||
         props.item.breakerType ||
+        linked() ||
         (props.taggable && props.item.id !== "0") ||
         notes().length > 0
       }
@@ -1351,6 +1385,9 @@ export const ItemPower = (props: {
             )}
           </Show>
         </span>
+        <Show when={linked()}>
+          <ItemLinks item={props.item} />
+        </Show>
         <Show when={props.taggable && props.item.id !== "0"}>
           <TagControl item={props.item} />
         </Show>

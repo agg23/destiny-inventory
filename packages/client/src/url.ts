@@ -196,6 +196,10 @@ export const entryHref = (
   patch: Partial<Params> = {},
 ): string => collectionsHref(`/collections/${itemHash}`, patch);
 
+/** light.gg resolves a bare item hash to its page */
+export const lightGgHref = (itemHash: number): string =>
+  `https://www.light.gg/db/items/${itemHash}`;
+
 export const vaultHref = (query: string, pin: string | undefined): string => {
   const params = new URLSearchParams({ q: query });
 
