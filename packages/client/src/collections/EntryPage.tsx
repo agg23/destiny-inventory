@@ -24,6 +24,8 @@ import { collectionsHref, vaultHref } from "../url.ts";
 import { useCollectionData } from "./collectionData.ts";
 import { collectionFilter } from "./collectionSearch.ts";
 
+const LIGHT_GG = "https://www.light.gg/db/items/";
+
 const KILL_LABELS: Record<string, string> = {
   pve: "PvE",
   pvp: "PvP",
@@ -228,7 +230,7 @@ export const EntryPage = () => {
 
               <Copies entry={found()} copies={data.copiesOf(found())} />
 
-              <div>
+              <div class="flex gap-2">
                 <Show
                   when={data.copiesOf(found()).length > 0}
                   fallback={
@@ -244,6 +246,14 @@ export const EntryPage = () => {
                     Show in vault
                   </A>
                 </Show>
+                <a
+                  class="button small"
+                  href={`${LIGHT_GG}${found().newestItemHash}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Show on light.gg
+                </a>
               </div>
             </div>
           </div>
