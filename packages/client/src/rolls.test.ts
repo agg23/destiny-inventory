@@ -65,6 +65,18 @@ const load = (...rolls: AegisRoll[]) =>
     setBonuses: [],
   });
 
+const loadPvp = (...rolls: AegisRoll[]) =>
+  setRolls(
+    {
+      source: "test",
+      captured: "2026-10-04",
+      rolls,
+      perks: [],
+      setBonuses: [],
+    },
+    "pvp",
+  );
+
 const loadPerks = (rolls: AegisRoll[], perks: AegisPerk[]) =>
   setRolls({
     source: "test",
@@ -91,6 +103,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   load();
+  loadPvp();
 });
 
 describe("setRolls", () => {
@@ -197,6 +210,14 @@ describe("perkFor", () => {
 });
 
 describe("assess", () => {
+  it("rates PvP apart from PvE", () => {
+    load(roll({ slots: [[SLICE], [DESPERADO]] }));
+    loadPvp(roll({ tier: "C", slots: [[SLICE], [KILL_CLIP]] }));
+
+    expect(assess(weapon)?.overall).toBe("S");
+    expect(assess(weapon, "pvp")?.overall).toBe("D");
+  });
+
   it("marks a column that rolled one of the picks", () => {
     load(roll({ slots: [[SLICE], [DESPERADO]] }));
 

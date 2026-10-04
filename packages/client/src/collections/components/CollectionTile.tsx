@@ -4,7 +4,7 @@ import { BUNGIE } from "../../bungie.ts";
 import type { Catalyst, Entry, Ownership } from "../../collections.ts";
 import { defs } from "../../defs.ts";
 import { ratingFor } from "../../rolls.ts";
-import { settings } from "../../settings.ts";
+import { settings, shownModes } from "../../settings.ts";
 
 interface Props {
   entry: Entry;
@@ -24,7 +24,7 @@ export const damageIcon = (entry: Entry): string | undefined =>
 
 /** Best Aegis tier across every version */
 export const weaponTier = (entry: Entry): string | undefined => {
-  if (entry.kind === "armor") {
+  if (entry.kind === "armor" || !shownModes().includes("pve")) {
     return undefined;
   }
 
@@ -64,7 +64,9 @@ export const CollectionTile = (props: Props) => (
     </Show>
     <Show when={weaponTier(props.entry)}>
       {(tier) => (
-        <span class={`item-tier tier-${tier().toLowerCase()}`}>{tier()}</span>
+        <span class="tile-ratings">
+          <span class={`item-tier tier-${tier().toLowerCase()}`}>{tier()}</span>
+        </span>
       )}
     </Show>
     <Show when={props.copies > 0}>

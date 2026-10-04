@@ -18,6 +18,8 @@ import type { DestinyObjectiveProgress } from "bungie-api-ts/destiny2";
 import ammoHeavy from "destiny-icons/general/ammo-heavy.svg?inline";
 import ammoPrimary from "destiny-icons/general/ammo-primary.svg?inline";
 import ammoSpecial from "destiny-icons/general/ammo-special.svg?inline";
+import crucibleGlyph from "destiny-icons/factions/faction_crucible.svg?inline";
+import vanguardGlyph from "destiny-icons/factions/faction_vanguard.svg?inline";
 import { A } from "@solidjs/router";
 import { createMemo, For, Show, type JSX } from "solid-js";
 
@@ -49,11 +51,15 @@ import {
 } from "./perks.ts";
 import {
   assess,
+  MODE_NAMES,
   perkFor,
   setBonusFor,
   setBonusesRanked,
+  type Assessment,
+  type Mode,
   type SlotVerdict,
 } from "./rolls.ts";
+import { shownModes } from "./settings.ts";
 import { shortStat } from "./statNames.ts";
 import { Button } from "./ui/Button.tsx";
 import { CollectionsGlyph } from "./ui/CollectionsGlyph.tsx";
@@ -715,7 +721,12 @@ export const SetBonus = (props: { item: DimItem }) => {
           <h4 class="section-label mt-3">{set().name}</h4>
           <For each={set().perks}>
             {(perk) => {
-              const rated = () => setBonusFor(perk.hash);
+              const rated = () =>
+                shownModes().flatMap((mode) => {
+                  const rating = setBonusFor(perk.hash, mode);
+
+                  return rating ? [{ mode, rating }] : [];
+                });
 
               return (
                 <div class="tooltip-perk items-start">
@@ -727,36 +738,44 @@ export const SetBonus = (props: { item: DimItem }) => {
                     <span class="block whitespace-pre-wrap">
                       {perk.description}
                     </span>
-                    <Show when={rated()}>
-                      {(rating) => (
-                        <div class="set-bonus-note">
-                          <span class="set-bonus-rating">
-                            <Show when={rating().tier}>
-                              {(tier) => (
-                                <span
-                                  class={`roll-tier tier-${tier().toLowerCase()}`}
-                                >
-                                  {tier()}
+                    <Show when={rated().length > 0}>
+                      <div class="set-bonus-note">
+                        <For each={rated()}>
+                          {(entry) => (
+                            <div class="set-bonus-mode">
+                              <span class="set-bonus-rating">
+                                <Show when={entry.rating.tier}>
+                                  {(tier) => (
+                                    <span
+                                      class={`roll-tier tier-${tier().toLowerCase()}`}
+                                    >
+                                      {tier()}
+                                    </span>
+                                  )}
+                                </Show>
+                                <span class="rating-mode">
+                                  {MODE_NAMES[entry.mode]}
                                 </span>
-                              )}
-                            </Show>
-                            <Show when={rating().rank}>
-                              {(rank) => (
-                                <span class="text-dim">
-                                  #{rank()} of {setBonusesRanked()}
-                                </span>
-                              )}
-                            </Show>
-                          </span>
-                          <Show when={rating().notes}>
-                            {(notes) => (
-                              <span class="block text-muted">
-                                {sentence(notes())}
+                                <Show when={entry.rating.rank}>
+                                  {(rank) => (
+                                    <span class="text-dim">
+                                      #{rank()} of{" "}
+                                      {setBonusesRanked(entry.mode)}
+                                    </span>
+                                  )}
+                                </Show>
                               </span>
-                            )}
-                          </Show>
-                        </div>
-                      )}
+                              <Show when={entry.rating.notes}>
+                                {(notes) => (
+                                  <span class="block text-muted">
+                                    {sentence(notes())}
+                                  </span>
+                                )}
+                              </Show>
+                            </div>
+                          )}
+                        </For>
+                      </div>
                     </Show>
                   </div>
                 </div>
@@ -854,6 +873,30 @@ const unrolled = (slot: SlotVerdict): string[] =>
     (name) => !slot.options.some((option) => option.name === name),
   );
 
+const MODE_GLYPHS: Record<Mode, string> = {
+  pve: vanguardGlyph,
+  pvp: crucibleGlyph,
+};
+
+const OptionMark = (props: { option: MergedOption; judges: number }) => (
+  <Show
+    when={
+      props.option.wantedBy.length > 0 &&
+      props.option.wantedBy.length < props.judges
+    }
+    fallback={<AegisMark matched={props.option.wantedBy.length > 0} />}
+  >
+    <span
+      class={`aegis-mode-mark ${props.option.wantedBy[0]!}`}
+      role="img"
+      aria-label={`Wanted for ${MODE_NAMES[props.option.wantedBy[0]!]}`}
+      style={{
+        "mask-image": `url("${MODE_GLYPHS[props.option.wantedBy[0]!]}")`,
+      }}
+    />
+  </Show>
+);
+
 const AegisMark = (props: { matched: boolean }) => (
   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
     <Show
@@ -883,134 +926,224 @@ const listed = (names: string[]): string => {
   return `${names.slice(0, -1).join(", ")}, or ${names[names.length - 1]}`;
 };
 
-/** Aegis's standing on the weapon, this roll's perk columns, and the tier they come to */
+interface Judged {
+  mode: Mode;
+  read: Assessment;
+}
+
+interface MergedOption {
+  name: string;
+  plugged: boolean;
+  wantedBy: Mode[];
+}
+
+interface MergedRow {
+  label: string;
+  matched: boolean;
+  judges: number;
+  options: MergedOption[];
+  wants: { mode: Mode; also: boolean; names: string[] }[];
+}
+
+const mergeRows = (judged: Judged[]): MergedRow[] => {
+  const perkColumns = Math.max(
+    ...judged.map((entry) => entry.read.slots.length),
+  );
+  const groups: { label: string; verdicts: (SlotVerdict | undefined)[] }[] = [];
+
+  for (let index = 0; index < perkColumns; index += 1) {
+    groups.push({
+      label: `Perk ${index + 1}`,
+      verdicts: judged.map((entry) => entry.read.slots[index]),
+    });
+  }
+
+  return groups.map((group) => {
+    const options: MergedOption[] = [];
+
+    for (const [index, verdict] of group.verdicts.entries()) {
+      for (const option of verdict?.options ?? []) {
+        let merged = options.find((existing) => existing.name === option.name);
+
+        if (!merged) {
+          merged = { name: option.name, plugged: false, wantedBy: [] };
+          options.push(merged);
+        }
+
+        const mode = judged[index]!.mode;
+
+        merged.plugged = merged.plugged || option.plugged;
+
+        if (option.wanted && !merged.wantedBy.includes(mode)) {
+          merged.wantedBy.push(mode);
+        }
+      }
+    }
+
+    return {
+      label: group.label,
+      matched: group.verdicts.some((verdict) => !!verdict?.matched),
+      judges: group.verdicts.filter((verdict) => verdict !== undefined).length,
+      options,
+      wants: group.verdicts.flatMap((verdict, index) =>
+        verdict && unrolled(verdict).length > 0
+          ? [
+              {
+                mode: judged[index]!.mode,
+                also: verdict.matched,
+                names: unrolled(verdict),
+              },
+            ]
+          : [],
+      ),
+    };
+  });
+};
+
+/** Each sheet's standing on the weapon, this roll's perk columns, and the tier they come to */
 export const AegisNote = (props: { item: DimItem }) => {
-  const verdict = () => assess(props.item);
+  const judged = createMemo((): Judged[] =>
+    shownModes().flatMap((mode) => {
+      const read = assess(props.item, mode);
+
+      return read ? [{ mode, read }] : [];
+    }),
+  );
+  const rows = createMemo(() => mergeRows(judged()));
+  const paired = () => judged().length > 1;
   const uninstanced = () => props.item.id === "0";
-  const options = (slot: SlotVerdict) =>
+  const options = (row: MergedRow) =>
     uninstanced()
-      ? slot.options.filter((option) => option.wanted)
-      : slot.options;
+      ? row.options.filter((option) => option.wantedBy.length > 0)
+      : row.options;
+  const scored = () => judged().filter((entry) => entry.read.slots.length > 0);
 
   return (
-    <Show when={verdict()}>
-      {(read) => (
-        <div class="aegis-note">
-          <p class="aegis-line">
-            <span class="aegis-lead">
-              <Show when={read().rating.tier}>
-                {(tier) => (
-                  <span class={`roll-tier tier-${tier().toLowerCase()}`}>
-                    {tier()}
-                  </span>
-                )}
-              </Show>
-              <span>
-                <b class="tracking-wide uppercase">
-                  {recommendedBase(read().rating.tier)
-                    ? "Recommended base"
-                    : "Not a recommended base"}
-                </b>
-                <Show when={read().rating.rank}>
-                  {(rank) => (
-                    <span class="text-dim">
-                      {" "}
-                      #{rank()} of {read().rating.ranked}{" "}
-                      {read().rating.category}
+    <Show when={judged().length > 0}>
+      <div class="aegis-note">
+        <For each={judged()}>
+          {(entry) => (
+            <p class="aegis-line">
+              <span class="aegis-lead">
+                <Show when={entry.read.rating.tier}>
+                  {(tier) => (
+                    <span class={`roll-tier tier-${tier().toLowerCase()}`}>
+                      {tier()}
                     </span>
                   )}
                 </Show>
-                <Show when={read().rating.notes}>
-                  {(notes) => (
-                    <span class="block text-muted">{sentence(notes())}</span>
-                  )}
-                </Show>
-              </span>
-            </span>
-          </p>
-
-          <Show when={read().slots.length > 0}>
-            <ul class="aegis-slots">
-              <For each={read().slots}>
-                {(slot) => (
-                  <li classList={{ hit: slot.matched, miss: !slot.matched }}>
-                    <span class="aegis-slot-label">Perk {slot.slot}</span>
-                    <span class="sr-only">
-                      {slot.matched ? "recommended" : "not recommended"}
-                    </span>
-                    <Show
-                      when={options(slot).length > 0}
-                      fallback={
-                        <Show
-                          when={!uninstanced() || unrolled(slot).length === 0}
-                        >
-                          <span class="aegis-slot-rolled">
-                            <span class="aegis-slot-perk plain">
-                              <AegisMark matched={false} />
-                              {uninstanced() ? "No pick" : "Empty"}
-                            </span>
-                          </span>
-                        </Show>
-                      }
-                    >
-                      <span class="aegis-slot-rolled">
-                        <For each={options(slot)}>
-                          {(option) => (
-                            <span
-                              class="aegis-slot-perk"
-                              classList={{
-                                wanted: option.wanted,
-                                plain: !option.wanted,
-                              }}
-                            >
-                              <AegisMark matched={option.wanted} />
-                              {option.name}
-                              <Show when={option.rank}>
-                                {(rank) => (
-                                  <span class="aegis-slot-rank">#{rank()}</span>
-                                )}
-                              </Show>
-                              <Show when={option.plugged}>
-                                <span class="aegis-slot-label">selected</span>
-                              </Show>
-                            </span>
-                          )}
-                        </For>
-                      </span>
-                    </Show>
-                    <Show when={unrolled(slot).length > 0}>
-                      <span class="aegis-slot-picks">
-                        <span class="aegis-slot-label">
-                          {slot.matched ? "Also wants" : "Wants"}
-                        </span>{" "}
-                        {listed(unrolled(slot))}
-                      </span>
-                    </Show>
-                  </li>
-                )}
-              </For>
-            </ul>
-
-            <Show when={!uninstanced()}>
-              <p class="aegis-overall">
-                <span class="aegis-slot-label">Overall</span>
-                <span class="aegis-lead">
-                  <Show when={read().overall}>
-                    {(tier) => (
-                      <span class={`roll-tier tier-${tier().toLowerCase()}`}>
-                        {tier()}
+                <span>
+                  <span class="rating-mode">{MODE_NAMES[entry.mode]}</span>
+                  <b class="tracking-wide uppercase">
+                    {recommendedBase(entry.read.rating.tier)
+                      ? "Recommended base"
+                      : "Not a recommended base"}
+                  </b>
+                  <Show when={entry.read.rating.rank}>
+                    {(rank) => (
+                      <span class="text-dim">
+                        {" "}
+                        #{rank()} of {entry.read.rating.ranked}{" "}
+                        {entry.read.rating.category}
                       </span>
                     )}
                   </Show>
-                  <span class="text-dim">
-                    {read().score} of {read().of} perks recommended
-                  </span>
+                  <Show when={entry.read.rating.notes}>
+                    {(notes) => (
+                      <span class="block text-muted">{sentence(notes())}</span>
+                    )}
+                  </Show>
                 </span>
-              </p>
-            </Show>
+              </span>
+            </p>
+          )}
+        </For>
+
+        <Show when={rows().length > 0}>
+          <ul class="aegis-slots">
+            <For each={rows()}>
+              {(row) => (
+                <li classList={{ hit: row.matched, miss: !row.matched }}>
+                  <span class="aegis-slot-label">{row.label}</span>
+                  <span class="sr-only">
+                    {row.matched ? "recommended" : "not recommended"}
+                  </span>
+                  <Show
+                    when={options(row).length > 0}
+                    fallback={
+                      <Show when={!uninstanced() || row.wants.length === 0}>
+                        <span class="aegis-slot-rolled">
+                          <span class="aegis-slot-perk plain">
+                            <AegisMark matched={false} />
+                            {uninstanced() ? "No pick" : "Empty"}
+                          </span>
+                        </span>
+                      </Show>
+                    }
+                  >
+                    <span class="aegis-slot-rolled">
+                      <For each={options(row)}>
+                        {(option) => (
+                          <span
+                            class="aegis-slot-perk"
+                            classList={{
+                              wanted: option.wantedBy.length > 0,
+                              plain: option.wantedBy.length === 0,
+                            }}
+                          >
+                            <OptionMark option={option} judges={row.judges} />
+                            {option.name}
+                            <Show when={option.plugged}>
+                              <span class="aegis-slot-label">selected</span>
+                            </Show>
+                          </span>
+                        )}
+                      </For>
+                    </span>
+                  </Show>
+                  <For each={row.wants}>
+                    {(want) => (
+                      <span class="aegis-slot-picks">
+                        <span class="aegis-slot-label">
+                          {paired() ? `${MODE_NAMES[want.mode]} ` : ""}
+                          {want.also ? "Also wants" : "Wants"}
+                        </span>{" "}
+                        {listed(want.names)}
+                      </span>
+                    )}
+                  </For>
+                </li>
+              )}
+            </For>
+          </ul>
+
+          <Show when={!uninstanced() && scored().length > 0}>
+            <p class="aegis-overall">
+              <span class="aegis-slot-label">Overall</span>
+              <span class="aegis-overall-modes">
+                <For each={scored()}>
+                  {(entry) => (
+                    <span class="aegis-lead">
+                      <Show when={entry.read.overall}>
+                        {(tier) => (
+                          <span
+                            class={`roll-tier tier-${tier().toLowerCase()}`}
+                          >
+                            {tier()}
+                          </span>
+                        )}
+                      </Show>
+                      <Show when={paired()}>
+                        <span class="text-dim">{MODE_NAMES[entry.mode]}</span>
+                      </Show>
+                    </span>
+                  )}
+                </For>
+              </span>
+            </p>
           </Show>
-        </div>
-      )}
+        </Show>
+      </div>
     </Show>
   );
 };

@@ -23,6 +23,7 @@
             const tx = db.transaction(["profile", "meta"], "readonly");
             const built = tx.objectStore("profile").get("built");
             const rolls = tx.objectStore("profile").get("rolls");
+            const pvpRolls = tx.objectStore("profile").get("pvprolls");
             const version = tx.objectStore("meta").get("manifestVersion");
 
             tx.oncomplete = () => {
@@ -30,7 +31,7 @@
               resolve({
                 snapshot: built.result,
                 stored: version.result,
-                rolls: rolls.result,
+                rolls: { pve: rolls.result, pvp: pvpRolls.result },
               });
             };
             tx.onerror = () => {

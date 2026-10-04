@@ -33,6 +33,7 @@ import {
   rollFor,
   rollsByHash,
   setRatings,
+  type Mode,
 } from "./rolls.ts";
 import { ITEM_SEARCHES } from "./searches.ts";
 import { tagDefs, tagFor } from "./tags.ts";
@@ -53,65 +54,73 @@ const SET_SUGGESTIONS = [
   ),
 ];
 
-const setRated = (item: DimItem, value: string): boolean => {
+const setRated = (item: DimItem, value: string, mode: Mode): boolean => {
   const [head, tail] = value.split(":");
   const pieces = PIECES[head!];
   const wanted = pieces === undefined ? head : tail;
 
-  return setRatings(item).some(
+  return setRatings(item, mode).some(
     (bonus) =>
       bonus.tier?.toLowerCase() === wanted &&
       (pieces === undefined || bonus.pieces === pieces),
   );
 };
 
-// DIM's tier: is a range over Destiny's own gear tiers, so the Aegis rating takes its own keyword
-const ratingFilters: ItemFilterDefinition[] = [
-  {
-    keywords: ["rate", "rating"],
-    description:
-      "Aegis rating for the roll, the weapon's tier stepped down for each perk column that missed, or either of an armor set's bonuses",
-    format: "query",
-    suggestions: RATINGS,
-    destinyVersion: 2,
-    filter: ({ filterValue }) => {
-      const wanted = filterValue.toLowerCase();
+const SHEET_NAMES: Record<Mode, string> = { pve: "Aegis", pvp: "PvP sheet" };
 
-      return (item) =>
-        assess(item)?.overall?.toLowerCase() === wanted ||
-        setRated(item, wanted);
-    },
-  },
-  {
-    keywords: ["ratebase", "ratingbase"],
-    description:
-      "Aegis rating for the weapon itself, whatever this one rolled. Armor rates the same either way",
-    format: "query",
-    suggestions: RATINGS,
-    destinyVersion: 2,
-    filter: ({ filterValue }) => {
-      const wanted = filterValue.toLowerCase();
+const KEYWORD_PREFIXES: Record<Mode, string> = { pve: "", pvp: "pvp" };
 
-      return (item) =>
-        ratingFor(item.hash)?.tier?.toLowerCase() === wanted ||
-        setRated(item, wanted);
-    },
-  },
-  {
-    // The query lexer only takes letters before the colon, so the size is an argument
-    keywords: ["setbonus"],
-    description:
-      "Aegis rating for an armor set bonus, either of them or setbonus:2pc: and setbonus:4pc: for one",
-    format: "query",
-    suggestions: SET_SUGGESTIONS,
-    destinyVersion: 2,
-    filter: ({ filterValue }) => {
-      const wanted = filterValue.toLowerCase();
+// DIM's tier: is a range over Destiny's own gear tiers, so the sheet rating takes its own keyword
+const ratingFilters: ItemFilterDefinition[] = (["pve", "pvp"] as const).flatMap(
+  (mode): ItemFilterDefinition[] => {
+    const prefix = KEYWORD_PREFIXES[mode];
+    const sheetName = SHEET_NAMES[mode];
 
-      return (item) => setRated(item, wanted);
-    },
+    return [
+      {
+        keywords: [`${prefix}rate`, `${prefix}rating`],
+        description: `${sheetName} rating for the roll, the weapon's tier stepped down for each perk column that missed, or either of an armor set's bonuses`,
+        format: "query",
+        suggestions: RATINGS,
+        destinyVersion: 2,
+        filter: ({ filterValue }) => {
+          const wanted = filterValue.toLowerCase();
+
+          return (item) =>
+            assess(item, mode)?.overall?.toLowerCase() === wanted ||
+            setRated(item, wanted, mode);
+        },
+      },
+      {
+        keywords: [`${prefix}ratebase`, `${prefix}ratingbase`],
+        description: `${sheetName} rating for the weapon itself, whatever this one rolled. Armor rates the same either way`,
+        format: "query",
+        suggestions: RATINGS,
+        destinyVersion: 2,
+        filter: ({ filterValue }) => {
+          const wanted = filterValue.toLowerCase();
+
+          return (item) =>
+            ratingFor(item.hash, mode)?.tier?.toLowerCase() === wanted ||
+            setRated(item, wanted, mode);
+        },
+      },
+      {
+        // The query lexer only takes letters before the colon, so the size is an argument
+        keywords: [`${prefix}setbonus`],
+        description: `${sheetName} rating for an armor set bonus, either of them or ${prefix}setbonus:2pc: and ${prefix}setbonus:4pc: for one`,
+        format: "query",
+        suggestions: SET_SUGGESTIONS,
+        destinyVersion: 2,
+        filter: ({ filterValue }) => {
+          const wanted = filterValue.toLowerCase();
+
+          return (item) => setRated(item, wanted, mode);
+        },
+      },
+    ];
   },
-];
+);
 
 const tagFilters: ItemFilterDefinition[] = [
   {

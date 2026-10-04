@@ -2,8 +2,14 @@ import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { describe, expect, it } from "vitest";
 
-import { acquired, verdictOf, type Contender } from "./arrivals.ts";
-import type { Assessment } from "./rolls.ts";
+import {
+  acquired,
+  combineVerdicts,
+  verdictMode,
+  verdictOf,
+  type Contender,
+} from "./arrivals.ts";
+import type { Assessment, Mode } from "./rolls.ts";
 
 const item = (id: string, power = 0, bucket = 1, equipment = true) =>
   ({ id, power, bucket: { hash: bucket }, equipment }) as DimItem;
@@ -135,5 +141,56 @@ describe("verdict", () => {
     ]);
 
     expect(verdict.kind).toBe("equal");
+  });
+});
+
+describe("combined verdict", () => {
+  const BOTH: Mode[] = ["pve", "pvp"];
+  const worse = verdictOf(read([true, false]), [rival("a", [true, true])]);
+  const better = verdictOf(read([true, true]), [rival("b", [true, false])]);
+  const equal = verdictOf(read([true, false]), [rival("c", [true, false])]);
+
+  it("keeps a roll that is worse in PvE but better in PvP", () => {
+    const verdict = combineVerdicts({ pve: worse, pvp: better }, BOTH)!;
+
+    expect(verdict.kind).toBe("better");
+    expect(verdict.rival?.id).toBe("b");
+    expect(verdictMode(verdict)).toBe("PvP");
+  });
+
+  it("names no mode when both sheets agree", () => {
+    const verdict = combineVerdicts({ pve: better, pvp: better }, BOTH)!;
+
+    expect(verdict.modes).toEqual(["pve", "pvp"]);
+    expect(verdictMode(verdict)).toBeUndefined();
+  });
+
+  it("names the only sheet that rated the roll", () => {
+    expect(verdictMode(combineVerdicts({ pve: equal }, BOTH)!)).toBe("PvE");
+  });
+
+  it("is worse only when every sheet says so", () => {
+    expect(combineVerdicts({ pve: worse, pvp: equal }, BOTH)!.kind).toBe(
+      "equal",
+    );
+    expect(combineVerdicts({ pve: worse, pvp: worse }, BOTH)!.kind).toBe(
+      "worse",
+    );
+  });
+
+  it("names no mode when only one is shown", () => {
+    expect(
+      verdictMode(combineVerdicts({ pvp: better }, ["pvp"])!),
+    ).toBeUndefined();
+  });
+
+  it("ignores a hidden mode", () => {
+    expect(combineVerdicts({ pve: worse, pvp: better }, ["pve"])!.kind).toBe(
+      "worse",
+    );
+  });
+
+  it("has nothing to say without a rating", () => {
+    expect(combineVerdicts({}, BOTH)).toBeUndefined();
   });
 });

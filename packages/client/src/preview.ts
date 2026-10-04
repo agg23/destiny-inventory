@@ -1,7 +1,7 @@
 import type { DimItem } from "app/inventory/item-types";
 import { createSignal } from "solid-js";
 
-import type { Verdict } from "./arrivals.ts";
+import type { ModeVerdict } from "./arrivals.ts";
 import { holdAnchor, releaseAnchor } from "./ui/anchor.ts";
 
 export const HOVER_DELAY = 50;
@@ -10,7 +10,7 @@ export interface Previewed {
   item: DimItem;
   cursorX: number | undefined;
   /** The roll verdict, when the card came from the arrivals rail */
-  verdict: Verdict | undefined;
+  verdict: ModeVerdict | undefined;
   /** Warns that a definition item may not match the roll that was used */
   rollWarning: boolean;
   /** Short status lines, like collection state on a collections card */
@@ -28,7 +28,7 @@ export const preview = (
   item: DimItem,
   element: HTMLElement,
   cursorX: number | undefined = undefined,
-  verdict: Verdict | undefined = undefined,
+  verdict: ModeVerdict | undefined = undefined,
   rollWarning: boolean = false,
   notes: string[] = [],
 ) => {

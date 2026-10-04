@@ -407,8 +407,15 @@
   }
 
   /* The framework's trailing rule would run under the check */
-  .setting-toggle .section-label::after {
+  .setting-toggle .section-label::after,
+  .setting-select .section-label::after {
     display: none;
+  }
+
+  .setting-select {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
   }
 
   .settings-actions {
@@ -745,11 +752,19 @@
     text-align: center;
   }
 
-  .item-tile .item-tier,
-  .item-tile .gear-tier {
+  .item-tile .tile-ratings {
+    display: flex;
     position: absolute;
     top: calc(var(--edge) * -1);
+    right: calc(var(--edge) * -1);
     z-index: 2;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
+
+  .item-tile .item-tier,
+  .item-tile .gear-tier {
     width: 17px;
     padding: 0;
     font-size: var(--text-xs);
@@ -760,9 +775,13 @@
   }
 
   .item-tile .item-tier {
-    right: calc(var(--edge) * -1);
     background: var(--tier);
     color: #000;
+  }
+
+  .item-tile .item-tier.unrated {
+    background: color-mix(in srgb, var(--bg) 80%, transparent);
+    color: var(--cream);
   }
 
   /* A set grades in two halves, so the corner carries a chip each */
@@ -779,7 +798,10 @@
   }
 
   .item-tile .gear-tier {
+    position: absolute;
+    top: calc(var(--edge) * -1);
     left: calc(var(--edge) * -1);
+    z-index: 2;
   }
 
   .tooltip-header {
@@ -844,8 +866,45 @@
     font-size: var(--text-sm);
   }
 
-  .aegis-note.matched {
-    color: var(--good);
+  .rating-mode {
+    margin-right: var(--space-3);
+    color: var(--dim);
+    font-size: var(--text-xs);
+    letter-spacing: var(--track-caps);
+    text-transform: uppercase;
+  }
+
+  .aegis-line + .aegis-line {
+    margin-top: var(--space-3);
+  }
+
+  .aegis-mode-mark {
+    flex: none;
+    width: 1em;
+    height: 1em;
+    transform: translateY(0.167em);
+    mask-position: center;
+    mask-repeat: no-repeat;
+    mask-size: contain;
+  }
+
+  .aegis-mode-mark.pve {
+    background-color: var(--pve);
+  }
+
+  .aegis-mode-mark.pvp {
+    background-color: var(--pvp);
+  }
+
+  .aegis-overall-modes {
+    display: flex;
+    flex-wrap: wrap;
+    grid-column: 2;
+    column-gap: var(--space-6);
+  }
+
+  .set-bonus-mode + .set-bonus-mode {
+    margin-top: var(--space-3);
   }
 
   .aegis-line {
@@ -951,12 +1010,6 @@
 
   .aegis-slot-perk.plain {
     color: var(--muted);
-  }
-
-  .aegis-slot-rank {
-    color: var(--dim);
-    font-size: var(--text-xs);
-    font-variant-numeric: tabular-nums;
   }
 
   /* Baseline aligning an svg sits its box on the baseline, not its ink */

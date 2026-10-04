@@ -3,8 +3,8 @@ import { For, Show } from "solid-js";
 
 import { BUNGIE } from "./bungie.ts";
 import { dismiss, preview } from "./preview.ts";
-import { assess, setRatings, type AegisSetBonus } from "./rolls.ts";
-import { settings } from "./settings.ts";
+import { assess, setRatings, type Mode, type Tier } from "./rolls.ts";
+import { settings, shownModes } from "./settings.ts";
 import { tagFor } from "./tags.ts";
 
 interface Props {
@@ -24,13 +24,57 @@ const corner = (item: DimItem): number | undefined => {
   return item.amount > 1 ? item.amount : undefined;
 };
 
-const rated = (item: DimItem): AegisSetBonus[] | undefined => {
-  const bonuses = setRatings(item);
+const STRONG = new Set<Tier>(["S", "A", "B"]);
+
+const ratingChips = (item: DimItem, mode: Mode): Tier[] | undefined => {
+  const overall = assess(item, mode)?.overall;
+
+  if (overall) {
+    return [overall];
+  }
+
+  const bonuses = setRatings(item, mode);
 
   return bonuses.length > 0 && bonuses.every((bonus) => bonus.tier)
-    ? bonuses
+    ? bonuses.map((bonus) => bonus.tier!)
     : undefined;
 };
+
+const tileRatings = (
+  item: DimItem,
+): { top: Tier[] | undefined; lower: Tier[] | undefined } | undefined => {
+  const [main, second] = shownModes();
+  const top = main ? ratingChips(item, main) : undefined;
+  const other = second ? ratingChips(item, second) : undefined;
+  const lower = other?.some((tier) => STRONG.has(tier)) ? other : undefined;
+
+  if (top === undefined && lower === undefined) {
+    return undefined;
+  }
+
+  return { top, lower };
+};
+
+const RatingRow = (props: { tiers: Tier[] | undefined }) => (
+  <Show when={props.tiers} fallback={<span class="item-tier unrated">?</span>}>
+    {(tiers) => (
+      <Show
+        when={tiers().length > 1}
+        fallback={
+          <span class={`item-tier tier-${tiers()[0]!.toLowerCase()}`}>
+            {tiers()[0]}
+          </span>
+        }
+      >
+        <span class="item-tier set-tier">
+          <For each={tiers()}>
+            {(tier) => <span class={`tier-${tier.toLowerCase()}`}>{tier}</span>}
+          </For>
+        </span>
+      </Show>
+    )}
+  </Show>
+);
 
 const tileClass = (props: Props): string =>
   [
@@ -80,23 +124,13 @@ const Face = (props: Props) => (
           {(icon) => <img src={`${BUNGIE}${icon()}`} alt="" />}
         </Show>
       </span>
-      <Show when={assess(props.item)?.overall}>
-        {(overall) => (
-          <span class={`item-tier tier-${overall().toLowerCase()}`}>
-            {overall()}
-          </span>
-        )}
-      </Show>
-      <Show when={rated(props.item)}>
-        {(pair) => (
-          <span class="item-tier set-tier">
-            <For each={pair()}>
-              {(bonus) => (
-                <span class={`tier-${bonus.tier!.toLowerCase()}`}>
-                  {bonus.tier}
-                </span>
-              )}
-            </For>
+      <Show when={tileRatings(props.item)}>
+        {(ratings) => (
+          <span class="tile-ratings">
+            <RatingRow tiers={ratings().top} />
+            <Show when={ratings().lower}>
+              {(lower) => <RatingRow tiers={lower()} />}
+            </Show>
           </span>
         )}
       </Show>

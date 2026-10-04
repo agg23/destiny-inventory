@@ -1,7 +1,7 @@
 import type { DimItem } from "app/inventory/item-types";
 import { Show } from "solid-js";
 
-import type { Verdict } from "./arrivals.ts";
+import { verdictMode, type ModeVerdict } from "./arrivals.ts";
 import type { Catalyst } from "./collections.ts";
 import { ItemDetails, ItemHead } from "./ItemPanel.tsx";
 import { AnchoredPanel } from "./ui/AnchoredPanel.tsx";
@@ -9,20 +9,25 @@ import { AnchoredPanel } from "./ui/AnchoredPanel.tsx";
 interface Props {
   item: DimItem;
   against: DimItem | undefined;
-  verdict: Verdict | undefined;
+  verdict: ModeVerdict | undefined;
   cursorX: number | undefined;
   rollWarning: boolean;
   notes: string[];
   catalyst: Catalyst | undefined;
 }
 
-const RivalNote = (props: { verdict: Verdict }) => (
+const RivalNote = (props: { verdict: ModeVerdict }) => (
   <Show when={props.verdict.gains.length + props.verdict.losses.length > 0}>
     <div class="tooltip-body">
       <div class="aegis-note">
         <p class="aegis-line">
           <span class="aegis-lead">
-            <b class="tracking-wide uppercase">Compared to the best instance</b>
+            <b class="tracking-wide uppercase">
+              Compared to the best instance
+              <Show when={verdictMode(props.verdict)}>
+                {(mode) => <> in {mode()}</>}
+              </Show>
+            </b>
           </span>
         </p>
         <ul class="aegis-slots">

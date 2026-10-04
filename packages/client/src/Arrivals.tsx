@@ -2,10 +2,11 @@ import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { For, Show } from "solid-js";
 
-import { verdictFor, type Verdict } from "./arrivals.ts";
+import { verdictFor, verdictMode, type Verdict } from "./arrivals.ts";
 import { ItemIcon } from "./ItemIcon.tsx";
 import { typeName } from "./ItemPanel.tsx";
 import { dismiss, preview } from "./preview.ts";
+import { shownModes } from "./settings.ts";
 
 interface Props {
   items: DimItem[];
@@ -23,7 +24,7 @@ const WORDING: Record<Verdict["kind"], string> = {
 };
 
 const RollVerdict = (props: { item: DimItem; stores: DimStore[] }) => (
-  <Show when={verdictFor(props.item, props.stores)}>
+  <Show when={verdictFor(props.item, props.stores, shownModes())}>
     {(verdict) => (
       <span
         classList={{
@@ -32,6 +33,7 @@ const RollVerdict = (props: { item: DimItem; stores: DimStore[] }) => (
         }}
       >
         {WORDING[verdict().kind]}
+        <Show when={verdictMode(verdict())}>{(mode) => <> in {mode()}</>}</Show>
       </span>
     )}
   </Show>
@@ -52,7 +54,11 @@ export const Arrivals = (props: Props) => (
                 type="button"
                 class="menu-item w-full text-left"
                 onClick={() => {
-                  const rival = verdictFor(item, props.stores)?.rival;
+                  const rival = verdictFor(
+                    item,
+                    props.stores,
+                    shownModes(),
+                  )?.rival;
 
                   if (rival) {
                     props.onCompare(item, rival);
@@ -65,7 +71,7 @@ export const Arrivals = (props: Props) => (
                     item,
                     event.currentTarget,
                     undefined,
-                    verdictFor(item, props.stores),
+                    verdictFor(item, props.stores, shownModes()),
                   )
                 }
                 onMouseLeave={() => dismiss(item)}

@@ -38,6 +38,7 @@ const REPO_ROOT = new URL("../../../", import.meta.url).pathname;
 const CACHE_ROOT = join(REPO_ROOT, ".cache", "manifest");
 const ARTIFACT_ROOT = join(REPO_ROOT, "artifacts");
 const AEGIS_DATA = join(REPO_ROOT, ".cache", "aegis.json");
+const PVP_DATA = join(REPO_ROOT, ".cache", "pvp.json");
 
 const ITEMS = "DestinyInventoryItemDefinition";
 const PLUG_SETS = "DestinyPlugSetDefinition";
@@ -393,6 +394,12 @@ const main = async () => {
     await emit("rolls", JSON.parse(await readFile(AEGIS_DATA, "utf8")));
   } else {
     console.log("  no aegis.json, skipping rolls");
+  }
+
+  if (existsSync(PVP_DATA)) {
+    await emit("pvprolls", JSON.parse(await readFile(PVP_DATA, "utf8")));
+  } else {
+    console.log("  no pvp.json, skipping pvprolls");
   }
 
   for (const [table, contents] of manifest.tables) {

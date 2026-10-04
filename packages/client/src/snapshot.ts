@@ -15,7 +15,7 @@ import {
   loadRolls,
   primeRolls,
   readCachedRolls,
-  type CachedRolls,
+  type CachedSheets,
 } from "./rolls.ts";
 import { openStore, PROFILE, type DefStore } from "./store.ts";
 import { storeItems, type Failure } from "./stores.ts";
@@ -26,7 +26,7 @@ const PRIME_CAP = 400;
 interface Prefetched {
   snapshot: Snapshot | undefined;
   stored: string | undefined;
-  rolls: CachedRolls | undefined;
+  rolls: CachedSheets;
 }
 
 declare global {
@@ -59,14 +59,14 @@ const hydrate = (
   store: DefStore,
   snapshot: Snapshot | undefined,
   stored: string | undefined,
-  rolls: CachedRolls | undefined,
+  rolls: CachedSheets,
   membership: Membership,
 ): LoadResult | undefined => {
   if (!snapshot?.index || stored === undefined || snapshot.stamp !== stored) {
     return undefined;
   }
 
-  // A matching cached sheet is in the first render; otherwise it renders when fetched
+  // Matching cached sheets are in the first render; otherwise they render when fetched
   primeRolls(rolls, snapshot.index);
   loadRolls(snapshot.index, store).catch((e: unknown) => {
     console.warn("Rolls failed", e);

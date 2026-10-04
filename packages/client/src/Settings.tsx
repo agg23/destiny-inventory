@@ -5,6 +5,8 @@ import {
   applySettings,
   DEFAULTS,
   previewSettings,
+  RATING_DISPLAY_NAMES,
+  RATING_DISPLAYS,
   savedSettings,
   settings,
   TILE_MAX,
@@ -12,6 +14,7 @@ import {
 } from "./settings.ts";
 import { Button } from "./ui/Button.tsx";
 import { CogGlyph } from "./ui/CogGlyph.tsx";
+import { Select } from "./ui/Select.tsx";
 import { Slider } from "./ui/Slider.tsx";
 import { Toggle } from "./ui/Toggle.tsx";
 
@@ -81,6 +84,14 @@ export const Settings = () => {
             label="Display expansions"
             checked={settings().overlay}
             onChange={(overlay) => previewSettings({ ...settings(), overlay })}
+          />
+
+          <Select
+            label="Ratings order"
+            value={settings().ratings}
+            options={RATING_DISPLAYS}
+            names={RATING_DISPLAY_NAMES}
+            onChange={(ratings) => previewSettings({ ...settings(), ratings })}
           />
 
           <div class="settings-actions">

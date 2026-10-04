@@ -55,6 +55,10 @@
   --warning: var(--d2-warning);
   --good: var(--d2-accent-green);
 
+  /* DIM's Clarity colors for PvE and PvP text */
+  --pve: hsl(220 100% 75%);
+  --pvp: hsl(0 100% 80%);
+
   --tier-s: var(--d2-rarity-exotic);
   --tier-a: var(--d2-accent-green);
   --tier-b: color-mix(in srgb, var(--d2-rarity-rare) 75%, white);

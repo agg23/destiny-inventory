@@ -10,8 +10,12 @@ import { fetchTable, hasArtifact } from "./artifacts.ts";
 import type { ArtifactIndex } from "./config.ts";
 import { PROFILE, type DefStore } from "./store.ts";
 
-const ARTIFACT = "rolls";
-const ROLLS = "rolls";
+export type Mode = "pve" | "pvp";
+
+export const MODE_NAMES: Record<Mode, string> = { pve: "PvE", pvp: "PvP" };
+
+const ARTIFACTS: Record<Mode, string> = { pve: "rolls", pvp: "pvprolls" };
+const CACHE_KEYS: Record<Mode, string> = { pve: "rolls", pvp: "pvprolls" };
 
 const TIERS = ["S", "A", "B", "C", "D", "E", "F"] as const;
 
@@ -89,11 +93,19 @@ const EMPTY_SHEET: Sheet = {
 };
 
 // A signal, so lookups made during render update when a sheet loads later
-const [sheet, setSheet] = createSignal<Sheet>(EMPTY_SHEET);
+const [sheets, setSheets] = createSignal<Record<Mode, Sheet>>({
+  pve: EMPTY_SHEET,
+  pvp: EMPTY_SHEET,
+});
+
+const sheet = (mode: Mode): Sheet => sheets()[mode];
 
 let matched = new Map<string, InventoryWishListRoll | undefined>();
 
-let assessed = new WeakMap<DimItem, Assessment | undefined>();
+const assessed: Record<Mode, WeakMap<DimItem, Assessment | undefined>> = {
+  pve: new WeakMap(),
+  pvp: new WeakMap(),
+};
 
 const rankOf = (perk: AegisPerk): number =>
   perk.rank ?? Number.MAX_SAFE_INTEGER;
@@ -112,8 +124,8 @@ const combos = (slots: number[][]): number[][] =>
     [[]],
   );
 
-/** Replace the loaded roll data, which is how tests and other sources feed it in */
-export const setRolls = (data: AegisData) => {
+/** Replace one mode's roll data, which is how tests and other sources feed it in */
+export const setRolls = (data: AegisData, mode: Mode = "pve") => {
   const rolls = new Map<number, WishListRoll[]>();
   const rated = new Map<number, Rating>();
   const slotted = new Map<number, number[][]>();
@@ -186,82 +198,119 @@ export const setRolls = (data: AegisData) => {
     bonuses.set(bonus.hash, bonus);
   }
 
-  matched = new Map();
-  assessed = new WeakMap();
+  if (mode === "pve") {
+    matched = new Map();
+  }
 
-  setSheet({
-    byHash: rolls,
-    ratings: rated,
-    perkRanks: graded,
-    setBonuses: bonuses,
-    slotsByHash: slotted,
-    captured: data.captured,
+  assessed[mode] = new WeakMap();
+
+  setSheets({
+    ...sheets(),
+    [mode]: {
+      byHash: rolls,
+      ratings: rated,
+      perkRanks: graded,
+      setBonuses: bonuses,
+      slotsByHash: slotted,
+      captured: data.captured,
+    },
   });
 };
 
-let loadedFrom: string | undefined = undefined;
+const loadedFrom: Record<Mode, string | undefined> = {
+  pve: undefined,
+  pvp: undefined,
+};
 
-/** The sheet as persisted for the next boot's first render */
+/** A sheet as persisted for the next boot's first render */
 export interface CachedRolls {
   source: string;
   data: AegisData;
 }
 
-const sourceOf = (index: ArtifactIndex): string | undefined =>
-  hasArtifact(index, ARTIFACT) ? index.files[ARTIFACT]!.join() : undefined;
+export type CachedSheets = Record<Mode, CachedRolls | undefined>;
 
-/** The persisted sheet, for boots that bypass the inline prefetch */
-export const readCachedRolls = (
+const sourceOf = (index: ArtifactIndex, mode: Mode): string | undefined =>
+  hasArtifact(index, ARTIFACTS[mode])
+    ? index.files[ARTIFACTS[mode]]!.join()
+    : undefined;
+
+/** The persisted sheets, for boots that bypass the inline prefetch */
+export const readCachedRolls = async (
   store: DefStore,
-): Promise<CachedRolls | undefined> =>
-  store.getOne<CachedRolls>(PROFILE, ROLLS);
+): Promise<CachedSheets> => {
+  const [pve, pvp] = await Promise.all([
+    store.getOne<CachedRolls>(PROFILE, CACHE_KEYS.pve),
+    store.getOne<CachedRolls>(PROFILE, CACHE_KEYS.pvp),
+  ]);
 
-/** Applies a cached sheet when it still matches the index, ahead of the first render */
+  return { pve, pvp };
+};
+
+/** Applies cached sheets that still match the index, ahead of the first render */
 export const primeRolls = (
-  cached: CachedRolls | undefined,
+  cached: CachedSheets,
   index: ArtifactIndex,
 ): void => {
-  const source = sourceOf(index);
+  for (const mode of ["pve", "pvp"] as const) {
+    const source = sourceOf(index, mode);
+    const sheetCache = cached[mode];
 
-  if (!cached || source === undefined || cached.source !== source) {
+    if (!sheetCache || source === undefined || sheetCache.source !== source) {
+      continue;
+    }
+
+    loadedFrom[mode] = source;
+    setRolls(sheetCache.data, mode);
+  }
+};
+
+const loadSheet = async (
+  index: ArtifactIndex,
+  mode: Mode,
+  store: DefStore | undefined,
+): Promise<void> => {
+  const source = sourceOf(index, mode);
+
+  if (source === undefined || source === loadedFrom[mode]) {
     return;
   }
 
-  loadedFrom = source;
-  setRolls(cached.data);
+  loadedFrom[mode] = source;
+
+  const data = await fetchTable<AegisData>(index, ARTIFACTS[mode]);
+
+  setRolls(data, mode);
+  store
+    ?.putOne(PROFILE, CACHE_KEYS[mode], { source, data })
+    .catch((e: unknown) => {
+      console.warn("Rolls cache failed", e);
+    });
 };
 
-/** Load the Aegis roll artifact once per source file. Absent from the index it leaves lookups empty */
+/** Load the PvE and PvP roll artifacts once per source file. One absent from the index leaves its lookups empty */
 export const loadRolls = async (
   index: ArtifactIndex,
   store?: DefStore,
 ): Promise<void> => {
-  const source = sourceOf(index);
-
-  if (source === undefined || source === loadedFrom) {
-    return;
-  }
-
-  loadedFrom = source;
-
-  const data = await fetchTable<AegisData>(index, ARTIFACT);
-
-  setRolls(data);
-  store?.putOne(PROFILE, ROLLS, { source, data }).catch((e: unknown) => {
-    console.warn("Rolls cache failed", e);
-  });
+  await Promise.all([
+    loadSheet(index, "pve", store),
+    loadSheet(index, "pvp", store),
+  ]);
 };
 
-/** The Aegis rating for an item hash, whether or not the instance rolled well */
-export const ratingFor = (hash: number): Rating | undefined =>
-  sheet().ratings.get(hash);
+/** The sheet's rating for an item hash, whether or not the instance rolled well */
+export const ratingFor = (
+  hash: number,
+  mode: Mode = "pve",
+): Rating | undefined => sheet(mode).ratings.get(hash);
 
 /**
  * The matching Aegis roll for this instance. DIM counts a perk it could select as present, so
  * the columns have to have actually rolled it
  */
 export const rollFor = (item: DimItem): InventoryWishListRoll | undefined => {
-  const { byHash } = sheet();
+  const { byHash } = sheet("pve");
 
   if (byHash.size === 0 || !item.sockets || item.sockets.fromDefinitions) {
     return undefined;
@@ -455,32 +504,35 @@ const assessRoll = (item: DimItem, current: Sheet): Assessment | undefined => {
 };
 
 /**
- * What Aegis says about this exact roll: the weapon's standing, which perk columns landed on
+ * What the sheet says about this exact roll: the weapon's standing, which perk columns landed on
  * one of its picks, and the tier those two together come to
  */
-export const assess = (item: DimItem): Assessment | undefined => {
-  const current = sheet();
+export const assess = (
+  item: DimItem,
+  mode: Mode = "pve",
+): Assessment | undefined => {
+  const current = sheet(mode);
 
-  if (assessed.has(item)) {
-    return assessed.get(item);
+  if (assessed[mode].has(item)) {
+    return assessed[mode].get(item);
   }
 
   const read = assessRoll(item, current);
 
-  assessed.set(item, read);
+  assessed[mode].set(item, read);
 
   return read;
 };
 
 /** Aegis's standing on a perk or origin trait, apart from the weapon carrying it */
 export const perkFor = (hash: number): AegisPerk | undefined =>
-  sheet().perkRanks.get(hash);
+  sheet("pve").perkRanks.get(hash);
 
 /** How many perks of a kind Aegis ranks, so a rank reads as "4 of 120" */
 export const perkRanked = (kind: AegisPerk["kind"]): number => {
   let count = 0;
 
-  for (const perk of new Set(sheet().perkRanks.values())) {
+  for (const perk of new Set(sheet("pve").perkRanks.values())) {
     if (perk.kind === kind && perk.rank !== undefined) {
       count += 1;
     }
@@ -489,13 +541,18 @@ export const perkRanked = (kind: AegisPerk["kind"]): number => {
   return count;
 };
 
-/** Aegis's standing on one set bonus, found by the sandbox perk the set confers */
-export const setBonusFor = (hash: number): AegisSetBonus | undefined =>
-  sheet().setBonuses.get(hash);
+/** The sheet's standing on one set bonus, found by the sandbox perk the set confers */
+export const setBonusFor = (
+  hash: number,
+  mode: Mode = "pve",
+): AegisSetBonus | undefined => sheet(mode).setBonuses.get(hash);
 
-/** Both of an armor piece's set bonuses as Aegis rates them, the 2 piece first */
-export const setRatings = (item: DimItem): AegisSetBonus[] => {
-  const { setBonuses } = sheet();
+/** Both of an armor piece's set bonuses as the sheet rates them, the 2 piece first */
+export const setRatings = (
+  item: DimItem,
+  mode: Mode = "pve",
+): AegisSetBonus[] => {
+  const { setBonuses } = sheet(mode);
 
   return (item.setBonus?.setPerks ?? [])
     .flatMap((perk) => {
@@ -506,11 +563,11 @@ export const setRatings = (item: DimItem): AegisSetBonus[] => {
     .sort((a, b) => a.pieces - b.pieces);
 };
 
-/** How many set bonuses Aegis ranks, so a rank reads as "7 of 112" */
-export const setBonusesRanked = (): number => {
+/** How many set bonuses the sheet ranks, so a rank reads as "7 of 112" */
+export const setBonusesRanked = (mode: Mode = "pve"): number => {
   let count = 0;
 
-  for (const bonus of sheet().setBonuses.values()) {
+  for (const bonus of sheet(mode).setBonuses.values()) {
     if (bonus.rank !== undefined) {
       count += 1;
     }
@@ -519,6 +576,7 @@ export const setBonusesRanked = (): number => {
   return count;
 };
 
-export const rollsByHash = (): Map<number, WishListRoll[]> => sheet().byHash;
+export const rollsByHash = (): Map<number, WishListRoll[]> =>
+  sheet("pve").byHash;
 
-export const rollsCaptured = (): string | undefined => sheet().captured;
+export const rollsCaptured = (): string | undefined => sheet("pve").captured;

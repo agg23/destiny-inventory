@@ -1,7 +1,7 @@
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 
-import { assess, type Assessment } from "./rolls.ts";
+import { assess, MODE_NAMES, type Assessment, type Mode } from "./rolls.ts";
 
 const PADDING = 20;
 const SHOWN = 10;
@@ -28,6 +28,13 @@ export interface Verdict {
   gains: string[];
   /** Perks the rival hits that this roll misses */
   losses: string[];
+}
+
+/** The best verdict across both sheets, and the modes it holds in */
+export interface ModeVerdict extends Verdict {
+  modes: Mode[];
+  /** Every shown sheet rated the roll and they all agree */
+  unanimous: boolean;
 }
 
 export interface Contender {
@@ -107,16 +114,51 @@ export const verdictOf = (mine: Assessment, rivals: Contender[]): Verdict => {
   return { kind: "mixed", rival: mixed.item, ...against(mixed) };
 };
 
-/** No verdict without a real roll, an Aegis rating, and rated columns to judge */
-export const verdictFor = (
-  item: DimItem,
-  stores: DimStore[],
-): Verdict | undefined => {
-  if (!item.sockets || item.sockets.fromDefinitions) {
+// A roll only has to be good in one mode to keep
+const STANDING: VerdictKind[] = ["only", "better", "mixed", "equal", "worse"];
+
+/** Picks the strongest of each shown mode's verdict, the main mode first on a tie */
+export const combineVerdicts = (
+  verdicts: Partial<Record<Mode, Verdict>>,
+  shown: Mode[],
+): ModeVerdict | undefined => {
+  const rated = shown.flatMap((mode) => {
+    const verdict = verdicts[mode];
+
+    return verdict ? [{ mode, verdict }] : [];
+  });
+
+  if (rated.length === 0) {
     return undefined;
   }
 
-  const read = assess(item);
+  let best = rated[0]!;
+
+  for (const entry of rated) {
+    if (
+      STANDING.indexOf(entry.verdict.kind) < STANDING.indexOf(best.verdict.kind)
+    ) {
+      best = entry;
+    }
+  }
+
+  const modes = rated
+    .filter((entry) => entry.verdict.kind === best.verdict.kind)
+    .map((entry) => entry.mode);
+
+  return {
+    ...best.verdict,
+    modes,
+    unanimous: rated.length === shown.length && modes.length === rated.length,
+  };
+};
+
+const verdictIn = (
+  item: DimItem,
+  stores: DimStore[],
+  mode: Mode,
+): Verdict | undefined => {
+  const read = assess(item, mode);
 
   if (!read || read.of === 0) {
     return undefined;
@@ -133,10 +175,38 @@ export const verdictFor = (
         !other.sockets.fromDefinitions,
     )
     .flatMap((other) => {
-      const rival = assess(other);
+      const rival = assess(other, mode);
 
       return rival ? [{ item: other, read: rival }] : [];
     });
 
   return verdictOf(read, rivals);
+};
+
+/** Which mode a verdict speaks for, or undefined when both sheets agree */
+export const verdictMode = (verdict: ModeVerdict): string | undefined => {
+  if (verdict.kind === "only" || verdict.unanimous) {
+    return undefined;
+  }
+
+  return verdict.modes.map((mode) => MODE_NAMES[mode]).join(" and ");
+};
+
+/** No verdict without a real roll, a sheet rating, and rated columns to judge */
+export const verdictFor = (
+  item: DimItem,
+  stores: DimStore[],
+  shown: Mode[],
+): ModeVerdict | undefined => {
+  if (!item.sockets || item.sockets.fromDefinitions) {
+    return undefined;
+  }
+
+  const verdicts: Partial<Record<Mode, Verdict>> = {};
+
+  for (const mode of shown) {
+    verdicts[mode] = verdictIn(item, stores, mode);
+  }
+
+  return combineVerdicts(verdicts, shown);
 };
