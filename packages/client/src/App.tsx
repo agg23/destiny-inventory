@@ -3,7 +3,7 @@
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { spaceLeftForItem } from "app/inventory/stores-helpers";
-import { useLocation, useNavigate } from "@solidjs/router";
+import { A, useLocation, useNavigate } from "@solidjs/router";
 import {
   createContext,
   createEffect,
@@ -93,7 +93,6 @@ import { GuestGlyph } from "./ui/GuestGlyph.tsx";
 import { PanelGlyph } from "./ui/PanelGlyph.tsx";
 import { RefreshGlyph } from "./ui/RefreshGlyph.tsx";
 import { SignOutGlyph } from "./ui/SignOutGlyph.tsx";
-import { TabButton } from "./ui/TabButton.tsx";
 import { entryHref, tabHref, TABS, type Kind, type Tab } from "./url.ts";
 
 const PINS = 2;
@@ -941,13 +940,18 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
             <nav class="nav-subtabs">
               <For each={TABS}>
                 {(one) => (
-                  <TabButton
-                    active={tab() === one}
-                    disabled={one === "todo" && Boolean(viewing())}
-                    onClick={() => navigate(tabHref(one))}
+                  <Show
+                    when={one !== "todo" || !viewing()}
+                    fallback={
+                      <span class="nav-tab disabled" aria-disabled="true">
+                        {LABELS[one]}
+                      </span>
+                    }
                   >
-                    {LABELS[one]}
-                  </TabButton>
+                    <A class="nav-tab" href={tabHref(one)}>
+                      {LABELS[one]}
+                    </A>
+                  </Show>
                 )}
               </For>
             </nav>

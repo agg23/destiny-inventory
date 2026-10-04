@@ -464,7 +464,7 @@
     color: color-mix(in srgb, var(--warning) 70%, transparent);
   }
 
-  .nav-tab:disabled {
+  .nav-tab.disabled {
     cursor: default;
     opacity: 0.35;
   }
