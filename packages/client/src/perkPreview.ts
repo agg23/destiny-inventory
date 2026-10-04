@@ -9,6 +9,8 @@ const ANCHOR = "--hovered-perk";
 export interface PreviewedPerk {
   item: DimItem;
   plug: DimPlug;
+  /** Pages without a rail have nothing to hold the card against */
+  beside: boolean;
 }
 
 const [shown, setShown] = createSignal<PreviewedPerk | undefined>(undefined);
@@ -25,7 +27,7 @@ export const previewPerk = (
   window.clearTimeout(timer);
   timer = window.setTimeout(() => {
     holdAnchor(element, clearPerk, ANCHOR);
-    setShown({ item, plug });
+    setShown({ item, plug, beside: document.querySelector(".rail") === null });
   }, HOVER_DELAY);
 };
 

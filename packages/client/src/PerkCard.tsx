@@ -9,6 +9,7 @@ import { AnchoredPanel } from "./ui/AnchoredPanel.tsx";
 interface Props {
   item: DimItem;
   plug: DimPlug;
+  beside: boolean;
 }
 
 export const PerkCard = (props: Props) => {
@@ -22,7 +23,9 @@ export const PerkCard = (props: Props) => {
   };
 
   return (
-    <AnchoredPanel class="item-tooltip perk-card">
+    <AnchoredPanel
+      class={`item-tooltip perk-card${props.beside ? " beside" : ""}`}
+    >
       <div class="tooltip-body">
         <div class="tooltip-perk items-start">
           <PerkIcon icon={shown().icon} enhanced={enhanced()} />

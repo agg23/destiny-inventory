@@ -1138,7 +1138,13 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
         </Show>
 
         <Show when={previewedPerk()}>
-          {(card) => <PerkCard item={card().item} plug={card().plug} />}
+          {(card) => (
+            <PerkCard
+              item={card().item}
+              plug={card().plug}
+              beside={card().beside}
+            />
+          )}
         </Show>
       </Show>
 

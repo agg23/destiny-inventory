@@ -1113,6 +1113,16 @@
     bottom: 0;
   }
 
+  .anchored.perk-card.beside {
+    position-area: inline-end span-block-end;
+    right: auto;
+    top: auto;
+    position-try-fallbacks:
+      --pin-bottom,
+      flip-inline,
+      flip-inline --pin-bottom;
+  }
+
   .tooltip-body:empty {
     display: none;
   }
