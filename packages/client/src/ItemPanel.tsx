@@ -882,6 +882,11 @@ const listed = (names: string[]): string => {
 /** Aegis's standing on the weapon, this roll's perk columns, and the tier they come to */
 export const AegisNote = (props: { item: DimItem }) => {
   const verdict = () => assess(props.item);
+  const uninstanced = () => props.item.id === "0";
+  const options = (slot: SlotVerdict) =>
+    uninstanced()
+      ? slot.options.filter((option) => option.wanted)
+      : slot.options;
 
   return (
     <Show when={verdict()}>
@@ -930,18 +935,22 @@ export const AegisNote = (props: { item: DimItem }) => {
                       {slot.matched ? "recommended" : "not recommended"}
                     </span>
                     <Show
-                      when={slot.options.length > 0}
+                      when={options(slot).length > 0}
                       fallback={
-                        <span class="aegis-slot-rolled">
-                          <span class="aegis-slot-perk plain">
-                            <AegisMark matched={false} />
-                            Empty
+                        <Show
+                          when={!uninstanced() || unrolled(slot).length === 0}
+                        >
+                          <span class="aegis-slot-rolled">
+                            <span class="aegis-slot-perk plain">
+                              <AegisMark matched={false} />
+                              {uninstanced() ? "No pick" : "Empty"}
+                            </span>
                           </span>
-                        </span>
+                        </Show>
                       }
                     >
                       <span class="aegis-slot-rolled">
-                        <For each={slot.options}>
+                        <For each={options(slot)}>
                           {(option) => (
                             <span
                               class="aegis-slot-perk"
@@ -978,21 +987,23 @@ export const AegisNote = (props: { item: DimItem }) => {
               </For>
             </ul>
 
-            <p class="aegis-overall">
-              <span class="aegis-slot-label">Overall</span>
-              <span class="aegis-lead">
-                <Show when={read().overall}>
-                  {(tier) => (
-                    <span class={`roll-tier tier-${tier().toLowerCase()}`}>
-                      {tier()}
-                    </span>
-                  )}
-                </Show>
-                <span class="text-dim">
-                  {read().score} of {read().of} perks recommended
+            <Show when={!uninstanced()}>
+              <p class="aegis-overall">
+                <span class="aegis-slot-label">Overall</span>
+                <span class="aegis-lead">
+                  <Show when={read().overall}>
+                    {(tier) => (
+                      <span class={`roll-tier tier-${tier().toLowerCase()}`}>
+                        {tier()}
+                      </span>
+                    )}
+                  </Show>
+                  <span class="text-dim">
+                    {read().score} of {read().of} perks recommended
+                  </span>
                 </span>
-              </span>
-            </p>
+              </p>
+            </Show>
           </Show>
         </div>
       )}
