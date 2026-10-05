@@ -1,10 +1,7 @@
-import { Show } from "solid-js";
-
-import { BUNGIE } from "../../bungie.ts";
 import type { Catalyst, Entry, Ownership } from "../../collections.ts";
 import { defs } from "../../defs.ts";
-import { ratingFor } from "../../rolls.ts";
-import { settings, shownModes } from "../../settings.ts";
+import { ratingFor, setBonusFor, type Mode, type Tier } from "../../rolls.ts";
+import { setTiers, Tile } from "../../Tile.tsx";
 
 interface Props {
   entry: Entry;
@@ -22,68 +19,51 @@ export const damageIcon = (entry: Entry): string | undefined =>
     : defs()?.DamageType.getOptional(entry.damageTypeHash)?.displayProperties
         .icon;
 
-/** Best Aegis tier across every version */
-export const weaponTier = (entry: Entry): string | undefined => {
-  if (entry.kind === "armor" || !shownModes().includes("pve")) {
+/** A weapon's tier from the first version the sheet rates, or an armor set's two bonus tiers */
+export const entryTiers = (entry: Entry, mode: Mode): Tier[] | undefined => {
+  if (entry.kind === "weapon") {
+    for (const hash of entry.itemHashes) {
+      const tier = ratingFor(hash, mode)?.tier;
+
+      if (tier) {
+        return [tier];
+      }
+    }
+
     return undefined;
   }
 
-  for (const hash of entry.itemHashes) {
-    const tier = ratingFor(hash)?.tier;
+  const set =
+    entry.itemSetHash === undefined
+      ? undefined
+      : defs()?.EquipableItemSet.getOptional(entry.itemSetHash);
+  const bonuses = (set?.setPerks ?? [])
+    .flatMap((perk) => {
+      const found = setBonusFor(perk.sandboxPerkHash, mode);
 
-    if (tier) {
-      return tier;
-    }
-  }
+      return found ? [found] : [];
+    })
+    .sort((a, b) => a.pieces - b.pieces);
 
-  return undefined;
+  return setTiers(bonuses);
 };
 
 export const CollectionTile = (props: Props) => (
-  <button
-    type="button"
-    class={`item-tile small ${props.entry.rarity.toLowerCase()} ${
-      props.ownership ?? ""
-    }`}
-    aria-label={props.entry.name}
+  <Tile
+    name={props.entry.name}
+    icon={props.entry.icon}
+    overlay={props.entry.watermark}
+    rarity={props.entry.rarity}
+    classes={[props.ownership ?? ""]}
+    gearTier={0}
+    corner={props.copies > 0 ? props.copies : undefined}
+    cornerClass="owned-count"
+    tagColor={undefined}
+    icons={[damageIcon(props.entry)]}
+    tiers={(mode) => entryTiers(props.entry, mode)}
+    catalyst={props.catalyst?.unlocked ? props.catalyst : undefined}
     onClick={() => props.onOpen()}
-    onMouseEnter={(e) => props.onEnter(e.currentTarget)}
-    onMouseLeave={() => props.onLeave()}
-  >
-    <img src={`${BUNGIE}${props.entry.icon}`} loading="lazy" alt="" />
-    <span class="tile-edge" />
-    <Show when={settings().overlay && props.entry.watermark}>
-      {(watermark) => (
-        <img
-          class="overlay"
-          src={`${BUNGIE}${watermark()}`}
-          loading="lazy"
-          alt=""
-        />
-      )}
-    </Show>
-    <Show when={weaponTier(props.entry)}>
-      {(tier) => (
-        <span class="tile-ratings">
-          <span class={`item-tier tier-${tier().toLowerCase()}`}>{tier()}</span>
-        </span>
-      )}
-    </Show>
-    <Show when={props.copies > 0}>
-      <span class="item-quantity owned-count">{props.copies}</span>
-    </Show>
-    <span class="tile-icons">
-      <Show when={damageIcon(props.entry)}>
-        {(icon) => <img src={`${BUNGIE}${icon()}`} alt="" />}
-      </Show>
-    </span>
-    <Show when={props.catalyst?.unlocked}>
-      <span
-        class="catalyst-bar"
-        classList={{ complete: props.catalyst?.complete }}
-      >
-        <span style={{ width: `${(props.catalyst?.progress ?? 0) * 100}%` }} />
-      </span>
-    </Show>
-  </button>
+    onEnter={props.onEnter}
+    onLeave={props.onLeave}
+  />
 );

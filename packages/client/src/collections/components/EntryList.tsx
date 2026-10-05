@@ -2,9 +2,10 @@ import { For, Show } from "solid-js";
 
 import { BUNGIE } from "../../bungie.ts";
 import { sourceLabel, type Entry } from "../../collections.ts";
+import { TileRatings } from "../../Tile.tsx";
 import type { Kind } from "../../url.ts";
 import type { CollectionData } from "../collectionData.ts";
-import { damageIcon, weaponTier } from "./CollectionTile.tsx";
+import { damageIcon, entryTiers } from "./CollectionTile.tsx";
 
 const ownershipText = (data: CollectionData, entry: Entry): string => {
   const copies = data.copiesOf(entry).length;
@@ -103,13 +104,7 @@ export const EntryList = (props: {
             <Show when={props.kind === "weapon"}>
               <td>{catalystText(props.data, entry)}</td>
               <td>
-                <Show when={weaponTier(entry)}>
-                  {(tier) => (
-                    <span class={`tier-chip tier-${tier().toLowerCase()}`}>
-                      {tier()}
-                    </span>
-                  )}
-                </Show>
+                <TileRatings tiers={(mode) => entryTiers(entry, mode)} />
               </td>
             </Show>
           </tr>
