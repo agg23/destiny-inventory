@@ -1,9 +1,9 @@
 import type { DimItem } from "app/inventory/item-types";
-import { createMemo, createSignal, For, Show } from "solid-js";
+import { createMemo, For, Show } from "solid-js";
 
 import { useApp } from "../App.tsx";
 import { ItemIcon } from "../ItemIcon.tsx";
-import { ItemMenu } from "../ItemMenu.tsx";
+import { ItemMenu, menued } from "../ItemMenu.tsx";
 import { previewed } from "../preview.ts";
 import { CATEGORIES } from "../triage.ts";
 import type { Selection } from "./triageSelection.ts";
@@ -73,54 +73,21 @@ export const TriageFeed = (props: Props) => {
     grouped().flatMap((group) => group.slots.flatMap((slot) => slot.items)),
   );
 
-  const [menuFor, setMenuFor] = createSignal<DimItem | undefined>(undefined);
-  const [menuOpen, setMenuOpen] = createSignal(false);
-
   const tileState = (item: DimItem): string =>
     [
       previewed()?.item.index === item.index ? "hovered" : "",
-      menuOpen() && menuFor()?.index === item.index ? "menued" : "",
+      menued(item) ? "menued" : "",
       app.pinned().some((one) => one.id === item.id) ? "pinned" : "",
     ]
       .filter((part) => part.length > 0)
       .join(" ");
 
-  const onContextMenu = (event: MouseEvent) => {
-    const tile = (event.target as HTMLElement).closest("[data-item-index]");
-    const index = tile?.getAttribute("data-item-index") ?? undefined;
-    const found =
-      index === undefined
-        ? undefined
-        : props.pool.find((one) => one.index === index);
-
-    if (!found) {
-      event.stopPropagation();
-
-      return;
-    }
-
-    setMenuFor(found);
-  };
-
   return (
     <ItemMenu
-      item={menuFor()}
-      stores={app.stores()}
-      active={app.active()}
-      pinned={app.pinned()}
-      moving={app.moving()}
-      onMove={app.onMove}
-      onPin={(item) => app.onPin(item)}
-      onUnpin={app.onUnpin}
-      onCompare={app.onCompare}
-      onQuery={app.onQuery}
+      find={(index) => props.pool.find((one) => one.index === index)}
       onTag={props.onTag}
-      onOpenChange={setMenuOpen}
     >
-      <div
-        class="triage p-3"
-        on:contextmenu={{ handleEvent: onContextMenu, capture: true }}
-      >
+      <div class="triage p-3">
         <Show
           when={grouped().length > 0}
           fallback={

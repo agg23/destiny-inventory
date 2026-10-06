@@ -1424,6 +1424,12 @@
     font-size: var(--text-md);
   }
 
+  .arrivals .menu-item.menued {
+    background-color: var(--d2-hover-overlay);
+    border-color: rgb(255 255 255 / 0.9);
+    color: #fff;
+  }
+
   .orders {
     display: flex;
     min-height: 0;

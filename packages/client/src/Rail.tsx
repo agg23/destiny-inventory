@@ -3,6 +3,7 @@ import { Show } from "solid-js";
 import { useApp } from "./App.tsx";
 import { Arrivals } from "./Arrivals.tsx";
 import { Compare } from "./Compare.tsx";
+import { ItemMenu } from "./ItemMenu.tsx";
 import { railCollapsed } from "./rail.ts";
 
 export const Rail = () => {
@@ -27,12 +28,16 @@ export const Rail = () => {
               when={!app.awaitingPins()}
               fallback={<p class="p-3 text-muted">Loading</p>}
             >
-              <Arrivals
-                items={app.feed()}
-                stores={app.stores()}
-                onSelect={app.onPin}
-                onCompare={app.onCompare}
-              />
+              <ItemMenu
+                find={(index) => app.feed().find((one) => one.index === index)}
+              >
+                <Arrivals
+                  items={app.feed()}
+                  stores={app.stores()}
+                  onSelect={app.onPin}
+                  onCompare={app.onCompare}
+                />
+              </ItemMenu>
             </Show>
           }
         >

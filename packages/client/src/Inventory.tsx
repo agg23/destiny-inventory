@@ -5,13 +5,13 @@ import type {
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { potentialSpaceLeftForItem } from "app/inventory/stores-helpers";
-import { createMemo, createSignal, For, Index, Show } from "solid-js";
+import { createMemo, For, Index, Show } from "solid-js";
 
 import type { Matched } from "./App.tsx";
 import { CharacterPicker, StoreBanner } from "./CharacterPicker.tsx";
 import { unmovable } from "./compare.ts";
 import { ItemIcon } from "./ItemIcon.tsx";
-import { ItemMenu } from "./ItemMenu.tsx";
+import { ItemMenu, menued } from "./ItemMenu.tsx";
 import { LOST_ITEMS } from "./moveTargets.ts";
 import { previewed } from "./preview.ts";
 import { Button } from "./ui/Button.tsx";
@@ -29,10 +29,6 @@ interface Props {
   active: DimStore | undefined;
   onSelectStore: (store: DimStore) => void;
   onCollect: (items: DimItem[], target: DimStore) => void;
-  onMove: (item: DimItem, target: DimStore, equip: boolean) => void;
-  onUnpin: (item: DimItem) => void;
-  onCompare: (item: DimItem, rival: DimItem) => void;
-  onQuery: (query: string) => void;
   moving: string | undefined;
 }
 
@@ -151,13 +147,10 @@ export const Inventory = (props: Props) => {
   const present = (bucket: InventoryBucket) =>
     shown().some((store) => cell(store, bucket).length > 0);
 
-  const [menuFor, setMenuFor] = createSignal<DimItem | undefined>(undefined);
-  const [menuOpen, setMenuOpen] = createSignal(false);
-
   const tileState = (item: DimItem): string =>
     [
       previewed()?.item.index === item.index ? "hovered" : "",
-      menuOpen() && menuFor()?.index === item.index ? "menued" : "",
+      menued(item) ? "menued" : "",
       hits().has(item) ? "" : "hidden",
     ]
       .filter((part) => part.length > 0)
@@ -173,21 +166,6 @@ export const Inventory = (props: Props) => {
     }
 
     return undefined;
-  };
-
-  // Capture phase - a miss must not reach the menu's own handler
-  const onContextMenu = (e: MouseEvent) => {
-    const tile = (e.target as HTMLElement).closest("[data-item-index]");
-    const index = tile?.getAttribute("data-item-index") ?? undefined;
-    const found = index === undefined ? undefined : itemAt(index);
-
-    if (!found) {
-      e.stopPropagation();
-
-      return;
-    }
-
-    setMenuFor(found);
   };
 
   const collectible = createMemo(() => {
@@ -214,23 +192,8 @@ export const Inventory = (props: Props) => {
   });
 
   return (
-    <ItemMenu
-      item={menuFor()}
-      stores={props.stores}
-      active={props.active}
-      pinned={props.pinned}
-      moving={props.moving}
-      onMove={props.onMove}
-      onPin={(item) => props.onSelect(item, false)}
-      onUnpin={props.onUnpin}
-      onCompare={props.onCompare}
-      onQuery={props.onQuery}
-      onOpenChange={setMenuOpen}
-    >
-      <div
-        class="p-3"
-        on:contextmenu={{ handleEvent: onContextMenu, capture: true }}
-      >
+    <ItemMenu find={itemAt}>
+      <div class="p-3">
         <div class="stores">
           <CharacterPicker
             characters={characters()}

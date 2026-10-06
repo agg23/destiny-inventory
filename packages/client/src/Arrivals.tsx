@@ -4,6 +4,7 @@ import { For, Show } from "solid-js";
 
 import { verdictFor, verdictMode, type Verdict } from "./arrivals.ts";
 import { ItemIcon } from "./ItemIcon.tsx";
+import { menued } from "./ItemMenu.tsx";
 import { typeName } from "./ItemPanel.tsx";
 import { dismiss, preview } from "./preview.ts";
 import { shownModes } from "./settings.ts";
@@ -53,6 +54,8 @@ export const Arrivals = (props: Props) => (
               <button
                 type="button"
                 class="menu-item w-full text-left"
+                classList={{ menued: menued(item) }}
+                data-item-index={item.index}
                 onClick={() => {
                   const rival = verdictFor(
                     item,

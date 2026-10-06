@@ -3,8 +3,9 @@ import { useNavigate } from "@solidjs/router";
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { quoteFilterString } from "app/search/query-parser";
-import { For, Show, splitProps, type JSX } from "solid-js";
+import { createSignal, For, Show, type JSX } from "solid-js";
 
+import { useApp } from "./App.tsx";
 import { comparable } from "./compare.ts";
 import { guest } from "./guest.ts";
 import {
@@ -22,24 +23,15 @@ import { cn } from "./ui/cn.ts";
 import { entryHref } from "./url.ts";
 
 interface Props {
-  item: DimItem | undefined;
-  stores: DimStore[];
-  active: DimStore | undefined;
-  pinned: DimItem[];
-  moving: string | undefined;
-  onMove: (item: DimItem, target: DimStore, equip: boolean) => void;
-  onPin: (item: DimItem) => void;
-  onUnpin: (item: DimItem) => void;
-  onCompare: (item: DimItem, rival: DimItem) => void;
-  onQuery: (query: string) => void;
+  find: (index: string) => DimItem | undefined;
   onTag?: (item: DimItem, tagId: string | undefined) => void;
-  onOpenChange: (open: boolean) => void;
   children: JSX.Element;
 }
 
-type RowProps = Omit<Props, "item" | "onOpenChange" | "children"> & {
+interface RowProps {
   item: DimItem;
-};
+  onTag?: (item: DimItem, tagId: string | undefined) => void;
+}
 
 const ROW =
   "menu-item px-3 py-2 text-sm tracking-caps outline-none data-[highlighted]:border-fg data-[highlighted]:bg-surface-active data-[highlighted]:text-fg";
@@ -176,11 +168,12 @@ const TagRows = (props: {
 );
 
 const Rows = (props: RowProps) => {
+  const app = useApp();
   const navigate = useNavigate();
-  const pinned = () => props.pinned.some((one) => one.id === props.item.id);
+  const pinned = () => app.pinned().some((one) => one.id === props.item.id);
 
   const rival = () => {
-    const [reference] = props.pinned;
+    const [reference] = app.pinned();
 
     if (!reference || reference.id === props.item.id) {
       return undefined;
@@ -189,23 +182,23 @@ const Rows = (props: RowProps) => {
     return comparable(reference, props.item) ? reference : undefined;
   };
 
-  const equipOn = () => defaultEquip(props.item, props.stores, props.active);
+  const equipOn = () => defaultEquip(props.item, app.stores(), app.active());
   const transferTo = () =>
-    defaultTransfer(props.item, props.stores, props.active);
+    defaultTransfer(props.item, app.stores(), app.active());
 
   const otherEquips = (primary: DimStore) =>
-    equipTargets(props.item, props.stores, props.active).filter(
+    equipTargets(props.item, app.stores(), app.active()).filter(
       (store) => store.id !== primary.id,
     );
 
   const otherTransfers = (primary: DimStore) =>
-    transferTargets(props.item, props.stores, props.active).filter(
+    transferTargets(props.item, app.stores(), app.active()).filter(
       (store) => store.id !== primary.id,
     );
 
-  const equipReason = () => props.moving ?? pullBlocked(props.item);
+  const equipReason = () => app.moving() ?? pullBlocked(props.item);
   const transferReason = (target: DimStore) =>
-    props.moving ?? transferBlocked(props.item, props.stores, target);
+    app.moving() ?? transferBlocked(props.item, app.stores(), target);
 
   return (
     <>
@@ -215,10 +208,10 @@ const Rows = (props: RowProps) => {
             <SplitRow
               label={`Equip on ${storeLabel(target())}`}
               reason={equipReason()}
-              onChoose={() => props.onMove(props.item, target(), true)}
+              onChoose={() => app.onMove(props.item, target(), true)}
               others={otherEquips(target())}
               reasonFor={equipReason}
-              onChooseOther={(store) => props.onMove(props.item, store, true)}
+              onChooseOther={(store) => app.onMove(props.item, store, true)}
             />
           )}
         </Show>
@@ -228,10 +221,10 @@ const Rows = (props: RowProps) => {
             <SplitRow
               label={`Transfer to ${storeLabel(target())}`}
               reason={transferReason(target())}
-              onChoose={() => props.onMove(props.item, target(), false)}
+              onChoose={() => app.onMove(props.item, target(), false)}
               others={otherTransfers(target())}
               reasonFor={transferReason}
-              onChooseOther={(store) => props.onMove(props.item, store, false)}
+              onChooseOther={(store) => app.onMove(props.item, store, false)}
             />
           )}
         </Show>
@@ -248,21 +241,21 @@ const Rows = (props: RowProps) => {
       <Row
         label={pinned() ? "Unpin" : "Pin"}
         onChoose={() =>
-          pinned() ? props.onUnpin(props.item) : props.onPin(props.item)
+          pinned() ? app.onUnpin(props.item) : app.onPin(props.item)
         }
       />
       <Show when={rival()}>
         {(reference) => (
           <Row
             label={`Compare with ${reference().name}`}
-            onChoose={() => props.onCompare(props.item, reference())}
+            onChoose={() => app.onCompare(props.item, reference())}
           />
         )}
       </Show>
       <Row
         label="Filter to name"
         onChoose={() =>
-          props.onQuery(
+          app.onQuery(
             `exactname:${quoteFilterString(props.item.name.toLowerCase())}`,
           )
         }
@@ -283,28 +276,52 @@ const Rows = (props: RowProps) => {
   );
 };
 
-/** One menu for the whole grid; the caller says which tile the pointer is on */
+const [menuFor, setMenuFor] = createSignal<DimItem | undefined>(undefined);
+const [menuOpen, setMenuOpen] = createSignal(false);
+
+/** True while this item's context menu is open */
+export const menued = (item: DimItem) =>
+  menuOpen() && menuFor()?.index === item.index;
+
+/** One menu for a whole list of tiles; find resolves a data-item-index to its item */
 export const ItemMenu = (props: Props) => {
-  const [, rest] = splitProps(props, ["item", "onOpenChange", "children"]);
+  // Capture phase - a miss must not reach the menu's own handler
+  const onContextMenu = (event: MouseEvent) => {
+    const tile = (event.target as HTMLElement).closest("[data-item-index]");
+    const index = tile?.getAttribute("data-item-index") ?? undefined;
+    const found = index === undefined ? undefined : props.find(index);
+
+    if (!found) {
+      event.stopPropagation();
+
+      return;
+    }
+
+    setMenuFor(found);
+  };
 
   const onOpenChange = (open: boolean) => {
     if (open) {
       clear();
     }
 
-    props.onOpenChange(open);
+    setMenuOpen(open);
   };
 
   return (
     <ContextMenu onOpenChange={onOpenChange}>
-      <ContextMenu.Trigger as="div" class="contents">
+      <ContextMenu.Trigger
+        as="div"
+        class="contents"
+        on:contextmenu={{ handleEvent: onContextMenu, capture: true }}
+      >
         {props.children}
       </ContextMenu.Trigger>
       <ContextMenu.Portal>
         {/* Opaque: this floats over the grid, not over game art */}
         <ContextMenu.Content data-menu="item" class={PANEL}>
-          <Show when={props.item}>
-            {(item) => <Rows {...rest} item={item()} />}
+          <Show when={menuFor()}>
+            {(item) => <Rows item={item()} onTag={props.onTag} />}
           </Show>
         </ContextMenu.Content>
       </ContextMenu.Portal>
