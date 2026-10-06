@@ -80,6 +80,7 @@ interface Sheet {
   perkRanks: Map<number, AegisPerk>;
   setBonuses: Map<number, AegisSetBonus>;
   slotsByHash: Map<number, number[][]>;
+  versionsByHash: Map<number, number[]>;
   captured: string | undefined;
 }
 
@@ -89,6 +90,7 @@ const EMPTY_SHEET: Sheet = {
   perkRanks: new Map(),
   setBonuses: new Map(),
   slotsByHash: new Map(),
+  versionsByHash: new Map(),
   captured: undefined,
 };
 
@@ -129,6 +131,7 @@ export const setRolls = (data: AegisData, mode: Mode = "pve") => {
   const rolls = new Map<number, WishListRoll[]>();
   const rated = new Map<number, Rating>();
   const slotted = new Map<number, number[][]>();
+  const versions = new Map<number, number[]>();
 
   for (const entry of data.rolls) {
     for (const hash of entry.hashes) {
@@ -156,6 +159,7 @@ export const setRolls = (data: AegisData, mode: Mode = "pve") => {
     for (const hash of entry.hashes) {
       if (!slotted.has(hash)) {
         slotted.set(hash, entry.slots);
+        versions.set(hash, entry.hashes);
       }
     }
 
@@ -212,6 +216,7 @@ export const setRolls = (data: AegisData, mode: Mode = "pve") => {
       perkRanks: graded,
       setBonuses: bonuses,
       slotsByHash: slotted,
+      versionsByHash: versions,
       captured: data.captured,
     },
   });
@@ -575,6 +580,10 @@ export const setBonusesRanked = (mode: Mode = "pve"): number => {
 
   return count;
 };
+
+/** Every hash sharing this hash's rated columns, itself included */
+export const versionsOf = (hash: number, mode: Mode = "pve"): number[] =>
+  sheet(mode).versionsByHash.get(hash) ?? [hash];
 
 export const rollsByHash = (): Map<number, WishListRoll[]> =>
   sheet("pve").byHash;

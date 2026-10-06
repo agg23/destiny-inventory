@@ -8,6 +8,7 @@ import { menued } from "./ItemMenu.tsx";
 import { typeName } from "./ItemPanel.tsx";
 import { dismiss, preview } from "./preview.ts";
 import { shownModes } from "./settings.ts";
+import { VersionGlyph } from "./ui/VersionGlyph.tsx";
 
 interface Props {
   items: DimItem[];
@@ -35,6 +36,21 @@ const RollVerdict = (props: { item: DimItem; stores: DimStore[] }) => (
       >
         {WORDING[verdict().kind]}
         <Show when={verdictMode(verdict())}>{(mode) => <> in {mode()}</>}</Show>
+        <Show
+          when={
+            !!verdict().rival && verdict().rival!.hash !== props.item.hash
+          }
+        >
+          {" "}
+          <span
+            class="inline-block size-[1em] align-[-0.125em]"
+            title="Different version"
+            role="img"
+            aria-label="Different version"
+          >
+            <VersionGlyph />
+          </span>
+        </Show>
       </span>
     )}
   </Show>

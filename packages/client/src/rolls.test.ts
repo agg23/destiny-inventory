@@ -14,6 +14,7 @@ import {
   rollFor,
   rollsByHash,
   setRolls,
+  versionsOf,
   type AegisPerk,
   type AegisRoll,
 } from "./rolls.ts";
@@ -125,6 +126,13 @@ describe("setRolls", () => {
 
     expect(rollsByHash().get(ALL_OR_NOTHING)?.length).toBe(1);
     expect(rollsByHash().get(999)?.length).toBe(1);
+  });
+
+  it("groups the hashes of one row as versions of the same weapon", () => {
+    load(roll({ hashes: [ALL_OR_NOTHING, 999], slots: [[1], [2]] }));
+
+    expect(versionsOf(999)).toEqual([ALL_OR_NOTHING, 999]);
+    expect(versionsOf(123)).toEqual([123]);
   });
 
   it("carries the weapon rank and category size", () => {

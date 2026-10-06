@@ -1,7 +1,13 @@
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 
-import { assess, MODE_NAMES, type Assessment, type Mode } from "./rolls.ts";
+import {
+  assess,
+  MODE_NAMES,
+  versionsOf,
+  type Assessment,
+  type Mode,
+} from "./rolls.ts";
 
 const PADDING = 20;
 const SHOWN = 10;
@@ -164,11 +170,13 @@ const verdictIn = (
     return undefined;
   }
 
+  const versions = new Set(versionsOf(item.hash, mode));
+
   const rivals = stores
     .flatMap((store) => store.items)
     .filter(
       (other) =>
-        other.hash === item.hash &&
+        versions.has(other.hash) &&
         other.id !== item.id &&
         other.id !== "0" &&
         !!other.sockets &&
