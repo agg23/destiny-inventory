@@ -83,7 +83,7 @@ export interface Available {
   power: number | undefined;
   topPower: number | undefined;
   location: string | undefined;
-  focused: boolean;
+  featured: boolean;
   bonus: Loot[];
   bonusDrops: number;
   focus: Loot | undefined;
@@ -142,6 +142,8 @@ const WORLD = 3803311165;
 
 const STRIKES_OTHER = -1;
 
+export const RAIDS_AND_DUNGEONS = "Raids and Dungeons";
+
 const NAMES = new Map([[STRIKES_OTHER, "Strikes (Other)"]]);
 
 const REALMS: { name: string; sections: number[] }[] = [
@@ -151,7 +153,7 @@ const REALMS: { name: string; sections: number[] }[] = [
   },
   { name: "PvP", sections: [CRUCIBLE_OPS, GAMBIT_OPS] },
   {
-    name: "Raids and Dungeons",
+    name: RAIDS_AND_DUNGEONS,
     sections: [RAIDS, RAIDS_ALT, DUNGEONS, DUNGEONS_ALT, PANTHEON],
   },
   { name: "World", sections: [WORLD] },
@@ -534,7 +536,7 @@ const rank = (a: Available, b: Available): number => {
     b.bonusDrops - a.bonusDrops ||
     Number(Boolean(b.focus)) - Number(Boolean(a.focus)) ||
     Number(b.bonus.length > 0) - Number(a.bonus.length > 0) ||
-    Number(b.focused) - Number(a.focused) ||
+    Number(b.featured) - Number(a.featured) ||
     (b.topPower ?? 0) - (a.topPower ?? 0) ||
     a.name.localeCompare(b.name)
   );
@@ -704,7 +706,12 @@ const fold = (
     power: powers.length > 0 ? Math.min(...powers) : undefined,
     topPower: powers.length > 0 ? Math.max(...powers) : undefined,
     location: place(first.definition, tables, type),
-    focused: group.some(({ entry }) => entry.isFocusedActivity),
+    // Bungie never focuses raids or dungeons
+    featured: group.some(
+      ({ entry, definition }) =>
+        entry.isFocusedActivity ||
+        (laddered(definition) && (entry.challenges ?? []).length > 0),
+    ),
     bonus,
     bonusDrops: drops,
     focus,

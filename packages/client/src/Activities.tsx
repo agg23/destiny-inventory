@@ -21,6 +21,7 @@ import {
   BONUS_DROP_ITEM,
   categorize,
   matching,
+  RAIDS_AND_DUNGEONS,
   readable,
   tileArt,
   type Available,
@@ -548,13 +549,11 @@ const gearLabel = (tier: GearTier): string =>
 
 const topTier = (gear: GearDrop): boolean => gear.base.low >= TOP_GEAR_TIER;
 
-// The star is the cue for a featured week, since the gold alone is not one
 const gearText = (gear: GearDrop): string => {
   const base = gearLabel(gear.base);
   const top = gearLabel(gear.top);
-  const span = base === top ? base : `${base} / ${top}`;
 
-  return topTier(gear) ? `${span} ★` : span;
+  return base === top ? base : `${base} / ${top}`;
 };
 
 interface Door {
@@ -791,9 +790,11 @@ const offering = (entry: Available): boolean =>
   entry.bonus.length > 0 ||
   entry.spentBonus.length > 0;
 
-const listed = (entry: Available): boolean => !entry.focused && offering(entry);
+const listed = (entry: Available): boolean =>
+  !entry.featured && offering(entry);
 
-const quiet = (entry: Available): boolean => !entry.focused && !offering(entry);
+const quiet = (entry: Available): boolean =>
+  !entry.featured && !offering(entry);
 
 // A picked realm no director realm can collide with
 const DISTORTION = "distortion-schedule";
@@ -905,10 +906,18 @@ export const Activities = () => {
   });
 
   const picks = createMemo(
-    () => active()?.entries.filter((one) => one.focused) ?? [],
+    () => active()?.entries.filter((one) => one.featured) ?? [],
   );
-  const weekly = createMemo(() => active()?.entries.filter(listed) ?? []);
-  const rest = createMemo(() => active()?.entries.filter(quiet) ?? []);
+  const unsplit = () => activeRealm()?.name === RAIDS_AND_DUNGEONS;
+
+  const weekly = createMemo(() => {
+    const kept = unsplit() ? (one: Available) => !one.featured : listed;
+
+    return active()?.entries.filter(kept) ?? [];
+  });
+  const rest = createMemo(() =>
+    unsplit() ? [] : (active()?.entries.filter(quiet) ?? []),
+  );
 
   const sections = createMemo((): TableSection[] => {
     const built: TableSection[] = [];

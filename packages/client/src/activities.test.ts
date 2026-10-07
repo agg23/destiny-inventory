@@ -569,7 +569,7 @@ describe("loot the week still owes", () => {
       category?.entries.map((one) => [
         Boolean(one.focus),
         one.bonus.length,
-        one.focused,
+        one.featured,
       ]),
     ).toEqual([
       [true, 0, false],
@@ -881,7 +881,7 @@ describe("rank", () => {
       category?.entries.map((one) => [
         one.bonusDrops,
         Boolean(one.focus),
-        one.focused,
+        one.featured,
       ]),
     ).toEqual([
       [3, false, false],
@@ -1054,6 +1054,26 @@ describe("challenges", () => {
     );
 
     expect(category?.entries[0]?.challenges).toEqual([]);
+  });
+
+  it("features a dungeon carrying a challenge", () => {
+    const featured = (challenges: never[]) =>
+      sections(
+        [
+          entry({ activityHash: 40, challenges }),
+          entry({ activityHash: 41, challenges }),
+        ],
+        tables,
+      )[0]?.entries[0]?.featured;
+
+    expect(featured(challenge(0))).toBe(true);
+    expect(featured([])).toBe(false);
+  });
+
+  it("does not feature anything else carrying a challenge", () => {
+    const [category] = sections([entry({ challenges: challenge(0) })], tables);
+
+    expect(category?.entries[0]?.featured).toBe(false);
   });
 });
 
