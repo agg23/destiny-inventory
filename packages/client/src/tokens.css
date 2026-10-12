@@ -158,6 +158,9 @@
   --color-warning: var(--warning);
   --color-good: var(--good);
 
+  --color-pve: var(--pve);
+  --color-pvp: var(--pvp);
+
   --color-exotic: var(--exotic);
   --color-legendary: var(--legendary);
   --color-rare: var(--rare);

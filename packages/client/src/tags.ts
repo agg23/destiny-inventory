@@ -26,7 +26,7 @@ export interface TagSnapshot extends TagTarget {
 }
 
 // Tags a bulk action leaves alone while the guard is on
-const PROTECTED = new Set(["favorite", "keep"]);
+const PROTECTED = new Set(["favorite", "keep", "pvp", "pve"]);
 
 const EMPTY: Held = { defs: [], items: [], since: 0 };
 
@@ -49,10 +49,26 @@ const DEFAULT_DEFS: TagDef[] = [
     updatedAt: 0,
   },
   {
+    id: "pvp",
+    label: "PvP",
+    color: "pvp",
+    position: 2,
+    removed: false,
+    updatedAt: 0,
+  },
+  {
+    id: "pve",
+    label: "PvE",
+    color: "pve",
+    position: 3,
+    removed: false,
+    updatedAt: 0,
+  },
+  {
     id: "junk",
     label: "Junk",
     color: "error",
-    position: 2,
+    position: 4,
     removed: false,
     updatedAt: 0,
   },
@@ -60,7 +76,7 @@ const DEFAULT_DEFS: TagDef[] = [
     id: "infuse",
     label: "Infuse",
     color: "arc",
-    position: 3,
+    position: 5,
     removed: false,
     updatedAt: 0,
   },
@@ -68,7 +84,7 @@ const DEFAULT_DEFS: TagDef[] = [
     id: "archive",
     label: "Archive",
     color: "void",
-    position: 4,
+    position: 6,
     removed: false,
     updatedAt: 0,
   },
