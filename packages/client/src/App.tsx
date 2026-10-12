@@ -37,13 +37,16 @@ import {
   ownershipOf,
   primeCollections,
   rankByName,
-  withClass,
+  type ArmorSet,
   type Entry,
+  type EntryFacts,
 } from "./collections.ts";
+import { bySlot, setsOf } from "./collections/armorSets.ts";
 import {
   collectionFilter,
   queryName,
   SEARCHES,
+  setQuery,
 } from "./collections/collectionSearch.ts";
 import { comparable } from "./compare.ts";
 import { defs } from "./defs.ts";
@@ -483,7 +486,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
       .catch(() => undefined);
   };
 
-  const entryMatches = (kind: Kind, query: string): Entry[] => {
+  const entryMatches = (query: string): (Entry | ArmorSet)[] => {
     const built = collections();
     const name = queryName(query);
 
@@ -495,20 +498,82 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     const records = current()?.records ?? {};
     const lastPlayedClass =
       stores().find((store) => store.current)?.classType ?? 0;
-    const test = collectionFilter(
-      built,
-      kind,
-      kind === "armor" ? withClass(query, lastPlayedClass) : query,
-      {
-        ownership: (entry) =>
-          ownershipOf(entry, copies.get(entry.key), weaponsAcquired()),
-        catalyst: (entry) => catalystFor(entry, records),
-      },
+    const facts: EntryFacts = {
+      ownership: (entry) =>
+        ownershipOf(entry, copies.get(entry.key), weaponsAcquired()),
+      catalyst: (entry) => catalystFor(entry, records),
+    };
+    const weaponTest = collectionFilter(built, "weapon", query, facts);
+    const armorTest = collectionFilter(built, "armor", query, facts);
+    const armor = built.armor.filter(armorTest);
+    const playedSets = new Set(
+      armor.flatMap((piece) =>
+        piece.classType === lastPlayedClass && piece.setName !== undefined
+          ? [piece.setName]
+          : [],
+      ),
     );
-    const entries: Entry[] = kind === "weapon" ? built.weapons : built.armor;
 
-    return rankByName(entries.filter(test), name);
+    const others = armor.filter(
+      (piece) =>
+        piece.classType !== lastPlayedClass &&
+        (piece.setName === undefined || !playedSets.has(piece.setName)),
+    );
+
+    const ranked = [
+      ...rankByName<Entry>(
+        [
+          ...built.weapons.filter(weaponTest),
+          ...armor.filter((piece) => piece.classType === lastPlayedClass),
+        ],
+        name,
+      ),
+      ...rankByName<Entry>(others, name),
+    ];
+    const sets = setsOf(ranked);
+    const collapsed = new Set<string>();
+
+    return ranked.flatMap((entry): (Entry | ArmorSet)[] => {
+      if (
+        entry.kind !== "armor" ||
+        entry.setKey === undefined ||
+        entry.setName === undefined
+      ) {
+        return [entry];
+      }
+
+      const pieces = sets.get(entry.setKey) ?? [];
+
+      if (pieces.length < 2) {
+        return [entry];
+      }
+
+      if (collapsed.has(entry.setKey)) {
+        return [];
+      }
+
+      collapsed.add(entry.setKey);
+
+      return [
+        {
+          kind: "set",
+          name: entry.setName,
+          rarity: entry.rarity,
+          icon: bySlot(pieces)[0]?.icon ?? entry.icon,
+          classType: entry.classType,
+        },
+      ];
+    });
   };
+
+  const openSet = (set: ArmorSet) =>
+    navigate(
+      collectionsHref("/collections", {
+        kind: "armor",
+        layout: url.get("layout"),
+        q: setQuery(set),
+      }),
+    );
 
   // Only item tabs run the item filter, so a stale ?q= cannot skew the counts on another tab
   const itemQuery = () => (filtersItems() ? typed() : "");
@@ -1012,16 +1077,18 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
                     placeholder={KIND_SCOPES[url.get("kind")]}
                     engine={SEARCHES[url.get("kind")]}
                     onQuery={onQuery}
-                    entries={(query) => entryMatches(url.get("kind"), query)}
+                    entries={entryMatches}
                     onEntry={(entry) =>
-                      navigate(
-                        entryHref(entry.newestItemHash, {
-                          kind: entry.kind,
-                          by: url.get("by"),
-                          layout: url.get("layout"),
-                          q: typed(),
-                        }),
-                      )
+                      entry.kind === "set"
+                        ? openSet(entry)
+                        : navigate(
+                            entryHref(entry.newestItemHash, {
+                              kind: entry.kind,
+                              by: url.get("by"),
+                              layout: url.get("layout"),
+                              q: typed(),
+                            }),
+                          )
                     }
                     onSubmit={(query) => {
                       if (location.pathname.startsWith("/collections/")) {
@@ -1046,9 +1113,13 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
                 engine={itemEngine}
                 onQuery={onQuery}
                 onPreview={setPreviewQuery}
-                entries={(query) => entryMatches("weapon", query)}
+                entries={entryMatches}
                 onEntry={(entry) =>
-                  navigate(entryHref(entry.newestItemHash))
+                  entry.kind === "set"
+                    ? openSet(entry)
+                    : navigate(
+                        entryHref(entry.newestItemHash, { kind: entry.kind }),
+                      )
                 }
                 onFocus={primeWeapons}
               />

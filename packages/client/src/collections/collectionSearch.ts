@@ -30,6 +30,8 @@ import {
   collections,
   OTHER,
   STATUSES,
+  withClass,
+  type ArmorSet,
   type Collections,
   type Entry,
   type EntryFacts,
@@ -164,6 +166,35 @@ const entryFilters: ItemFilterDefinition[] = [
 
       return (item) =>
         perksOf(pool, item).some((perk) => perk.names.some(test));
+    },
+  },
+  {
+    keywords: "set",
+    description: "Shows armor in a set",
+    format: "freeform",
+    suggestionsGenerator: ({ allItems }) => [
+      ...new Set(
+        allItems?.flatMap((item) => {
+          const entry = entryOf(item);
+
+          return entry.kind === "armor" && entry.setName !== undefined
+            ? [`set:${quoteFilterString(entry.setName.toLowerCase())}`]
+            : [];
+        }),
+      ),
+    ],
+    filter: ({ filterValue, language }) => {
+      const test = matchText(filterValue, language, true);
+
+      return (item) => {
+        const entry = entryOf(item);
+
+        return (
+          entry.kind === "armor" &&
+          entry.setName !== undefined &&
+          test(entry.setName)
+        );
+      };
     },
   },
   {
@@ -375,6 +406,13 @@ const filterArgs = (query: string, types: Set<string>): string[] => {
 
   return found;
 };
+
+/** The armor view query that shows one class's pieces of a set */
+export const setQuery = (set: ArmorSet): string =>
+  withClass(
+    `set:${quoteFilterString(set.name.toLowerCase())}`,
+    set.classType,
+  );
 
 /** The name text a query searches for, outside any not */
 export const queryName = (query: string): string =>

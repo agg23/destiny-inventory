@@ -1,7 +1,7 @@
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 
 import { BUNGIE } from "./bungie.ts";
-import type { Entry } from "./collections.ts";
+import type { ArmorSet, Entry } from "./collections.ts";
 import type { SearchEngine } from "./search.ts";
 import { forgetSearch, recentSearches, rememberSearch } from "./searches.ts";
 
@@ -11,8 +11,8 @@ interface Props {
   engine: SearchEngine;
   onQuery: (value: string) => void;
   onPreview?: (value: string | undefined) => void;
-  entries?: (query: string) => Entry[];
-  onEntry?: (entry: Entry) => void;
+  entries?: (query: string) => (Entry | ArmorSet)[];
+  onEntry?: (entry: Entry | ArmorSet) => void;
   onSubmit?: (query: string) => void;
   onFocus?: () => void;
 }
@@ -93,7 +93,7 @@ export const SearchBar = (props: Props) => {
   const highlightedEntry = () =>
     open() ? entryRows()[highlight() - rows().length] : undefined;
 
-  const openEntry = (entry: Entry) => {
+  const openEntry = (entry: Entry | ArmorSet) => {
     setOpen(false);
     setHighlight(-1);
     props.onEntry?.(entry);
@@ -382,13 +382,17 @@ export const SearchBar = (props: Props) => {
                   onClick={() => openEntry(entry)}
                 >
                   <img src={`${BUNGIE}${entry.icon}`} alt="" />
-                  <span
-                    class={`search-row-query text-${entry.rarity.toLowerCase()}`}
-                  >
-                    {entry.name}
-                  </span>
-                  <span class="search-row-help">
-                    {entry.rarity} {entry.typeName}
+                  <span class="search-entry-text">
+                    <span
+                      class={`search-row-query text-${entry.rarity.toLowerCase()}`}
+                    >
+                      {entry.name}
+                    </span>
+                    <span class="search-row-help">
+                      {entry.kind === "set"
+                        ? "Armor set"
+                        : `${entry.rarity} ${entry.typeName}`}
+                    </span>
                   </span>
                 </li>
               )}

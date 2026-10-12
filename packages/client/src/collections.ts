@@ -98,6 +98,14 @@ export interface Armor extends Collected {
 
 export type Entry = Weapon | Armor;
 
+export interface ArmorSet {
+  kind: "set";
+  name: string;
+  rarity: string;
+  icon: string;
+  classType: number;
+}
+
 export type Ownership = "owned" | "unlocked" | "neverseen";
 
 export interface Catalyst {
