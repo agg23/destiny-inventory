@@ -12,6 +12,8 @@ import {
   type ArtifactIndex,
   type ArtifactLoader,
   type ItemTag,
+  type Note,
+  type NoteStore,
   type TagDef,
   type TagStore,
 } from "./core/index.ts";
@@ -102,6 +104,37 @@ const memoryTags = (): TagStore => {
   };
 };
 
+const memoryNotes = (): NoteStore => {
+  const notes = new Map<string, Map<string, Note>>();
+
+  const bucket = (membershipId: string): Map<string, Note> => {
+    const existing = notes.get(membershipId);
+
+    if (existing) {
+      return existing;
+    }
+
+    const fresh = new Map<string, Note>();
+    notes.set(membershipId, fresh);
+
+    return fresh;
+  };
+
+  return {
+    read: async (membershipId, since) =>
+      [...bucket(membershipId).values()].filter(
+        (note) => note.updatedAt > since,
+      ),
+
+    write: async (membershipId, change, now) => {
+      bucket(membershipId).set(`${change.kind}/${change.targetId}`, {
+        ...change,
+        updatedAt: now,
+      });
+    },
+  };
+};
+
 const toRequest = (req: IncomingMessage, body: Buffer): Request =>
   new Request(`http://localhost:${PORT}${req.url}`, {
     method: req.method,
@@ -133,6 +166,7 @@ const handler = createHandler({
   authOrigin: process.env.AUTH_ORIGIN ?? "",
   loader: diskLoader(),
   tags: memoryTags(),
+  notes: memoryNotes(),
 });
 
 createServer((req, res) => {

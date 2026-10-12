@@ -129,6 +129,37 @@ export const sessionToken = async (): Promise<string | undefined> => {
   return tokens.session ?? (await renewSession());
 };
 
+/** Fetches one of our own endpoints with the session token, renewing it once on a 401 */
+export const callService = async (
+  path: string,
+  init?: RequestInit,
+): Promise<Response | undefined> => {
+  const token = await sessionToken();
+
+  if (!token) {
+    return undefined;
+  }
+
+  const send = (bearer: string) =>
+    fetch(path, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${bearer}`,
+      },
+    });
+
+  const response = await send(token);
+
+  if (response.status !== 401) {
+    return response;
+  }
+
+  const renewed = await renewSession();
+
+  return renewed ? send(renewed) : undefined;
+};
+
 export const accessToken = async (): Promise<string | undefined> => {
   const tokens = read();
 

@@ -2085,6 +2085,11 @@
     color: var(--muted);
   }
 
+  .collections-set-note {
+    margin-top: var(--space-4);
+    font-size: var(--text-sm);
+  }
+
   .collections-set-name {
     min-width: 0;
     overflow: hidden;
@@ -2208,5 +2213,11 @@
     list-style: none;
     margin: 0;
     padding: 0;
+  }
+
+  .note-text {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 }

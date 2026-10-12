@@ -44,6 +44,7 @@ const service = () =>
     authOrigin: ORIGIN,
     loader: { index: async () => undefined, raw: async () => undefined },
     tags: memory(),
+    notes: { read: async () => [], write: async () => undefined },
   });
 
 const bearer = async (membershipId: string) =>

@@ -13,6 +13,13 @@ export {
   type Session,
 } from "./session.ts";
 export {
+  parseNote,
+  type Note,
+  type NoteChange,
+  type NoteKind,
+  type NoteStore,
+} from "./notes.ts";
+export {
   parseWrite,
   type ItemTag,
   type ItemTagChange,

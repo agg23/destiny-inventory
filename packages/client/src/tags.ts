@@ -2,7 +2,7 @@ import { createSignal } from "solid-js";
 
 import type { ItemTag, TagDef, TagDefChange } from "@dvm/service";
 
-import { renewSession, sessionToken } from "./auth.ts";
+import { callService } from "./auth.ts";
 
 const KEY = "dvm.tags";
 
@@ -187,36 +187,6 @@ const merge = <T extends { updatedAt: number }>(
   return [...map.values()];
 };
 
-const call = async (
-  path: string,
-  init?: RequestInit,
-): Promise<Response | undefined> => {
-  const token = await sessionToken();
-
-  if (!token) {
-    return undefined;
-  }
-
-  const send = (bearer: string) =>
-    fetch(path, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${bearer}`,
-      },
-    });
-
-  const response = await send(token);
-
-  if (response.status !== 401) {
-    return response;
-  }
-
-  const renewed = await renewSession();
-
-  return renewed ? send(renewed) : undefined;
-};
-
 interface Served {
   defs: TagDef[];
   items: ItemTag[];
@@ -225,7 +195,7 @@ interface Served {
 
 /** Pulls everything newer than the last sync, removals included */
 export const syncTags = async (): Promise<void> => {
-  const response = await call(`${ENDPOINT}?since=${held.since}`);
+  const response = await callService(`${ENDPOINT}?since=${held.since}`);
 
   if (!response?.ok) {
     return;
@@ -257,7 +227,7 @@ const flush = async () => {
     return;
   }
 
-  const response = await call(ENDPOINT, {
+  const response = await callService(ENDPOINT, {
     method: "POST",
     body: JSON.stringify({
       defs: [],
@@ -293,7 +263,7 @@ const queue = (changes: ItemTag[]) => {
 
 /** Creates or updates one tag definition. Rare and deliberate, so it reports a failure */
 export const saveTagDef = async (def: TagDefChange): Promise<boolean> => {
-  const response = await call(ENDPOINT, {
+  const response = await callService(ENDPOINT, {
     method: "POST",
     body: JSON.stringify({ defs: [def], items: [] }),
   });

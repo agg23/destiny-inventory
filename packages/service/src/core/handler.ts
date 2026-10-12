@@ -12,6 +12,7 @@ import {
   SESSION_MS,
   type Session,
 } from "./session.ts";
+import { parseNote, type NoteStore } from "./notes.ts";
 import { parseWrite, type TagStore } from "./tags.ts";
 
 export interface ServiceConfig {
@@ -27,6 +28,7 @@ export interface ServiceConfig {
   /** Absent until a KV namespace is bound, in which case tiles simply omit what was spent */
   baseline?: { store: Store; reference: Reference };
   tags: TagStore;
+  notes: NoteStore;
 }
 
 // Content-hashed names only, so a request can never walk out of the artifact directory
@@ -109,6 +111,38 @@ export const createHandler = (config: ServiceConfig) => {
     return json({ now }, config.allowedOrigin);
   };
 
+  const notes = async (request: Request): Promise<Response> => {
+    const session = await sessionOf(request);
+
+    if (!session) {
+      return json({ error: "Sign in required" }, config.allowedOrigin, 401);
+    }
+
+    if (request.method === "GET") {
+      const raw = Number(new URL(request.url).searchParams.get("since"));
+      const since = Number.isSafeInteger(raw) && raw > 0 ? raw : 0;
+
+      return json(
+        {
+          notes: await config.notes.read(session.membershipId, since),
+          now: Date.now(),
+        },
+        config.allowedOrigin,
+      );
+    }
+
+    const change = parseNote(await request.json());
+
+    if (!change) {
+      return json({ error: "Bad note" }, config.allowedOrigin, 400);
+    }
+
+    const now = Date.now();
+    await config.notes.write(session.membershipId, change, now);
+
+    return json({ now }, config.allowedOrigin);
+  };
+
   return async (request: Request): Promise<Response> => {
     const { pathname } = new URL(request.url);
 
@@ -182,6 +216,13 @@ export const createHandler = (config: ServiceConfig) => {
         (request.method === "GET" || request.method === "POST")
       ) {
         return tags(request);
+      }
+
+      if (
+        pathname === "/notes" &&
+        (request.method === "GET" || request.method === "POST")
+      ) {
+        return notes(request);
       }
 
       if (pathname === "/auth/token" && request.method === "POST") {

@@ -3,6 +3,8 @@ import {
   refresh,
   type ArtifactIndex,
   type ArtifactLoader,
+  type NoteKind,
+  type NoteStore,
   type Reference,
   type Store,
   type TagStore,
@@ -15,6 +17,7 @@ interface Assets {
 interface Statement {
   bind: (...values: unknown[]) => Statement;
   all: <T>() => Promise<{ results: T[] }>;
+  run: () => Promise<unknown>;
 }
 
 interface Database {
@@ -155,6 +158,59 @@ const tagStore = (db: Database): TagStore => ({
   },
 });
 
+interface NoteRow {
+  kind: NoteKind;
+  target_id: string;
+  item_hash: number | null;
+  body: string;
+  removed: number;
+  updated_at: number;
+}
+
+const READ_NOTES =
+  "SELECT kind, target_id, item_hash, body, removed, updated_at FROM notes WHERE membership_id = ? AND updated_at > ?";
+
+const WRITE_NOTE = `INSERT INTO notes (membership_id, kind, target_id, item_hash, body, removed, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (membership_id, kind, target_id) DO UPDATE SET
+  item_hash = excluded.item_hash,
+  body = excluded.body,
+  removed = excluded.removed,
+  updated_at = excluded.updated_at`;
+
+const noteStore = (db: Database): NoteStore => ({
+  read: async (membershipId, since) => {
+    const notes = await db
+      .prepare(READ_NOTES)
+      .bind(membershipId, since)
+      .all<NoteRow>();
+
+    return notes.results.map((row) => ({
+      kind: row.kind,
+      targetId: row.target_id,
+      itemHash: row.item_hash ?? undefined,
+      body: row.body,
+      removed: row.removed === 1,
+      updatedAt: row.updated_at,
+    }));
+  },
+
+  write: async (membershipId, change, now) => {
+    await db
+      .prepare(WRITE_NOTE)
+      .bind(
+        membershipId,
+        change.kind,
+        change.targetId,
+        change.itemHash ?? null,
+        change.body,
+        change.removed ? 1 : 0,
+        now,
+      )
+      .run();
+  },
+});
+
 // Artifacts ship as static assets, so the isolate never holds a definition table. Only the
 // index is read here; the chunks are fetched by the client straight from the asset handler
 const assetLoader = (env: Env, origin: string): ArtifactLoader => {
@@ -208,6 +264,7 @@ export default {
       loader: assetLoader(env, url.origin),
       baseline: baselineOf(env),
       tags: tagStore(env.TAGS),
+      notes: noteStore(env.TAGS),
     });
 
     const inner = new Request(

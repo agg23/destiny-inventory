@@ -19,6 +19,7 @@ import {
 import { fakeItems } from "../fakeItems.ts";
 import { ItemIcon } from "../ItemIcon.tsx";
 import { ItemDetails, ItemHead } from "../ItemPanel.tsx";
+import { NoteEditor } from "../NoteEditor.tsx";
 import { useUrl } from "../router.ts";
 import { Button } from "../ui/Button.tsx";
 import { collectionsHref, lightGgHref, vaultHref } from "../url.ts";
@@ -98,6 +99,12 @@ export const EntryPage = () => {
     const found = entry();
 
     return found ? versions.latest?.get(found.newestItemHash) : undefined;
+  };
+
+  const setKey = () => {
+    const found = entry();
+
+    return found?.kind === "armor" ? found.setKey : undefined;
   };
 
   const versionCollected = (collectibleHash: number): boolean | undefined =>
@@ -235,6 +242,25 @@ export const EntryPage = () => {
               </div>
 
               <Copies entry={found()} copies={data.copiesOf(found())} />
+
+              <Show
+                when={setKey()}
+                fallback={
+                  <div class="weapon-block">
+                    <h4 class="section-label">Notes</h4>
+                    <NoteEditor
+                      target={{ kind: "item", targetId: found().key }}
+                    />
+                  </div>
+                }
+              >
+                {(key) => (
+                  <div class="weapon-block">
+                    <h4 class="section-label">Set notes</h4>
+                    <NoteEditor target={{ kind: "set", targetId: key() }} />
+                  </div>
+                )}
+              </Show>
 
               <div class="flex gap-2">
                 <Show

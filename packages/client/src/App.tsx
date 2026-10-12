@@ -23,6 +23,8 @@ import {
 import { activeStore, NOBODY, observe, prefer, type Active } from "./active.ts";
 import { activityTables } from "./activityTables.ts";
 import { accessToken, beginLogin, signedIn, signOut } from "./auth.ts";
+import { useNoteLeaveGuard } from "./NoteEditor.tsx";
+import { syncNotes } from "./notes.ts";
 import { syncTags } from "./tags.ts";
 import { fetchCarnageReport, type Membership } from "./bungie.ts";
 import { acquired } from "./arrivals.ts";
@@ -264,9 +266,12 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     { initialValue: props.primed },
   );
 
+  useNoteLeaveGuard();
+
   createEffect(() => {
     if (authed()) {
       void syncTags();
+      void syncNotes();
     }
   });
 

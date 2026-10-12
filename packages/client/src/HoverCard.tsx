@@ -4,6 +4,7 @@ import { Show } from "solid-js";
 import { verdictMode, type ModeVerdict } from "./arrivals.ts";
 import type { Catalyst } from "./collections.ts";
 import { ItemDetails, ItemHead } from "./ItemPanel.tsx";
+import { noteFor } from "./notes.ts";
 import { AnchoredPanel } from "./ui/AnchoredPanel.tsx";
 
 interface Props {
@@ -56,6 +57,18 @@ const RivalNote = (props: { verdict: ModeVerdict }) => (
 export const HoverCard = (props: Props) => (
   <AnchoredPanel class="item-tooltip hover-card" cursorX={props.cursorX}>
     <ItemHead item={props.item} taggable notes={props.notes} />
+    <Show
+      when={
+        props.item.id !== "0" &&
+        noteFor({ kind: "instance", targetId: props.item.id })
+      }
+    >
+      {(note) => (
+        <div class="tooltip-body">
+          <p class="note-text line-clamp-3">{note()}</p>
+        </div>
+      )}
+    </Show>
     <Show when={props.verdict}>
       {(verdict) => <RivalNote verdict={verdict()} />}
     </Show>

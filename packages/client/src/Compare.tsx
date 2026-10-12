@@ -10,6 +10,7 @@ import {
   ItemHead,
   Moves,
 } from "./ItemPanel.tsx";
+import { NoteEditor, SharedNote } from "./NoteEditor.tsx";
 import { shortStat } from "./statNames.ts";
 import { IconButton } from "./ui/Button.tsx";
 
@@ -174,7 +175,23 @@ export const Compare = (props: Props) => {
                     moving={props.moving}
                   />
                 }
-                trail={<Benefits item={item} />}
+                trail={
+                  <>
+                    <Benefits item={item} />
+                    <div class="flex flex-col gap-3 pt-4">
+                      <SharedNote item={item} />
+                      <Show when={item.id !== "0"}>
+                        <NoteEditor
+                          target={{
+                            kind: "instance",
+                            targetId: item.id,
+                            itemHash: item.hash,
+                          }}
+                        />
+                      </Show>
+                    </div>
+                  </>
+                }
               />
             )}
           </For>

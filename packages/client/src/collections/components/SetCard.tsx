@@ -3,6 +3,7 @@ import { For, Show, type JSX } from "solid-js";
 import { BUNGIE } from "../../bungie.ts";
 import type { Entry } from "../../collections.ts";
 import { defs } from "../../defs.ts";
+import { noteFor } from "../../notes.ts";
 import { setBonusOf } from "../../perks.ts";
 import { ARMOR_SLOTS, bySlot } from "../armorSets.ts";
 
@@ -16,6 +17,14 @@ export const SetCard = (props: {
     const first = props.pieces[0];
 
     return first?.kind === "armor" ? (first.setName ?? "") : "";
+  };
+
+  const note = () => {
+    const first = props.pieces[0];
+
+    return first?.kind === "armor" && first.setKey !== undefined
+      ? noteFor({ kind: "set", targetId: first.setKey })
+      : undefined;
   };
 
   const bonus = () => {
@@ -71,6 +80,9 @@ export const SetCard = (props: {
             </For>
           </ul>
         )}
+      </Show>
+      <Show when={note()}>
+        {(found) => <p class="note-text collections-set-note">{found()}</p>}
       </Show>
     </div>
   );
