@@ -37,6 +37,8 @@ import {
   ownershipOf,
   primeCollections,
   rankByName,
+  withClass,
+  type Entry,
 } from "./collections.ts";
 import {
   collectionFilter,
@@ -93,7 +95,14 @@ import { GuestGlyph } from "./ui/GuestGlyph.tsx";
 import { PanelGlyph } from "./ui/PanelGlyph.tsx";
 import { RefreshGlyph } from "./ui/RefreshGlyph.tsx";
 import { SignOutGlyph } from "./ui/SignOutGlyph.tsx";
-import { entryHref, tabHref, TABS, type Kind, type Tab } from "./url.ts";
+import {
+  collectionsHref,
+  entryHref,
+  tabHref,
+  TABS,
+  type Kind,
+  type Tab,
+} from "./url.ts";
 
 const PINS = 2;
 
@@ -472,6 +481,33 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
       .then(setWeaponsAcquired)
       // Status terms just won't match
       .catch(() => undefined);
+  };
+
+  const entryMatches = (kind: Kind, query: string): Entry[] => {
+    const built = collections();
+    const name = queryName(query);
+
+    if (!built || name.length < 2) {
+      return [];
+    }
+
+    const copies = copiesByKey(stores());
+    const records = current()?.records ?? {};
+    const lastPlayedClass =
+      stores().find((store) => store.current)?.classType ?? 0;
+    const test = collectionFilter(
+      built,
+      kind,
+      kind === "armor" ? withClass(query, lastPlayedClass) : query,
+      {
+        ownership: (entry) =>
+          ownershipOf(entry, copies.get(entry.key), weaponsAcquired()),
+        catalyst: (entry) => catalystFor(entry, records),
+      },
+    );
+    const entries: Entry[] = kind === "weapon" ? built.weapons : built.armor;
+
+    return rankByName(entries.filter(test), name);
   };
 
   // Only item tabs run the item filter, so a stale ?q= cannot skew the counts on another tab
@@ -976,6 +1012,29 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
                     placeholder={KIND_SCOPES[url.get("kind")]}
                     engine={SEARCHES[url.get("kind")]}
                     onQuery={onQuery}
+                    entries={(query) => entryMatches(url.get("kind"), query)}
+                    onEntry={(entry) =>
+                      navigate(
+                        entryHref(entry.newestItemHash, {
+                          kind: entry.kind,
+                          by: url.get("by"),
+                          layout: url.get("layout"),
+                          q: typed(),
+                        }),
+                      )
+                    }
+                    onSubmit={(query) => {
+                      if (location.pathname.startsWith("/collections/")) {
+                        navigate(
+                          collectionsHref("/collections", {
+                            kind: url.get("kind"),
+                            by: url.get("by"),
+                            layout: url.get("layout"),
+                            q: query,
+                          }),
+                        );
+                      }
+                    }}
                     onFocus={primeWeapons}
                   />
                 </Show>
@@ -987,30 +1046,9 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
                 engine={itemEngine}
                 onQuery={onQuery}
                 onPreview={setPreviewQuery}
-                weapons={(query) => {
-                  const built = collections();
-                  const name = queryName(query);
-
-                  if (!built || name.length < 2) {
-                    return [];
-                  }
-
-                  const copies = copiesByKey(stores());
-                  const records = current()?.records ?? {};
-                  const test = collectionFilter(built, "weapon", query, {
-                    ownership: (weapon) =>
-                      ownershipOf(
-                        weapon,
-                        copies.get(weapon.key),
-                        weaponsAcquired(),
-                      ),
-                    catalyst: (weapon) => catalystFor(weapon, records),
-                  });
-
-                  return rankByName(built.weapons.filter(test), name);
-                }}
-                onWeapon={(weapon) =>
-                  navigate(entryHref(weapon.newestItemHash))
+                entries={(query) => entryMatches("weapon", query)}
+                onEntry={(entry) =>
+                  navigate(entryHref(entry.newestItemHash))
                 }
                 onFocus={primeWeapons}
               />

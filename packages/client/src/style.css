@@ -235,11 +235,11 @@
     border-top: 0;
   }
 
-  .search-weapon {
+  .search-entry {
     align-items: center;
   }
 
-  .search-weapon img {
+  .search-entry img {
     width: 24px;
     height: 24px;
   }

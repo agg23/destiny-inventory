@@ -1,7 +1,7 @@
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 
 import { BUNGIE } from "./bungie.ts";
-import type { Weapon } from "./collections.ts";
+import type { Entry } from "./collections.ts";
 import type { SearchEngine } from "./search.ts";
 import { forgetSearch, recentSearches, rememberSearch } from "./searches.ts";
 
@@ -11,8 +11,9 @@ interface Props {
   engine: SearchEngine;
   onQuery: (value: string) => void;
   onPreview?: (value: string | undefined) => void;
-  weapons?: (query: string) => Weapon[];
-  onWeapon?: (weapon: Weapon) => void;
+  entries?: (query: string) => Entry[];
+  onEntry?: (entry: Entry) => void;
+  onSubmit?: (query: string) => void;
   onFocus?: () => void;
 }
 
@@ -27,7 +28,7 @@ const COMPLETIONS = 6;
 
 const RECENTS = 3;
 
-const WEAPONS = 3;
+const ENTRIES = 3;
 
 export const SearchBar = (props: Props) => {
   const [open, setOpen] = createSignal(false);
@@ -75,27 +76,27 @@ export const SearchBar = (props: Props) => {
     return [...completed, ...past];
   });
 
-  const weaponRows = createMemo(() => {
+  const entryRows = createMemo(() => {
     const query = props.query.trim();
 
     if (query.length < 2) {
       return [];
     }
 
-    return props.weapons?.(query).slice(0, WEAPONS) ?? [];
+    return props.entries?.(query).slice(0, ENTRIES) ?? [];
   });
 
-  const total = () => rows().length + weaponRows().length;
+  const total = () => rows().length + entryRows().length;
 
   const highlighted = () => (open() ? rows()[highlight()] : undefined);
 
-  const highlightedWeapon = () =>
-    open() ? weaponRows()[highlight() - rows().length] : undefined;
+  const highlightedEntry = () =>
+    open() ? entryRows()[highlight() - rows().length] : undefined;
 
-  const openWeapon = (weapon: Weapon) => {
+  const openEntry = (entry: Entry) => {
     setOpen(false);
     setHighlight(-1);
-    props.onWeapon?.(weapon);
+    props.onEntry?.(entry);
   };
 
   // Arrow keys walk the list without touching the query, so the grid follows the highlight
@@ -185,7 +186,7 @@ export const SearchBar = (props: Props) => {
     }
 
     if (event.key === "Tab" || event.key === "ArrowRight") {
-      if (highlightedWeapon()) {
+      if (highlightedEntry()) {
         return;
       }
 
@@ -200,11 +201,11 @@ export const SearchBar = (props: Props) => {
     }
 
     if (event.key === "Enter") {
-      const weapon = highlightedWeapon();
+      const entry = highlightedEntry();
 
-      if (weapon) {
+      if (entry) {
         event.preventDefault();
-        openWeapon(weapon);
+        openEntry(entry);
 
         return;
       }
@@ -216,11 +217,17 @@ export const SearchBar = (props: Props) => {
         apply(pick);
         commit(pick);
 
+        if (props.onSubmit) {
+          setOpen(false);
+          props.onSubmit(pick);
+        }
+
         return;
       }
 
       commit(props.query);
       setOpen(false);
+      props.onSubmit?.(props.query);
 
       return;
     }
@@ -357,31 +364,31 @@ export const SearchBar = (props: Props) => {
             )}
           </For>
 
-          <Show when={weaponRows().length > 0}>
+          <Show when={entryRows().length > 0}>
             <li class="search-heading" role="presentation">
               Collections
             </li>
-            <For each={weaponRows()}>
-              {(weapon, index) => (
+            <For each={entryRows()}>
+              {(entry, index) => (
                 <li
                   role="option"
                   aria-selected={highlight() === rows().length + index()}
-                  class="search-row search-weapon selectable"
+                  class="search-row search-entry selectable"
                   classList={{
                     active: highlight() === rows().length + index(),
                   }}
                   onMouseDown={(event) => event.preventDefault()}
                   onMouseEnter={() => setHighlight(rows().length + index())}
-                  onClick={() => openWeapon(weapon)}
+                  onClick={() => openEntry(entry)}
                 >
-                  <img src={`${BUNGIE}${weapon.icon}`} alt="" />
+                  <img src={`${BUNGIE}${entry.icon}`} alt="" />
                   <span
-                    class={`search-row-query text-${weapon.rarity.toLowerCase()}`}
+                    class={`search-row-query text-${entry.rarity.toLowerCase()}`}
                   >
-                    {weapon.name}
+                    {entry.name}
                   </span>
                   <span class="search-row-help">
-                    {weapon.rarity} {weapon.typeName}
+                    {entry.rarity} {entry.typeName}
                   </span>
                 </li>
               )}
