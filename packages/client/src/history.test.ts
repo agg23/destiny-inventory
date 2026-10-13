@@ -1,5 +1,5 @@
 import type { DestinyHistoricalStatsPeriodGroup } from "bungie-api-ts/destiny2";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   ago,
@@ -322,6 +322,17 @@ describe("history", () => {
     expect(ago(days(30))).toBe("30 days ago");
     expect(ago(days(90))).toBe("3 months ago");
     expect(ago(days(2600))).toBe("7 years ago");
+  });
+
+  it("counts calendar days instead of elapsed hours", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 9, 13, 9, 0));
+
+    expect(ago(new Date(2026, 9, 12, 20, 0).getTime())).toBe("yesterday");
+    expect(ago(new Date(2026, 9, 13, 0, 30).getTime())).toBe("today");
+    expect(ago(new Date(2026, 9, 11, 23, 0).getTime())).toBe("2 days ago");
+
+    vi.useRealTimers();
   });
 
   it("asks a report for the rung of a tiered run only", async () => {

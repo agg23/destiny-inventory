@@ -598,7 +598,12 @@ export const duration = (seconds: number): string => {
 };
 
 export const ago = (at: number): string => {
-  const days = Math.floor((Date.now() - at) / DAY_MS);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const then = new Date(at);
+  then.setHours(0, 0, 0, 0);
+  // DST makes a calendar day 23 or 25 hours
+  const days = Math.round((today.getTime() - then.getTime()) / DAY_MS);
 
   if (days <= 0) {
     return "today";
