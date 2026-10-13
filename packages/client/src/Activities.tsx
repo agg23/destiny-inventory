@@ -1,5 +1,5 @@
 import type { DimItem } from "app/inventory/item-types";
-import { A } from "@solidjs/router";
+import { A, useNavigate } from "@solidjs/router";
 import {
   createMemo,
   createResource,
@@ -52,10 +52,12 @@ import { builtFakes, fakeItems } from "./fakeItems.ts";
 import { dismiss, HOVER_DELAY, preview } from "./preview.ts";
 import { useApp } from "./App.tsx";
 import { useUrl } from "./router.ts";
-import { runHref } from "./url.ts";
+import { guideNamed } from "./guides.ts";
+import { guideHref, runHref } from "./url.ts";
 import { AnchoredPanel } from "./ui/AnchoredPanel.tsx";
 import { holdAnchor, releaseAnchor } from "./ui/anchor.ts";
 import { Button } from "./ui/Button.tsx";
+import { MapGlyph } from "./ui/MapGlyph.tsx";
 import { TabButton } from "./ui/TabButton.tsx";
 
 type Values = Record<number, number>;
@@ -372,109 +374,123 @@ interface DetailProps extends Hovered {
   power: number | undefined;
 }
 
+interface FactsProps {
+  entry: Available;
+  values: Values;
+  power: number | undefined;
+}
+
+export const ActivityFacts = (props: FactsProps) => (
+  <div class="card-body flex flex-col gap-4 overflow-hidden">
+    <Show when={props.entry.description}>
+      <p class="m-0 text-md text-muted">{props.entry.description}</p>
+    </Show>
+    <Show when={props.entry.locked.length > 0}>
+      <div class="flex flex-col gap-1.5">
+        <p class="section-label">Locked</p>
+        <ul class="m-0 flex list-none flex-col gap-1 p-0 text-md text-error">
+          <For each={props.entry.locked}>
+            {(one) => <li>{readable(one, props.values)}</li>}
+          </For>
+        </ul>
+      </div>
+    </Show>
+    <Show when={props.entry.challenges.length > 0}>
+      <div class="flex flex-col gap-1.5">
+        <p class="section-label">Challenges</p>
+        <Challenges challenges={props.entry.challenges} />
+      </div>
+    </Show>
+    {/* Bungie states no per-rung power delta */}
+    <Show when={ladder(props.entry).length > 0}>
+      <div class="flex flex-col gap-1.5">
+        <p class="section-label">Difficulty</p>
+        <p class="m-0 text-md text-text">
+          <For each={ladder(props.entry)}>
+            {(rung, index) => (
+              <>
+                <Show when={index() > 0}>
+                  <span class="text-dim"> · </span>
+                </Show>
+                <span
+                  class="tier"
+                  classList={{
+                    barred:
+                      rung.tier !== undefined &&
+                      barred(rung.tier, props.power),
+                  }}
+                  title={
+                    rung.tier && barred(rung.tier, props.power)
+                      ? `${rung.tier.power} power to launch`
+                      : undefined
+                  }
+                >
+                  {rung.name}
+                </span>
+              </>
+            )}
+          </For>
+        </p>
+      </div>
+    </Show>
+    <Show when={doors(props.entry).length > 0}>
+      <div class="flex flex-col gap-1.5">
+        <p class="section-label">Gear tier</p>
+        <ul class="m-0 flex list-none flex-col gap-1 p-0 text-md">
+          <For each={doors(props.entry)}>
+            {(door) => (
+              <li class="flex items-baseline justify-between gap-4">
+                <Show when={door.name}>
+                  {(name) => <span class="text-muted">{name()}</span>}
+                </Show>
+                <span
+                  class="text-text"
+                  classList={{ "text-gold": door.tier.low >= TOP_GEAR_TIER }}
+                >
+                  Tier{" "}
+                  {door.tier.low === door.tier.high
+                    ? door.tier.high
+                    : `${door.tier.low}-${door.tier.high}`}
+                </span>
+              </li>
+            )}
+          </For>
+        </ul>
+      </div>
+    </Show>
+    <Show when={props.entry.modifiers.length > 0}>
+      <div class="flex flex-col gap-1.5">
+        <p class="section-label">Modifiers</p>
+        <ul class="m-0 flex list-none flex-col gap-2 p-0">
+          <For each={props.entry.modifiers}>
+            {(one) => (
+              <li class="min-w-0 text-sm">
+                <div class="text-text">{one.name}</div>
+                <Show when={one.description}>
+                  <div class="text-muted">
+                    {readable(one.description, props.values)}
+                  </div>
+                </Show>
+              </li>
+            )}
+          </For>
+        </ul>
+      </div>
+    </Show>
+  </div>
+);
+
 const RunDetail = (props: DetailProps) => (
   <AnchoredPanel class="card run-detail" cursorX={props.cursorX}>
     <div class="card-header flex-col items-start gap-1">
       <span class="card-title">{props.entry.name}</span>
       <span class="card-subtitle">{where(props.entry)}</span>
     </div>
-    <div class="card-body flex flex-col gap-4 overflow-hidden">
-      <Show when={props.entry.description}>
-        <p class="m-0 text-md text-muted">{props.entry.description}</p>
-      </Show>
-      <Show when={props.entry.locked.length > 0}>
-        <div class="flex flex-col gap-1.5">
-          <p class="section-label">Locked</p>
-          <ul class="m-0 flex list-none flex-col gap-1 p-0 text-md text-error">
-            <For each={props.entry.locked}>
-              {(one) => <li>{readable(one, props.values)}</li>}
-            </For>
-          </ul>
-        </div>
-      </Show>
-      <Show when={props.entry.challenges.length > 0}>
-        <div class="flex flex-col gap-1.5">
-          <p class="section-label">Challenges</p>
-          <Challenges challenges={props.entry.challenges} />
-        </div>
-      </Show>
-      {/* Bungie states no per-rung power delta */}
-      <Show when={ladder(props.entry).length > 0}>
-        <div class="flex flex-col gap-1.5">
-          <p class="section-label">Difficulty</p>
-          <p class="m-0 text-md text-text">
-            <For each={ladder(props.entry)}>
-              {(rung, index) => (
-                <>
-                  <Show when={index() > 0}>
-                    <span class="text-dim"> · </span>
-                  </Show>
-                  <span
-                    class="tier"
-                    classList={{
-                      barred:
-                        rung.tier !== undefined &&
-                        barred(rung.tier, props.power),
-                    }}
-                    title={
-                      rung.tier && barred(rung.tier, props.power)
-                        ? `${rung.tier.power} power to launch`
-                        : undefined
-                    }
-                  >
-                    {rung.name}
-                  </span>
-                </>
-              )}
-            </For>
-          </p>
-        </div>
-      </Show>
-      <Show when={doors(props.entry).length > 0}>
-        <div class="flex flex-col gap-1.5">
-          <p class="section-label">Gear tier</p>
-          <ul class="m-0 flex list-none flex-col gap-1 p-0 text-md">
-            <For each={doors(props.entry)}>
-              {(door) => (
-                <li class="flex items-baseline justify-between gap-4">
-                  <Show when={door.name}>
-                    {(name) => <span class="text-muted">{name()}</span>}
-                  </Show>
-                  <span
-                    class="text-text"
-                    classList={{ "text-gold": door.tier.low >= TOP_GEAR_TIER }}
-                  >
-                    Tier{" "}
-                    {door.tier.low === door.tier.high
-                      ? door.tier.high
-                      : `${door.tier.low}-${door.tier.high}`}
-                  </span>
-                </li>
-              )}
-            </For>
-          </ul>
-        </div>
-      </Show>
-      <Show when={props.entry.modifiers.length > 0}>
-        <div class="flex flex-col gap-1.5">
-          <p class="section-label">Modifiers</p>
-          <ul class="m-0 flex list-none flex-col gap-2 p-0">
-            <For each={props.entry.modifiers}>
-              {(one) => (
-                <li class="min-w-0 text-sm">
-                  <div class="text-text">{one.name}</div>
-                  <Show when={one.description}>
-                    <div class="text-muted">
-                      {readable(one.description, props.values)}
-                    </div>
-                  </Show>
-                </li>
-              )}
-            </For>
-          </ul>
-        </div>
-      </Show>
-    </div>
+    <ActivityFacts
+      entry={props.entry}
+      values={props.values}
+      power={props.power}
+    />
   </AnchoredPanel>
 );
 
@@ -588,136 +604,179 @@ interface RowProps {
   onLeave: (entry: Available) => void;
 }
 
-const TableRow = (props: RowProps) => (
-  <tr
-    class="whitespace-nowrap"
-    onMouseEnter={(e) => props.onHover(props.entry, e.currentTarget, e.clientX)}
-    onMouseMove={(e) => props.onHover(props.entry, e.currentTarget, e.clientX)}
-    onMouseLeave={() => props.onLeave(props.entry)}
-  >
-    <td
-      class="plate"
-      style={{ "--art": tileArt(props.entry.pgcrImage, props.entry.typeName) }}
+const TableRow = (props: RowProps) => {
+  const navigate = useNavigate();
+  const guide = () => guideNamed(props.entry.name);
+
+  return (
+    <tr
+      class="whitespace-nowrap"
+      classList={{ guided: !!guide() }}
+      onMouseEnter={(e) =>
+        props.onHover(props.entry, e.currentTarget, e.clientX)
+      }
+      onMouseMove={(e) =>
+        props.onHover(props.entry, e.currentTarget, e.clientX)
+      }
+      onMouseLeave={() => props.onLeave(props.entry)}
+      onClick={(event) => {
+        const found = guide();
+
+        // Last run and the Guide chip are links of their own
+        if (!found || (event.target as Element).closest("a, button")) {
+          return;
+        }
+
+        props.onLeave(props.entry);
+        navigate(guideHref(found.name), { state: { inApp: true } });
+      }}
     >
-      <span class="block truncate text-lg text-fg">{props.entry.name}</span>
-    </td>
-    <td class="truncate">
-      <Show
-        when={props.entry.typeName}
-        fallback={<span class="text-dim">-</span>}
-      >
-        {(name) => name()}
-      </Show>
-    </td>
-    <td class="truncate">
-      <Show
-        when={props.entry.location}
-        fallback={<span class="text-dim">-</span>}
-      >
-        {(name) => name()}
-      </Show>
-    </td>
-    <td>
-      <span
-        class="mark"
-        classList={{
-          checked: props.entry.matchmaking === "required",
-          indeterminate: props.entry.matchmaking === "optional",
+      <td
+        class="plate"
+        style={{
+          "--art": tileArt(props.entry.pgcrImage, props.entry.typeName),
         }}
-        title={MM_TITLE[props.entry.matchmaking]}
-      />
-    </td>
-    <td>
-      <Show when={rung(props.entry)} fallback={<span class="text-dim">-</span>}>
-        {(name) => (
-          <span class="text-sm uppercase tracking-[0.12em]">{name()}</span>
-        )}
-      </Show>
-    </td>
-    <td class="tabular-nums">{power(props.entry) ?? "-"}</td>
-    <td class="tabular-nums">
-      <span class="inline-flex items-center gap-2">
-        <Icon icon={props.glyph} class="size-(--icon-xs)" />
-        <b>{BASE_DROPS}</b>
-        <Show when={props.entry.gear}>
-          {(gear) => (
-            <span
-              classList={{
-                "font-semibold text-gold": topTier(gear()),
-                "text-muted": !topTier(gear()),
-              }}
-            >
-              {gearText(gear())}
-            </span>
-          )}
+      >
+        <span class="flex min-w-0 items-center gap-3">
+          <span class="truncate text-lg text-fg">{props.entry.name}</span>
+          <Show when={guide()}>
+            {(found) => (
+              <A
+                href={guideHref(found().name)}
+                state={{ inApp: true }}
+                class="badge guide-badge ml-auto inline-flex items-center gap-1.5"
+                onClick={() => props.onLeave(props.entry)}
+              >
+                <span class="inline-block size-[1em]">
+                  <MapGlyph />
+                </span>
+                Guide
+              </A>
+            )}
+          </Show>
+        </span>
+      </td>
+      <td class="truncate">
+        <Show
+          when={props.entry.typeName}
+          fallback={<span class="text-dim">-</span>}
+        >
+          {(name) => name()}
         </Show>
-        <Show when={props.entry.bonusDrops}>
-          {(count) => (
-            <span class="text-gold">
-              +{count()}
-            </span>
-          )}
+      </td>
+      <td class="truncate">
+        <Show
+          when={props.entry.location}
+          fallback={<span class="text-dim">-</span>}
+        >
+          {(name) => name()}
         </Show>
-        <Show when={props.entry.dropsTaken}>
-          {(count) => (
-            <span class="spent text-gold">
-              +{count()}
-            </span>
-          )}
-        </Show>
-      </span>
-    </td>
-    <td class="relative p-0">
-      {/* Absolute, or the chips cannot fill a cell whose height the row owns */}
-      <div class="absolute inset-0 flex text-md">
-        <Rewards
-          entry={props.entry}
-          itemFor={props.itemFor}
-          onHide={() => props.onLeave(props.entry)}
-          class="grow basis-0 px-4"
+      </td>
+      <td>
+        <span
+          class="mark"
+          classList={{
+            checked: props.entry.matchmaking === "required",
+            indeterminate: props.entry.matchmaking === "optional",
+          }}
+          title={MM_TITLE[props.entry.matchmaking]}
         />
-      </div>
-    </td>
-    <td class="tabular-nums">
-      <Show
-        when={props.entry.challenges.length}
-        fallback={<span class="text-dim">-</span>}
-      >
-        {(count) => (
-          <span class="inline-flex items-center gap-1.5 text-gold">
-            <ChallengeMark />
-            {props.entry.challenges.filter((one) => !one.complete).length}/
-            {count()}
-          </span>
-        )}
-      </Show>
-    </td>
-    <td>
-      <Show
-        when={props.timing}
-        fallback={<span class="text-sm text-dim">Never run</span>}
-      >
-        {(timing) => (
-          <A
-            href={props.hrefFor(timing().lastRun)}
-            class="group flex w-fit flex-col text-sm tabular-nums"
-            onClick={() => props.onLeave(props.entry)}
-          >
-            <span class="group-hover:text-fg group-hover:underline">
-              {ago(timing().lastRun.startedAt)}
+      </td>
+      <td>
+        <Show
+          when={rung(props.entry)}
+          fallback={<span class="text-dim">-</span>}
+        >
+          {(name) => (
+            <span class="text-sm uppercase tracking-[0.12em]">{name()}</span>
+          )}
+        </Show>
+      </td>
+      <td class="tabular-nums">{power(props.entry) ?? "-"}</td>
+      <td class="tabular-nums">
+        <span class="inline-flex items-center gap-2">
+          <Icon icon={props.glyph} class="size-(--icon-xs)" />
+          <b>{BASE_DROPS}</b>
+          <Show when={props.entry.gear}>
+            {(gear) => (
+              <span
+                classList={{
+                  "font-semibold text-gold": topTier(gear()),
+                  "text-muted": !topTier(gear()),
+                }}
+              >
+                {gearText(gear())}
+              </span>
+            )}
+          </Show>
+          <Show when={props.entry.bonusDrops}>
+            {(count) => (
+              <span class="text-gold">
+                +{count()}
+              </span>
+            )}
+          </Show>
+          <Show when={props.entry.dropsTaken}>
+            {(count) => (
+              <span class="spent text-gold">
+                +{count()}
+              </span>
+            )}
+          </Show>
+        </span>
+      </td>
+      <td class="relative p-0">
+        {/* Absolute, or the chips cannot fill a cell whose height the row owns */}
+        <div class="absolute inset-0 flex text-md">
+          <Rewards
+            entry={props.entry}
+            itemFor={props.itemFor}
+            onHide={() => props.onLeave(props.entry)}
+            class="grow basis-0 px-4"
+          />
+        </div>
+      </td>
+      <td class="tabular-nums">
+        <Show
+          when={props.entry.challenges.length}
+          fallback={<span class="text-dim">-</span>}
+        >
+          {(count) => (
+            <span class="inline-flex items-center gap-1.5 text-gold">
+              <ChallengeMark />
+              {props.entry.challenges.filter((one) => !one.complete).length}/
+              {count()}
             </span>
-            <span class="text-dim">
-              {timing().runs} runs
-              <Show when={timing().fastestSeconds}>
-                {(fastest) => <> · {duration(fastest())}</>}
-              </Show>
-            </span>
-          </A>
-        )}
-      </Show>
-    </td>
-  </tr>
-);
+          )}
+        </Show>
+      </td>
+      <td>
+        <Show
+          when={props.timing}
+          fallback={<span class="text-sm text-dim">Never run</span>}
+        >
+          {(timing) => (
+            <A
+              href={props.hrefFor(timing().lastRun)}
+              class="group flex w-fit flex-col text-sm tabular-nums"
+              onClick={() => props.onLeave(props.entry)}
+            >
+              <span class="group-hover:text-fg group-hover:underline">
+                {ago(timing().lastRun.startedAt)}
+              </span>
+              <span class="text-dim">
+                {timing().runs} runs
+                <Show when={timing().fastestSeconds}>
+                  {(fastest) => <> · {duration(fastest())}</>}
+                </Show>
+              </span>
+            </A>
+          )}
+        </Show>
+      </td>
+    </tr>
+  );
+};
 
 interface TableProps {
   sections: TableSection[];

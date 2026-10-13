@@ -174,6 +174,9 @@ export const activityHref = (label: string, rung: string | undefined): string =>
     }`,
   );
 
+export const guideHref = (name: string): string =>
+  scoped(`/activities/guide/${encodeURIComponent(name)}`);
+
 export const collectionsHref = (
   path: string,
   patch: Partial<Params>,

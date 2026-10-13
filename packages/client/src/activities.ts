@@ -801,7 +801,7 @@ const laddered = (definition: SlimActivity): boolean =>
   definition.activityTypeHash !== undefined &&
   LADDERED_TYPES.has(definition.activityTypeHash);
 
-const baseName = (definition: SlimActivity): string =>
+export const baseName = (definition: SlimActivity): string =>
   laddered(definition)
     ? activityName(definition.name)
     : definition.name.replace(VARIANT, "");

@@ -177,6 +177,7 @@ export interface AppState {
   loaded: () => LoadResult | undefined;
   stores: () => DimStore[];
   active: () => DimStore | undefined;
+  playing: () => string | undefined;
   matched: () => Matched;
   shown: () => number;
   query: () => string;
@@ -982,6 +983,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     loaded: current,
     stores,
     active: () => activeStore(active(), stores()),
+    playing: () => active().playing,
     matched,
     shown,
     query: typed,

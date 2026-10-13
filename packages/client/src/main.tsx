@@ -5,6 +5,7 @@ import { Activities } from "./Activities.tsx";
 import { App } from "./App.tsx";
 import { Collections } from "./collections/Collections.tsx";
 import { EntryPage } from "./collections/EntryPage.tsx";
+import { GuidePage } from "./GuidePage.tsx";
 import { History } from "./history/History.tsx";
 import { Todo } from "./todo/Todo.tsx";
 import { Triage } from "./triage/Triage.tsx";
@@ -61,6 +62,7 @@ const start = async () => {
         <Route path="/collections" component={Collections} />
         <Route path="/collections/:hash" component={EntryPage} />
         <Route path="/activities" component={Activities} />
+        <Route path="/activities/guide/:label" component={GuidePage} />
         <Route path="/todo" component={Todo} />
         <Route
           path={["/history", "/history/activity/:label"]}

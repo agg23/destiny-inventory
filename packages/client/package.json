@@ -20,6 +20,7 @@
     "clsx": "^2.1.1",
     "echarts": "^6.1.0",
     "es-toolkit": "^1.50.0",
+    "marked": "^18.1.1",
     "reselect": "^5.2.0",
     "solid-js": "^1.9.0"
   },
