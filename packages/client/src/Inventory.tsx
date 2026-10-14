@@ -14,6 +14,15 @@ import { ItemIcon } from "./ItemIcon.tsx";
 import { ItemMenu, menued } from "./ItemMenu.tsx";
 import { LOST_ITEMS } from "./moveTargets.ts";
 import { previewed } from "./preview.ts";
+import {
+  applySettings,
+  savedSettings,
+  settings,
+  VAULT_SORT_NAMES,
+  VAULT_SORTS,
+  type VaultSort,
+} from "./settings.ts";
+import { tagFor } from "./tags.ts";
 import { Button } from "./ui/Button.tsx";
 
 const CATEGORIES = ["Postmaster", "Weapons", "Armor", "General", "Inventory"];
@@ -39,6 +48,23 @@ const VaultHeader = (props: { store: DimStore }) => (
       title="Vault"
       note={`${props.store.items.length} items`}
     />
+    <label class="ml-auto flex shrink-0 items-center gap-2 text-md text-dim">
+      Sort
+      <select
+        class="select min-w-32"
+        value={settings().sort}
+        onChange={(event) =>
+          applySettings({
+            ...savedSettings(),
+            sort: event.currentTarget.value as VaultSort,
+          })
+        }
+      >
+        <For each={VAULT_SORTS}>
+          {(sort) => <option value={sort}>{VAULT_SORT_NAMES[sort]}</option>}
+        </For>
+      </select>
+    </label>
   </div>
 );
 
@@ -49,6 +75,15 @@ const ordered = (items: DimItem[]): DimItem[] =>
   [...items].sort(
     (a, b) => Number(b.equipped) - Number(a.equipped) || b.power - a.power,
   );
+
+const orderedVault = (items: DimItem[]): DimItem[] =>
+  settings().sort === "name"
+    ? [...items].sort(
+        (a, b) => a.name.localeCompare(b.name) || b.power - a.power,
+      )
+    : ordered(items);
+
+const favorite = (item: DimItem): boolean => tagFor(item.id)?.id === "favorite";
 
 export const Inventory = (props: Props) => {
   const byStore = () => props.matched.byStore;
@@ -134,8 +169,13 @@ export const Inventory = (props: Props) => {
       }
     }
 
+    const vaultId = vault()?.id;
+
     for (const [key, items] of built) {
-      built.set(key, ordered(items));
+      built.set(
+        key,
+        key.startsWith(`${vaultId}:`) ? orderedVault(items) : ordered(items),
+      );
     }
 
     return built;
@@ -146,6 +186,29 @@ export const Inventory = (props: Props) => {
 
   const present = (bucket: InventoryBucket) =>
     shown().some((store) => cell(store, bucket).length > 0);
+
+  const vaultCells = createMemo(() => {
+    const split = new Map<number, { favorites: DimItem[]; rest: DimItem[] }>();
+    const held = vault();
+
+    if (!held) {
+      return split;
+    }
+
+    for (const [key, items] of cells()) {
+      if (key.startsWith(`${held.id}:`)) {
+        split.set(Number(key.slice(held.id.length + 1)), {
+          favorites: items.filter((item) => favorite(item)),
+          rest: items.filter((item) => !favorite(item)),
+        });
+      }
+    }
+
+    return split;
+  });
+
+  const vaultCell = (bucket: InventoryBucket) =>
+    vaultCells().get(bucket.hash) ?? { favorites: [], rest: [] };
 
   const tileState = (item: DimItem): string =>
     [
@@ -167,6 +230,15 @@ export const Inventory = (props: Props) => {
 
     return undefined;
   };
+
+  const tile = (item: DimItem) => (
+    <ItemIcon
+      item={item}
+      selected={props.pinned.some((pin) => pin.id === item.id)}
+      class={tileState(item)}
+      onSelect={(one, event) => props.onSelect(one, event.shiftKey)}
+    />
+  );
 
   const collectible = createMemo(() => {
     const character = shown().find((store) => !store.isVault);
@@ -250,25 +322,43 @@ export const Inventory = (props: Props) => {
                         </h3>
                         <For each={shown()}>
                           {(store) => (
-                            <div
-                              class="item-grid wide"
-                              classList={{ character: !store.isVault }}
+                            <Show
+                              when={store.isVault}
+                              fallback={
+                                <div class="item-grid wide character">
+                                  <For each={cell(store, bucket())}>
+                                    {(item) => tile(item)}
+                                  </For>
+                                </div>
+                              }
                             >
-                              <For each={cell(store, bucket())}>
-                                {(item) => (
-                                  <ItemIcon
-                                    item={item}
-                                    selected={props.pinned.some(
-                                      (pin) => pin.id === item.id,
-                                    )}
-                                    class={tileState(item)}
-                                    onSelect={(one, event) =>
-                                      props.onSelect(one, event.shiftKey)
-                                    }
-                                  />
-                                )}
-                              </For>
-                            </div>
+                              <div>
+                                <div
+                                  class="item-grid wide favorites"
+                                  classList={{
+                                    hidden: !vaultCell(bucket()).favorites.some(
+                                      (item) => hits().has(item),
+                                    ),
+                                  }}
+                                >
+                                  <For each={vaultCell(bucket()).favorites}>
+                                    {(item) => tile(item)}
+                                  </For>
+                                </div>
+                                <div
+                                  class="item-grid wide"
+                                  classList={{
+                                    hidden: !vaultCell(bucket()).rest.some(
+                                      (item) => hits().has(item),
+                                    ),
+                                  }}
+                                >
+                                  <For each={vaultCell(bucket()).rest}>
+                                    {(item) => tile(item)}
+                                  </For>
+                                </div>
+                              </div>
+                            </Show>
                           )}
                         </For>
                       </div>

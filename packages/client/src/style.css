@@ -338,6 +338,11 @@
     justify-content: center;
   }
 
+  /* Same empty row the character column leaves under equipped */
+  .row .item-grid.favorites:not(.hidden) + .item-grid {
+    margin-top: calc(var(--tile) + var(--space-2) * 2);
+  }
+
   .row .item-grid .item-tile.small {
     width: var(--tile);
     height: var(--tile);

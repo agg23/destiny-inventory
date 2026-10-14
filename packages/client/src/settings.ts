@@ -33,22 +33,34 @@ const RATING_DISPLAY_MODES: Record<RatingDisplay, Mode[]> = {
   none: [],
 };
 
+export const VAULT_SORTS = ["name", "power"] as const;
+
+export type VaultSort = (typeof VAULT_SORTS)[number];
+
+export const VAULT_SORT_NAMES: Record<VaultSort, string> = {
+  name: "Name",
+  power: "Power",
+};
+
 export interface Settings {
   tile: number;
   overlay: boolean;
   ratings: RatingDisplay;
+  sort: VaultSort;
 }
 
 export const DEFAULTS: Settings = {
   tile: 60,
   overlay: false,
   ratings: "pve-pvp",
+  sort: "name",
 };
 
 const clamp = (next: Settings): Settings => ({
   tile: Math.min(TILE_MAX, Math.max(TILE_MIN, Math.round(next.tile))),
   overlay: next.overlay,
   ratings: next.ratings,
+  sort: next.sort,
 });
 
 const read = (): Settings => {
@@ -65,7 +77,7 @@ const read = (): Settings => {
       return DEFAULTS;
     }
 
-    const { tile, overlay, ratings } = parsed as Partial<Settings>;
+    const { tile, overlay, ratings, sort } = parsed as Partial<Settings>;
 
     return clamp({
       tile: typeof tile === "number" ? tile : DEFAULTS.tile,
@@ -73,6 +85,7 @@ const read = (): Settings => {
       ratings: RATING_DISPLAYS.some((display) => display === ratings)
         ? ratings!
         : DEFAULTS.ratings,
+      sort: VAULT_SORTS.some((one) => one === sort) ? sort! : DEFAULTS.sort,
     });
   } catch {
     return DEFAULTS;
