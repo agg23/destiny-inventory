@@ -29,7 +29,7 @@ export const useCollectionData = () => {
 
       return session === undefined
         ? undefined
-        : `${session.membership.membershipId}:${session.minted}`;
+        : `${session.membership.membershipId}:${session.builtFrom}`;
     },
     // The key needs a session
     () => acquiredFor(app.loaded()!.session),

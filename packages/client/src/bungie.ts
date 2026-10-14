@@ -176,9 +176,11 @@ export const fetchProfile = (
   accessToken: string,
 ): Promise<DestinyProfileResponse> =>
   call<DestinyProfileResponse>(
+    // Bungie will serve a cached snapshot with the same exact URL for up to a minute
+    // Add a dummy date query arg to bust the cache
     `/Destiny2/${membership.membershipType}/Profile/${
       membership.membershipId
-    }/?components=${COMPONENTS.join(",")}`,
+    }/?components=${COMPONENTS.join(",")}&_=${Date.now()}`,
     accessToken,
     PLATFORM,
     // Force the newest possible response

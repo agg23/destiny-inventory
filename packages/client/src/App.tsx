@@ -936,7 +936,10 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
 
     moveItem(item, target, equip)
       .catch((e: unknown) => showToast(messageOf(e), "danger"))
-      .finally(() => setMoving(undefined));
+      .finally(() => {
+        setMoving(undefined);
+        poller.now();
+      });
   };
 
   // A full unique stack only takes what tops it off
@@ -976,6 +979,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
       }
 
       setMoving(undefined);
+      poller.now();
     })();
   };
 

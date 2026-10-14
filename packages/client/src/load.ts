@@ -14,7 +14,7 @@ import { materializeClosure } from "@dvm/defs-core";
 
 import { accessToken } from "./auth.ts";
 import { buildStoresFrom, storeItems, type Failure } from "./stores.ts";
-import { seedInventory } from "./moves.ts";
+import { movesSettledAt, seedInventory } from "./moves.ts";
 import { fetchRecords, fetchTable, hasArtifact } from "./artifacts.ts";
 import { loadConfig, type ArtifactIndex } from "./config.ts";
 import type { Guest } from "./guest.ts";
@@ -218,6 +218,33 @@ export const readMerged = async (
 const mintedAt = (profile: DestinyProfileResponse): number =>
   new Date(profile.responseMintedTimestamp ?? 0).getTime();
 
+// Change between mints without changing any item
+const VOLATILE_KEYS = new Set([
+  "responseMintedTimestamp",
+  "secondaryComponentsMintedTimestamp",
+  "characterActivities",
+  "profileStringVariables",
+  "characterStringVariables",
+  "minutesPlayedThisSession",
+  "minutesPlayedTotal",
+]);
+
+const contentsOf = (profile: DestinyProfileResponse): string =>
+  JSON.stringify(profile, (key, value: unknown) =>
+    VOLATILE_KEYS.has(key) ? undefined : value,
+  );
+
+// Rebuild after a move even if the profile matches
+const sameContents = (session: Session, contents: string): boolean =>
+  contents === session.contents && movesSettledAt() < session.builtFrom;
+
+// Bungie's cache can hand back stale data
+const isStale = (session: Session, minted: number): boolean =>
+  minted <= Math.max(session.minted, movesSettledAt());
+
+const ageOf = (minted: number): string =>
+  `${((Date.now() - minted) / 1000).toFixed(1)}s`;
+
 const LIVE_WINDOW = 10 * 60_000;
 
 // currentActivityHash sits stale after a logout
@@ -297,6 +324,10 @@ export interface Session {
   plugSets: Record<number, PlugSetDef>;
   hidden: Set<number>;
   minted: number;
+  /** Mint time of the profile the stores were built from */
+  builtFrom: number;
+  /** Profile serialized without the fields that change on every mint */
+  contents: string;
   /** Set only while another account's profile is on screen */
   guest: Guest | undefined;
 }
@@ -406,6 +437,8 @@ export const load = async (
       plugSets,
       hidden,
       minted: mintedAt(profile),
+      builtFrom: mintedAt(profile),
+      contents: contentsOf(profile),
       guest: undefined,
     };
 
@@ -494,21 +527,39 @@ const revive = async (
     const session = first.session;
     const minted = mintedAt(profile);
 
-    if (minted <= session.minted) {
-      onUpgrade({
-        ...first,
-        source: "live",
-        playing: playingNow(profile),
-        activities: profile.characterActivities?.data ?? first.activities,
-        records: characterRecords(profile),
-        orderRewards: orderRewards(profile),
-      });
+    const kept: LoadResult = {
+      ...first,
+      source: "live",
+      playing: playingNow(profile),
+      activities: profile.characterActivities?.data ?? first.activities,
+      records: characterRecords(profile),
+      orderRewards: orderRewards(profile),
+    };
+
+    if (isStale(session, minted)) {
+      onUpgrade(kept);
+
+      return;
+    }
+
+    const contents = contentsOf(profile);
+
+    if (sameContents(session, contents)) {
+      session.minted = minted;
+      onUpgrade({ ...kept, variables: stringVariables(profile) });
+
+      return;
+    }
+
+    await materializeNew(session, profile);
+
+    if (isStale(session, minted)) {
+      onUpgrade(kept);
 
       return;
     }
 
     void session.store.putOne(PROFILE, CURRENT, profile);
-    await materializeNew(session, profile);
 
     const built = buildStoresFrom(
       session.support,
@@ -519,6 +570,8 @@ const revive = async (
     );
 
     session.minted = minted;
+    session.builtFrom = minted;
+    session.contents = contents;
     await seedInventory(built.stores, session.membership);
 
     const next: LoadResult = {
@@ -724,6 +777,8 @@ export const loadGuest = async (
     ...owner.session,
     membership,
     minted: mintedAt(profile),
+    builtFrom: mintedAt(profile),
+    contents: "",
     guest: guestOf(membership, profile),
   };
 
@@ -783,14 +838,42 @@ export const refreshProfile = async (
   const minted = mintedAt(profile);
   const playing = playingNow(profile);
 
-  // Bungie's cache can hand back stale data
-  if (minted <= session.minted) {
+  if (isStale(session, minted)) {
+    console.info(`Profile ${ageOf(minted)} old, discarded`);
+
+    return { status: "unchanged", playing, result: undefined };
+  }
+
+  const contents = contentsOf(profile);
+
+  if (sameContents(session, contents)) {
+    session.minted = minted;
+    console.info(`Profile ${ageOf(minted)} old, no item changes`);
+
+    return {
+      status: "updated",
+      playing,
+      result: {
+        ...first,
+        source: "live",
+        playing,
+        activities: profile.characterActivities?.data ?? {},
+        variables: stringVariables(profile),
+        records: characterRecords(profile),
+        orderRewards: orderRewards(profile),
+      },
+    };
+  }
+
+  await materializeNew(session, profile);
+
+  if (isStale(session, minted)) {
+    console.info(`Profile ${ageOf(minted)} old, discarded`);
+
     return { status: "unchanged", playing, result: undefined };
   }
 
   void session.store.putOne(PROFILE, CURRENT, profile);
-
-  await materializeNew(session, profile);
 
   const built = buildStoresFrom(
     session.support,
@@ -801,7 +884,10 @@ export const refreshProfile = async (
   );
 
   session.minted = minted;
+  session.builtFrom = minted;
+  session.contents = contents;
   await seedInventory(built.stores, session.membership);
+  console.info(`Profile ${ageOf(minted)} old, rebuilt`);
 
   const result: LoadResult = {
     ...first,

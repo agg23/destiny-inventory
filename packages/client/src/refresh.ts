@@ -20,11 +20,11 @@ export const startAutoRefresh = ({
   let last = 0;
   let stopped = false;
 
-  const schedule = () => {
+  const schedule = (delay = INTERVAL) => {
     window.clearTimeout(timer);
 
     if (!stopped) {
-      timer = window.setTimeout(attempt, INTERVAL);
+      timer = window.setTimeout(attempt, delay);
     }
   };
 
@@ -38,7 +38,7 @@ export const startAutoRefresh = ({
 
     // Visibility and the timer can fire together
     if (Date.now() - last < MINIMUM) {
-      schedule();
+      schedule(MINIMUM - (Date.now() - last));
 
       return;
     }

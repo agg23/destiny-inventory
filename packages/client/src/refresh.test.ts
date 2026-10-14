@@ -83,6 +83,20 @@ describe("auto refresh", () => {
     stop();
   });
 
+  it("runs a throttled attempt once the minimum gap passes", async () => {
+    const onRefresh = vi.fn(() => Promise.resolve());
+    const { stop, now } = startAutoRefresh({ onRefresh, busy: () => false });
+
+    await vi.advanceTimersByTimeAsync(16_000);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+
+    now();
+    await vi.advanceTimersByTimeAsync(7_000);
+    expect(onRefresh).toHaveBeenCalledTimes(2);
+
+    stop();
+  });
+
   it("stops polling once torn down", async () => {
     const onRefresh = vi.fn(() => Promise.resolve());
     const { stop } = startAutoRefresh({ onRefresh, busy: () => false });

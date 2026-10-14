@@ -768,21 +768,21 @@ const fetchAcquired = async (session: Session): Promise<Set<number>> => {
 
 const acquiredByMember = new Map<
   string,
-  { minted: number; pending: Promise<Set<number>> }
+  { builtFrom: number; pending: Promise<Set<number>> }
 >();
 
-/** Collected state, refetched when the profile's minted time changes */
+/** Collected state, refetched when the stores are rebuilt from a newer profile */
 export const acquiredFor = (session: Session): Promise<Set<number>> => {
   const key = session.membership.membershipId;
   const held = acquiredByMember.get(key);
 
-  if (held && held.minted === session.minted) {
+  if (held && held.builtFrom === session.builtFrom) {
     return held.pending;
   }
 
   const pending = fetchAcquired(session);
 
-  acquiredByMember.set(key, { minted: session.minted, pending });
+  acquiredByMember.set(key, { builtFrom: session.builtFrom, pending });
   pending.catch(() => {
     if (acquiredByMember.get(key)?.pending === pending) {
       acquiredByMember.delete(key);

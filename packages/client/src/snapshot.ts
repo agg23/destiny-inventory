@@ -202,6 +202,8 @@ const fromSnapshot = (
     plugSets: {},
     hidden: new Set(),
     minted: snapshot.minted,
+    builtFrom: snapshot.minted,
+    contents: "",
     guest: undefined,
   },
 });

@@ -65,6 +65,13 @@ export const subscribeStores = (
   listener: (stores: DimStore[]) => void,
 ): (() => void) => store.subscribe(() => listener(currentStores()));
 
+let movesInFlight = 0;
+let lastMoveAt = 0;
+
+/** A profile minted before this predates a move the stores already show */
+export const movesSettledAt = (): number =>
+  movesInFlight > 0 ? Number.POSITIVE_INFINITY : lastMoveAt;
+
 export const moveItem = async (
   item: DimItem,
   target: DimStore,
@@ -73,5 +80,15 @@ export const moveItem = async (
 ): Promise<DimItem> => {
   const session = createMoveSession(neverCanceled, [item]);
 
-  return dispatch(executeMoveItem(item, target, { equip, amount }, session));
+  movesInFlight += 1;
+
+  try {
+    return await dispatch(
+      executeMoveItem(item, target, { equip, amount }, session),
+    );
+  } finally {
+    // A failed move can still have moved other items aside
+    movesInFlight -= 1;
+    lastMoveAt = Date.now();
+  }
 };
