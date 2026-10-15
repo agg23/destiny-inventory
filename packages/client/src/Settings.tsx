@@ -1,4 +1,3 @@
-import { Popover } from "@kobalte/core/popover";
 import { createSignal } from "solid-js";
 
 import {
@@ -12,11 +11,16 @@ import {
   TILE_MAX,
   TILE_MIN,
 } from "./settings.ts";
-import { Button } from "./ui/Button.tsx";
 import { CogGlyph } from "./ui/CogGlyph.tsx";
 import { Select } from "./ui/Select.tsx";
 import { Slider } from "./ui/Slider.tsx";
 import { Toggle } from "./ui/Toggle.tsx";
+import { Button } from "./ui/zaidan/button.tsx";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "./ui/zaidan/popover.tsx";
 
 export const Settings = () => {
   const [open, setOpen] = createSignal(false);
@@ -53,57 +57,58 @@ export const Settings = () => {
       gutter={6}
       placement="bottom-end"
     >
-      <Popover.Trigger
-        class="header-action"
+      <PopoverTrigger
+        as={Button}
+        variant="ghost"
+        size="icon-sm"
+        class="text-muted-foreground"
         title="Settings"
         aria-label="Settings"
       >
         <CogGlyph />
-      </Popover.Trigger>
-      <Popover.Portal>
-        <div class="settings-scrim" />
-        <Popover.Content
-          data-menu="settings"
-          class="settings-panel"
-          onEscapeKeyDown={() => (discarding = true)}
-        >
-          <Slider
-            label="Vault icon size"
-            value={settings().tile}
-            min={TILE_MIN}
-            max={TILE_MAX}
-            format={(value) => `${value}px`}
-            modified={settings().tile !== DEFAULTS.tile}
-            onReset={() =>
-              previewSettings({ ...settings(), tile: DEFAULTS.tile })
-            }
-            onChange={(tile) => previewSettings({ ...settings(), tile })}
-          />
+      </PopoverTrigger>
+      <PopoverContent
+        data-menu="settings"
+        class="w-80 gap-4 p-4"
+        onEscapeKeyDown={() => (discarding = true)}
+      >
+        <Slider
+          label="Vault icon size"
+          value={settings().tile}
+          min={TILE_MIN}
+          max={TILE_MAX}
+          format={(value) => `${value}px`}
+          modified={settings().tile !== DEFAULTS.tile}
+          onReset={() =>
+            previewSettings({ ...settings(), tile: DEFAULTS.tile })
+          }
+          onChange={(tile) => previewSettings({ ...settings(), tile })}
+        />
 
-          <Toggle
-            label="Display expansions"
-            checked={settings().overlay}
-            onChange={(overlay) => previewSettings({ ...settings(), overlay })}
-          />
+        <Toggle
+          label="Display expansions"
+          checked={settings().overlay}
+          onChange={(overlay) => previewSettings({ ...settings(), overlay })}
+        />
 
-          <Select
-            label="Ratings order"
-            value={settings().ratings}
-            options={RATING_DISPLAYS}
-            names={RATING_DISPLAY_NAMES}
-            onChange={(ratings) => previewSettings({ ...settings(), ratings })}
-          />
+        <Select
+          label="Ratings order"
+          class="justify-between text-foreground!"
+          value={settings().ratings}
+          options={RATING_DISPLAYS}
+          names={RATING_DISPLAY_NAMES}
+          onChange={(ratings) => previewSettings({ ...settings(), ratings })}
+        />
 
-          <div class="settings-actions">
-            <Button size="xs" variant="ghost" onClick={() => close(false)}>
-              Cancel
-            </Button>
-            <Button size="xs" variant="light" onClick={() => close(true)}>
-              Save
-            </Button>
-          </div>
-        </Popover.Content>
-      </Popover.Portal>
+        <div class="flex justify-end gap-2">
+          <Button size="sm" variant="ghost" onClick={() => close(false)}>
+            Cancel
+          </Button>
+          <Button size="sm" onClick={() => close(true)}>
+            Save
+          </Button>
+        </div>
+      </PopoverContent>
     </Popover>
   );
 };

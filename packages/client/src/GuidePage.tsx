@@ -5,8 +5,12 @@ import { createMemo, createResource, Show } from "solid-js";
 import { activityArt, baseName, tileArt } from "./activities.ts";
 import { activityTables } from "./activityTables.ts";
 import { guideNamed } from "./guides.ts";
-import { Button } from "./ui/Button.tsx";
+import { HERO } from "./ui/text.ts";
+import { Button } from "./ui/zaidan/button.tsx";
 import { activityLabel, tabHref } from "./url.ts";
+
+const PROSE =
+  "flex flex-col gap-4 rounded-xl bg-card p-6 leading-relaxed text-foreground/85 ring-1 ring-foreground/10 [&>:first-child]:mt-0 [&_:is(h1,h2,h3)]:mt-4 [&_:is(h1,h2,h3)]:leading-tight [&_:is(h1,h2,h3)]:font-semibold [&_:is(h1,h2,h3)]:text-foreground [&_h1]:text-2xl [&_h2]:text-xl [&_h3]:text-base [&_:is(ul,ol)]:flex [&_:is(ul,ol)]:flex-col [&_:is(ul,ol)]:gap-1.5 [&_:is(ul,ol)]:pl-6 [&_ul]:list-disc [&_ol]:list-decimal [&_img]:rounded-md [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-input [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground";
 
 // A template stays inert, so images pick up the referrer policy before they load
 const render = (markdown: string): HTMLDivElement => {
@@ -25,14 +29,10 @@ const render = (markdown: string): HTMLDivElement => {
   }
 
   const body = document.createElement("div");
-  body.className = "card-body guide-body";
+  body.className = PROSE;
   body.append(template.content);
 
-  const card = document.createElement("div");
-  card.className = "card";
-  card.append(body);
-
-  return card;
+  return body;
 };
 
 interface GuideState {
@@ -76,7 +76,7 @@ export const GuidePage = () => {
   };
 
   return (
-    <div class="flex flex-col gap-3 px-3 pt-3 pb-6">
+    <div class="flex max-w-5xl flex-col gap-3 p-4 pb-8">
       <Button
         size="sm"
         variant="ghost"
@@ -94,18 +94,20 @@ export const GuidePage = () => {
       </Button>
       <Show
         when={guide()}
-        fallback={<p class="text-muted">No guide for this activity.</p>}
+        fallback={
+          <p class="text-muted-foreground">No guide for this activity.</p>
+        }
       >
         {(found) => (
           <div class="flex flex-col gap-3">
-            <div class="card overflow-hidden">
-              <div
-                class="hero-art flex min-h-[200px] flex-col items-center justify-center gap-1 p-6 text-center"
-                style={{ "--art": tileArt(art(), typeName()) }}
-              >
-                <h2 class="m-0 text-2xl leading-tight">{found().name}</h2>
-                <span class="text-md text-text">{typeName()}</span>
-              </div>
+            <div
+              class={`${HERO} rounded-lg`}
+              style={{ "--art": tileArt(art(), typeName()) }}
+            >
+              <h2 class="text-2xl leading-tight font-semibold">
+                {found().name}
+              </h2>
+              <span class="text-foreground/80">{typeName()}</span>
             </div>
             {render(found().body)}
           </div>

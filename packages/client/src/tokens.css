@@ -1,7 +1,14 @@
-/* Framework above Tailwind, ours above that */
+/* destiny-ui-css's item rules above Tailwind's components, ours above that */
 @layer theme, base, components, destiny, app, utilities;
 
 @import "tailwindcss";
+@import "./ui/theme.css";
+@import "./ui/components.css";
+@import "./ui/anchored.css";
+@import "./items.css";
+
+/* Built from rarity names at runtime */
+@source inline("text-{exotic,legendary,rare,uncommon,common}");
 
 /* Latin only, one variable axis, no italics */
 @font-face {
@@ -16,6 +23,35 @@
     U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
+/* destiny-ui-css's palette, sampled from the game */
+:root {
+  --d2-header-text: #fff;
+  --d2-alt-header: #fcedd3;
+  --d2-text: #b6bbb7;
+
+  --d2-background: #12171d;
+  --d2-border: rgba(255, 255, 255, 0.25);
+  --d2-border-faint: rgba(255, 255, 255, 0.12);
+  --d2-hover-overlay: rgba(255, 255, 255, 0.15);
+
+  --d2-rarity-common: #c2bcb4;
+  --d2-rarity-uncommon: #356f42;
+  --d2-rarity-rare: #5076a2;
+  --d2-rarity-legendary: #522f65;
+  --d2-rarity-exotic: #ceae33;
+
+  --d2-damage-kinetic: #d5d5d5;
+  --d2-damage-arc: #7aecf3;
+  --d2-damage-solar: #f0631e;
+  --d2-damage-void: #b184c5;
+  --d2-damage-stasis: #4d78be;
+  --d2-damage-strand: #35e366;
+
+  --d2-accent-green: #5aa56a;
+  --d2-danger: #c73632;
+  --d2-warning: #eade8b;
+}
+
 /* Every color resolves to a --d2-* token */
 :root {
   color-scheme: dark;
@@ -23,26 +59,17 @@
   --fg: var(--d2-header-text);
   --bg: var(--d2-background);
 
-  --font-body: "Inter", system-ui, sans-serif;
-
-  --weight-body: 400;
-
-  --track-base: 0.2px;
   --track-caps: 0.6px;
 
   --space-2: 4px;
   --space-3: 6px;
   --space-4: 8px;
-  --space-5: 12px;
   --space-6: 16px;
 
   --text: var(--d2-text);
-  --muted: color-mix(in srgb, var(--d2-text) 75%, transparent);
   --dim: color-mix(in srgb, var(--d2-text) 50%, transparent);
 
-  --surface: var(--d2-surface);
   --surface-raised: var(--d2-hover-overlay);
-  --surface-active: color-mix(in srgb, var(--fg) 22%, transparent);
   --panel: color-mix(in srgb, var(--fg) 6%, var(--bg));
   --panel-raised: color-mix(in srgb, var(--fg) 10%, var(--bg));
 
@@ -80,7 +107,6 @@
   --stasis: var(--d2-damage-stasis);
   --strand: var(--d2-damage-strand);
 
-  /* The framework's small tile */
   --tile: 48px;
 
   /* Three tiles, but the emblem reads at half of its 474 */
@@ -88,18 +114,8 @@
   /* Emblem art is 474x96, and the whole strip sets the banner height */
   --banner: calc(var(--store-column) * 96 / 474);
 
-  /* The framework has no icon system */
   --icon-xs: 14px;
   --icon-sm: 18px;
-  --icon-md: 24px;
-  --icon-lg: 32px;
-  --icon-xl: 40px;
-
-  /* The framework's own button heights; xs is ours */
-  --button-xs: 31px;
-  --button-sm: 34px;
-  --button-md: 46px;
-  --button-lg: 58px;
 
   --plug: 28px;
   /* A six-socket perk row needs 188 */
@@ -110,7 +126,6 @@
   /* Reserved always, or the scrollbar feeds itself */
   --scrollbar: 16px;
 
-  /* The framework's tooltip is 22rem */
   --rail: 22rem;
   --rail-compare: calc(
     var(--compare-labels) + var(--item-run) * 2 + var(--space-6) * 4 +
@@ -120,37 +135,7 @@
 
 /* Static: Tailwind drops colors no utility mentions */
 @theme static {
-  --spacing: 4px;
-
   --font-sans: "Inter", system-ui, sans-serif;
-
-  --text-xs: 10px;
-  --text-sm: 12px;
-  --text-md: 14px;
-  --text-lg: 16px;
-  --text-xl: 20px;
-  --text-2xl: 24px;
-
-  --tracking-base: 0.2px;
-  --tracking-caps: 0.6px;
-
-  --radius-none: 0;
-
-  --color-fg: var(--fg);
-  --color-bg: var(--bg);
-
-  --color-text: var(--text);
-  --color-muted: var(--muted);
-  --color-dim: var(--dim);
-
-  --color-surface: var(--surface);
-  --color-surface-raised: var(--surface-raised);
-  --color-surface-active: var(--surface-active);
-  --color-panel: var(--panel);
-  --color-panel-raised: var(--panel-raised);
-
-  --color-line: var(--line);
-  --color-line-bright: var(--line-bright);
 
   --color-light: var(--light);
   --color-cream: var(--cream);
@@ -161,23 +146,37 @@
   --color-pve: var(--pve);
   --color-pvp: var(--pvp);
 
+  /* The framework's readability-tuned text colors */
   --color-exotic: var(--exotic);
-  --color-legendary: var(--legendary);
-  --color-rare: var(--rare);
-  --color-uncommon: var(--uncommon);
+  --color-legendary: color-mix(in srgb, var(--legendary), #fff 30%);
+  --color-rare: color-mix(in srgb, var(--rare), #fff 18%);
+  --color-uncommon: color-mix(in srgb, var(--uncommon), #fff 18%);
   --color-common: var(--common);
 
   --color-kinetic: var(--kinetic);
   --color-solar: var(--solar);
   --color-arc: var(--arc);
   --color-void: var(--void);
-  --color-stasis: var(--stasis);
+  --color-stasis: color-mix(in srgb, var(--stasis), #fff 15%);
   --color-strand: var(--strand);
 
-  --size-tile: var(--tile);
-}
+  /* Text over game art */
+  --text-shadow-art: 0 1px 2px #000;
 
-*:focus-visible {
-  outline: 1px solid var(--light);
-  outline-offset: 1px;
+  /* Held back so a cached paint never flashes it */
+  --animate-delayed-in: fade-in 0.15s ease-out 0.4s forwards;
+  --animate-toast-in: toast-in 0.2s ease-out;
+
+  @keyframes fade-in {
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(1rem);
+    }
+  }
 }

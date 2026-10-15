@@ -1,4 +1,3 @@
-import { DropdownMenu } from "@kobalte/core/dropdown-menu";
 import type {
   DimItem,
   DimPlug,
@@ -61,10 +60,20 @@ import {
 } from "./rolls.ts";
 import { shownModes } from "./settings.ts";
 import { shortStat } from "./statNames.ts";
-import { Button } from "./ui/Button.tsx";
+import { cn } from "./ui/cn.ts";
 import { CollectionsGlyph } from "./ui/CollectionsGlyph.tsx";
 import { ExternalGlyph } from "./ui/ExternalGlyph.tsx";
+import { Objective } from "./ui/Progress.tsx";
 import { SplitButton, type Choice } from "./ui/SplitButton.tsx";
+import { LABEL } from "./ui/text.ts";
+import { Badge } from "./ui/zaidan/badge.tsx";
+import { Button } from "./ui/zaidan/button.tsx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/zaidan/dropdown-menu.tsx";
 import { entryHref, lightGgHref } from "./url.ts";
 
 // SocketCategoryHashes for weapon, armor and ghost cosmetics
@@ -113,12 +122,12 @@ export const Moves = (props: MoveProps) => {
 
   return (
     <Show when={!guest()}>
-      <div class="flex flex-col items-stretch gap-1.5">
+      <div class="flex flex-col items-stretch gap-2">
         <Show when={transferTo()}>
           {(target) => (
             <SplitButton
               block
-              size="xs"
+              size="sm"
               label={
                 props.compact
                   ? "Transfer"
@@ -135,7 +144,7 @@ export const Moves = (props: MoveProps) => {
           {(target) => (
             <SplitButton
               block
-              size="xs"
+              size="sm"
               label={
                 props.compact ? "Equip" : `Equip on ${storeLabel(target())}`
               }
@@ -147,7 +156,7 @@ export const Moves = (props: MoveProps) => {
           )}
         </Show>
         <Show when={props.moving}>
-          {(status) => <p class="text-muted">{status()}</p>}
+          {(status) => <p class="text-xs text-muted-foreground">{status()}</p>}
         </Show>
       </div>
     </Show>
@@ -160,8 +169,8 @@ export const StatDelta = (props: { delta: Delta | undefined }) => (
       <span
         class="text-xs whitespace-nowrap tabular-nums"
         classList={{
-          "text-success": change().better,
-          "text-danger": !change().better,
+          "text-good": change().better,
+          "text-destructive": !change().better,
         }}
       >
         {change().value > 0 ? "+" : "−"}
@@ -171,7 +180,11 @@ export const StatDelta = (props: { delta: Delta | undefined }) => (
   </Show>
 );
 
-// The framework's stat list ends in one value cell
+/** Extra classes for the stat list's total row */
+export const TOTAL_ROW = "mt-0.5 border-t pt-1";
+
+export const STAT_NAME = "text-right text-xs text-muted-foreground";
+
 export const StatValue = (props: {
   stat: DimStat;
   against?: DimStat;
@@ -180,10 +193,11 @@ export const StatValue = (props: {
   best?: boolean;
 }) => (
   <span
-    class="stat-value flex gap-1 tabular-nums"
+    class="flex min-w-[2ch] gap-1 text-xs tabular-nums"
     classList={{
-      total: props.total,
-      "text-gold": props.best,
+      [TOTAL_ROW]: props.total,
+      "text-cream": props.best,
+      "text-foreground": !props.best,
       // Rounds per minute has no bar
       "col-span-2 justify-start": !props.stat.bar,
       "justify-end": Boolean(props.stat.bar),
@@ -208,10 +222,16 @@ export const StatBar = (props: {
 
   return (
     <Show when={props.stat.bar}>
-      <span class="stat-bar" classList={{ total: props.total }}>
+      <span
+        class="block h-1.5 overflow-hidden rounded-full bg-muted"
+        classList={{ [TOTAL_ROW]: props.total }}
+      >
         <span
-          class="stat-fill"
-          classList={{ masterwork: props.masterworked }}
+          class="block h-full"
+          classList={{
+            "bg-light": props.masterworked,
+            "bg-foreground": !props.masterworked,
+          }}
           style={{ width: `${fraction() * 100}%` }}
         />
       </span>
@@ -229,7 +249,7 @@ export const Bar = (props: {
 
   return (
     <>
-      <span class="stat-name" classList={{ total: total() }}>
+      <span class={STAT_NAME} classList={{ [TOTAL_ROW]: total() }}>
         {shortStat(props.stat.displayProperties.name)}
       </span>
       <StatBar
@@ -254,6 +274,25 @@ const identity = (plug: DimPlug): string => {
 };
 
 // The game lights the plugged perk and dims the rest
+const plugClass = (
+  socket: DimSocket,
+  plug: DimPlug,
+  available: boolean,
+): string => {
+  const plugged = plug.plugDef.hash === socket.plugged?.plugDef.hash;
+  const enhanced = isEnhancedPerk(plug.plugDef);
+
+  return cn(
+    "size-(--plug) flex-none ring-inset",
+    socket.isPerk && !socketContainsIntrinsicPlug(socket) && "rounded-full",
+    plugged ? "bg-muted" : "bg-foreground/5",
+    !plugged && !plug.enabled && "opacity-25",
+    !plugged && plug.enabled && (available ? "opacity-75" : "opacity-45"),
+    enhanced ? "ring-light" : plugged ? "ring-input" : "ring-border",
+    enhanced && plugged ? "ring-2" : "ring-1",
+  );
+};
+
 const Socket = (props: {
   item: DimItem;
   socket: DimSocket;
@@ -330,30 +369,28 @@ const Socket = (props: {
       <For each={options()}>
         {(plug) => (
           <span
-            class="plug-slot"
+            class="relative inline-flex"
             onMouseEnter={(event) =>
               previewPerk(props.item, plug, event.currentTarget)
             }
             onMouseLeave={() => dismissPerk(plug)}
           >
             <img
-              class="plug"
-              classList={{
-                plugged:
-                  plug.plugDef.hash === props.socket.plugged?.plugDef.hash,
-                available: onInstance().has(identity(plug)),
-                disabled: !plug.enabled,
-                round:
-                  props.socket.isPerk &&
-                  !socketContainsIntrinsicPlug(props.socket),
-                enhanced: isEnhancedPerk(plug.plugDef),
-              }}
+              class={plugClass(
+                props.socket,
+                plug,
+                onInstance().has(identity(plug)),
+              )}
               src={`${BUNGIE}${plug.plugDef.displayProperties.icon}`}
               loading="lazy"
               alt=""
             />
             <Show when={perkFor(plug.plugDef.hash)?.rank}>
-              {(rank) => <span class="plug-rank">{rank()}</span>}
+              {(rank) => (
+                <span class="absolute -right-px -bottom-px min-w-3 bg-popover px-px text-center text-[10px] leading-tight tabular-nums">
+                  {rank()}
+                </span>
+              )}
             </Show>
           </span>
         )}
@@ -393,24 +430,20 @@ const Category = (props: {
 
   return (
     <Show when={sockets().length > 0}>
-      <div class="perk-group">
-        {/* The framework's label flexes its rule to fill */}
-        <h4 class="section-label mt-3 mb-1.5">
-          {props.category.category.displayProperties.name}
+      <div>
+        <h4 class={`${LABEL} mt-3 mb-1.5 flex h-6 items-center justify-between`}>
+          {/* Bungie writes these in capitals */}
+          {sentence(props.category.category.displayProperties.name.toLowerCase())}
           <Show when={props.onToggleAll && rollable()}>
             <Button
               type="button"
-              size="sm"
+              size="xs"
               variant="ghost"
+              class="w-12"
               aria-pressed={Boolean(props.all)}
               onClick={props.onToggleAll}
             >
-              <span class="toggle-label">
-                <span>{props.all ? "Hide" : "All"}</span>
-                <span class="reserve" aria-hidden="true">
-                  Hide
-                </span>
-              </span>
+              {props.all ? "Hide" : "All"}
             </Button>
           </Show>
         </h4>
@@ -470,7 +503,13 @@ export const Perks = (props: {
   );
 };
 
-// The framework draws the perk disc itself
+const perkIconClass = (enhanced?: boolean, square?: boolean): string =>
+  square
+    ? "size-8 flex-none"
+    : `size-8 flex-none rounded-full border bg-foreground/8 ${
+        enhanced ? "border-light" : "border-foreground/50"
+      }`;
+
 export const PerkIcon = (props: {
   icon: string | undefined;
   enhanced?: boolean;
@@ -478,17 +517,11 @@ export const PerkIcon = (props: {
 }) => (
   <Show
     when={props.icon}
-    fallback={
-      <span
-        class="perk-icon"
-        classList={{ enhanced: props.enhanced, square: props.square }}
-      />
-    }
+    fallback={<span class={perkIconClass(props.enhanced, props.square)} />}
   >
     {(icon) => (
       <img
-        class="perk-icon"
-        classList={{ enhanced: props.enhanced, square: props.square }}
+        class={perkIconClass(props.enhanced, props.square)}
         src={`${BUNGIE}${icon()}`}
         alt=""
         loading="lazy"
@@ -497,17 +530,29 @@ export const PerkIcon = (props: {
   </Show>
 );
 
+/** An icon beside a perk's name and description */
+export const PERK = "flex items-start gap-3 py-1.5";
+
+export const PERK_NAME = "block font-medium text-foreground";
+
+/** A perk name followed by badges */
+export const PERK_TITLE =
+  "flex flex-wrap items-center gap-1.5 font-medium text-foreground";
+
+export const PERK_TEXT = "block text-xs whitespace-pre-wrap text-muted-foreground";
+
+/** Light gold, for Enhanced and other game-marked states */
+export const GOLD_BADGE = "border-light/40 text-light";
+
 export const Archetype = (props: { item: DimItem }) => {
   const found = createMemo(() => archetype(props.item));
 
   return (
     <Show when={found()}>
       {(plug) => (
-        <div class="tooltip-perk" title={plug().description}>
+        <div class={`${PERK} items-center!`} title={plug().description}>
           <PerkIcon icon={plug().icon} />
-          <div class="perk-text">
-            <b>{plug().name}</b>
-          </div>
+          <b class={PERK_NAME}>{plug().name}</b>
         </div>
       )}
     </Show>
@@ -520,13 +565,13 @@ const Intrinsics = (props: { item: DimItem }) => {
   return (
     <For each={list()}>
       {(intrinsic) => (
-        <div class="tooltip-perk items-start">
+        <div class={PERK}>
           <PerkIcon icon={intrinsic.icon} square />
-          <div class="perk-text">
-            <b>{intrinsic.name}</b>
+          <div class="min-w-0">
+            <b class={PERK_NAME}>{intrinsic.name}</b>
             <Changes stats={intrinsic.stats} />
             <Show when={intrinsic.description}>
-              <span class="block whitespace-pre-wrap">
+              <span class={PERK_TEXT}>
                 {intrinsic.description}
               </span>
             </Show>
@@ -544,34 +589,18 @@ const STATE_LABELS: Record<CatalystState, string> = {
 };
 
 const Objectives = (props: { objectives: DestinyObjectiveProgress[] }) => (
-  <ul class="weapon-objectives mt-1.5">
+  <ul class="mt-1.5 flex max-w-105 flex-col gap-1.5 text-xs">
     <For each={props.objectives}>
       {(objective) => (
         <li>
-          <div class="progress objective">
-            <span
-              class="progress-fill"
-              style={{
-                width: `${
-                  Math.min(
-                    1,
-                    (objective.progress ?? 0) /
-                      Math.max(1, objective.completionValue),
-                  ) * 100
-                }%`,
-              }}
-            />
-            <span class="progress-text">
-              <span class="truncate">
-                {defs()?.Objective.getOptional(objective.objectiveHash)
-                  ?.progressDescription ?? ""}
-              </span>
-              <span class="shrink-0 pl-2 tabular-nums">
-                {(objective.progress ?? 0).toLocaleString()}/
-                {objective.completionValue.toLocaleString()}
-              </span>
-            </span>
-          </div>
+          <Objective
+            label={
+              defs()?.Objective.getOptional(objective.objectiveHash)
+                ?.progressDescription ?? ""
+            }
+            progress={objective.progress ?? 0}
+            goal={objective.completionValue}
+          />
         </li>
       )}
     </For>
@@ -583,39 +612,41 @@ const Catalysts = (props: { item: DimItem; account?: Catalyst }) => {
 
   return (
     <Show when={list().length > 0}>
-      <div class="perk-group">
-        <h4 class="section-label mt-3 mb-1.5">
+      <div>
+        <h4 class={`${LABEL} mt-3 mb-1.5`}>
           {list().length > 1 ? "Catalysts" : "Catalyst"}
         </h4>
         <For each={list()}>
           {(catalyst) => (
-            <div class="tooltip-perk items-start">
+            <div class={PERK}>
               <PerkIcon icon={catalyst.icon} square />
-              <div class="perk-text">
-                <b>
+              <div class="min-w-0">
+                <b class={PERK_TITLE}>
                   {catalyst.name}
                   <Show when={catalyst.state}>
                     {(state) => (
-                      <>
-                        {" "}
-                        <span
-                          class="tag"
-                          classList={{ "text-muted": state() === "missing" }}
-                        >
-                          {STATE_LABELS[state()]}
-                        </span>
-                      </>
+                      <Badge
+                        variant="outline"
+                        class={
+                          state() === "missing"
+                            ? "text-muted-foreground"
+                            : GOLD_BADGE
+                        }
+                      >
+                        {STATE_LABELS[state()]}
+                      </Badge>
                     )}
                   </Show>
                   <Show when={catalyst.inserted}>
-                    {" "}
-                    <span class="tag">Inserted</span>
+                    <Badge variant="outline" class={GOLD_BADGE}>
+                      Inserted
+                    </Badge>
                   </Show>
                 </b>
                 <Changes stats={catalyst.stats} />
                 <For each={catalyst.lines}>
                   {(line) => (
-                    <span class="block whitespace-pre-wrap">
+                    <span class={PERK_TEXT}>
                       <Show when={line.name}>
                         {(name) => <span class="text-light">{name()}: </span>}
                       </Show>
@@ -665,10 +696,10 @@ const Masterwork = (props: { item: DimItem }) => {
         class="m-0 text-xs"
         classList={{
           "text-light": props.item.masterwork,
-          "text-dim": !props.item.masterwork,
+          "text-muted-foreground": !props.item.masterwork,
         }}
       >
-        <b class="tracking-wide uppercase">Masterwork</b>
+        <b class="font-medium">Masterwork</b>
         <Show when={tier()}>{(level) => <> {level()}</>}</Show>
         <For each={primary()}>
           {(stat) => (
@@ -694,7 +725,7 @@ export const Stats = (props: { item: DimItem; against?: DimItem }) => {
 
   return (
     <Show when={props.item.stats?.length}>
-      <div class="stat-list">
+      <div class="grid grid-cols-[minmax(6rem,max-content)_1fr_max-content] items-center gap-x-2.5 gap-y-1">
         <For each={sorted()}>
           {(stat) => (
             <Bar
@@ -718,7 +749,7 @@ export const SetBonus = (props: { item: DimItem }) => {
     <Show when={bonus()}>
       {(set) => (
         <>
-          <h4 class="section-label mt-3">{set().name}</h4>
+          <h4 class={`${LABEL} mt-3 mb-1.5`}>{set().name}</h4>
           <For each={set().perks}>
             {(perk) => {
               const rated = () =>
@@ -729,36 +760,28 @@ export const SetBonus = (props: { item: DimItem }) => {
                 });
 
               return (
-                <div class="tooltip-perk items-start">
+                <div class={PERK}>
                   <PerkIcon icon={perk.icon} />
-                  <div class="perk-text">
-                    <b>
+                  <div class="min-w-0">
+                    <b class={PERK_NAME}>
                       {perk.requiredSetCount} piece · {perk.name}
                     </b>
-                    <span class="block whitespace-pre-wrap">
-                      {perk.description}
-                    </span>
+                    <span class={PERK_TEXT}>{perk.description}</span>
                     <Show when={rated().length > 0}>
-                      <div class="set-bonus-note">
+                      <div class="mt-1.5 flex flex-col gap-1.5 border-t pt-1.5 text-xs">
                         <For each={rated()}>
                           {(entry) => (
-                            <div class="set-bonus-mode">
-                              <span class="set-bonus-rating">
+                            <div>
+                              <span class="flex items-baseline gap-2">
                                 <Show when={entry.rating.tier}>
-                                  {(tier) => (
-                                    <span
-                                      class={`roll-tier tier-${tier().toLowerCase()}`}
-                                    >
-                                      {tier()}
-                                    </span>
-                                  )}
+                                  {(tier) => <RollTier tier={tier()} />}
                                 </Show>
-                                <span class="rating-mode">
+                                <span class="text-muted-foreground">
                                   {MODE_NAMES[entry.mode]}
                                 </span>
                                 <Show when={entry.rating.rank}>
                                   {(rank) => (
-                                    <span class="text-dim">
+                                    <span class="text-muted-foreground">
                                       #{rank()} of{" "}
                                       {setBonusesRanked(entry.mode)}
                                     </span>
@@ -767,7 +790,7 @@ export const SetBonus = (props: { item: DimItem }) => {
                               </span>
                               <Show when={entry.rating.notes}>
                                 {(notes) => (
-                                  <span class="block text-muted">
+                                  <span class="block text-muted-foreground">
                                     {sentence(notes())}
                                   </span>
                                 )}
@@ -790,14 +813,14 @@ export const SetBonus = (props: { item: DimItem }) => {
 
 export const Changes = (props: { stats: StatChange[] }) => (
   <Show when={props.stats.length > 0}>
-    <div class="flex flex-wrap gap-1 gap-x-2 pt-1">
+    <div class="flex flex-wrap gap-x-2 gap-y-0.5 pt-0.5">
       <For each={props.stats}>
         {(stat) => (
           <span
-            class="text-sm whitespace-nowrap tabular-nums"
+            class="text-xs whitespace-nowrap tabular-nums"
             classList={{
-              "text-success": stat.better,
-              "text-danger": !stat.better,
+              "text-good": stat.better,
+              "text-destructive": !stat.better,
             }}
           >
             {stat.value > 0 ? "+" : "−"}
@@ -816,27 +839,32 @@ export const Benefits = (props: { item: DimItem }) => {
     <Show when={list().length > 0}>
       <For each={list()}>
         {(benefit) => (
-          <div class="tooltip-perk items-start">
+          <div class={PERK}>
             <PerkIcon
               icon={benefit.icon}
               enhanced={benefit.enhanced}
               square={benefit.intrinsic}
             />
-            <div class="perk-text">
-              <b classList={{ "text-light": benefit.enhanced }}>
+            <div class="min-w-0">
+              <b
+                class={PERK_TITLE}
+                classList={{ "text-light!": benefit.enhanced }}
+              >
                 {benefit.name}
                 <Show when={benefit.enhanced}>
-                  {" "}
-                  <span class="tag">Enhanced</span>
+                  <Badge variant="outline" class={GOLD_BADGE}>
+                    Enhanced
+                  </Badge>
                 </Show>
                 <Show when={benefit.intrinsic}>
-                  {" "}
-                  <span class="tag">Intrinsic</span>
+                  <Badge variant="outline" class={GOLD_BADGE}>
+                    Intrinsic
+                  </Badge>
                 </Show>
               </b>
               <Changes stats={benefit.stats} />
               <Show when={benefit.description}>
-                <span class="block whitespace-pre-wrap">
+                <span class={PERK_TEXT}>
                   {benefit.description}
                 </span>
               </Show>
@@ -887,7 +915,11 @@ const OptionMark = (props: { option: MergedOption; judges: number }) => (
     fallback={<AegisMark matched={props.option.wantedBy.length > 0} />}
   >
     <span
-      class={`aegis-mode-mark ${props.option.wantedBy[0]!}`}
+      class={`${MARK} mask-contain mask-center mask-no-repeat`}
+      classList={{
+        "bg-pve": props.option.wantedBy[0] === "pve",
+        "bg-pvp": props.option.wantedBy[0] === "pvp",
+      }}
       role="img"
       aria-label={`Wanted for ${MODE_NAMES[props.option.wantedBy[0]!]}`}
       style={{
@@ -897,8 +929,11 @@ const OptionMark = (props: { option: MergedOption; judges: number }) => (
   </Show>
 );
 
+// Baseline aligning an svg sits its box on the baseline, not its ink
+const MARK = "size-[1em] flex-none translate-y-[0.167em]";
+
 const AegisMark = (props: { matched: boolean }) => (
-  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+  <svg class={MARK} viewBox="0 0 24 24" fill="none" aria-hidden="true">
     <Show
       when={props.matched}
       fallback={
@@ -913,6 +948,19 @@ const AegisMark = (props: { matched: boolean }) => (
     </Show>
   </svg>
 );
+
+/** A sheet's letter grade, on its tier color */
+export const RollTier = (props: { tier: string }) => (
+  <span
+    class={`tier-${props.tier.toLowerCase()} flex-none bg-(--tier) px-1.5 text-xs font-bold text-black`}
+  >
+    {props.tier}
+  </span>
+);
+
+/** The label column beside a verdict, like Perk 1 */
+export const VERDICT_ROW =
+  "grid grid-cols-[3.5rem_minmax(0,1fr)] items-baseline gap-x-2";
 
 // The sheet writes the notes lowercase
 const sentence = (text: string): string =>
@@ -1020,51 +1068,56 @@ export const AegisNote = (props: { item: DimItem }) => {
 
   return (
     <Show when={judged().length > 0}>
-      <div class="aegis-note">
+      <div class="flex flex-col gap-2">
         <For each={judged()}>
           {(entry) => (
-            <p class="aegis-line">
-              <span class="aegis-lead">
-                <Show when={entry.read.rating.tier}>
-                  {(tier) => (
-                    <span class={`roll-tier tier-${tier().toLowerCase()}`}>
-                      {tier()}
+            <p class="flex items-baseline gap-2">
+              <Show when={entry.read.rating.tier}>
+                {(tier) => <RollTier tier={tier()} />}
+              </Show>
+              <span>
+                <span class="mr-1.5 text-xs text-muted-foreground">
+                  {MODE_NAMES[entry.mode]}
+                </span>
+                <b class="font-medium text-foreground">
+                  {recommendedBase(entry.read.rating.tier)
+                    ? "Recommended base"
+                    : "Not a recommended base"}
+                </b>
+                <Show when={entry.read.rating.rank}>
+                  {(rank) => (
+                    <span class="text-muted-foreground">
+                      {" "}
+                      #{rank()} of {entry.read.rating.ranked}{" "}
+                      {entry.read.rating.category}
                     </span>
                   )}
                 </Show>
-                <span>
-                  <span class="rating-mode">{MODE_NAMES[entry.mode]}</span>
-                  <b class="tracking-wide uppercase">
-                    {recommendedBase(entry.read.rating.tier)
-                      ? "Recommended base"
-                      : "Not a recommended base"}
-                  </b>
-                  <Show when={entry.read.rating.rank}>
-                    {(rank) => (
-                      <span class="text-dim">
-                        {" "}
-                        #{rank()} of {entry.read.rating.ranked}{" "}
-                        {entry.read.rating.category}
-                      </span>
-                    )}
-                  </Show>
-                  <Show when={entry.read.rating.notes}>
-                    {(notes) => (
-                      <span class="block text-muted">{sentence(notes())}</span>
-                    )}
-                  </Show>
-                </span>
+                <Show when={entry.read.rating.notes}>
+                  {(notes) => (
+                    <span class="block text-xs text-muted-foreground">
+                      {sentence(notes())}
+                    </span>
+                  )}
+                </Show>
               </span>
             </p>
           )}
         </For>
 
         <Show when={rows().length > 0}>
-          <ul class="aegis-slots">
+          <ul class="flex flex-col gap-1.5 text-xs">
             <For each={rows()}>
               {(row) => (
-                <li classList={{ hit: row.matched, miss: !row.matched }}>
-                  <span class="aegis-slot-label">{row.label}</span>
+                <li class={VERDICT_ROW}>
+                  <span
+                    classList={{
+                      "text-good": row.matched,
+                      "text-destructive": !row.matched,
+                    }}
+                  >
+                    {row.label}
+                  </span>
                   <span class="sr-only">
                     {row.matched ? "recommended" : "not recommended"}
                   </span>
@@ -1072,29 +1125,30 @@ export const AegisNote = (props: { item: DimItem }) => {
                     when={options(row).length > 0}
                     fallback={
                       <Show when={!uninstanced() || row.wants.length === 0}>
-                        <span class="aegis-slot-rolled">
-                          <span class="aegis-slot-perk plain">
-                            <AegisMark matched={false} />
-                            {uninstanced() ? "No pick" : "Empty"}
-                          </span>
+                        <span class="col-start-2 flex items-baseline gap-1.5 text-muted-foreground">
+                          <AegisMark matched={false} />
+                          {uninstanced() ? "No pick" : "Empty"}
                         </span>
                       </Show>
                     }
                   >
-                    <span class="aegis-slot-rolled">
+                    <span class="col-start-2 flex flex-col gap-0.5">
                       <For each={options(row)}>
                         {(option) => (
                           <span
-                            class="aegis-slot-perk"
+                            class="flex items-baseline gap-1.5"
                             classList={{
-                              wanted: option.wantedBy.length > 0,
-                              plain: option.wantedBy.length === 0,
+                              "text-good": option.wantedBy.length > 0,
+                              "text-muted-foreground":
+                                option.wantedBy.length === 0,
                             }}
                           >
                             <OptionMark option={option} judges={row.judges} />
                             {option.name}
                             <Show when={option.plugged}>
-                              <span class="aegis-slot-label">selected</span>
+                              <span class="text-muted-foreground">
+                                Selected
+                              </span>
                             </Show>
                           </span>
                         )}
@@ -1103,8 +1157,8 @@ export const AegisNote = (props: { item: DimItem }) => {
                   </Show>
                   <For each={row.wants}>
                     {(want) => (
-                      <span class="aegis-slot-picks">
-                        <span class="aegis-slot-label">
+                      <span class="col-start-2 text-muted-foreground">
+                        <span class="text-foreground/70">
                           {paired() ? `${MODE_NAMES[want.mode]} ` : ""}
                           {want.also ? "Also wants" : "Wants"}
                         </span>{" "}
@@ -1118,23 +1172,19 @@ export const AegisNote = (props: { item: DimItem }) => {
           </ul>
 
           <Show when={!uninstanced() && scored().length > 0}>
-            <p class="aegis-overall">
-              <span class="aegis-slot-label">Overall</span>
-              <span class="aegis-overall-modes">
+            <p class={`${VERDICT_ROW} border-t pt-1.5 text-xs`}>
+              <span class="text-muted-foreground">Overall</span>
+              <span class="flex flex-wrap gap-x-4">
                 <For each={scored()}>
                   {(entry) => (
-                    <span class="aegis-lead">
+                    <span class="flex items-baseline gap-2">
                       <Show when={entry.read.overall}>
-                        {(tier) => (
-                          <span
-                            class={`roll-tier tier-${tier().toLowerCase()}`}
-                          >
-                            {tier()}
-                          </span>
-                        )}
+                        {(tier) => <RollTier tier={tier()} />}
                       </Show>
                       <Show when={paired()}>
-                        <span class="text-dim">{MODE_NAMES[entry.mode]}</span>
+                        <span class="text-muted-foreground">
+                          {MODE_NAMES[entry.mode]}
+                        </span>
                       </Show>
                     </span>
                   )}
@@ -1201,8 +1251,8 @@ export const ItemDetails = (props: {
 
   const warning = (
     <Show when={uninstanced() && !props.hideRollWarning}>
-      <p class="m-0 text-sm text-warning">
-        <b class="tracking-wide uppercase">Generic roll</b>
+      <p class="text-xs text-warning">
+        <b class="font-medium">Generic roll</b>
         <span class="block">
           Stats and perks come from the definition. The weapon that was used may
           have rolled differently.
@@ -1253,14 +1303,14 @@ export const ItemDetails = (props: {
       {(place) => (
         <>
           <Show when={props.lead}>
-            <div class="min-w-0 self-start" style={cell(LEAD_ROW)}>
+            <div class="min-w-0 self-start pb-3" style={cell(LEAD_ROW)}>
               {props.lead}
             </div>
           </Show>
           <div class="min-w-0 self-start" style={cell(SUMMARY_ROW)}>
             <AegisNote item={props.item} />
             {warning}
-            <div class="stat-lead">
+            <div class="mt-3 first:mt-0">
               <Masterwork item={props.item} />
               <Archetype item={props.item} />
               <Intrinsics item={props.item} />
@@ -1269,8 +1319,8 @@ export const ItemDetails = (props: {
           <For each={place().stats}>
             {(stat, row) => (
               <div
-                class="compare-stat"
-                classList={{ total: stat.total }}
+                class="grid grid-cols-[minmax(0,1fr)_max-content] items-center gap-2.5"
+                classList={{ [TOTAL_ROW]: stat.total }}
                 style={{
                   "grid-column": place().statColumn,
                   "grid-row": String(STATS_ROW + row()),
@@ -1278,7 +1328,7 @@ export const ItemDetails = (props: {
               >
                 <Show
                   when={own(stat.hash)}
-                  fallback={<span class="dash">·</span>}
+                  fallback={<span class="text-muted-foreground">·</span>}
                 >
                   {(mine) => (
                     <>
@@ -1342,7 +1392,7 @@ export const ItemHead = (props: {
           <div
             class="tooltip-name"
             classList={{
-              "line-clamp-2 pr-6 text-md leading-5 whitespace-normal":
+              "line-clamp-2 pr-6 text-sm leading-5 whitespace-normal":
                 props.compact,
             }}
           >
@@ -1361,7 +1411,7 @@ export const ItemHead = (props: {
       class="py-2 empty:hidden"
       classList={{
         "tooltip-body": !props.compact,
-        "border-b border-line": props.compact,
+        "border-b": props.compact,
       }}
     >
       <ItemPower
@@ -1384,11 +1434,11 @@ const AMMO: Record<number, { url: string; name: string }> = {
 const TagControl = (props: { item: DimItem }) => {
   const current = () => tagFor(props.item.id);
   const label = () => current()?.label ?? "No tag";
-  const tint = () => `var(--color-${current()?.color ?? "line-bright"})`;
+  const tint = () => `var(--${current()?.color ?? "line-bright"})`;
 
   return (
-    <DropdownMenu gutter={4} placement="bottom-end" modal={false} preventScroll={false}>
-      <DropdownMenu.Trigger
+    <DropdownMenu placement="bottom-end" modal={false} preventScroll={false}>
+      <DropdownMenuTrigger
         class="tag-control"
         classList={{ tagged: !!current() }}
         style={{ "--tag": tint() }}
@@ -1396,35 +1446,28 @@ const TagControl = (props: { item: DimItem }) => {
         title={label()}
       >
         {label()}
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          data-menu="tag"
-          class="menu-list z-4 min-w-32 bg-panel-raised shadow-[inset_0_0_0_1px_var(--color-line-bright),0_8px_24px_#000c]"
+      </DropdownMenuTrigger>
+      <DropdownMenuContent data-menu="tag" class="min-w-32">
+        <DropdownMenuItem
+          onSelect={() => setOnlyTag(props.item.id, props.item.hash, undefined)}
         >
-          <DropdownMenu.Item
-            class="menu-item flex items-center gap-2 px-3 py-2 text-sm tracking-caps outline-none data-[highlighted]:border-fg data-[highlighted]:bg-surface-active data-[highlighted]:text-fg"
-            onSelect={() => setOnlyTag(props.item.id, props.item.hash, undefined)}
-          >
-            <span class="tag-dot none" />
-            No tag
-          </DropdownMenu.Item>
-          <For each={tagDefs()}>
-            {(def) => (
-              <DropdownMenu.Item
-                class="menu-item flex items-center gap-2 px-3 py-2 text-sm tracking-caps outline-none data-[highlighted]:border-fg data-[highlighted]:bg-surface-active data-[highlighted]:text-fg"
-                onSelect={() => setOnlyTag(props.item.id, props.item.hash, def.id)}
-              >
-                <span
-                  class="tag-dot"
-                  style={{ "background-color": `var(--color-${def.color})` }}
-                />
-                {def.label}
-              </DropdownMenu.Item>
-            )}
-          </For>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
+          <span class="size-2 rounded-full border border-dashed border-input" />
+          No tag
+        </DropdownMenuItem>
+        <For each={tagDefs()}>
+          {(def) => (
+            <DropdownMenuItem
+              onSelect={() => setOnlyTag(props.item.id, props.item.hash, def.id)}
+            >
+              <span
+                class="size-2 rounded-full"
+                style={{ "background-color": `var(--color-${def.color})` }}
+              />
+              {def.label}
+            </DropdownMenuItem>
+          )}
+        </For>
+      </DropdownMenuContent>
     </DropdownMenu>
   );
 };

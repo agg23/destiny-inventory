@@ -4,18 +4,19 @@ import { readable } from "../activities.ts";
 import { BUNGIE } from "../bungie.ts";
 import type { Claimed, Order } from "../orders.ts";
 import { remaining } from "../reset.ts";
+import { Progress } from "../ui/Progress.tsx";
+import { CARD, HEADING, SECTION, TABLE_FRAME } from "../ui/text.ts";
+import { Table, TableBody, TableCell, TableRow } from "../ui/zaidan/table.tsx";
 import { day, exact } from "./todoFormat.ts";
 
-// The framework only ships an accent stripe for the two rarities that get one in game
+// Only these two rarities get an accent stripe in game
 const ACCENTS: Record<string, string> = {
-  Legendary: "accent-legendary",
-  Exotic: "accent-exotic",
+  Legendary:
+    "border-l-3 border-l-[color-mix(in_srgb,var(--legendary),#fff_20%)]",
+  Exotic: "border-l-3 border-l-exotic",
 };
 
 const HOUR = 3_600_000;
-
-const percent = (order: Order): number =>
-  order.goal === 0 ? 0 : Math.min(100, (order.progress / order.goal) * 100);
 
 export const OrderCard = (props: {
   order: Order;
@@ -23,15 +24,19 @@ export const OrderCard = (props: {
   values: Record<number, number>;
 }) => (
   <div
-    class={`card order-row ${ACCENTS[props.order.rarity] ?? ""}`}
+    class={`${CARD} ${ACCENTS[props.order.rarity] ?? ""}`}
     data-rarity={props.order.rarity}
   >
-    <div class="order-head">
-      <img class="glyph" src={`${BUNGIE}${props.order.icon}`} alt="" />
-      <span class="order-name">{props.order.name}</span>
+    <div class="flex items-center gap-2">
+      <img
+        class="size-(--icon-sm) shrink-0 object-contain"
+        src={`${BUNGIE}${props.order.icon}`}
+        alt=""
+      />
+      <span class="min-w-0 flex-1 font-medium">{props.order.name}</span>
       <Show
         when={props.order.expiresAt !== undefined}
-        fallback={<span class="text-muted">No deadline</span>}
+        fallback={<span class="text-muted-foreground">No deadline</span>}
       >
         <span
           class="whitespace-nowrap tabular-nums"
@@ -44,25 +49,20 @@ export const OrderCard = (props: {
         </span>
       </Show>
     </div>
-    <div class="order-tier">
-      <span class={`order-rarity text-${props.order.rarity.toLowerCase()}`}>
+    <div class="flex justify-between gap-2 text-xs">
+      <span class={`text-${props.order.rarity.toLowerCase()}`}>
         {props.order.rarity}
       </span>
-      <span class="text-muted">{props.order.family}</span>
+      <span class="text-muted-foreground">{props.order.family}</span>
     </div>
     <Show when={props.order.description}>
-      <p class="order-note m-0 text-muted">
+      <p class="text-xs text-muted-foreground">
         {readable(props.order.description, props.values)}
       </p>
     </Show>
-    <div class="progress objective">
-      <span
-        class="progress-fill"
-        style={{ width: `${percent(props.order)}%` }}
-      />
-    </div>
+    <Progress value={props.order.progress / Math.max(1, props.order.goal)} />
     <Show when={props.order.readout}>
-      <div class="order-foot text-muted">
+      <div class="flex justify-between gap-2 text-xs text-muted-foreground">
         <span
           class="tabular-nums"
           title={`${props.order.progress.toLocaleString()} / ${props.order.goal.toLocaleString()} points`}
@@ -75,29 +75,38 @@ export const OrderCard = (props: {
 );
 
 export const ClaimedLog = (props: { log: Claimed[] }) => (
-  <section class="todo-section">
-    <h2 class="section-label">Completed orders</h2>
+  <section class={SECTION}>
+    <h2 class={HEADING}>Completed orders</h2>
     <Show
       when={props.log.length > 0}
       fallback={
-        <p class="m-0 text-muted">Nothing claimed while the app was open</p>
+        <p class="text-muted-foreground">
+          Nothing claimed while the app was open
+        </p>
       }
     >
-      <table class="table">
-        <tbody>
-          <For each={props.log}>
-            {(entry) => (
-              <tr>
-                <td>{entry.name}</td>
-                <td class="text-muted">{entry.family}</td>
-                <td class="num" title={`Claimed ${exact(entry.claimedAt)}`}>
-                  {day(entry.claimedAt)}
-                </td>
-              </tr>
-            )}
-          </For>
-        </tbody>
-      </table>
+      <div class={TABLE_FRAME}>
+        <Table>
+          <TableBody>
+            <For each={props.log}>
+              {(entry) => (
+                <TableRow>
+                  <TableCell class="w-2/5">{entry.name}</TableCell>
+                  <TableCell class="text-muted-foreground">
+                    {entry.family}
+                  </TableCell>
+                  <TableCell
+                    class="text-right tabular-nums"
+                    title={`Claimed ${exact(entry.claimedAt)}`}
+                  >
+                    {day(entry.claimedAt)}
+                  </TableCell>
+                </TableRow>
+              )}
+            </For>
+          </TableBody>
+        </Table>
+      </div>
     </Show>
   </section>
 );

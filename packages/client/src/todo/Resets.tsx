@@ -7,6 +7,7 @@ import {
   remaining,
   xurPresent,
 } from "../reset.ts";
+import { HEADING, LABEL, SECTION } from "../ui/text.ts";
 import { stamp } from "./todoFormat.ts";
 
 export interface Deadline {
@@ -34,17 +35,17 @@ export const deadlines = (now: number): Deadline[] => [
 ];
 
 export const Resets = (props: { resets: Deadline[]; now: number }) => (
-  <section class="todo-section">
-    <h2 class="section-label">Resets</h2>
-    <div class="reset-strip">
+  <section class={SECTION}>
+    <h2 class={HEADING}>Resets</h2>
+    <div class="grid grid-cols-[repeat(auto-fit,minmax(13rem,1fr))] gap-3">
       <For each={props.resets}>
         {(row) => (
-          <div class="reset-block">
-            <span class="reset-label">{row.name}</span>
-            <span class="reset-clock tabular-nums">
+          <div class="flex min-w-0 flex-col gap-1 border-l-2 border-input pl-3">
+            <span class={LABEL}>{row.name}</span>
+            <span class="text-2xl leading-tight tabular-nums">
               {remaining(row.at - props.now)}
             </span>
-            <span class="reset-when">
+            <span class="text-xs text-muted-foreground">
               {row.note} · {stamp(row.at)}
             </span>
           </div>

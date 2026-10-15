@@ -10,7 +10,9 @@ import {
   primeCollections,
 } from "./collections.ts";
 import { MAX_NOTE_LENGTH, noteFor, saveNote, type NoteTarget } from "./notes.ts";
-import { Button } from "./ui/Button.tsx";
+import { LABEL, NOTE_TEXT } from "./ui/text.ts";
+import { Button } from "./ui/zaidan/button.tsx";
+import { Textarea } from "./ui/zaidan/textarea.tsx";
 import { readParam } from "./url.ts";
 
 const LEAVE_PROMPT = "You have an unsaved note. Leave without saving?";
@@ -120,8 +122,8 @@ export const NoteEditor = (props: { target: NoteTarget }) => {
 
   return (
     <div class="flex flex-col gap-1.5">
-      <textarea
-        class="text-area"
+      <Textarea
+        class="min-h-16"
         maxLength={MAX_NOTE_LENGTH}
         placeholder="Add a note"
         aria-label="Note"
@@ -130,14 +132,14 @@ export const NoteEditor = (props: { target: NoteTarget }) => {
       />
       <Show when={dirty() || failed()}>
         <div class="flex items-center gap-2">
-          <Button size="xs" disabled={saving()} onClick={() => void submit()}>
+          <Button size="sm" disabled={saving()} onClick={() => void submit()}>
             Save
           </Button>
-          <Button size="xs" variant="ghost" disabled={saving()} onClick={revert}>
+          <Button size="sm" variant="ghost" disabled={saving()} onClick={revert}>
             Revert
           </Button>
           <Show when={failed()}>
-            <span class="text-sm text-error">Couldn't save</span>
+            <span class="text-xs text-destructive">Couldn't save</span>
           </Show>
         </div>
       </Show>
@@ -181,10 +183,12 @@ export const SharedNote = (props: { item: DimItem }) => {
     <Show when={note()}>
       {(found) => (
         <div class="flex flex-col gap-1">
-          <span class="text-xs uppercase tracking-caps text-dim">
+          <span class={LABEL}>
             {target()?.kind === "set" ? "Set note" : "All copies"}
           </span>
-          <p class="note-text text-sm">{found()}</p>
+          <p class={NOTE_TEXT}>
+            {found()}
+          </p>
         </div>
       )}
     </Show>

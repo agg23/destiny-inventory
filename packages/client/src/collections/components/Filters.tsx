@@ -8,6 +8,7 @@ import {
   termValue,
   type ClassName,
 } from "../../collections.ts";
+import { PickOne } from "../../ui/PickOne.tsx";
 import { LAYOUTS, type Kind, type Layout } from "../../url.ts";
 import { Choice } from "./Choice.tsx";
 
@@ -89,17 +90,11 @@ export const Filters = (props: {
         onChoose={(value) => props.onTerm("catalyst", CATALYSTS, value)}
       />
     </Show>
-    <Choice
-      label="View"
-      options={LAYOUTS}
-      labels={LAYOUT_LABELS}
+    <PickOne
       value={props.layout}
-      all={false}
-      onChoose={(layout) => {
-        if (layout) {
-          props.onLayout(layout);
-        }
-      }}
+      options={LAYOUTS}
+      label={(one) => LAYOUT_LABELS[one]}
+      onChange={props.onLayout}
     />
   </>
 );

@@ -1,0 +1,319 @@
+/* Generated from Zaidan's style-nova.css (MIT, see zaidan/LICENSE) by stripping animations */
+
+@layer components {
+  /* MARK: Badge */
+  .z-badge {
+    @apply h-5 gap-1 rounded-4xl border border-transparent px-2 py-0.5 text-xs font-medium transition-all has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&>svg]:size-3!;
+  }
+
+  .z-badge-variant-default {
+    @apply bg-primary text-primary-foreground [a]:hover:bg-primary/80;
+  }
+
+  .z-badge-variant-secondary {
+    @apply bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80;
+  }
+
+  .z-badge-variant-outline {
+    @apply border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground;
+  }
+
+  .z-badge-variant-destructive {
+    @apply bg-destructive/10 [a]:hover:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 text-destructive dark:bg-destructive/20;
+  }
+
+  .z-badge-variant-ghost {
+    @apply hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50;
+  }
+
+  .z-badge-variant-link {
+    @apply text-primary underline-offset-4 hover:underline;
+  }
+
+  /* MARK: Button */
+  .z-button {
+    @apply focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 rounded-lg border border-transparent bg-clip-padding text-sm font-medium focus-visible:ring-3 aria-invalid:ring-3 active:not-aria-[haspopup]:translate-y-px [&_svg:not([class*='size-'])]:size-4;
+  }
+
+  .z-button-variant-default {
+    @apply bg-primary text-primary-foreground hover:bg-primary/80;
+  }
+
+  .z-button-variant-outline {
+    @apply border-border bg-background hover:bg-muted hover:text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 aria-expanded:bg-muted aria-expanded:text-foreground;
+  }
+
+  .z-button-variant-secondary {
+    @apply bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground;
+  }
+
+  .z-button-variant-ghost {
+    @apply hover:bg-muted hover:text-foreground dark:hover:bg-muted/50 aria-expanded:bg-muted aria-expanded:text-foreground;
+  }
+
+  .z-button-variant-destructive {
+    @apply bg-destructive/10 hover:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/20 text-destructive focus-visible:border-destructive/40 dark:hover:bg-destructive/30;
+  }
+
+  .z-button-variant-link {
+    @apply text-primary underline-offset-4 hover:underline;
+  }
+
+  .z-button-size-xs {
+    @apply h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3;
+  }
+
+  .z-button-size-sm {
+    @apply h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5;
+  }
+
+  .z-button-size-default {
+    @apply h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2;
+  }
+
+  .z-button-size-lg {
+    @apply h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2;
+  }
+
+  .z-button-size-icon-xs {
+    @apply size-6 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3;
+  }
+
+  .z-button-size-icon-sm {
+    @apply size-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg;
+  }
+
+  .z-button-size-icon {
+    @apply size-8;
+  }
+
+  .z-button-size-icon-lg {
+    @apply size-9;
+  }
+
+  /* MARK: Checkbox */
+  .z-checkbox {
+    @apply border-input dark:bg-input/30 data-checked:bg-primary data-checked:text-primary-foreground dark:data-checked:bg-primary data-checked:border-primary aria-invalid:aria-checked:border-primary aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 flex size-4 items-center justify-center rounded-[4px] border transition-colors group-has-disabled/field:opacity-50 focus-visible:ring-3 aria-invalid:ring-3;
+  }
+
+  .z-checkbox-indicator {
+    @apply [&>svg]:size-3.5;
+  }
+
+  /* MARK: Context Menu */
+  .z-context-menu-content {
+    @apply ring-foreground/10 bg-popover text-popover-foreground min-w-36 rounded-lg p-1 shadow-md ring-1;
+  }
+
+  .z-context-menu-item {
+    @apply focus:bg-accent focus:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:[&>svg]:text-destructive focus:[&>svg]:text-accent-foreground gap-1.5 rounded-md px-1.5 py-1 text-sm data-inset:pl-7 [&_svg:not([class*='size-'])]:size-4;
+  }
+
+  .z-context-menu-radio-item {
+    @apply focus:bg-accent focus:text-accent-foreground gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm data-inset:pl-7 [&_svg:not([class*='size-'])]:size-4;
+  }
+
+  .z-context-menu-item-indicator {
+    @apply absolute right-2;
+  }
+
+  .z-context-menu-separator {
+    @apply bg-border -mx-1 my-1 h-px;
+  }
+
+  .z-context-menu-sub-trigger {
+    @apply focus:bg-accent focus:text-accent-foreground data-expanded:bg-accent data-expanded:text-accent-foreground gap-1.5 rounded-md px-1.5 py-1 text-sm data-inset:pl-7 [&_svg:not([class*='size-'])]:size-4;
+  }
+
+  /* MARK: Dropdown Menu */
+  .z-dropdown-menu-content {
+    @apply ring-foreground/10 bg-popover text-popover-foreground min-w-32 rounded-lg p-1 shadow-md ring-1;
+  }
+
+  .z-dropdown-menu-item {
+    @apply focus:bg-accent focus:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:[&>svg]:text-destructive [&:focus:not([data-variant=destructive])_*]:text-accent-foreground gap-1.5 rounded-md px-1.5 py-1 text-sm data-inset:pl-7 [&_svg:not([class*='size-'])]:size-4;
+  }
+
+  .z-dropdown-menu-checkbox-item {
+    @apply focus:bg-accent focus:text-accent-foreground [&:focus_*]:text-accent-foreground gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm data-inset:pl-7 [&_svg:not([class*='size-'])]:size-4;
+  }
+
+  .z-dropdown-menu-radio-item {
+    @apply focus:bg-accent focus:text-accent-foreground [&:focus_*]:text-accent-foreground gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm data-inset:pl-7 [&_svg:not([class*='size-'])]:size-4;
+  }
+
+  .z-dropdown-menu-item-indicator {
+    @apply absolute right-2 flex items-center justify-center;
+  }
+
+  .z-dropdown-menu-label {
+    @apply text-muted-foreground px-1.5 py-1 text-xs font-medium data-inset:pl-7;
+  }
+
+  .z-dropdown-menu-separator {
+    @apply bg-border -mx-1 my-1 h-px;
+  }
+
+  .z-dropdown-menu-shortcut {
+    @apply text-muted-foreground group-focus/dropdown-menu-item:text-accent-foreground ml-auto text-xs tracking-widest;
+  }
+
+  .z-dropdown-menu-sub-trigger {
+    @apply focus:bg-accent focus:text-accent-foreground data-expanded:bg-accent data-expanded:text-accent-foreground [&:focus:not([data-variant=destructive])_*]:text-accent-foreground gap-1.5 rounded-md px-1.5 py-1 text-sm data-inset:pl-7 [&_svg:not([class*='size-'])]:size-4;
+  }
+
+  .z-dropdown-menu-sub-content {
+    @apply ring-foreground/10 bg-popover text-popover-foreground min-w-[96px] rounded-lg p-1 shadow-lg ring-1;
+  }
+
+  /* MARK: Hover Card */
+  .z-hover-card-content {
+    @apply ring-foreground/10 bg-popover text-popover-foreground w-64 rounded-lg p-2.5 text-sm shadow-md ring-1;
+  }
+
+  /* MARK: Input */
+  .z-input {
+    @apply dark:bg-input/30 border-input focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 disabled:bg-input/50 dark:disabled:bg-input/80 h-8 rounded-lg border bg-transparent px-2.5 py-1 text-base transition-colors file:h-6 file:text-sm file:font-medium focus-visible:ring-3 aria-invalid:ring-3 md:text-sm;
+  }
+
+  /* MARK: Native Select */
+  .z-native-select {
+    @apply border-input placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 dark:hover:bg-input/50 focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 h-8 w-full min-w-0 appearance-none rounded-lg border bg-transparent py-1 pr-8 pl-2.5 text-sm transition-colors select-none focus-visible:ring-3 aria-invalid:ring-3 data-[size=sm]:h-7 data-[size=sm]:rounded-[min(var(--radius-md),10px)] data-[size=sm]:py-0.5;
+  }
+
+  .z-native-select-icon {
+    @apply text-muted-foreground top-1/2 right-2.5 size-4 -translate-y-1/2;
+  }
+
+  /* MARK: Popover */
+  .z-popover-content {
+    @apply bg-popover text-popover-foreground ring-foreground/10 flex flex-col gap-2.5 rounded-lg p-2.5 text-sm shadow-md ring-1;
+  }
+
+  .z-popover-header {
+    @apply flex flex-col gap-0.5 text-sm;
+  }
+
+  .z-popover-title {
+    @apply font-medium;
+  }
+
+  .z-popover-description {
+    @apply text-muted-foreground;
+  }
+
+  /* MARK: Separator */
+  .z-separator {
+    @apply bg-border shrink-0;
+  }
+
+  .z-separator-horizontal {
+    @apply h-px w-full;
+  }
+
+  .z-separator-vertical {
+    @apply h-full w-px;
+  }
+
+  /* MARK: Slider */
+  .z-slider {
+    @apply data-[orientation=vertical]:min-h-40;
+  }
+
+  .z-slider-track {
+    @apply bg-muted rounded-full data-[orientation=horizontal]:h-1 data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-1;
+  }
+
+  .z-slider-range {
+    @apply bg-primary;
+  }
+
+  .z-slider-thumb {
+    @apply border-ring ring-ring/50 relative size-3 rounded-full border bg-white transition-[color,box-shadow] after:absolute after:-inset-2 hover:ring-3 has-[:focus-visible]:ring-3 has-[:focus-visible]:outline-hidden data-[active=true]:ring-3;
+  }
+
+  /* MARK: Switch */
+  .z-switch {
+    @apply data-checked:bg-primary not-data-checked:bg-input focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 dark:not-data-checked:bg-input/80 shrink-0 rounded-full border border-transparent focus-visible:ring-3 aria-invalid:ring-3 data-[size=default]:h-[18.4px] data-[size=default]:w-[32px] data-[size=sm]:h-[14px] data-[size=sm]:w-[24px];
+  }
+
+  .z-switch-thumb {
+    @apply bg-background dark:not-data-checked:bg-foreground dark:data-checked:bg-primary-foreground rounded-full group-data-[size=default]/switch:size-4 group-data-[size=sm]/switch:size-3 group-data-[size=default]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=sm]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=default]/switch:not-data-checked:translate-x-0 group-data-[size=sm]/switch:not-data-checked:translate-x-0;
+  }
+
+  /* MARK: Table */
+  .z-table-container {
+    @apply relative w-full overflow-x-auto;
+  }
+
+  .z-table {
+    @apply w-full caption-bottom text-sm;
+  }
+
+  .z-table-header {
+    @apply [&_tr]:border-b;
+  }
+
+  .z-table-body {
+    @apply [&_tr:last-child]:border-0;
+  }
+
+  .z-table-footer {
+    @apply bg-muted/50 border-t font-medium [&>tr]:last:border-b-0;
+  }
+
+  .z-table-row {
+    @apply hover:bg-muted/50 data-[state=selected]:bg-muted border-b transition-colors;
+  }
+
+  .z-table-head {
+    @apply text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap [&:has([role=checkbox])]:pr-0;
+  }
+
+  .z-table-cell {
+    @apply p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0;
+  }
+
+  .z-table-caption {
+    @apply text-muted-foreground mt-4 text-sm;
+  }
+
+  /* MARK: Textarea */
+  .z-textarea {
+    @apply border-input dark:bg-input/30 focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 disabled:bg-input/50 dark:disabled:bg-input/80 rounded-lg border bg-transparent px-2.5 py-2 text-base transition-colors focus-visible:ring-3 aria-invalid:ring-3 md:text-sm;
+  }
+
+  /* MARK: Toggle */
+  .z-toggle {
+    @apply hover:text-foreground aria-pressed:bg-muted focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive gap-1 rounded-lg text-sm font-medium transition-all [&_svg:not([class*='size-'])]:size-4;
+  }
+
+  .z-toggle-variant-default {
+    @apply bg-transparent;
+  }
+
+  .z-toggle-variant-outline {
+    @apply border-input hover:bg-muted border bg-transparent;
+  }
+
+  .z-toggle-size-default {
+    @apply h-8 min-w-8 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2;
+  }
+
+  .z-toggle-size-sm {
+    @apply h-7 min-w-7 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5;
+  }
+
+  .z-toggle-size-lg {
+    @apply h-9 min-w-9 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2;
+  }
+
+  /* MARK: Toggle Group */
+  .z-toggle-group {
+    @apply rounded-lg data-[size=sm]:rounded-[min(var(--radius-md),10px)];
+  }
+
+  .z-toggle-group-item {
+    @apply group-data-[spacing=0]/toggle-group:rounded-none group-data-[spacing=0]/toggle-group:px-2 group-data-[spacing=0]/toggle-group:has-data-[icon=inline-end]:pr-1.5 group-data-[spacing=0]/toggle-group:has-data-[icon=inline-start]:pl-1.5 group-data-[orientation=horizontal]/toggle-group:data-[spacing=0]:first:rounded-l-lg group-data-[orientation=vertical]/toggle-group:data-[spacing=0]:first:rounded-t-lg group-data-[orientation=horizontal]/toggle-group:data-[spacing=0]:last:rounded-r-lg group-data-[orientation=vertical]/toggle-group:data-[spacing=0]:last:rounded-b-lg;
+  }
+}

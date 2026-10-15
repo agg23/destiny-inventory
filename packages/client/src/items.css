@@ -1,0 +1,683 @@
+/* Item tiles, the item card, rating chips and the tag control */
+
+/* destiny-ui-css's item.scss and tooltip.scss, minus what nothing uses */
+@layer destiny {
+  .item-tile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 4.5rem;
+    height: 4.5rem;
+    background-color: #333;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    user-select: none;
+    vertical-align: middle;
+    background-size: cover;
+    background-position: center;
+    /* The old body's */
+    letter-spacing: 0.2px;
+    line-height: 1.45;
+  }
+
+  .item-tile.common {
+    --rarity: var(--d2-rarity-common);
+  }
+
+  .item-tile.uncommon {
+    --rarity: var(--d2-rarity-uncommon);
+  }
+
+  .item-tile.rare {
+    --rarity: var(--d2-rarity-rare);
+  }
+
+  .item-tile.legendary {
+    --rarity: var(--d2-rarity-legendary);
+  }
+
+  .item-tile.exotic {
+    --rarity: var(--d2-rarity-exotic);
+  }
+
+  .item-tile:is(.common, .uncommon, .rare, .legendary, .exotic) {
+    background-image: linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--rarity), #fff 12%) 0%,
+      var(--rarity) 55%,
+      color-mix(in srgb, var(--rarity), #000 18%) 100%
+    );
+  }
+
+  .item-tile:hover,
+  .item-tile.selected {
+    border-color: #fff;
+  }
+
+  .item-tile:hover::before,
+  .item-tile.selected::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-color: rgba(255, 255, 255, 0.25);
+  }
+
+  .item-tile .item-quantity {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    padding: 0.05rem 0.25rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #fff;
+    background-color: rgba(0, 0, 0, 0.7);
+  }
+
+  .item-tile.small {
+    width: 3rem;
+    height: 3rem;
+    border-width: 1px;
+  }
+
+  .item-tooltip {
+    width: 22rem;
+    max-width: 100%;
+    background-color: rgba(15, 18, 23, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+    /* The old body's */
+    color: var(--d2-text);
+    letter-spacing: 0.2px;
+    line-height: 1.45;
+  }
+
+  .item-tooltip .tooltip-header {
+    padding: 0.8rem 1rem 0.7rem;
+    background-image: linear-gradient(
+      120deg,
+      rgba(255, 255, 255, 0.12),
+      rgba(0, 0, 0, 0.12)
+    );
+    background-color: #555;
+  }
+
+  .item-tooltip .tooltip-header.common {
+    background-color: color-mix(in srgb, var(--d2-rarity-common), #000 35%);
+  }
+
+  .item-tooltip .tooltip-header.uncommon {
+    background-color: var(--d2-rarity-uncommon);
+  }
+
+  .item-tooltip .tooltip-header.rare {
+    background-color: var(--d2-rarity-rare);
+  }
+
+  .item-tooltip .tooltip-header.legendary {
+    background-color: var(--d2-rarity-legendary);
+  }
+
+  .item-tooltip .tooltip-header.exotic {
+    background-color: color-mix(in srgb, var(--d2-rarity-exotic), #000 12%);
+  }
+
+  .item-tooltip .tooltip-header .tooltip-name {
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: 0.02rem;
+    text-transform: uppercase;
+    color: #fff;
+  }
+
+  .item-tooltip .tooltip-header .tooltip-type {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    font-weight: 400;
+    letter-spacing: 0.1rem;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  .item-tooltip .tooltip-body {
+    padding: 0.9rem 1rem;
+  }
+
+  .item-tooltip .tooltip-body + .tooltip-body {
+    border-top: 1px solid var(--d2-border-faint);
+    padding-top: 0.8rem;
+  }
+
+  .item-tooltip .tooltip-power {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+  }
+
+  .item-tooltip .tooltip-power .power-value {
+    font-size: 2.2rem;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--d2-warning);
+  }
+
+  .item-tooltip .tooltip-power .power-type {
+    font-size: 0.9rem;
+    font-weight: 400;
+    letter-spacing: 0.15rem;
+    text-transform: uppercase;
+    color: var(--d2-text);
+  }
+}
+
+/* The old style.css's overrides */
+@layer app {
+  /* Framework's tile grid is inline and three wide */
+  .row .item-grid.wide {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, var(--tile));
+    gap: var(--space-2);
+  }
+
+  .row .item-grid.character {
+    grid-template-columns: repeat(3, var(--tile));
+    justify-content: center;
+  }
+
+  /* Remainder splits between the middle gutter and the rail */
+  .row .item-grid.wide:not(.character) {
+    justify-content: center;
+  }
+
+  /* Same empty row the character column leaves under equipped */
+  .row .item-grid.favorites:not(.hidden) + .item-grid {
+    margin-top: calc(var(--tile) + var(--space-2) * 2);
+  }
+
+  .row .item-grid .item-tile.small {
+    width: var(--tile);
+    height: var(--tile);
+  }
+
+  .row
+    .item-grid.character:has(> :nth-child(2 of :not(.hidden)))
+    .item-tile.equipped {
+    grid-column: 1 / -1;
+    grid-row: span 2;
+    align-self: start;
+    justify-self: start;
+  }
+
+  /* Rows size to the spanned tile without this, halving the empty row */
+  .row
+    .item-grid.character:has(> :nth-child(2 of :not(.hidden))):has(
+      .item-tile.equipped:not(.hidden)
+    ) {
+    grid-auto-rows: var(--tile);
+    background-image: linear-gradient(var(--line-bright), var(--line-bright));
+    background-size: 100% 1px;
+    background-repeat: no-repeat;
+    background-position: 0 calc(var(--tile) + var(--space-2) + var(--tile) / 2);
+  }
+
+  /* Allow hover over half of the gap, ignoring the 1px border */
+  .row .item-grid .item-tile.small::after {
+    content: "";
+    position: absolute;
+    inset: calc(var(--space-2) / -2 - 1px);
+  }
+
+  /* Framework's hover tint assumes a background image */
+  .item-tile {
+    --badge: clamp(9px, calc(var(--tile) * 0.2), 16px);
+    --edge: 2px;
+    z-index: 0;
+    border-color: transparent;
+  }
+
+  .item-tile.small {
+    --edge: 1px;
+  }
+
+  /* A parent's border paints under its children, so the states ride on one of them */
+  .item-tile .tile-edge {
+    position: absolute;
+    inset: calc(var(--edge) * -1);
+    z-index: 3;
+    border: var(--edge) solid transparent;
+    pointer-events: none;
+  }
+
+  .item-tile:hover .tile-edge {
+    border-color: #fff;
+  }
+
+  /* Framework sizes these at 3rem, ignoring the tile setting */
+  .arrivals .item-tile.small {
+    --tile: 3rem;
+  }
+
+  /* A nested tile is decoration; the row around it owns the hover */
+  span.item-tile {
+    pointer-events: none;
+  }
+
+  /* Hold the hover treatment while this tile's menu is open */
+  .item-tile.menued .tile-edge {
+    border-color: #fff;
+  }
+
+  .item-tile.menued::before {
+    content: "";
+    position: absolute;
+    inset: calc(var(--edge) * -1);
+    background-color: rgb(255 255 255 / 0.25);
+  }
+
+  /* Badges anchor to the padding box, so the border width comes back off */
+  .item-tile::before {
+    z-index: 1;
+    inset: calc(var(--edge) * -1);
+  }
+
+  /* Forcibly hovered */
+  .item-tile.hovered .tile-edge {
+    border-color: #fff;
+  }
+
+  .item-tile.hovered::before {
+    content: "";
+    position: absolute;
+    inset: calc(var(--edge) * -1);
+    background-color: rgb(255 255 255 / 0.25);
+  }
+
+  .item-tile .item-quantity {
+    right: calc(var(--edge) * -1);
+    bottom: calc(var(--edge) * -1);
+    padding: 0 0.15em;
+    font-size: clamp(9px, calc(var(--badge) * 0.85), 14px);
+    line-height: 1.25;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .item-tile .tile-icons {
+    display: flex;
+    gap: 1px;
+    position: absolute;
+    bottom: calc(1px - var(--edge));
+    left: calc(1px - var(--edge));
+    z-index: 2;
+  }
+
+  .item-tile .tile-icons img {
+    width: var(--badge);
+    height: var(--badge);
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9));
+  }
+
+  /* All four tile corners already carry a badge, so tags join the icon row */
+  .item-tile .tag-dot {
+    align-self: center;
+    width: calc(var(--badge) * 5 / 6);
+    height: calc(var(--badge) * 5 / 6);
+    border-radius: 50%;
+    box-shadow: 0 0 2px rgba(0, 0, 0, 0.9);
+  }
+
+  .tag-control {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 0.35em;
+    cursor: pointer;
+    border: 1px dashed var(--line-bright);
+    color: var(--dim);
+    font-size: 0.65rem;
+    line-height: 1.5;
+    letter-spacing: 0.04rem;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .tag-control:hover {
+    color: var(--text);
+    border-color: var(--fg);
+  }
+
+  .tag-control.tagged {
+    border-style: solid;
+    border-color: var(--tag);
+    background-color: color-mix(in srgb, var(--tag) 25%, transparent);
+    color: var(--fg);
+  }
+
+  .gear-tier {
+    background: color-mix(in srgb, var(--bg) 80%, transparent);
+    color: var(--cream);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: var(--track-caps);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+  }
+
+  .tile-ratings {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
+
+  .item-tile .tile-ratings {
+    position: absolute;
+    top: calc(var(--edge) * -1);
+    right: calc(var(--edge) * -1);
+    z-index: 2;
+  }
+
+  .collections-table .tile-ratings {
+    flex-direction: row;
+  }
+
+  .tile-ratings .item-tier,
+  .item-tile .gear-tier {
+    width: 17px;
+    padding: 0;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: var(--track-caps);
+    text-align: center;
+  }
+
+  .tile-ratings .item-tier {
+    background: var(--tier);
+    color: #000;
+  }
+
+  .tile-ratings .item-tier.unrated {
+    background: color-mix(in srgb, var(--bg) 80%, transparent);
+    color: var(--cream);
+  }
+
+  /* A set grades in two halves, so the corner carries a chip each */
+  .tile-ratings .set-tier {
+    display: flex;
+    gap: 2px;
+    width: auto;
+    background: var(--bg);
+  }
+
+  .tile-ratings .set-tier span {
+    width: 14px;
+    background: var(--tier);
+  }
+
+  .item-tile .gear-tier {
+    position: absolute;
+    top: calc(var(--edge) * -1);
+    left: calc(var(--edge) * -1);
+    z-index: 2;
+  }
+
+  .tooltip-header {
+    position: relative;
+  }
+
+  .tooltip-type .gear-tier {
+    flex-shrink: 0;
+    margin-left: auto;
+    padding: 0 var(--space-3);
+  }
+
+  .tier-s {
+    --tier: var(--tier-s);
+  }
+
+  .tier-a {
+    --tier: var(--tier-a);
+  }
+
+  .tier-b {
+    --tier: var(--tier-b);
+  }
+
+  .tier-c {
+    --tier: var(--tier-c);
+  }
+
+  .tier-d {
+    --tier: var(--tier-d);
+  }
+
+  .tier-e {
+    --tier: var(--tier-e);
+  }
+
+  .tier-f {
+    --tier: var(--tier-f);
+  }
+
+  .item-tile img {
+    width: 100%;
+    height: 100%;
+  }
+
+  .item-tile .overlay {
+    position: absolute;
+    inset: calc(var(--edge) * -1);
+  }
+
+  /* Gold pinned, cream equipped; the framework names neither */
+  .item-tile.equipped .tile-edge {
+    border-color: var(--cream);
+  }
+
+  .item-tile.selected .tile-edge {
+    border-color: var(--light);
+  }
+
+  /* Framework's tooltip assumes game art behind it. Above the sticky header */
+  .hover-card {
+    z-index: 6;
+    max-height: calc(100vh - 16px);
+    overflow: hidden;
+    background-color: var(--panel);
+    pointer-events: none;
+  }
+
+  /* Held clear of the rail so the perk being read stays visible */
+  .anchored.perk-card {
+    z-index: 7;
+    position-anchor: --hovered-perk;
+    position-area: none;
+    right: anchor(--rail left, var(--rail));
+    top: anchor(top);
+    max-height: calc(100vh - 16px);
+    overflow: hidden;
+    background-color: var(--panel);
+    pointer-events: none;
+    position-try-fallbacks: --perk-bottom;
+  }
+
+  @position-try --perk-bottom {
+    top: auto;
+    bottom: 0;
+  }
+
+  .anchored.perk-card.beside {
+    position-area: inline-end span-block-end;
+    right: auto;
+    top: auto;
+    position-try-fallbacks:
+      --pin-bottom,
+      flip-inline,
+      flip-inline --pin-bottom;
+  }
+
+  .tooltip-body:empty {
+    display: none;
+  }
+
+  .tooltip-body:empty + .tooltip-body {
+    border-top: 0;
+    padding-top: 0.9rem;
+  }
+
+  .rail .item-tooltip {
+    width: auto;
+    max-width: none;
+    background: none;
+    border: 0;
+    box-shadow: none;
+  }
+
+  /* A nowrap child would set min-content width */
+  .tooltip-type {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  /* The framework's power figure is a showpiece; here it matches the type line */
+  .item-tooltip .tooltip-power {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    grid-auto-columns: max-content;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  .item-links {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  .item-links a {
+    display: inline-flex;
+    width: 1rem;
+    height: 1rem;
+    color: var(--dim);
+  }
+
+  .item-links a:hover {
+    color: var(--text);
+  }
+
+  .item-links svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .item-tooltip .power-facts {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: max-content;
+    justify-content: start;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  .item-tooltip .tooltip-power .power-value,
+  .item-tooltip .tooltip-power .power-type {
+    font-size: 0.85rem;
+    line-height: 1;
+  }
+
+  .item-tooltip .tooltip-power .power-notes {
+    color: var(--dim);
+    font-size: 0.65rem;
+    line-height: 1.5;
+    letter-spacing: 0.04rem;
+    text-transform: uppercase;
+  }
+
+  .item-tooltip .tooltip-power .power-type {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    letter-spacing: 0.1rem;
+  }
+
+  .element-icon,
+  .breaker-icon {
+    height: 0.875rem;
+  }
+
+  /* Anchored opposite the power figure, under the header's tier badge */
+  .ammo-icon {
+    height: 0.75rem;
+    margin-left: auto;
+    opacity: 0.75;
+  }
+
+  .triage-grid .item-tile.small {
+    width: var(--tile);
+    height: var(--tile);
+  }
+
+  /* The framework's white hover wash swallows a 1px gold edge */
+  .triage-grid .item-tile.selected .tile-edge {
+    border-width: 3px;
+  }
+
+  .triage-grid .item-tile.selected::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: color-mix(in srgb, var(--light) 18%, transparent);
+    pointer-events: none;
+  }
+
+  /* Selection owns the gold edge, so the pin gets the outline instead */
+  .triage-grid .item-tile.pinned {
+    outline: 1px solid var(--fg);
+    outline-offset: 1px;
+  }
+
+  .collections-grid .item-tile.small,
+  .weapon-page .item-tile.small {
+    width: var(--tile);
+    height: var(--tile);
+  }
+
+  .item-tile.neverseen img {
+    filter: grayscale(1);
+    opacity: 0.35;
+  }
+
+  .item-tile .owned-count {
+    color: var(--light);
+  }
+
+  .item-tile .catalyst-bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    height: 3px;
+    background: color-mix(in srgb, var(--bg) 80%, transparent);
+  }
+
+  .item-tile .catalyst-bar span {
+    display: block;
+    height: 100%;
+    background: var(--fg);
+  }
+
+  .item-tile .catalyst-bar.complete span {
+    background: var(--light);
+  }
+
+  /* New on this branch. The header clips to the rounded corners */
+  .item-tooltip {
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+}

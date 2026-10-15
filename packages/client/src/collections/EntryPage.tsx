@@ -21,10 +21,14 @@ import { ItemIcon } from "../ItemIcon.tsx";
 import { ItemDetails, ItemHead } from "../ItemPanel.tsx";
 import { NoteEditor } from "../NoteEditor.tsx";
 import { useUrl } from "../router.ts";
-import { Button } from "../ui/Button.tsx";
+import { Loading } from "../ui/Loading.tsx";
+import { HEADING } from "../ui/text.ts";
+import { Button } from "../ui/zaidan/button.tsx";
 import { collectionsHref, lightGgHref, vaultHref } from "../url.ts";
 import { useCollectionData } from "./collectionData.ts";
 import { collectionFilter } from "./collectionSearch.ts";
+
+const BLOCK = "flex flex-col gap-2";
 
 const KILL_LABELS: Record<string, string> = {
   pve: "PvE",
@@ -43,12 +47,12 @@ const Copies = (props: { entry: Entry; copies: DimItem[] }) => {
 
   return (
     <Show when={props.copies.length > 0}>
-      <div class="weapon-block">
-        <h4 class="section-label">Your copies</h4>
-        <div class="weapon-copies">
+      <div class={BLOCK}>
+        <h4 class={HEADING}>Your copies</h4>
+        <div class="grid grid-cols-[repeat(auto-fill,minmax(var(--tile),max-content))] gap-1.5">
           <For each={props.copies}>
             {(copy) => (
-              <div class="weapon-copy">
+              <div class="flex flex-col gap-1">
                 <ItemIcon
                   item={copy}
                   onSelect={() =>
@@ -57,7 +61,7 @@ const Copies = (props: { entry: Entry; copies: DimItem[] }) => {
                 />
                 <Show when={getItemKillTrackerInfo(copy)}>
                   {(tracker) => (
-                    <span class="text-sm text-muted">
+                    <span class="text-xs text-muted-foreground">
                       {tracker().count.toLocaleString()}{" "}
                       {KILL_LABELS[tracker().type]}
                     </span>
@@ -155,7 +159,7 @@ export const EntryPage = () => {
   };
 
   return (
-    <div class="flex flex-col gap-3 px-3 pt-3">
+    <div class="flex flex-col gap-3 p-4">
       <Button size="sm" variant="ghost" class="self-start" onClick={back}>
         &larr; All collections
       </Button>
@@ -166,21 +170,18 @@ export const EntryPage = () => {
           <Show
             when={data.index()}
             fallback={
-              <div class="loading">
-                <span class="spinner" aria-hidden="true" />
-                <p class="text-muted">Loading collections</p>
-              </div>
+              <Loading label="Loading collections" />
             }
           >
-            <p class="text-muted">Unknown item</p>
+            <p class="text-muted-foreground">Unknown item</p>
           </Show>
         }
       >
         {(found) => (
-          <div class="weapon-page">
+          <div class="weapon-page flex flex-wrap items-start gap-6">
             <Show when={newest()}>
               {(item) => (
-                <div class="item-tooltip weapon-card">
+                <div class="item-tooltip">
                   <ItemHead item={item()} />
                   <ItemDetails
                     item={item()}
@@ -192,14 +193,14 @@ export const EntryPage = () => {
               )}
             </Show>
 
-            <div class="weapon-facts">
-              <div class="weapon-block">
-                <h4 class="section-label">
+            <div class="flex min-w-80 flex-1 flex-col gap-6">
+              <div class={BLOCK}>
+                <h4 class={HEADING}>
                   {found().collectibleHashes.length > 1
                     ? "Versions"
                     : "Collection"}
                 </h4>
-                <ul class="weapon-versions">
+                <ul class="flex flex-col gap-1.5">
                   <For each={found().collectibleHashes}>
                     {(collectibleHash) => {
                       const collectible = () =>
@@ -208,7 +209,7 @@ export const EntryPage = () => {
                         versions.latest?.get(collectible()?.itemHash ?? 0);
 
                       return (
-                        <li class="weapon-version">
+                        <li class="flex items-center gap-2">
                           <Show
                             when={item()}
                             fallback={<span class="item-tile small" />}
@@ -220,7 +221,7 @@ export const EntryPage = () => {
                           <div>
                             <div
                               classList={{
-                                "text-muted":
+                                "text-muted-foreground":
                                   versionCollected(collectibleHash) === false,
                               }}
                             >
@@ -230,7 +231,7 @@ export const EntryPage = () => {
                                   ? "Collected"
                                   : "Not collected"}
                             </div>
-                            <div class="text-sm text-muted">
+                            <div class="text-xs text-muted-foreground">
                               {sourceLabel(collectible()?.sourceString ?? "")}
                             </div>
                           </div>
@@ -246,8 +247,8 @@ export const EntryPage = () => {
               <Show
                 when={setKey()}
                 fallback={
-                  <div class="weapon-block">
-                    <h4 class="section-label">Notes</h4>
+                  <div class={BLOCK}>
+                    <h4 class={HEADING}>Notes</h4>
                     <NoteEditor
                       target={{ kind: "item", targetId: found().key }}
                     />
@@ -255,8 +256,8 @@ export const EntryPage = () => {
                 }
               >
                 {(key) => (
-                  <div class="weapon-block">
-                    <h4 class="section-label">Set notes</h4>
+                  <div class={BLOCK}>
+                    <h4 class={HEADING}>Set notes</h4>
                     <NoteEditor target={{ kind: "set", targetId: key() }} />
                   </div>
                 )}
@@ -266,26 +267,30 @@ export const EntryPage = () => {
                 <Show
                   when={data.copiesOf(found()).length > 0}
                   fallback={
-                    <Button size="sm" disabled>
+                    <Button size="sm" variant="outline" disabled>
                       Show in vault
                     </Button>
                   }
                 >
-                  <A
-                    class="button small"
+                  <Button
+                    as={A}
+                    size="sm"
+                    variant="outline"
                     href={vaultHref(vaultQuery(found()), undefined)}
                   >
                     Show in vault
-                  </A>
+                  </Button>
                 </Show>
-                <a
-                  class="button small"
+                <Button
+                  as="a"
+                  size="sm"
+                  variant="outline"
                   href={lightGgHref(found().newestItemHash)}
                   target="_blank"
                   rel="noreferrer"
                 >
                   Show on light.gg
-                </a>
+                </Button>
               </div>
             </div>
           </div>

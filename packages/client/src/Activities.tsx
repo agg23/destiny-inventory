@@ -6,6 +6,7 @@ import {
   createSignal,
   For,
   onCleanup,
+  onMount,
   Show,
 } from "solid-js";
 
@@ -21,7 +22,6 @@ import {
   BONUS_DROP_ITEM,
   categorize,
   matching,
-  RAIDS_AND_DUNGEONS,
   readable,
   tileArt,
   type Available,
@@ -32,12 +32,14 @@ import {
   type Realm,
 } from "./activities.ts";
 import { activityTables } from "./activityTables.ts";
+import { useApp } from "./App.tsx";
 import { baseline } from "./baseline.ts";
-import { PageChrome } from "./chrome.tsx";
-import { useClock } from "./clock.ts";
 import { BUNGIE } from "./bungie.ts";
+import { useClock } from "./clock.ts";
 import { defs } from "./defs.ts";
 import { countdown, HOUR, schedule, type Rotation } from "./distortion.ts";
+import { builtFakes, fakeItems } from "./fakeItems.ts";
+import { guideNamed } from "./guides.ts";
 import {
   ago,
   bestTiming,
@@ -47,18 +49,24 @@ import {
 } from "./history.ts";
 import { activityLookup } from "./history/activityLookup.ts";
 import { clock } from "./history/runFormat.ts";
-import type { CharacterActivities, StringVariables } from "./load.ts";
-import { builtFakes, fakeItems } from "./fakeItems.ts";
 import { dismiss, HOVER_DELAY, preview } from "./preview.ts";
-import { useApp } from "./App.tsx";
 import { useUrl } from "./router.ts";
-import { guideNamed } from "./guides.ts";
-import { guideHref, runHref } from "./url.ts";
 import { AnchoredPanel } from "./ui/AnchoredPanel.tsx";
 import { holdAnchor, releaseAnchor } from "./ui/anchor.ts";
-import { Button } from "./ui/Button.tsx";
 import { MapGlyph } from "./ui/MapGlyph.tsx";
-import { TabButton } from "./ui/TabButton.tsx";
+import { PickOne } from "./ui/PickOne.tsx";
+import { Objective } from "./ui/Progress.tsx";
+import { LABEL, SPENT, TABLE_FRAME, TABLE_HEADER } from "./ui/text.ts";
+import { Badge } from "./ui/zaidan/badge.tsx";
+import { guideHref, runHref } from "./url.ts";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "./ui/zaidan/table.tsx";
 
 type Values = Record<number, number>;
 
@@ -67,14 +75,11 @@ interface Section {
   entries: Available[];
 }
 
-const ALL = "All";
-
 const FEATURED = "Featured";
-const THIS_WEEK = "This week";
-const NOTHING_LEFT = "Nothing left this week";
-
 const REMAINING = "Bonus engrams left this week";
-const TAKEN = "Taken this week";
+
+const PANEL =
+  "z-hover-card-content pointer-events-none z-6 flex max-h-[calc(100dvh-16px)] w-88 flex-col gap-3 overflow-hidden p-4";
 
 const MATCHMAKING: Record<Matchmaking, string | undefined> = {
   required: "Matchmade",
@@ -82,11 +87,21 @@ const MATCHMAKING: Record<Matchmaking, string | undefined> = {
   none: undefined,
 };
 
-const MM_TITLE: Record<Matchmaking, string> = {
-  required: "Matchmaking required",
-  optional: "Matchmaking optional",
-  none: "No matchmaking",
-};
+// Nothing in the payload says this
+const BASE_DROPS = 1;
+
+const TOP_GEAR_TIER = 5;
+
+// Now plus the next three
+const STRIP_ZONES = 4;
+
+const ANY = "Any";
+const RANGE = "Range";
+
+const NORMAL_RANK = DIFFICULTIES.indexOf("Normal");
+const TOP_RANK = DIFFICULTIES.length - 1;
+
+const RUNG_ORDER = new Map(DIFFICULTIES.map((name, at) => [name, at]));
 
 const power = (entry: Available): string | undefined => {
   if (entry.power === undefined || entry.topPower === undefined) {
@@ -101,419 +116,14 @@ const power = (entry: Available): string | undefined => {
 const where = (entry: Available): string =>
   [entry.typeName, entry.location].filter(Boolean).join(" · ");
 
-const Icon = (props: { icon: string | undefined; class?: string }) => (
-  <Show
-    when={props.icon}
-    fallback={<span class={`glyph bg-surface-raised ${props.class ?? ""}`} />}
-  >
-    {(icon) => (
-      <img
-        class={`glyph ${props.class ?? ""}`}
-        src={`${BUNGIE}${icon()}`}
-        alt=""
-      />
-    )}
-  </Show>
-);
-
-interface NamedProps {
-  loot: Loot;
-  item?: DimItem;
-  spent?: boolean;
-  class?: string;
-  onHide?: () => void;
-}
-
-const Named = (props: NamedProps) => {
-  // Or the row under it re-anchors the activity panel onto this chip
-  const track = (event: MouseEvent & { currentTarget: HTMLElement }) => {
-    event.stopPropagation();
-
-    if (!props.item) {
-      return;
-    }
-
-    props.onHide?.();
-    preview(props.item, event.currentTarget, event.clientX);
-  };
-
-  const leave = () => {
-    if (props.item) {
-      dismiss(props.item);
-    }
-  };
-
-  onCleanup(leave);
-
-  return (
-    <span
-      class={`loot flex min-w-0 items-center gap-1.5 text-text ${
-        props.class ?? ""
-      }`}
-      classList={{ spent: props.spent }}
-      title={props.loot.name}
-      onMouseEnter={track}
-      onMouseMove={track}
-      onMouseLeave={leave}
-    >
-      <Icon icon={props.loot.icon} class="size-(--icon-md)" />
-      <span class="truncate">{props.loot.name}</span>
-      <Show when={props.loot.quantity > 1}>
-        <span class="text-dim">×{props.loot.quantity}</span>
-      </Show>
-    </span>
-  );
-};
-
-interface RewardsProps {
-  entry: Available;
-  itemFor: (loot: Loot) => DimItem | undefined;
-  class?: string;
-  onHide: () => void;
-}
-
-const Rewards = (props: RewardsProps) => (
-  <>
-    <Show when={props.entry.focus}>
-      {(focus) => (
-        <Named
-          loot={focus()}
-          item={props.itemFor(focus())}
-          class={props.class}
-          onHide={props.onHide}
-        />
-      )}
-    </Show>
-    <For each={props.entry.bonus}>
-      {(one) => (
-        <Named
-          loot={one}
-          item={props.itemFor(one)}
-          class={props.class}
-          onHide={props.onHide}
-        />
-      )}
-    </For>
-    <Show when={props.entry.spentFocus}>
-      {(focus) => (
-        <Named
-          loot={focus()}
-          item={props.itemFor(focus())}
-          spent
-          class={props.class}
-          onHide={props.onHide}
-        />
-      )}
-    </Show>
-    <For each={props.entry.spentBonus}>
-      {(one) => (
-        <Named
-          loot={one}
-          item={props.itemFor(one)}
-          spent
-          class={props.class}
-          onHide={props.onHide}
-        />
-      )}
-    </For>
-  </>
-);
-
-// Nothing in the payload says this
-const BASE_DROPS = 1;
-
-const Drops = (props: { entry: Available; glyph: string | undefined }) => (
-  <div class="progress-label m-0 w-full items-center justify-start gap-4 tabular-nums">
-    <span class="inline-flex items-center gap-1.5">
-      <Icon icon={props.glyph} class="size-(--icon-sm)" />
-      <b>{BASE_DROPS}</b> drop
-    </span>
-    <Show when={props.entry.bonusDrops}>
-      {(count) => (
-        <span class="text-gold" title={REMAINING}>
-          <b class="text-gold">+{count()}</b> bonus
-        </span>
-      )}
-    </Show>
-    <Show when={props.entry.dropsTaken}>
-      {(count) => (
-        <span class="spent text-gold" title={TAKEN}>
-          <b class="text-gold">+{count()}</b> taken
-        </span>
-      )}
-    </Show>
-  </div>
-);
-
-const BonusCount = (props: { count: number; glyph: string | undefined }) => (
-  <Show when={props.count}>
-    {(count) => (
-      <span
-        class="ml-2 inline-flex items-center gap-1 text-gold"
-        title={REMAINING}
-      >
-        <Icon icon={props.glyph} class="size-(--icon-xs)" />
-        {count()}
-      </span>
-    )}
-  </Show>
-);
-
-// No manifest objective carries an icon
-const ChallengeMark = () => (
-  <svg class="size-(--icon-xs)" viewBox="0 0 16 16" aria-hidden="true">
-    <path
-      d="M8 1.5 14.5 8 8 14.5 1.5 8Z"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="1.5"
-    />
-    <circle cx="8" cy="8" r="2.4" fill="currentColor" />
-  </svg>
-);
-
-const Challenges = (props: { challenges: Challenge[] }) => (
-  <ul class="m-0 flex list-none flex-col gap-1.5 p-0 text-md text-muted">
-    <For each={props.challenges}>
-      {(one) => (
-        <li class="min-w-0" classList={{ spent: one.complete }}>
-          <Show
-            when={one.goal > 1}
-            fallback={<span class="challenge">{one.name}</span>}
-          >
-            <div class="progress objective">
-              <span
-                class="progress-fill"
-                style={{
-                  width: `${Math.min(1, one.progress / one.goal) * 100}%`,
-                }}
-              />
-              <span class="progress-text">
-                <span class="truncate">{one.name}</span>
-                <span class="shrink-0 pl-2 tabular-nums">
-                  {one.progress}/{one.goal}
-                </span>
-              </span>
-            </div>
-          </Show>
-        </li>
-      )}
-    </For>
-  </ul>
-);
-
-const Bonus = (props: { pieces: number; perk: number; values: Values }) => (
-  <Show when={defs()?.SandboxPerk.getOptional(props.perk)}>
-    {(perk) => (
-      <div class="flex flex-col gap-0.5">
-        <div class="flex items-baseline gap-2">
-          <span class="font-medium text-fg">
-            {perk().displayProperties.name}
-          </span>
-          <span class="text-xs uppercase tracking-caps text-dim">
-            {props.pieces} pc
-          </span>
-        </div>
-        <div class="whitespace-pre-line text-muted">
-          {readable(perk().displayProperties.description, props.values)}
-        </div>
-      </div>
-    )}
-  </Show>
-);
-
-interface ZoneProps {
-  turn: Rotation;
-  active: boolean;
-  now: number;
-  values: Values;
-}
-
-const ZoneCard = (props: ZoneProps) => (
-  <li
-    class="card flex flex-col"
-    classList={{ active: props.active, "accent-exotic": props.active }}
-  >
-    <div class="card-header">
-      <span class="card-title">{props.turn.name}</span>
-      <span
-        class="card-subtitle whitespace-nowrap tabular-nums"
-        classList={{ "text-light": props.active }}
-      >
-        {props.active
-          ? `Now · ${countdown(props.turn.start + HOUR - props.now)} left`
-          : clock(props.turn.start)}
-      </span>
-    </div>
-    <Show when={defs()?.EquipableItemSet.getOptional(props.turn.set)}>
-      {(set) => (
-        <div class="card-body flex flex-col gap-3">
-          <p class="m-0 text-muted">{set().displayProperties.name}</p>
-          <For each={set().setPerks}>
-            {(perk) => (
-              <Bonus
-                pieces={perk.requiredSetCount}
-                perk={perk.sandboxPerkHash}
-                values={props.values}
-              />
-            )}
-          </For>
-        </div>
-      )}
-    </Show>
-  </li>
-);
-
-interface Hovered {
-  entry: Available;
-  cursorX: number | undefined;
-}
-
-interface DetailProps extends Hovered {
-  values: Values;
-  power: number | undefined;
-}
-
-interface FactsProps {
-  entry: Available;
-  values: Values;
-  power: number | undefined;
-}
-
-export const ActivityFacts = (props: FactsProps) => (
-  <div class="card-body flex flex-col gap-4 overflow-hidden">
-    <Show when={props.entry.description}>
-      <p class="m-0 text-md text-muted">{props.entry.description}</p>
-    </Show>
-    <Show when={props.entry.locked.length > 0}>
-      <div class="flex flex-col gap-1.5">
-        <p class="section-label">Locked</p>
-        <ul class="m-0 flex list-none flex-col gap-1 p-0 text-md text-error">
-          <For each={props.entry.locked}>
-            {(one) => <li>{readable(one, props.values)}</li>}
-          </For>
-        </ul>
-      </div>
-    </Show>
-    <Show when={props.entry.challenges.length > 0}>
-      <div class="flex flex-col gap-1.5">
-        <p class="section-label">Challenges</p>
-        <Challenges challenges={props.entry.challenges} />
-      </div>
-    </Show>
-    {/* Bungie states no per-rung power delta */}
-    <Show when={ladder(props.entry).length > 0}>
-      <div class="flex flex-col gap-1.5">
-        <p class="section-label">Difficulty</p>
-        <p class="m-0 text-md text-text">
-          <For each={ladder(props.entry)}>
-            {(rung, index) => (
-              <>
-                <Show when={index() > 0}>
-                  <span class="text-dim"> · </span>
-                </Show>
-                <span
-                  class="tier"
-                  classList={{
-                    barred:
-                      rung.tier !== undefined &&
-                      barred(rung.tier, props.power),
-                  }}
-                  title={
-                    rung.tier && barred(rung.tier, props.power)
-                      ? `${rung.tier.power} power to launch`
-                      : undefined
-                  }
-                >
-                  {rung.name}
-                </span>
-              </>
-            )}
-          </For>
-        </p>
-      </div>
-    </Show>
-    <Show when={doors(props.entry).length > 0}>
-      <div class="flex flex-col gap-1.5">
-        <p class="section-label">Gear tier</p>
-        <ul class="m-0 flex list-none flex-col gap-1 p-0 text-md">
-          <For each={doors(props.entry)}>
-            {(door) => (
-              <li class="flex items-baseline justify-between gap-4">
-                <Show when={door.name}>
-                  {(name) => <span class="text-muted">{name()}</span>}
-                </Show>
-                <span
-                  class="text-text"
-                  classList={{ "text-gold": door.tier.low >= TOP_GEAR_TIER }}
-                >
-                  Tier{" "}
-                  {door.tier.low === door.tier.high
-                    ? door.tier.high
-                    : `${door.tier.low}-${door.tier.high}`}
-                </span>
-              </li>
-            )}
-          </For>
-        </ul>
-      </div>
-    </Show>
-    <Show when={props.entry.modifiers.length > 0}>
-      <div class="flex flex-col gap-1.5">
-        <p class="section-label">Modifiers</p>
-        <ul class="m-0 flex list-none flex-col gap-2 p-0">
-          <For each={props.entry.modifiers}>
-            {(one) => (
-              <li class="min-w-0 text-sm">
-                <div class="text-text">{one.name}</div>
-                <Show when={one.description}>
-                  <div class="text-muted">
-                    {readable(one.description, props.values)}
-                  </div>
-                </Show>
-              </li>
-            )}
-          </For>
-        </ul>
-      </div>
-    </Show>
-  </div>
-);
-
-const RunDetail = (props: DetailProps) => (
-  <AnchoredPanel class="card run-detail" cursorX={props.cursorX}>
-    <div class="card-header flex-col items-start gap-1">
-      <span class="card-title">{props.entry.name}</span>
-      <span class="card-subtitle">{where(props.entry)}</span>
-    </div>
-    <ActivityFacts
-      entry={props.entry}
-      values={props.values}
-      power={props.power}
-    />
-  </AnchoredPanel>
-);
-
-interface TableSection {
-  name: string;
-  entries: Available[];
-}
-
-const COLUMNS = 10;
-
-const ANY = "Any";
-
-const RANGE = "Range";
-
-const NORMAL_RANK = DIFFICULTIES.indexOf("Normal");
-const TOP_RANK = DIFFICULTIES.length - 1;
-
-const RUNG_ORDER = new Map(DIFFICULTIES.map((name, at) => [name, at]));
+const subline = (entry: Available): string =>
+  [entry.typeName, entry.location, MATCHMAKING[entry.matchmaking]]
+    .filter(Boolean)
+    .join(" · ");
 
 const byRung = (a: string, b: string): number =>
   (RUNG_ORDER.get(a) ?? TOP_RANK) - (RUNG_ORDER.get(b) ?? TOP_RANK);
 
-// Raids and dungeons carry no ladder, so their doors are the rungs
 const rungs = (entry: Available): string[] => {
   if (entry.difficulties.length > 0) {
     return entry.difficulties.map((tier) => tier.name);
@@ -538,7 +148,6 @@ interface Rung {
   tier: SlimTier | undefined;
 }
 
-// The column has room for one word, so the panel spells the rungs out
 const ladder = (entry: Available): Rung[] =>
   entry.difficulties.length > 0
     ? entry.difficulties.map((tier) => ({ name: tier.name, tier }))
@@ -557,8 +166,6 @@ const rung = (entry: Available): string | undefined => {
 
   return wholeLadder(names) ? ANY : RANGE;
 };
-
-const TOP_GEAR_TIER = 5;
 
 const gearLabel = (tier: GearTier): string =>
   tier.low === tier.high ? `T${tier.high}` : `T${tier.low}-${tier.high}`;
@@ -594,287 +201,32 @@ const doors = (entry: Available): Door[] => {
   return [...held.values()].sort((a, b) => byRung(a.name ?? "", b.name ?? ""));
 };
 
-interface RowProps {
+const rewardsOf = (entry: Available): { loot: Loot; spent: boolean }[] => [
+  ...(entry.focus ? [{ loot: entry.focus, spent: false }] : []),
+  ...entry.bonus.map((loot) => ({ loot, spent: false })),
+  ...(entry.spentFocus ? [{ loot: entry.spentFocus, spent: true }] : []),
+  ...entry.spentBonus.map((loot) => ({ loot, spent: true })),
+];
+
+interface Hovered {
   entry: Available;
-  glyph: string | undefined;
-  timing: ActivityTiming | undefined;
-  itemFor: (loot: Loot) => DimItem | undefined;
-  hrefFor: (run: HistoryRun) => string;
-  onHover: (entry: Available, element: HTMLElement, cursorX?: number) => void;
-  onLeave: (entry: Available) => void;
+  cursorX: number | undefined;
 }
 
-const TableRow = (props: RowProps) => {
-  const navigate = useNavigate();
-  const guide = () => guideNamed(props.entry.name);
-
-  return (
-    <tr
-      class="whitespace-nowrap"
-      classList={{ guided: !!guide() }}
-      onMouseEnter={(e) =>
-        props.onHover(props.entry, e.currentTarget, e.clientX)
-      }
-      onMouseMove={(e) =>
-        props.onHover(props.entry, e.currentTarget, e.clientX)
-      }
-      onMouseLeave={() => props.onLeave(props.entry)}
-      onClick={(event) => {
-        const found = guide();
-
-        // Last run and the Guide chip are links of their own
-        if (!found || (event.target as Element).closest("a, button")) {
-          return;
-        }
-
-        props.onLeave(props.entry);
-        navigate(guideHref(found.name), { state: { inApp: true } });
-      }}
-    >
-      <td
-        class="plate"
-        style={{
-          "--art": tileArt(props.entry.pgcrImage, props.entry.typeName),
-        }}
-      >
-        <span class="flex min-w-0 items-center gap-3">
-          <span class="truncate text-lg text-fg">{props.entry.name}</span>
-          <Show when={guide()}>
-            {(found) => (
-              <A
-                href={guideHref(found().name)}
-                state={{ inApp: true }}
-                class="badge guide-badge ml-auto inline-flex items-center gap-1.5"
-                onClick={() => props.onLeave(props.entry)}
-              >
-                <span class="inline-block size-[1em]">
-                  <MapGlyph />
-                </span>
-                Guide
-              </A>
-            )}
-          </Show>
-        </span>
-      </td>
-      <td class="truncate">
-        <Show
-          when={props.entry.typeName}
-          fallback={<span class="text-dim">-</span>}
-        >
-          {(name) => name()}
-        </Show>
-      </td>
-      <td class="truncate">
-        <Show
-          when={props.entry.location}
-          fallback={<span class="text-dim">-</span>}
-        >
-          {(name) => name()}
-        </Show>
-      </td>
-      <td>
-        <span
-          class="mark"
-          classList={{
-            checked: props.entry.matchmaking === "required",
-            indeterminate: props.entry.matchmaking === "optional",
-          }}
-          title={MM_TITLE[props.entry.matchmaking]}
-        />
-      </td>
-      <td>
-        <Show
-          when={rung(props.entry)}
-          fallback={<span class="text-dim">-</span>}
-        >
-          {(name) => (
-            <span class="text-sm uppercase tracking-[0.12em]">{name()}</span>
-          )}
-        </Show>
-      </td>
-      <td class="tabular-nums">{power(props.entry) ?? "-"}</td>
-      <td class="tabular-nums">
-        <span class="inline-flex items-center gap-2">
-          <Icon icon={props.glyph} class="size-(--icon-xs)" />
-          <b>{BASE_DROPS}</b>
-          <Show when={props.entry.gear}>
-            {(gear) => (
-              <span
-                classList={{
-                  "font-semibold text-gold": topTier(gear()),
-                  "text-muted": !topTier(gear()),
-                }}
-              >
-                {gearText(gear())}
-              </span>
-            )}
-          </Show>
-          <Show when={props.entry.bonusDrops}>
-            {(count) => (
-              <span class="text-gold">
-                +{count()}
-              </span>
-            )}
-          </Show>
-          <Show when={props.entry.dropsTaken}>
-            {(count) => (
-              <span class="spent text-gold">
-                +{count()}
-              </span>
-            )}
-          </Show>
-        </span>
-      </td>
-      <td class="relative p-0">
-        {/* Absolute, or the chips cannot fill a cell whose height the row owns */}
-        <div class="absolute inset-0 flex text-md">
-          <Rewards
-            entry={props.entry}
-            itemFor={props.itemFor}
-            onHide={() => props.onLeave(props.entry)}
-            class="grow basis-0 px-4"
-          />
-        </div>
-      </td>
-      <td class="tabular-nums">
-        <Show
-          when={props.entry.challenges.length}
-          fallback={<span class="text-dim">-</span>}
-        >
-          {(count) => (
-            <span class="inline-flex items-center gap-1.5 text-gold">
-              <ChallengeMark />
-              {props.entry.challenges.filter((one) => !one.complete).length}/
-              {count()}
-            </span>
-          )}
-        </Show>
-      </td>
-      <td>
-        <Show
-          when={props.timing}
-          fallback={<span class="text-sm text-dim">Never run</span>}
-        >
-          {(timing) => (
-            <A
-              href={props.hrefFor(timing().lastRun)}
-              class="group flex w-fit flex-col text-sm tabular-nums"
-              onClick={() => props.onLeave(props.entry)}
-            >
-              <span class="group-hover:text-fg group-hover:underline">
-                {ago(timing().lastRun.startedAt)}
-              </span>
-              <span class="text-dim">
-                {timing().runs} runs
-                <Show when={timing().fastestSeconds}>
-                  {(fastest) => <> · {duration(fastest())}</>}
-                </Show>
-              </span>
-            </A>
-          )}
-        </Show>
-      </td>
-    </tr>
-  );
-};
-
-interface TableProps {
-  sections: TableSection[];
-  glyph: string | undefined;
-  timingFor: (entry: Available) => ActivityTiming | undefined;
-  itemFor: (loot: Loot) => DimItem | undefined;
-  hrefFor: (run: HistoryRun) => string;
-  onHover: (entry: Available, element: HTMLElement, cursorX?: number) => void;
-  onLeave: (entry: Available) => void;
-}
-
-const RunTable = (props: TableProps) => (
-  <div class="card">
-    <div class="card-body overflow-x-auto p-0">
-      <table class="table activities">
-        <thead>
-          <tr class="whitespace-nowrap">
-            <th class="w-64">Activity</th>
-            <th class="w-36">Type</th>
-            <th class="w-44">Location</th>
-            <th class="w-16" title="Matchmaking">
-              MM
-            </th>
-            <th class="w-32">Difficulty</th>
-            <th class="w-24">Power</th>
-            <th class="w-36">Drops</th>
-            <th>Rewards</th>
-            <th class="w-36">Challenges</th>
-            <th class="w-32">Last run</th>
-          </tr>
-        </thead>
-        <For each={props.sections}>
-          {(section) => (
-            <tbody>
-              <tr class="day">
-                <td colspan={COLUMNS}>
-                  <span class="section-label">
-                    {section.name}
-                    <span class="text-sm normal-case tracking-normal tabular-nums text-dim">
-                      {section.entries.length}
-                    </span>
-                  </span>
-                </td>
-              </tr>
-              <For each={section.entries}>
-                {(entry) => (
-                  <TableRow
-                    entry={entry}
-                    glyph={props.glyph}
-                    timing={props.timingFor(entry)}
-                    itemFor={props.itemFor}
-                    hrefFor={props.hrefFor}
-                    onHover={props.onHover}
-                    onLeave={props.onLeave}
-                  />
-                )}
-              </For>
-            </tbody>
-          )}
-        </For>
-      </table>
-    </div>
-  </div>
-);
-
-const offering = (entry: Available): boolean =>
-  entry.bonusDrops > 0 ||
-  entry.dropsTaken > 0 ||
-  Boolean(entry.focus) ||
-  entry.bonus.length > 0 ||
-  entry.spentBonus.length > 0;
-
-const listed = (entry: Available): boolean =>
-  !entry.featured && offering(entry);
-
-const quiet = (entry: Available): boolean =>
-  !entry.featured && !offering(entry);
-
-// A picked realm no director realm can collide with
-const DISTORTION = "distortion-schedule";
-
-export const Activities = () => {
+const createActivities = () => {
   const app = useApp();
   const url = useUrl();
   const [tables] = createResource(activityTables, {
     initialValue: activityTables.settled(),
   });
-  const character = () => app.active()?.id;
-  const power = () => app.active()?.powerLevel;
-  const realm = () => url.get("realm");
-  const section = () => url.get("section");
-  const showRest = () => url.get("rest");
+  const [captured] = createResource(baseline, {
+    initialValue: baseline.settled(),
+  });
   const [hovered, setHovered] = createSignal<Hovered | undefined>(undefined);
 
-  const onZones = () => realm() === DISTORTION;
+  const character = () => app.active()?.id;
 
   const now = useClock();
-
   const hour = createMemo(() => Math.floor(now() / HOUR));
   const turns = createMemo(() => schedule(hour() * HOUR));
 
@@ -913,7 +265,7 @@ export const Activities = () => {
     }
   };
 
-  const rows = () => {
+  const all = (): Realm[] => {
     const loaded = tables();
     const held = character();
     const entries =
@@ -921,77 +273,19 @@ export const Activities = () => {
         ? undefined
         : app.loaded()?.activities[held]?.availableActivities;
 
-    return loaded && entries ? { loaded, entries: [...entries] } : undefined;
-  };
-
-  const [captured] = createResource(baseline, {
-    initialValue: baseline.settled(),
-  });
-
-  const all = (): Realm[] => {
-    const found = rows();
-    const held = captured();
-
-    if (!found) {
+    if (!loaded || !entries) {
       return [];
     }
 
-    return categorize(found.entries, found.loaded, (hash) => held?.rows[hash]);
+    return categorize([...entries], loaded, (hash) => captured()?.rows[hash]);
   };
 
-  const shown = createMemo(() => matching(all(), app.query()));
+  const realms = createMemo(() => matching(all(), app.query()));
 
-  const activeRealm = createMemo((): Realm | undefined => {
-    const found = shown();
+  const realm = createMemo((): Realm | undefined => {
+    const found = realms();
 
-    return found.find((one) => one.name === realm()) ?? found[0];
-  });
-
-  const active = createMemo((): Section | undefined => {
-    const realm = activeRealm();
-
-    if (!realm) {
-      return undefined;
-    }
-
-    const picked = realm.categories.find((one) => one.name === section());
-
-    return (
-      picked ?? {
-        name: ALL,
-        entries: realm.categories.flatMap((one) => one.entries),
-      }
-    );
-  });
-
-  const picks = createMemo(
-    () => active()?.entries.filter((one) => one.featured) ?? [],
-  );
-  const unsplit = () => activeRealm()?.name === RAIDS_AND_DUNGEONS;
-
-  const weekly = createMemo(() => {
-    const kept = unsplit() ? (one: Available) => !one.featured : listed;
-
-    return active()?.entries.filter(kept) ?? [];
-  });
-  const rest = createMemo(() =>
-    unsplit() ? [] : (active()?.entries.filter(quiet) ?? []),
-  );
-
-  const sections = createMemo((): TableSection[] => {
-    const built: TableSection[] = [];
-
-    if (picks().length > 0) {
-      built.push({ name: FEATURED, entries: picks() });
-    }
-
-    built.push({ name: THIS_WEEK, entries: weekly() });
-
-    if (showRest() && rest().length > 0) {
-      built.push({ name: NOTHING_LEFT, entries: rest() });
-    }
-
-    return built;
+    return found.find((one) => one.name === url.get("realm")) ?? found[0];
   });
 
   const values = (): Values =>
@@ -1012,26 +306,14 @@ export const Activities = () => {
       ...entry.variants.map((one) => one.hash),
     ]);
 
-  const rewardHashes = createMemo(() => {
-    const found = new Set<number>();
-
-    for (const entry of active()?.entries ?? []) {
-      const loot = [
-        entry.focus,
-        entry.spentFocus,
-        ...entry.bonus,
-        ...entry.spentBonus,
-      ];
-
-      for (const one of loot) {
-        if (one) {
-          found.add(one.hash);
-        }
-      }
-    }
-
-    return [...found];
-  });
+  const rewardHashes = createMemo(() => [
+    ...new Set(
+      realms()
+        .flatMap((one) => one.categories)
+        .flatMap((one) => one.entries)
+        .flatMap((entry) => rewardsOf(entry).map((one) => one.loot.hash)),
+    ),
+  ]);
 
   const [items] = createResource(
     () => {
@@ -1044,137 +326,655 @@ export const Activities = () => {
     { initialValue: builtFakes(rewardHashes()) },
   );
 
-  const itemFor = (loot: Loot): DimItem | undefined => items()?.get(loot.hash);
+  return {
+    app,
+    tables,
+    all,
+    realms,
+    realm,
+    values,
+    glyph,
+    hrefFor,
+    timingFor,
+    itemFor: (loot: Loot): DimItem | undefined => items()?.get(loot.hash),
+    hovered,
+    onHover,
+    onLeave,
+    now,
+    turns,
+    pickRealm: (name: string) => {
+      // The row unmounts without a mouseleave
+      hide();
+      url.push({ realm: name });
+    },
+  };
+};
+
+type Data = ReturnType<typeof createActivities>;
+
+const GLYPH = "shrink-0 object-contain";
+
+const Icon = (props: { icon: string | undefined; class: string }) => (
+  <Show
+    when={props.icon}
+    fallback={<span class={`${GLYPH} bg-muted ${props.class}`} />}
+  >
+    {(icon) => (
+      <img
+        class={`${GLYPH} ${props.class}`}
+        src={`${BUNGIE}${icon()}`}
+        alt=""
+      />
+    )}
+  </Show>
+);
+
+const ChallengeMark = () => (
+  <svg class="size-(--icon-xs)" viewBox="0 0 16 16" aria-hidden="true">
+    <path
+      d="M8 1.5 14.5 8 8 14.5 1.5 8Z"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.5"
+    />
+    <circle cx="8" cy="8" r="2.4" fill="currentColor" />
+  </svg>
+);
+
+const BonusCount = (props: { count: number; glyph: string | undefined }) => (
+  <Show when={props.count}>
+    {(count) => (
+      <span
+        class="inline-flex items-center gap-1 tabular-nums text-cream"
+        title={REMAINING}
+      >
+        <Icon icon={props.glyph} class="size-(--icon-xs)" />
+        {count()}
+      </span>
+    )}
+  </Show>
+);
+
+interface NamedProps {
+  loot: Loot;
+  item: DimItem | undefined;
+  spent: boolean;
+  onHide: () => void;
+}
+
+const Named = (props: NamedProps) => {
+  // Or the row under it re-anchors the activity panel onto this chip
+  const track = (event: MouseEvent & { currentTarget: HTMLElement }) => {
+    event.stopPropagation();
+
+    if (!props.item) {
+      return;
+    }
+
+    props.onHide();
+    preview(props.item, event.currentTarget, event.clientX);
+  };
+
+  const leave = () => {
+    if (props.item) {
+      dismiss(props.item);
+    }
+  };
+
+  onCleanup(leave);
 
   return (
-    <div class="flex flex-col gap-3 px-3 pt-3">
-      <PageChrome
-        tabs={
-          <nav class="nav-subtabs">
-            <For each={shown()}>
-              {(one) => (
-                <TabButton
-                  active={!onZones() && one.name === activeRealm()?.name}
-                  onClick={() => {
-                    // The row unmounts without a mouseleave
-                    hide();
-                    url.push({ realm: one.name, section: undefined });
-                  }}
-                >
-                  {one.name}
-                  <BonusCount count={one.bonusDrops} glyph={glyph()} />
-                </TabButton>
-              )}
-            </For>
-            <TabButton
-              active={onZones()}
-              onClick={() => {
-                hide();
-                url.push({ realm: DISTORTION, section: undefined });
-              }}
-            >
-              Distortion
-            </TabButton>
-          </nav>
-        }
+    <span
+      class="flex max-w-44 min-w-0 items-center gap-1.5"
+      classList={{ [SPENT]: props.spent }}
+      title={props.loot.name}
+      onMouseEnter={track}
+      onMouseMove={track}
+      onMouseLeave={leave}
+    >
+      <Icon
+        icon={props.loot.icon}
+        class={props.spent ? "size-(--icon-sm) opacity-60 grayscale" : "size-(--icon-sm)"}
       />
+      <span class="truncate">{props.loot.name}</span>
+      <Show when={props.loot.quantity > 1}>
+        <span class="opacity-60">×{props.loot.quantity}</span>
+      </Show>
+    </span>
+  );
+};
 
-      <Show when={!onZones() && activeRealm()}>
-        {(realm) => (
-          <nav class="nav-facets">
-            <TabButton
-              active={active()?.name === ALL}
-              onClick={() => {
-                hide();
-                url.push({ section: undefined });
-              }}
-            >
-              {ALL}
-              <BonusCount count={realm().bonusDrops} glyph={glyph()} />
-            </TabButton>
-            <For each={realm().categories}>
+const Dash = () => <span class="text-muted-foreground/60">-</span>;
+
+const Row = (props: { data: Data; entry: Available }) => {
+  const navigate = useNavigate();
+  const guide = () => guideNamed(props.entry.name);
+  const timing = () => props.data.timingFor(props.entry);
+
+  return (
+    <TableRow
+      classList={{ "cursor-pointer": !!guide() }}
+      onMouseEnter={(e) =>
+        props.data.onHover(props.entry, e.currentTarget, e.clientX)
+      }
+      onMouseMove={(e) =>
+        props.data.onHover(props.entry, e.currentTarget, e.clientX)
+      }
+      onMouseLeave={() => props.data.onLeave(props.entry)}
+      onClick={(event) => {
+        const found = guide();
+
+        // Last run and the Guide chip are links of their own
+        if (!found || (event.target as Element).closest("a, button")) {
+          return;
+        }
+
+        props.data.onLeave(props.entry);
+        navigate(guideHref(found.name), { state: { inApp: true } });
+      }}
+    >
+      <TableCell>
+        <div class="flex min-w-0 items-center gap-3">
+          <span
+            class="h-8 w-14 shrink-0 rounded-sm bg-cover bg-center"
+            style={{
+              "background-image": tileArt(
+                props.entry.pgcrImage,
+                props.entry.typeName,
+              ),
+            }}
+          />
+          <div class="flex min-w-0 flex-col">
+            <span class="flex min-w-0 items-center gap-2">
+              <span class="truncate text-foreground">{props.entry.name}</span>
+              <Show when={guide()}>
+                {(found) => (
+                  <Badge
+                    as={A}
+                    variant="outline"
+                    href={guideHref(found().name)}
+                    state={{ inApp: true }}
+                    onClick={() => props.data.onLeave(props.entry)}
+                  >
+                    <span class="inline-block size-[1em]">
+                      <MapGlyph />
+                    </span>
+                    Guide
+                  </Badge>
+                )}
+              </Show>
+            </span>
+            <span class="truncate text-xs text-muted-foreground">
+              {subline(props.entry)}
+            </span>
+          </div>
+        </div>
+      </TableCell>
+      <TableCell>
+        <Show when={rung(props.entry)} fallback={<Dash />}>
+          {(name) => name()}
+        </Show>
+      </TableCell>
+      <TableCell class="tabular-nums">
+        <Show when={power(props.entry)} fallback={<Dash />}>
+          {(found) => found()}
+        </Show>
+      </TableCell>
+      <TableCell class="tabular-nums">
+        <span class="inline-flex items-center gap-2">
+          <Icon icon={props.data.glyph()} class="size-(--icon-xs)" />
+          <b class="text-foreground">{BASE_DROPS}</b>
+          <Show when={props.entry.gear}>
+            {(gear) => (
+              <span
+                classList={{
+                  "font-semibold text-cream": topTier(gear()),
+                  "text-muted-foreground": !topTier(gear()),
+                }}
+              >
+                {gearText(gear())}
+              </span>
+            )}
+          </Show>
+          <Show when={props.entry.bonusDrops}>
+            {(count) => <span class="text-cream">+{count()}</span>}
+          </Show>
+          <Show when={props.entry.dropsTaken}>
+            {(count) => <span class={SPENT}>+{count()}</span>}
+          </Show>
+        </span>
+      </TableCell>
+      <TableCell>
+        <Show when={rewardsOf(props.entry).length > 0} fallback={<Dash />}>
+          <div class="flex min-w-0 items-center gap-4">
+            <For each={rewardsOf(props.entry)}>
               {(one) => (
-                <TabButton
-                  active={one.name === active()?.name}
-                  onClick={() => {
-                    hide();
-                    url.push({ section: one.name });
-                  }}
-                >
-                  {one.name}
-                  <BonusCount count={one.bonusDrops} glyph={glyph()} />
-                </TabButton>
+                <Named
+                  loot={one.loot}
+                  item={props.data.itemFor(one.loot)}
+                  spent={one.spent}
+                  onHide={() => props.data.onLeave(props.entry)}
+                />
               )}
             </For>
-          </nav>
-        )}
-      </Show>
-      <Show when={tables.error}>
-        <p class="text-danger">Activity definitions failed to load.</p>
-      </Show>
-      <Show
-        when={active()}
-        fallback={
-          <p class="text-muted">
-            <Show when={all().length > 0} fallback={<>Loading activities…</>}>
-              Nothing matches that filter.
-            </Show>
-          </p>
-        }
-      >
-        <>
-          <Show when={onZones()}>
-            <p class="m-0 text-md text-muted">
-              Hourly rotation · every zone once in seven hours
-            </p>
-            <ul class="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-3 p-0">
-              <For each={turns()}>
-                {(turn, index) => (
-                  <ZoneCard
-                    turn={turn}
-                    active={index() === 0}
-                    now={now()}
-                    values={values()}
-                  />
-                )}
+          </div>
+        </Show>
+      </TableCell>
+      <TableCell class="tabular-nums">
+        <Show when={props.entry.challenges.length} fallback={<Dash />}>
+          {(count) => (
+            <span class="inline-flex items-center gap-1.5 text-cream">
+              <ChallengeMark />
+              {props.entry.challenges.filter((one) => !one.complete).length}/
+              {count()}
+            </span>
+          )}
+        </Show>
+      </TableCell>
+      <TableCell class="tabular-nums">
+        <Show
+          when={timing()}
+          fallback={<span class="text-xs text-muted-foreground">Never run</span>}
+        >
+          {(found) => (
+            <A
+              href={props.data.hrefFor(found().lastRun)}
+              class="group flex w-fit flex-col"
+              onClick={() => props.data.onLeave(props.entry)}
+            >
+              <span class="group-hover:underline">
+                {ago(found().lastRun.startedAt)}
+              </span>
+              <span class="text-xs text-muted-foreground">
+                {found().runs} runs
+                <Show when={found().fastestSeconds}>
+                  {(fastest) => <> · {duration(fastest())}</>}
+                </Show>
+              </span>
+            </A>
+          )}
+        </Show>
+      </TableCell>
+    </TableRow>
+  );
+};
+
+const COLUMNS: { name: string; width: string }[] = [
+  { name: "Activity", width: "" },
+  { name: "Difficulty", width: "w-24" },
+  { name: "Power", width: "w-24" },
+  { name: "Drops", width: "w-32" },
+  { name: "Rewards", width: "w-72" },
+  { name: "Challenges", width: "w-24" },
+  { name: "Last run", width: "w-32" },
+];
+
+interface TableProps {
+  data: Data;
+  sections: Section[];
+}
+
+const RunTable = (props: TableProps) => (
+  <div class={TABLE_FRAME}>
+    <Table class="table-fixed">
+      <TableHeader class={TABLE_HEADER}>
+        <TableRow>
+          <For each={COLUMNS}>
+            {(column) => (
+              <TableHead class={column.width}>{column.name}</TableHead>
+            )}
+          </For>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        <For each={props.sections}>
+          {(section) => (
+            <>
+              <TableRow class="bg-muted/30 hover:bg-transparent">
+                <TableCell colSpan={COLUMNS.length} class="py-1.5">
+                  <span class="flex items-baseline gap-2 text-xs">
+                    <span class="font-medium text-foreground">
+                      {section.name}
+                    </span>
+                    <span class="tabular-nums text-muted-foreground">
+                      {section.entries.length}
+                    </span>
+                  </span>
+                </TableCell>
+              </TableRow>
+              <For each={section.entries}>
+                {(entry) => <Row data={props.data} entry={entry} />}
               </For>
-            </ul>
-          </Show>
-          <Show when={!onZones()}>
-            <RunTable
-              sections={sections()}
-              glyph={glyph()}
-              timingFor={timingFor}
-              itemFor={itemFor}
-              hrefFor={hrefFor}
-              onHover={onHover}
-              onLeave={onLeave}
+            </>
+          )}
+        </For>
+      </TableBody>
+    </Table>
+  </div>
+);
+
+const Challenges = (props: { challenges: Challenge[] }) => (
+  <ul class="flex flex-col gap-1.5">
+    <For each={props.challenges}>
+      {(one) => (
+        <li class="min-w-0" classList={{ [SPENT]: one.complete }}>
+          <Show
+            when={one.goal > 1}
+            fallback={<span class="text-muted-foreground">{one.name}</span>}
+          >
+            <Objective
+              label={one.name}
+              progress={one.progress}
+              goal={one.goal}
             />
-            <Show when={rest().length > 0}>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                class="self-start"
-                aria-pressed={showRest()}
-                onClick={() => url.push({ rest: !showRest() })}
-              >
-                {showRest() ? "Hide" : "Show"} {rest().length} with nothing left
-                this week
-              </Button>
-            </Show>
           </Show>
-        </>
-      </Show>
-      <Show when={hovered()}>
-        {(panel) => (
-          <RunDetail
-            entry={panel().entry}
-            cursorX={panel().cursorX}
-            values={values()}
-            power={power()}
-          />
+        </li>
+      )}
+    </For>
+  </ul>
+);
+
+export const ActivityFacts = (props: {
+  entry: Available;
+  values: Values;
+  power: number | undefined;
+}) => (
+  <div class="flex flex-col gap-4 overflow-hidden">
+    <Show when={props.entry.description}>
+      <p class="text-muted-foreground">{props.entry.description}</p>
+    </Show>
+    <Show when={props.entry.locked.length > 0}>
+      <div class="flex flex-col gap-1.5">
+        <p class={LABEL}>Locked</p>
+        <ul class="flex flex-col gap-1 text-destructive">
+          <For each={props.entry.locked}>
+            {(one) => <li>{readable(one, props.values)}</li>}
+          </For>
+        </ul>
+      </div>
+    </Show>
+    <Show when={props.entry.challenges.length > 0}>
+      <div class="flex flex-col gap-1.5">
+        <p class={LABEL}>Challenges</p>
+        <Challenges challenges={props.entry.challenges} />
+      </div>
+    </Show>
+    <Show when={ladder(props.entry).length > 0}>
+      <div class="flex flex-col gap-1.5">
+        <p class={LABEL}>Difficulty</p>
+        <p>
+          <For each={ladder(props.entry)}>
+            {(one, index) => (
+              <>
+                <Show when={index() > 0}>
+                  <span class="text-muted-foreground"> · </span>
+                </Show>
+                <span
+                  classList={{
+                    "text-muted-foreground/60":
+                      one.tier !== undefined && barred(one.tier, props.power),
+                  }}
+                  title={
+                    one.tier && barred(one.tier, props.power)
+                      ? `${one.tier.power} power to launch`
+                      : undefined
+                  }
+                >
+                  {one.name}
+                </span>
+              </>
+            )}
+          </For>
+        </p>
+      </div>
+    </Show>
+    <Show when={doors(props.entry).length > 0}>
+      <div class="flex flex-col gap-1.5">
+        <p class={LABEL}>Gear tier</p>
+        <ul class="flex flex-col gap-1">
+          <For each={doors(props.entry)}>
+            {(door) => (
+              <li class="flex items-baseline justify-between gap-4">
+                <Show when={door.name}>
+                  {(name) => (
+                    <span class="text-muted-foreground">{name()}</span>
+                  )}
+                </Show>
+                <span
+                  classList={{ "text-cream": door.tier.low >= TOP_GEAR_TIER }}
+                >
+                  Tier{" "}
+                  {door.tier.low === door.tier.high
+                    ? door.tier.high
+                    : `${door.tier.low}-${door.tier.high}`}
+                </span>
+              </li>
+            )}
+          </For>
+        </ul>
+      </div>
+    </Show>
+    <Show when={props.entry.modifiers.length > 0}>
+      <div class="flex flex-col gap-1.5">
+        <p class={LABEL}>Modifiers</p>
+        <ul class="m-0 flex list-none flex-col gap-2 p-0">
+          <For each={props.entry.modifiers}>
+            {(one) => (
+              <li class="min-w-0 text-xs">
+                <div class="text-foreground">{one.name}</div>
+                <Show when={one.description}>
+                  <div class="text-muted-foreground">
+                    {readable(one.description, props.values)}
+                  </div>
+                </Show>
+              </li>
+            )}
+          </For>
+        </ul>
+      </div>
+    </Show>
+  </div>
+);
+
+const RunDetail = (props: { data: Data; hovered: Hovered }) => (
+  <AnchoredPanel class={PANEL} cursorX={props.hovered.cursorX}>
+    <div
+      class="relative -mx-4 -mt-4 h-40 shrink-0 bg-cover bg-center"
+      style={{
+        "background-image": tileArt(
+          props.hovered.entry.pgcrImage,
+          props.hovered.entry.typeName,
+        ),
+      }}
+    >
+      <div class="absolute inset-x-0 bottom-0 flex flex-col bg-linear-to-t from-black/80 to-transparent px-4 pt-10 pb-3 text-shadow-art">
+        <span class="text-base font-medium text-foreground">
+          {props.hovered.entry.name}
+        </span>
+        <span class="text-foreground/70">{where(props.hovered.entry)}</span>
+      </div>
+    </div>
+    <ActivityFacts
+      entry={props.hovered.entry}
+      values={props.data.values()}
+      power={props.data.app.active()?.powerLevel}
+    />
+  </AnchoredPanel>
+);
+
+const Bonus = (props: { pieces: number; perk: number; values: Values }) => (
+  <Show when={defs()?.SandboxPerk.getOptional(props.perk)}>
+    {(perk) => (
+      <div class="flex flex-col gap-0.5">
+        <div class="flex items-baseline gap-2">
+          <span class="font-medium text-foreground">
+            {perk().displayProperties.name}
+          </span>
+          <span class="text-xs text-muted-foreground">
+            {props.pieces} pc
+          </span>
+        </div>
+        <div class="whitespace-pre-line text-muted-foreground">
+          {readable(perk().displayProperties.description, props.values)}
+        </div>
+      </div>
+    )}
+  </Show>
+);
+
+const SetBonuses = (props: { turn: Rotation; values: Values }) => (
+  <Show when={defs()?.EquipableItemSet.getOptional(props.turn.set)}>
+    {(set) => (
+      <>
+        <p class="text-muted-foreground">{set().displayProperties.name}</p>
+        <For each={set().setPerks}>
+          {(perk) => (
+            <Bonus
+              pieces={perk.requiredSetCount}
+              perk={perk.sandboxPerkHash}
+              values={props.values}
+            />
+          )}
+        </For>
+      </>
+    )}
+  </Show>
+);
+
+const zoneTime = (turn: Rotation, active: boolean, now: number): string =>
+  active
+    ? `Now · ${countdown(turn.start + HOUR - now)} left`
+    : clock(turn.start);
+
+const ZoneStrip = (props: { data: Data }) => {
+  const [shown, setShown] = createSignal<Rotation | undefined>(undefined);
+
+  const close = () => {
+    releaseAnchor();
+    setShown(undefined);
+  };
+
+  return (
+    <div class="flex h-10 items-center gap-1 rounded-lg border px-2">
+      <span class="px-1 text-muted-foreground">Distortion</span>
+      <For each={props.data.turns().slice(0, STRIP_ZONES)}>
+        {(turn, index) => (
+          <span
+            class="flex h-7 items-center gap-2 rounded-md px-2 hover:bg-muted"
+            onMouseEnter={(event) => {
+              holdAnchor(event.currentTarget, close);
+              setShown(turn);
+            }}
+            onMouseLeave={close}
+          >
+            <span
+              classList={{
+                "font-medium text-foreground": index() === 0,
+                "text-muted-foreground": index() !== 0,
+              }}
+            >
+              {turn.name}
+            </span>
+            <span
+              class="tabular-nums"
+              classList={{
+                "text-light": index() === 0,
+                "text-muted-foreground": index() !== 0,
+              }}
+            >
+              {zoneTime(turn, index() === 0, props.data.now())}
+            </span>
+          </span>
         )}
+      </For>
+      <Show when={shown()}>
+        {(turn) => (
+          <AnchoredPanel class={PANEL}>
+            <span class="text-base font-medium text-foreground">
+              {turn().name}
+            </span>
+            <SetBonuses turn={turn()} values={props.data.values()} />
+          </AnchoredPanel>
+        )}
+      </Show>
+    </div>
+  );
+};
+
+const Loading = (props: { data: Data }) => (
+  <>
+    <Show when={props.data.tables.error}>
+      <p class="text-destructive">Activity definitions failed to load.</p>
+    </Show>
+    <Show when={props.data.realms().length === 0}>
+      <p class="text-muted-foreground">
+        <Show
+          when={props.data.all().length > 0}
+          fallback={<>Loading activities…</>}
+        >
+          Nothing matches that filter.
+        </Show>
+      </p>
+    </Show>
+  </>
+);
+
+export const Activities = () => {
+  const data = createActivities();
+
+  const sections = createMemo((): Section[] => {
+    const realm = data.realm();
+
+    if (!realm) {
+      return [];
+    }
+
+    const picks = realm.categories
+      .flatMap((one) => one.entries)
+      .filter((one) => one.featured);
+    const built: Section[] = [];
+
+    if (picks.length > 0) {
+      built.push({ name: FEATURED, entries: picks });
+    }
+
+    for (const category of realm.categories) {
+      const entries = category.entries.filter((one) => !one.featured);
+
+      if (entries.length > 0) {
+        built.push({ name: category.name, entries });
+      }
+    }
+
+    return built;
+  });
+
+  return (
+    <div class="flex flex-col gap-3 p-4">
+      <ZoneStrip data={data} />
+      <Loading data={data} />
+      <Show when={data.realms().length > 0}>
+        <PickOne
+          value={data.realm()?.name}
+          options={data.realms().map((realm) => realm.name)}
+          label={(name) => (
+            <>
+              {name}
+              <BonusCount
+                count={
+                  data.realms().find((realm) => realm.name === name)
+                    ?.bonusDrops ?? 0
+                }
+                glyph={data.glyph()}
+              />
+            </>
+          )}
+          onChange={data.pickRealm}
+        />
+        <RunTable data={data} sections={sections()} />
+      </Show>
+      <Show when={data.hovered()}>
+        {(hovered) => <RunDetail data={data} hovered={hovered()} />}
       </Show>
     </div>
   );

@@ -1,6 +1,7 @@
 import { Show } from "solid-js";
 
 import { tileArt } from "../activities.ts";
+import { TableCell } from "../ui/zaidan/table.tsx";
 import { rungColor } from "./runFormat.ts";
 
 export interface PlateProps {
@@ -13,41 +14,42 @@ export interface PlateProps {
 
 export const Difficulty = (props: { name: string | undefined }) => (
   <Show when={props.name}>
-    {(name) => (
-      <span class={`uppercase text-sm tracking-[0.12em] ${rungColor(name())}`}>
-        {name()}
-      </span>
-    )}
+    {(name) => <span class={rungColor(name())}>{name()}</span>}
   </Show>
 );
 
 export const Plate = (props: PlateProps) => (
-  <div
-    class="plate flex h-14 flex-col justify-center gap-0.5 px-3"
-    style={{ "--art": tileArt(props.art, props.typeName) }}
-  >
-    <span class="truncate text-md text-fg">{props.name}</span>
-    <span class="flex items-baseline gap-2 overflow-hidden text-sm text-text">
-      <Difficulty name={props.difficulty} />
-      <span class="truncate">{props.note}</span>
-    </span>
+  <div class="flex min-w-0 items-center gap-3">
+    <span
+      class="h-8 w-14 shrink-0 rounded-sm bg-cover bg-center"
+      style={{ "background-image": tileArt(props.art, props.typeName) }}
+    />
+    <div class="flex min-w-0 flex-col">
+      <span class="truncate text-foreground">{props.name}</span>
+      <span class="flex items-baseline gap-1.5 overflow-hidden text-xs text-muted-foreground">
+        <Difficulty name={props.difficulty} />
+        <Show when={props.difficulty && props.note}>
+          <span>·</span>
+        </Show>
+        <span class="truncate">{props.note}</span>
+      </span>
+    </div>
   </div>
 );
 
 export const Result = (props: { completed: boolean }) => (
-  <td
-    class="text-sm uppercase"
+  <TableCell
     classList={{
-      "text-dim": props.completed,
+      "text-muted-foreground": props.completed,
       "text-warning": !props.completed,
     }}
   >
     {props.completed ? "Cleared" : "Incomplete"}
-  </td>
+  </TableCell>
 );
 
 export const Chevron = (props: { open?: boolean }) => (
-  <td class="w-8 text-center text-lg text-dim group-hover:text-fg">
+  <TableCell class="w-8 text-center text-lg text-muted-foreground group-hover:text-foreground">
     {props.open ? "▾" : "›"}
-  </td>
+  </TableCell>
 );

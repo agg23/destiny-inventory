@@ -16,7 +16,16 @@ import { ItemIcon } from "../ItemIcon.tsx";
 import type { Session } from "../load.ts";
 import { dismiss, preview } from "../preview.ts";
 import { REPORTS } from "../store.ts";
-import { Button } from "../ui/Button.tsx";
+import { TABLE_FRAME, TABLE_HEADER } from "../ui/text.ts";
+import { Button } from "../ui/zaidan/button.tsx";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/zaidan/table.tsx";
 
 interface StoredReport {
   instanceId: string;
@@ -73,7 +82,7 @@ const WeaponName = (props: { hash: number; item: DimItem | undefined }) => (
   <Show
     when={props.item}
     fallback={
-      <span class="text-dim">
+      <span class="text-muted-foreground">
         {defs()?.InventoryItem.getOptional(props.hash)?.displayProperties
           .name ?? "Unknown weapon"}
       </span>
@@ -119,107 +128,118 @@ const Weapons = (props: { entry: DestinyPostGameCarnageReportEntry }) => {
 
   return (
     <div class="grid grid-cols-[minmax(180px,1fr)_minmax(280px,2fr)] gap-6 max-md:grid-cols-1">
-      <dl class="m-0 flex flex-col gap-1 text-md">
-        <div class="flex justify-between gap-4 border-b border-line pb-1">
-          <dt class="text-dim">Time played</dt>
+      <dl class="flex flex-col gap-1">
+        <div class="flex justify-between gap-4 border-b pb-1">
+          <dt class="text-muted-foreground">Time played</dt>
           <dd class="m-0 tabular-nums">
             {duration(stat(props.entry, "timePlayedSeconds"))}
           </dd>
         </div>
         <div class="flex justify-between gap-4">
-          <dt class="text-dim">Joined at</dt>
+          <dt class="text-muted-foreground">Joined at</dt>
           <dd class="m-0 tabular-nums">
             {duration(stat(props.entry, "startSeconds"))}
           </dd>
         </div>
         <div class="flex justify-between gap-4">
-          <dt class="text-dim">Class</dt>
+          <dt class="text-muted-foreground">Class</dt>
           <dd class="m-0">{props.entry.player.characterClass || "-"}</dd>
         </div>
         <div class="flex justify-between gap-4">
-          <dt class="text-dim">Light</dt>
-          <dd class="m-0 tabular-nums text-gold">
+          <dt class="text-muted-foreground">Light</dt>
+          <dd class="tabular-nums text-cream">
             {props.entry.player.lightLevel}
           </dd>
         </div>
       </dl>
 
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Weapon</th>
-            <th class="num">Kills</th>
-            <th class="num">Precision</th>
-            <th class="num">Accuracy</th>
-          </tr>
-        </thead>
-        <tbody>
-          <For each={weapons()}>
-            {(weapon) => {
-              const item = () => items()?.get(weapon.referenceId);
+      <div class={`${TABLE_FRAME} bg-background`}>
+        <Table>
+          <TableHeader class={TABLE_HEADER}>
+            <TableRow>
+              <TableHead>Weapon</TableHead>
+              <TableHead class="text-right tabular-nums">Kills</TableHead>
+              <TableHead class="text-right tabular-nums">Precision</TableHead>
+              <TableHead class="text-right tabular-nums">Accuracy</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <For each={weapons()}>
+              {(weapon) => {
+                const item = () => items()?.get(weapon.referenceId);
 
-              const track = (
-                event: MouseEvent & { currentTarget: HTMLTableRowElement },
-              ) => {
-                const found = item();
+                const track = (
+                  event: MouseEvent & { currentTarget: HTMLTableRowElement },
+                ) => {
+                  const found = item();
 
-                if (found) {
-                  preview(
-                    found,
-                    event.currentTarget,
-                    event.clientX,
-                    undefined,
-                    true,
-                  );
-                }
-              };
+                  if (found) {
+                    preview(
+                      found,
+                      event.currentTarget,
+                      event.clientX,
+                      undefined,
+                      true,
+                    );
+                  }
+                };
 
-              const leave = () => {
-                const found = item();
+                const leave = () => {
+                  const found = item();
 
-                if (found) {
-                  dismiss(found);
-                }
-              };
+                  if (found) {
+                    dismiss(found);
+                  }
+                };
 
-              // Picking another player swaps these rows out from under the pointer
-              onCleanup(leave);
+                // Picking another player swaps these rows out from under the pointer
+                onCleanup(leave);
 
-              return (
-                <tr
-                  onMouseEnter={track}
-                  onMouseMove={track}
-                  onMouseLeave={leave}
-                >
-                  <td>
-                    <WeaponName hash={weapon.referenceId} item={item()} />
-                  </td>
-                  <td class="num">
-                    {weapon.values.uniqueWeaponKills?.basic.value ?? 0}
-                  </td>
-                  <td class="num">
-                    {weapon.values.uniqueWeaponPrecisionKills?.basic.value ?? 0}
-                  </td>
-                  <td class="num">
-                    {weapon.values.uniqueWeaponKillsPrecisionKills?.basic
-                      .displayValue ?? "-"}
-                  </td>
-                </tr>
-              );
-            }}
-          </For>
-          <For each={abilities()}>
-            {(one) => (
-              <tr>
-                <td class="text-dim">{one.label}</td>
-                <td class="num">{one.value}</td>
-                <td class="num text-dim">-</td>
-                <td class="num text-dim">-</td>
-              </tr>
-            )}
-          </For>
-        </tbody>
-      </table>
+                return (
+                  <TableRow
+                    onMouseEnter={track}
+                    onMouseMove={track}
+                    onMouseLeave={leave}
+                  >
+                    <TableCell>
+                      <WeaponName hash={weapon.referenceId} item={item()} />
+                    </TableCell>
+                    <TableCell class="text-right tabular-nums">
+                      {weapon.values.uniqueWeaponKills?.basic.value ?? 0}
+                    </TableCell>
+                    <TableCell class="text-right tabular-nums">
+                      {weapon.values.uniqueWeaponPrecisionKills?.basic.value ??
+                        0}
+                    </TableCell>
+                    <TableCell class="text-right tabular-nums">
+                      {weapon.values.uniqueWeaponKillsPrecisionKills?.basic
+                        .displayValue ?? "-"}
+                    </TableCell>
+                  </TableRow>
+                );
+              }}
+            </For>
+            <For each={abilities()}>
+              {(one) => (
+                <TableRow>
+                  <TableCell class="text-muted-foreground">
+                    {one.label}
+                  </TableCell>
+                  <TableCell class="text-right tabular-nums">
+                    {one.value}
+                  </TableCell>
+                  <TableCell class="text-right text-muted-foreground tabular-nums">
+                    -
+                  </TableCell>
+                  <TableCell class="text-right text-muted-foreground tabular-nums">
+                    -
+                  </TableCell>
+                </TableRow>
+              )}
+            </For>
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 };
@@ -273,66 +293,80 @@ export const Report = (props: {
             {modifiers() ? "Hide modifiers" : `Modifiers (${named().length})`}
           </Button>
           <Show when={modifiers()}>
-            <ul class="m-0 flex list-none flex-wrap gap-x-4 gap-y-1 p-0 text-md text-text">
+            <ul class="flex flex-wrap gap-x-4 gap-y-1">
               <For each={named()}>{(name) => <li>{name}</li>}</For>
             </ul>
           </Show>
         </div>
       </Show>
 
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Player</th>
-            <th class="num">Kills + assists</th>
-            <th class="num">Kills</th>
-            <th class="num">Deaths</th>
-            <th class="num">K/D</th>
-            <th class="num">Score</th>
-          </tr>
-        </thead>
-        <tbody>
-          <For each={fireteam()}>
-            {(entry) => (
-              <tr
-                class="cursor-pointer"
-                classList={{
-                  highlight: picked()?.characterId === entry.characterId,
-                }}
-                onClick={() => setShownPlayer(entry.characterId)}
-              >
-                <td>
-                  <span class="flex items-center gap-2">
-                    <Show when={entry.player.destinyUserInfo.iconPath}>
-                      {(icon) => (
-                        <img
-                          class="size-6 shrink-0"
-                          src={`${BUNGIE}${icon()}`}
-                          alt=""
-                        />
-                      )}
-                    </Show>
-                    <span
-                      classList={{
-                        "text-gold": entry.characterId === props.characterId,
-                      }}
-                    >
-                      {nameOf(entry)}
+      <div class={`${TABLE_FRAME} bg-background`}>
+        <Table>
+          <TableHeader class={TABLE_HEADER}>
+            <TableRow>
+              <TableHead>Player</TableHead>
+              <TableHead class="text-right tabular-nums">
+                Kills + assists
+              </TableHead>
+              <TableHead class="text-right tabular-nums">Kills</TableHead>
+              <TableHead class="text-right tabular-nums">Deaths</TableHead>
+              <TableHead class="text-right tabular-nums">K/D</TableHead>
+              <TableHead class="text-right tabular-nums">Score</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <For each={fireteam()}>
+              {(entry) => (
+                <TableRow
+                  class="cursor-pointer"
+                  data-state={
+                    picked()?.characterId === entry.characterId
+                      ? "selected"
+                      : undefined
+                  }
+                  onClick={() => setShownPlayer(entry.characterId)}
+                >
+                  <TableCell>
+                    <span class="flex items-center gap-2">
+                      <Show when={entry.player.destinyUserInfo.iconPath}>
+                        {(icon) => (
+                          <img
+                            class="size-6 shrink-0"
+                            src={`${BUNGIE}${icon()}`}
+                            alt=""
+                          />
+                        )}
+                      </Show>
+                      <span
+                        classList={{
+                          "text-cream": entry.characterId === props.characterId,
+                        }}
+                      >
+                        {nameOf(entry)}
+                      </span>
                     </span>
-                  </span>
-                </td>
-                <td class="num">{stat(entry, "opponentsDefeated")}</td>
-                <td class="num">{stat(entry, "kills")}</td>
-                <td class="num">{stat(entry, "deaths")}</td>
-                <td class="num">
-                  {stat(entry, "killsDeathsRatio").toFixed(2)}
-                </td>
-                <td class="num">{stat(entry, "score").toLocaleString()}</td>
-              </tr>
-            )}
-          </For>
-        </tbody>
-      </table>
+                  </TableCell>
+                  <TableCell class="text-right tabular-nums">
+                    {stat(entry, "opponentsDefeated")}
+                  </TableCell>
+                  <TableCell class="text-right tabular-nums">
+                    {stat(entry, "kills")}
+                  </TableCell>
+                  <TableCell class="text-right tabular-nums">
+                    {stat(entry, "deaths")}
+                  </TableCell>
+                  <TableCell class="text-right tabular-nums">
+                    {stat(entry, "killsDeathsRatio").toFixed(2)}
+                  </TableCell>
+                  <TableCell class="text-right tabular-nums">
+                    {stat(entry, "score").toLocaleString()}
+                  </TableCell>
+                </TableRow>
+              )}
+            </For>
+          </TableBody>
+        </Table>
+      </div>
 
       <Show when={picked()}>{(entry) => <Weapons entry={entry()} />}</Show>
     </div>

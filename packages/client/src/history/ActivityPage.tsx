@@ -6,6 +6,23 @@ import { Chevron, Result } from "./ActivityRow.tsx";
 import { duration, type HistoryRun } from "../history.ts";
 import { Report } from "./RunReport.tsx";
 import { METRICS, RunGraph, type Metric } from "./RunGraph.tsx";
+import {
+  HEADING,
+  HEADING_NOTE,
+  HERO,
+  SECTION,
+  TABLE_FRAME,
+  TABLE_HEADER,
+} from "../ui/text.ts";
+import { NativeSelect } from "../ui/zaidan/native-select.tsx";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/zaidan/table.tsx";
 import { ratio, rungColor, score, stamp } from "./runFormat.ts";
 import type { Best } from "./totals.ts";
 
@@ -27,55 +44,57 @@ export const ActivityPage = (props: {
   tables: ActivityTables | undefined;
 }) => (
   <>
-    <div class="card overflow-hidden">
+    <div class="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
       <div
-        class="hero-art flex min-h-[200px] flex-col items-center justify-center gap-1 p-6 text-center"
+        class={HERO}
         style={{ "--art": tileArt(props.art, props.typeName) }}
       >
-        <h2 class="m-0 text-2xl leading-tight">
+        <h2 class="text-2xl leading-tight font-semibold">
           {props.label}
           <Show when={props.difficulty}>
             {(rung) => <span class={rungColor(rung())}>: {rung()}</span>}
           </Show>
         </h2>
-        <span class="text-md text-text">{props.typeName}</span>
-        <span class="mt-2 flex flex-wrap justify-center gap-x-5 text-md tabular-nums text-fg">
+        <span class="text-foreground/80">{props.typeName}</span>
+        <span class="mt-2 flex flex-wrap justify-center gap-x-5 tabular-nums">
           <span>
-            <b>{props.best.runs}</b> <span class="text-dim">entered</span>
+            <b>{props.best.runs}</b>{" "}
+            <span class="text-muted-foreground">entered</span>
           </span>
           <span>
-            <b>{props.best.cleared}</b> <span class="text-dim">cleared</span>
+            <b>{props.best.cleared}</b>{" "}
+            <span class="text-muted-foreground">cleared</span>
           </span>
           <Show when={props.best.fastest !== undefined}>
             <span>
               <b>{duration(props.best.fastest ?? 0)}</b>{" "}
-              <span class="text-dim">fastest</span>
+              <span class="text-muted-foreground">fastest</span>
             </span>
           </Show>
           <Show when={props.best.score > 0}>
             <span>
               <b>{props.best.score.toLocaleString()}</b>{" "}
-              <span class="text-dim">best score</span>
+              <span class="text-muted-foreground">best score</span>
             </span>
           </Show>
         </span>
       </div>
 
       <Show when={props.oldestFirst.length > 1}>
-        <div class="card-body flex flex-col gap-3">
+        <div class="flex flex-col gap-3 p-4">
           <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <p class="section-label m-0 flex-1">Historical performance</p>
-            <label class="flex items-center gap-2 text-md text-dim">
+            <p class={`${HEADING} m-0 flex-1`}>Historical performance</p>
+            <label class="flex items-center gap-2 text-muted-foreground">
               Comparing
-              <select
-                class="select"
+              <NativeSelect
+                class="text-foreground"
                 value={props.metric.id}
                 onChange={(event) => props.onMetric(event.currentTarget.value)}
               >
                 <For each={METRICS}>
                   {(one) => <option value={one.id}>{one.label}</option>}
                 </For>
-              </select>
+              </NativeSelect>
             </label>
           </div>
           <RunGraph
@@ -88,60 +107,83 @@ export const ActivityPage = (props: {
       </Show>
     </div>
 
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Runs</span>
-        <span class="card-subtitle">
+    <section class={SECTION}>
+      <h2 class={`${HEADING} flex items-baseline gap-2`}>
+        Runs
+        <span class={HEADING_NOTE}>
           Newest first · pick one for its full report
         </span>
-      </div>
-      <div class="card-body p-0">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Started</th>
-              <th class="num">Duration</th>
-              <th class="num">Kills</th>
-              <th class="num">Assists</th>
-              <th class="num">Deaths</th>
-              <th class="num">K/D</th>
-              <th class="num">Score</th>
-              <th>Result</th>
-              <th class="w-8" />
-            </tr>
-          </thead>
-          <tbody>
+      </h2>
+      <div class={TABLE_FRAME}>
+        <Table>
+          <TableHeader class={TABLE_HEADER}>
+            <TableRow>
+              <TableHead>Started</TableHead>
+              <TableHead class="text-right tabular-nums">Duration</TableHead>
+              <TableHead class="text-right tabular-nums">Kills</TableHead>
+              <TableHead class="text-right tabular-nums">Assists</TableHead>
+              <TableHead class="text-right tabular-nums">Deaths</TableHead>
+              <TableHead class="text-right tabular-nums">K/D</TableHead>
+              <TableHead class="text-right tabular-nums">Score</TableHead>
+              <TableHead>Result</TableHead>
+              <TableHead class="w-8" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             <For each={props.newestFirst}>
               {(run) => (
                 <>
-                  <tr
+                  <TableRow
                     class="group cursor-pointer"
-                    classList={{
-                      highlight: props.opened?.instanceId === run.instanceId,
-                    }}
+                    data-state={
+                      props.opened?.instanceId === run.instanceId
+                        ? "selected"
+                        : undefined
+                    }
                     onClick={() => props.onPick(run)}
                   >
-                    <td class="tabular-nums">{stamp(run.startedAt)}</td>
-                    <td class="num">{duration(run.durationSeconds)}</td>
-                    <td class="num">{run.kills}</td>
-                    <td class="num">{run.assists}</td>
-                    <td class="num">{run.deaths}</td>
-                    <td class="num">{ratio(run)}</td>
-                    <td class="num">{score(run.score)}</td>
+                    <TableCell class="tabular-nums">
+                      {stamp(run.startedAt)}
+                    </TableCell>
+                    <TableCell class="text-right tabular-nums">
+                      {duration(run.durationSeconds)}
+                    </TableCell>
+                    <TableCell class="text-right tabular-nums">
+                      {run.kills}
+                    </TableCell>
+                    <TableCell class="text-right tabular-nums">
+                      {run.assists}
+                    </TableCell>
+                    <TableCell class="text-right tabular-nums">
+                      {run.deaths}
+                    </TableCell>
+                    <TableCell class="text-right tabular-nums">
+                      {ratio(run)}
+                    </TableCell>
+                    <TableCell class="text-right tabular-nums">
+                      {score(run.score)}
+                    </TableCell>
                     <Result completed={run.completed} />
                     <Chevron
                       open={props.opened?.instanceId === run.instanceId}
                     />
-                  </tr>
+                  </TableRow>
 
                   <Show when={props.opened?.instanceId === run.instanceId}>
-                    <tr class="report">
-                      <td colspan={9} class="bg-panel-raised">
+                    <TableRow class="hover:bg-transparent">
+                      <TableCell
+                        colSpan={9}
+                        class="bg-popover p-4 whitespace-normal"
+                      >
                         <Show when={props.reportLoading}>
-                          <p class="m-0 text-muted">Loading report…</p>
+                          <p class="text-muted-foreground">
+                            Loading report…
+                          </p>
                         </Show>
                         <Show when={props.reportFailed}>
-                          <p class="m-0 text-danger">Report failed to load.</p>
+                          <p class="text-destructive">
+                            Report failed to load.
+                          </p>
                         </Show>
                         <Show when={props.report}>
                           {(loaded) => (
@@ -152,15 +194,15 @@ export const ActivityPage = (props: {
                             />
                           )}
                         </Show>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   </Show>
                 </>
               )}
             </For>
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
-    </div>
+    </section>
   </>
 );

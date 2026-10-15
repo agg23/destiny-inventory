@@ -1,6 +1,13 @@
-import { DropdownMenu } from "@kobalte/core/dropdown-menu";
 import type { DimStore } from "app/inventory/store-types";
 import { For } from "solid-js";
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/zaidan/dropdown-menu.tsx";
+import { ChevronDown } from "./ui/zaidan/icons.tsx";
 
 interface Props {
   characters: DimStore[];
@@ -8,66 +15,47 @@ interface Props {
   onSelect: (store: DimStore) => void;
 }
 
+// The art's left square is the emblem icon
 const BANNER =
-  "card selectable store-head emblem-head flex items-center gap-2 text-left";
+  "flex h-(--banner) items-center gap-2 overflow-hidden rounded-lg bg-cover bg-left pr-3 pl-[calc(var(--banner)+0.5rem)] text-left text-shadow-art";
 
-export const StoreBanner = (props: {
-  icon: string;
-  title: string;
-  note: string;
-}) => (
-  <>
-    <img class="size-(--icon-lg) shrink-0" src={props.icon} alt="" />
-    <div class="min-w-0">
-      <div class="header general truncate">{props.title}</div>
-      <div class="store-note truncate text-fg/75">{props.note}</div>
-    </div>
-  </>
-);
+const art = (url: string | undefined) => ({ "background-image": `url(${url})` });
 
 const Banner = (props: { store: DimStore }) => (
   <div class="min-w-0">
-    <div class="header general truncate">{props.store.className}</div>
-    <div class="store-note truncate text-fg/75">
+    <div class="truncate font-medium text-foreground">
+      {props.store.className}
+    </div>
+    <div class="truncate text-xs text-foreground/75">
       {props.store.genderRace} · {props.store.powerLevel}
     </div>
   </div>
 );
 
 export const CharacterPicker = (props: Props) => (
-  <DropdownMenu gutter={4} sameWidth modal={false} preventScroll={false}>
-    <DropdownMenu.Trigger
-      class={`${BANNER} w-full`}
-      style={{ "--art": `url(${props.selected?.background})` }}
+  <DropdownMenu sameWidth modal={false} preventScroll={false}>
+    <DropdownMenuTrigger
+      class={`${BANNER} w-full ring-1 ring-foreground/10 hover:ring-foreground/40 aria-expanded:ring-foreground/40`}
+      style={art(props.selected?.background)}
     >
       <For each={props.selected ? [props.selected] : []}>
         {(store) => <Banner store={store} />}
       </For>
-      <svg
-        class="ml-auto shrink-0 text-text"
-        viewBox="0 0 10 6"
-        width="10"
-        height="6"
-        aria-hidden="true"
-      >
-        <path d="M0 0h10L5 6z" fill="currentColor" />
-      </svg>
-    </DropdownMenu.Trigger>
-    <DropdownMenu.Portal>
-      <DropdownMenu.Content class="picker-menu">
-        <For each={props.characters}>
-          {(store) => (
-            <DropdownMenu.Item
-              class={`${BANNER} outline-none`}
-              classList={{ "accent-exotic": store.id === props.selected?.id }}
-              style={{ "--art": `url(${store.background})` }}
-              onSelect={() => props.onSelect(store)}
-            >
-              <Banner store={store} />
-            </DropdownMenu.Item>
-          )}
-        </For>
-      </DropdownMenu.Content>
-    </DropdownMenu.Portal>
+      <ChevronDown class="ml-auto size-4 shrink-0 text-foreground/75" />
+    </DropdownMenuTrigger>
+    <DropdownMenuContent class="flex flex-col gap-1">
+      <For each={props.characters}>
+        {(store) => (
+          <DropdownMenuItem
+            class={`${BANNER} w-full py-0 focus:ring-2 focus:ring-foreground focus:ring-inset`}
+            classList={{ "ring-1 ring-light": store.id === props.selected?.id }}
+            style={art(store.background)}
+            onSelect={() => props.onSelect(store)}
+          >
+            <Banner store={store} />
+          </DropdownMenuItem>
+        )}
+      </For>
+    </DropdownMenuContent>
   </DropdownMenu>
 );

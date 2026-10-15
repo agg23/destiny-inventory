@@ -1,6 +1,11 @@
 import { For } from "solid-js";
 
 import type { Group, Section } from "../../collections.ts";
+import { LABEL, ROW } from "../../ui/text.ts";
+
+const LIST = "flex flex-col";
+
+const NOTE = "shrink-0 text-xs text-muted-foreground tabular-nums";
 
 export const Rail = (props: {
   sections: Section[];
@@ -13,28 +18,28 @@ export const Rail = (props: {
     <li>
       <button
         type="button"
-        class="menu-item"
-        classList={{ active: props.picked.includes(group) }}
+        class={ROW}
+        classList={{ "bg-muted": props.picked.includes(group) }}
         onClick={() => props.onPick(group)}
       >
-        {group.label}
-        <span class="menu-item-note">{props.count(group)}</span>
+        <span class="min-w-0 flex-1 truncate">{group.label}</span>
+        <span class={NOTE}>{props.count(group)}</span>
       </button>
     </li>
   );
 
   return (
-    <nav class="collections-rail">
-      <ul class="menu-list collections-section">
+    <nav class="sticky top-[calc(var(--header-h,49px)+1rem)] flex max-h-[calc(100vh-var(--header-h,49px)-2rem)] flex-col gap-3 overflow-y-auto">
+      <ul class={LIST}>
         <li>
           <button
             type="button"
-            class="menu-item"
-            classList={{ active: props.picked.length === 0 }}
+            class={ROW}
+            classList={{ "bg-muted": props.picked.length === 0 }}
             onClick={() => props.onPick(undefined)}
           >
-            All
-            <span class="menu-item-note">{props.allCount}</span>
+            <span class="flex-1">All</span>
+            <span class={NOTE}>{props.allCount}</span>
           </button>
         </li>
         <For
@@ -47,9 +52,9 @@ export const Rail = (props: {
       </ul>
       <For each={props.sections.filter((section) => section.label !== "")}>
         {(section) => (
-          <div class="collections-section">
-            <h4 class="section-label mb-2">{section.label}</h4>
-            <ul class="menu-list">
+          <div class="flex flex-col gap-1">
+            <h4 class={`${LABEL} px-1.5`}>{section.label}</h4>
+            <ul class={LIST}>
               <For each={section.groups}>{item}</For>
             </ul>
           </div>

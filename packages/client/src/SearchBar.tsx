@@ -1,9 +1,20 @@
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  For,
+  Show,
+  type JSX,
+} from "solid-js";
 
 import { BUNGIE } from "./bungie.ts";
 import type { ArmorSet, Entry } from "./collections.ts";
 import type { SearchEngine } from "./search.ts";
 import { forgetSearch, recentSearches, rememberSearch } from "./searches.ts";
+import { SearchField } from "./ui/SearchField.tsx";
+import { LABEL } from "./ui/text.ts";
+import { Button } from "./ui/zaidan/button.tsx";
+import { X } from "./ui/zaidan/icons.tsx";
 
 interface Props {
   query: string;
@@ -15,6 +26,9 @@ interface Props {
   onEntry?: (entry: Entry | ArmorSet) => void;
   onSubmit?: (query: string) => void;
   onFocus?: () => void;
+  trailing?: JSX.Element;
+  class?: string;
+  inputClass?: string;
 }
 
 interface Row {
@@ -29,6 +43,8 @@ const COMPLETIONS = 6;
 const RECENTS = 3;
 
 const ENTRIES = 3;
+
+const ROW = "flex cursor-pointer gap-2 rounded-md px-2 py-1.5";
 
 export const SearchBar = (props: Props) => {
   const [open, setOpen] = createSignal(false);
@@ -286,42 +302,43 @@ export const SearchBar = (props: Props) => {
         ];
 
   return (
-    <div class="search-field" data-menu>
-      <input
-        ref={(el) => (field = el)}
-        class="text-input inline header-filter"
-        type="search"
-        placeholder={ghost() === "" ? props.placeholder : ""}
-        autocomplete="off"
-        spellcheck={false}
-        value={props.query}
-        onInput={onInput}
-        onKeyDown={onKeyDown}
-        onClick={(event) => {
-          setCaret(event.currentTarget.selectionStart ?? props.query.length);
-          setOpen(true);
-        }}
-        onFocus={() => {
-          setFocused(true);
-          setOpen(true);
-          props.onFocus?.();
-        }}
-        onBlur={onBlur}
-      />
-
+    <SearchField
+      ref={(el: HTMLInputElement) => (field = el)}
+      wrapper={props.class}
+      class={props.inputClass}
+      placeholder={ghost() === "" ? props.placeholder : ""}
+      value={props.query}
+      trailing={props.trailing}
+      onInput={onInput}
+      onKeyDown={onKeyDown}
+      onClick={(event: MouseEvent & { currentTarget: HTMLInputElement }) => {
+        setCaret(event.currentTarget.selectionStart ?? props.query.length);
+        setOpen(true);
+      }}
+      onFocus={() => {
+        setFocused(true);
+        setOpen(true);
+        props.onFocus?.();
+      }}
+      onBlur={onBlur}
+      onClear={() => {
+        apply("");
+        setOpen(false);
+      }}
+    >
       <Show when={ghost() !== ""}>
         <div
-          class="text-input inline header-filter search-ghost"
+          class={`z-input pointer-events-none absolute inset-0 z-1 flex items-center overflow-hidden border-transparent bg-transparent whitespace-pre text-muted-foreground ${props.inputClass ?? ""}`}
           aria-hidden="true"
         >
-          <span>{props.query}</span>
+          <span class="text-transparent">{props.query}</span>
           {ghost()}
         </div>
       </Show>
 
       <Show when={open() && total() > 0}>
         <ul
-          class="picker-menu search-menu"
+          class="absolute top-full left-0 z-50 mt-1 max-h-[60vh] w-full overflow-y-auto rounded-lg bg-popover p-1 shadow-md ring-1 ring-foreground/10"
           role="listbox"
           onMouseLeave={() => setHighlight(-1)}
         >
@@ -330,42 +347,50 @@ export const SearchBar = (props: Props) => {
               <li
                 role="option"
                 aria-selected={highlight() === index()}
-                class="search-row selectable"
-                classList={{ active: highlight() === index() }}
+                class={`${ROW} items-baseline`}
+                classList={{ "bg-accent": highlight() === index() }}
                 onMouseDown={(event) => event.preventDefault()}
                 onMouseEnter={() => setHighlight(index())}
                 onClick={() => apply(row.query)}
               >
-                <span class="search-row-query">
+                <span class="shrink-0">
                   {parts(row)[0]}
-                  <b>{parts(row)[1]}</b>
+                  <b class="font-medium text-cream">{parts(row)[1]}</b>
                   {parts(row)[2]}
                 </span>
 
                 <Show when={row.help}>
-                  {(help) => <span class="search-row-help">{help()}</span>}
+                  {(help) => (
+                    <span class="line-clamp-2 text-muted-foreground">
+                      {help()}
+                    </span>
+                  )}
                 </Show>
 
                 <Show when={row.recent}>
-                  <button
-                    class="search-row-drop"
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    class="ml-auto self-center text-muted-foreground"
                     aria-label={`Forget ${row.query}`}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={(event) => {
+                    onMouseDown={(event: MouseEvent) => event.preventDefault()}
+                    onClick={(event: MouseEvent) => {
                       event.stopPropagation();
                       drop(row.query);
                     }}
                   >
-                    ×
-                  </button>
+                    <X />
+                  </Button>
                 </Show>
               </li>
             )}
           </For>
 
           <Show when={entryRows().length > 0}>
-            <li class="search-heading" role="presentation">
+            <li
+              class={`${LABEL} mt-1 border-t px-2 pt-2 pb-1 first:mt-0 first:border-t-0`}
+              role="presentation"
+            >
               Collections
             </li>
             <For each={entryRows()}>
@@ -373,22 +398,22 @@ export const SearchBar = (props: Props) => {
                 <li
                   role="option"
                   aria-selected={highlight() === rows().length + index()}
-                  class="search-row search-entry selectable"
+                  class={`${ROW} items-center`}
                   classList={{
-                    active: highlight() === rows().length + index(),
+                    "bg-accent": highlight() === rows().length + index(),
                   }}
                   onMouseDown={(event) => event.preventDefault()}
                   onMouseEnter={() => setHighlight(rows().length + index())}
                   onClick={() => openEntry(entry)}
                 >
-                  <img src={`${BUNGIE}${entry.icon}`} alt="" />
-                  <span class="search-entry-text">
+                  <img class="size-6" src={`${BUNGIE}${entry.icon}`} alt="" />
+                  <span class="flex items-baseline gap-1">
                     <span
-                      class={`search-row-query text-${entry.rarity.toLowerCase()}`}
+                      class={`shrink-0 text-${entry.rarity.toLowerCase()}`}
                     >
                       {entry.name}
                     </span>
-                    <span class="search-row-help">
+                    <span class="line-clamp-2 text-muted-foreground">
                       {entry.kind === "set"
                         ? "Armor set"
                         : `${entry.rarity} ${entry.typeName}`}
@@ -400,6 +425,6 @@ export const SearchBar = (props: Props) => {
           </Show>
         </ul>
       </Show>
-    </div>
+    </SearchField>
   );
 };

@@ -1,5 +1,7 @@
 import { For, Show } from "solid-js";
 
+import { NativeSelect } from "../../ui/zaidan/native-select.tsx";
+
 const ALL = "";
 
 export const Choice = <T extends string>(props: {
@@ -10,10 +12,10 @@ export const Choice = <T extends string>(props: {
   all?: boolean;
   onChoose: (value: T | undefined) => void;
 }) => (
-  <label class="flex items-center gap-2 text-sm text-dim">
+  <label class="flex items-center gap-2 text-muted-foreground">
     {props.label}
-    <select
-      class="select small"
+    <NativeSelect
+      class="text-foreground"
       value={props.value ?? ALL}
       onChange={(event) => {
         const value = event.currentTarget.value;
@@ -27,6 +29,6 @@ export const Choice = <T extends string>(props: {
       <For each={props.options}>
         {(option) => <option value={option}>{props.labels[option]}</option>}
       </For>
-    </select>
+    </NativeSelect>
   </label>
 );

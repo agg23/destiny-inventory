@@ -5,6 +5,7 @@ import type { Entry } from "../../collections.ts";
 import { defs } from "../../defs.ts";
 import { noteFor } from "../../notes.ts";
 import { setBonusOf } from "../../perks.ts";
+import { LABEL, NOTE_TEXT } from "../../ui/text.ts";
 import { ARMOR_SLOTS, bySlot } from "../armorSets.ts";
 
 /** One armor set: its pieces placed by slot, then the full set bonus */
@@ -42,12 +43,12 @@ export const SetCard = (props: {
   };
 
   return (
-    <div class="collections-set">
-      <h4 class="bucket-label">
-        <span class="collections-set-name">{name()}</span>
-        <span class="text-muted">{props.count}</span>
+    <div>
+      <h4 class={`${LABEL} mb-1 flex items-center gap-1.5`}>
+        <span class="min-w-0 truncate">{name()}</span>
+        <span class="shrink-0 font-normal tabular-nums">{props.count}</span>
       </h4>
-      <div class="item-grid">
+      <div class="grid grid-cols-[repeat(5,var(--tile))] gap-1">
         <For each={bySlot(props.pieces)}>
           {(piece) => (
             <div
@@ -62,18 +63,22 @@ export const SetCard = (props: {
       </div>
       <Show when={bonus()}>
         {(found) => (
-          <ul class="collections-set-bonus">
+          <ul class="mt-2 flex flex-col gap-2 text-xs">
             <For each={found().perks}>
               {(perk) => (
-                <li>
+                <li class="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-2">
                   <Show when={perk.icon}>
-                    {(icon) => <img src={`${BUNGIE}${icon()}`} alt="" />}
+                    {(icon) => (
+                      <img class="size-5" src={`${BUNGIE}${icon()}`} alt="" />
+                    )}
                   </Show>
-                  <div>
-                    <b>
+                  <div class="col-start-2">
+                    <b class="block font-medium text-foreground">
                       {perk.requiredSetCount} piece · {perk.name}
                     </b>
-                    <span>{perk.description}</span>
+                    <span class="block whitespace-pre-wrap text-muted-foreground">
+                      {perk.description}
+                    </span>
                   </div>
                 </li>
               )}
@@ -82,7 +87,11 @@ export const SetCard = (props: {
         )}
       </Show>
       <Show when={note()}>
-        {(found) => <p class="note-text collections-set-note">{found()}</p>}
+        {(found) => (
+          <p class={`${NOTE_TEXT} mt-2`}>
+            {found()}
+          </p>
+        )}
       </Show>
     </div>
   );

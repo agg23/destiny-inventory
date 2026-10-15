@@ -7,7 +7,6 @@ import {
   type ChallengeGroup,
   type OrderPayout,
 } from "../challenges.ts";
-import { PageChrome } from "../chrome.tsx";
 import { useClock } from "../clock.ts";
 import { builtTiles, vendorTiles, type VendorTile } from "../fakeItems.ts";
 import {
@@ -17,6 +16,9 @@ import {
   type Order,
 } from "../orders.ts";
 import { railCollapsed } from "../rail.ts";
+import { RAIL } from "../Rail.tsx";
+import { HEADING, HEADING_NOTE, SECTION, TABLE_FRAME } from "../ui/text.ts";
+import { Table, TableBody, TableCell, TableRow } from "../ui/zaidan/table.tsx";
 import {
   fetchVendorState,
   lastVendorFetch,
@@ -157,34 +159,28 @@ export const Todo = () => {
 
   return (
     <>
-      <PageChrome
-        status={
-          <span>
-            {orders().length} active{" "}
-            {orders().length === 1 ? "order" : "orders"}
-            <Show when={log().length > 0}> · {log().length} logged</Show>
-          </span>
-        }
-      />
-
-      <div class="todo-body">
+      <div class="flex flex-col gap-6 p-4">
         <Resets resets={resets()} now={now()} />
 
         <Show when={payouts().length > 0}>
-          <section class="todo-section">
-            <h2 class="section-label">Order rewards waiting</h2>
-            <table class="table">
-              <tbody>
-                <For each={payouts()}>
-                  {(payout) => (
-                    <tr>
-                      <td>{payout.name}</td>
-                      <td class="num tabular-nums">{payout.waiting}</td>
-                    </tr>
-                  )}
-                </For>
-              </tbody>
-            </table>
+          <section class={SECTION}>
+            <h2 class={HEADING}>Order rewards waiting</h2>
+            <div class={TABLE_FRAME}>
+              <Table>
+                <TableBody>
+                  <For each={payouts()}>
+                    {(payout) => (
+                      <TableRow>
+                        <TableCell class="w-2/5">{payout.name}</TableCell>
+                        <TableCell class="text-right tabular-nums">
+                          {payout.waiting}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </For>
+                </TableBody>
+              </Table>
+            </div>
           </section>
         </Show>
 
@@ -195,29 +191,33 @@ export const Todo = () => {
         </For>
 
         <Show when={priority().length > 0}>
-          <section class="todo-section">
-            <h2 class="section-label">Priority stock</h2>
-            <table class="table">
-              <tbody>
-                <For each={priority()}>
-                  {(offer) => (
-                    <tr>
-                      <td>{offer.name}</td>
-                      <td class="text-muted">{offer.vendor}</td>
-                      <td class="num tabular-nums">
-                        <For each={offer.costs}>
-                          {(cost) => (
-                            <>
-                              {cost.quantity.toLocaleString()} {cost.name}
-                            </>
-                          )}
-                        </For>
-                      </td>
-                    </tr>
-                  )}
-                </For>
-              </tbody>
-            </table>
+          <section class={SECTION}>
+            <h2 class={HEADING}>Priority stock</h2>
+            <div class={TABLE_FRAME}>
+              <Table>
+                <TableBody>
+                  <For each={priority()}>
+                    {(offer) => (
+                      <TableRow>
+                        <TableCell class="w-2/5">{offer.name}</TableCell>
+                        <TableCell class="text-muted-foreground">
+                          {offer.vendor}
+                        </TableCell>
+                        <TableCell class="text-right tabular-nums">
+                          <For each={offer.costs}>
+                            {(cost) => (
+                              <>
+                                {cost.quantity.toLocaleString()} {cost.name}
+                              </>
+                            )}
+                          </For>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </For>
+                </TableBody>
+              </Table>
+            </div>
           </section>
         </Show>
 
@@ -241,12 +241,18 @@ export const Todo = () => {
       </div>
 
       <Show when={!railCollapsed()}>
-        <aside class="rail">
-          <div class="orders p-3">
-            <h2 class="section-label mb-2">Active orders</h2>
+        <aside class={RAIL} data-rail>
+          <div class="flex min-h-0 flex-col gap-2 overflow-y-auto p-4">
+            <h2 class={`${HEADING} flex items-baseline gap-2`}>
+              Active orders
+              <span class={HEADING_NOTE}>
+                {orders().length}
+                <Show when={log().length > 0}> · {log().length} logged</Show>
+              </span>
+            </h2>
             <Show
               when={orders().length > 0}
-              fallback={<p class="text-muted">No orders held.</p>}
+              fallback={<p class="text-muted-foreground">No orders held.</p>}
             >
               <For each={orders()}>
                 {(order) => (

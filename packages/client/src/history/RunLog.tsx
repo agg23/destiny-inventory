@@ -2,74 +2,81 @@ import { For } from "solid-js";
 
 import { Chevron, Plate, Result, type PlateProps } from "./ActivityRow.tsx";
 import { duration, playedSeconds, span, type HistoryRun } from "../history.ts";
+import { TABLE_FRAME, TABLE_HEADER } from "../ui/text.ts";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/zaidan/table.tsx";
 import type { Day } from "./groups.ts";
 import { clock, dayTitle, plural, score } from "./runFormat.ts";
+
+const NUMBER = "text-right tabular-nums";
 
 export const RunLog = (props: {
   days: Day[];
   plateOf: (run: HistoryRun) => PlateProps;
   onOpen: (run: HistoryRun) => void;
 }) => (
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Run log</span>
-      <span class="card-subtitle">
-        Every run, newest first · pick one to open its activity
-      </span>
-    </div>
-    <div class="card-body p-0">
-      <table class="table">
-        <thead>
-          <tr>
-            <th class="w-72">Activity</th>
-            <th />
-            <th class="num w-36">Started</th>
-            <th class="num w-36">Duration</th>
-            <th class="num w-32">Kills</th>
-            <th class="num w-32">Deaths</th>
-            <th class="num w-36">Score</th>
-            <th class="w-40">Result</th>
-            <th class="w-8" />
-          </tr>
-        </thead>
+  <div class={TABLE_FRAME}>
+    <Table class="table-fixed">
+      <TableHeader class={TABLE_HEADER}>
+        <TableRow>
+          <TableHead>Activity</TableHead>
+          <TableHead class={`${NUMBER} w-28`}>Started</TableHead>
+          <TableHead class={`${NUMBER} w-28`}>Duration</TableHead>
+          <TableHead class={`${NUMBER} w-24`}>Kills</TableHead>
+          <TableHead class={`${NUMBER} w-24`}>Deaths</TableHead>
+          <TableHead class={`${NUMBER} w-28`}>Score</TableHead>
+          <TableHead class="w-32">Result</TableHead>
+          <TableHead class="w-8" />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         <For each={props.days}>
           {(day) => (
-            <tbody>
-              <tr class="day">
-                <td colspan={9}>
-                  <span class="section-label">
-                    {dayTitle(day.day)}
-                    <span class="text-sm normal-case tracking-normal tabular-nums text-dim">
+            <>
+              <TableRow class="bg-muted/30 hover:bg-muted/30">
+                <TableCell colSpan={8} class="py-1.5">
+                  <span class="flex items-baseline gap-2 text-xs">
+                    <span class="font-medium text-foreground">
+                      {dayTitle(day.day)}
+                    </span>
+                    <span class="text-muted-foreground tabular-nums">
                       {plural(day.runs.length, "run")} ·{" "}
                       {span(playedSeconds(day.runs))}
                     </span>
                   </span>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
               <For each={day.runs}>
                 {(run) => (
-                  <tr
+                  <TableRow
                     class="group cursor-pointer"
                     onClick={() => props.onOpen(run)}
                   >
-                    <td class="p-0">
+                    <TableCell>
                       <Plate {...props.plateOf(run)} />
-                    </td>
-                    <td />
-                    <td class="num">{clock(run.startedAt)}</td>
-                    <td class="num">{duration(run.durationSeconds)}</td>
-                    <td class="num">{run.kills}</td>
-                    <td class="num">{run.deaths}</td>
-                    <td class="num">{score(run.score)}</td>
+                    </TableCell>
+                    <TableCell class={NUMBER}>{clock(run.startedAt)}</TableCell>
+                    <TableCell class={NUMBER}>
+                      {duration(run.durationSeconds)}
+                    </TableCell>
+                    <TableCell class={NUMBER}>{run.kills}</TableCell>
+                    <TableCell class={NUMBER}>{run.deaths}</TableCell>
+                    <TableCell class={NUMBER}>{score(run.score)}</TableCell>
                     <Result completed={run.completed} />
                     <Chevron />
-                  </tr>
+                  </TableRow>
                 )}
               </For>
-            </tbody>
+            </>
           )}
         </For>
-      </table>
-    </div>
+      </TableBody>
+    </Table>
   </div>
 );

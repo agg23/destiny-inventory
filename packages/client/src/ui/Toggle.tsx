@@ -1,3 +1,5 @@
+import { Switch } from "./zaidan/switch.tsx";
+
 interface Props {
   label: string;
   checked: boolean;
@@ -5,12 +7,8 @@ interface Props {
 }
 
 export const Toggle = (props: Props) => (
-  <label class="checkbox leftCheck setting-toggle">
-    <input
-      type="checkbox"
-      checked={props.checked}
-      onChange={(e) => props.onChange(e.currentTarget.checked)}
-    />
-    <span class="section-label">{props.label}</span>
+  <label class="flex cursor-pointer items-center justify-between gap-4 select-none">
+    {props.label}
+    <Switch checked={props.checked} onChange={props.onChange} />
   </label>
 );

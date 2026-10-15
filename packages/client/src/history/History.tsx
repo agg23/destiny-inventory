@@ -2,7 +2,6 @@ import { useNavigate, useParams } from "@solidjs/router";
 import { createMemo, createResource, For, Show } from "solid-js";
 
 import { activityTables } from "../activityTables.ts";
-import { PageChrome } from "../chrome.tsx";
 import {
   localDay,
   runsByDay,
@@ -11,8 +10,9 @@ import {
 } from "../history.ts";
 import { useApp } from "../App.tsx";
 import { useUrl } from "../router.ts";
-import { Button } from "../ui/Button.tsx";
-import { TabButton } from "../ui/TabButton.tsx";
+import { CARD } from "../ui/text.ts";
+import { Button } from "../ui/zaidan/button.tsx";
+import { PickOne } from "../ui/PickOne.tsx";
 import {
   activityHref,
   activityLabel,
@@ -201,7 +201,7 @@ export const History = () => {
     });
 
   return (
-    <div class="flex flex-col gap-3 px-3 pt-3">
+    <div class="flex flex-col gap-3 p-4">
       <Show when={page()}>
         <Button size="sm" variant="ghost" class="self-start" onClick={leave}>
           &larr; All history
@@ -209,54 +209,42 @@ export const History = () => {
       </Show>
 
       <Show when={page() === undefined}>
-        <PageChrome
-          tabs={
-            <nav class="nav-subtabs">
-              <For each={TABS}>
-                {(one) => (
-                  <TabButton
-                    active={tab() === one.id}
-                    onClick={() => url.push({ view: one.id })}
-                  >
-                    {one.label}
-                  </TabButton>
-                )}
-              </For>
-            </nav>
-          }
-          tools={
-            <Show when={tab() !== "map"}>
-              <HistoryRange
-                range={range()}
-                pinned={pinned() !== undefined}
-                onRange={pickRange}
-                onDay={pickDay}
-                onClear={() => url.push({ from: undefined, days: undefined })}
-              />
-            </Show>
-          }
-        />
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <PickOne
+            value={tab()}
+            options={TABS.map((one) => one.id)}
+            label={(id) => TABS.find((one) => one.id === id)?.label}
+            onChange={(view) => url.push({ view })}
+          />
 
-        <Show when={tab() !== "map"}>
-          <HistorySummary spanLabel={window().label} totals={totals()} />
-        </Show>
+          <Show when={tab() !== "map"}>
+            <HistoryRange
+              range={range()}
+              pinned={pinned() !== undefined}
+              onRange={pickRange}
+              onDay={pickDay}
+              onClear={() => url.push({ from: undefined, days: undefined })}
+            />
+            <span class="ml-auto">
+              <HistorySummary spanLabel={window().label} totals={totals()} />
+            </span>
+          </Show>
+        </div>
 
         <Show when={tab() === "map"}>
-          <div class="card">
-            <div class="card-header">
-              <span class="card-title">Activity map</span>
-              <span class="card-subtitle">
+          <div class={CARD}>
+            <div class="flex flex-col gap-0.5">
+              <span class="font-medium">Activity map</span>
+              <span class="text-xs text-muted-foreground">
                 A week per square, a year per row. Pick one to filter Recent.
               </span>
             </div>
-            <div class="card-body">
-              <ActivityMap
-                byDay={byDay()}
-                from={window().from}
-                to={window().to}
-                onPick={pickWeek}
-              />
-            </div>
+            <ActivityMap
+              byDay={byDay()}
+              from={window().from}
+              to={window().to}
+              onPick={pickWeek}
+            />
           </div>
         </Show>
 
@@ -289,17 +277,17 @@ export const History = () => {
           </Show>
 
           <Show when={filtered().length === 0 && !app.syncing()}>
-            <p class="m-0 text-muted">Nothing in this range.</p>
+            <p class="text-muted-foreground">Nothing in this range.</p>
           </Show>
         </Show>
       </Show>
 
       <Show when={awaiting()}>
-        <p class="m-0 text-muted">Loading</p>
+        <p class="text-muted-foreground">Loading</p>
       </Show>
 
       <Show when={empty() && !awaiting()}>
-        <p class="m-0 text-muted">No runs of this activity.</p>
+        <p class="text-muted-foreground">No runs of this activity.</p>
       </Show>
 
       <Show when={empty() ? undefined : page()}>

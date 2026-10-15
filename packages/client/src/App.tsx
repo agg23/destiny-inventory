@@ -28,7 +28,6 @@ import { syncNotes } from "./notes.ts";
 import { syncTags } from "./tags.ts";
 import { fetchCarnageReport, type Membership } from "./bungie.ts";
 import { acquired } from "./arrivals.ts";
-import { chrome } from "./chrome.tsx";
 import {
   acquiredFor,
   catalystFor,
@@ -95,11 +94,14 @@ import { itemFilter, itemSearch, primeSearch } from "./search.ts";
 import { Settings } from "./Settings.tsx";
 import { settings } from "./settings.ts";
 import { showToast, Toasts } from "./toast.tsx";
-import { Button } from "./ui/Button.tsx";
 import { GuestGlyph } from "./ui/GuestGlyph.tsx";
+import { Loading } from "./ui/Loading.tsx";
 import { PanelGlyph } from "./ui/PanelGlyph.tsx";
 import { RefreshGlyph } from "./ui/RefreshGlyph.tsx";
+import { SearchField } from "./ui/SearchField.tsx";
 import { SignOutGlyph } from "./ui/SignOutGlyph.tsx";
+import { Button } from "./ui/zaidan/button.tsx";
+import { Separator } from "./ui/zaidan/separator.tsx";
 import {
   collectionsHref,
   entryHref,
@@ -126,6 +128,13 @@ const KIND_SCOPES: Record<Kind, string> = {
 };
 
 const RAILED: Tab[] = ["vault", "triage", "todo"];
+
+const PAGE_LINK = "inline-flex h-7 items-center rounded-md px-2.5";
+
+const FILTER = "min-w-32 flex-1";
+
+// Nova has no small Input; this is its 28px control size
+const FILTER_INPUT = "h-7 py-0.5";
 
 const SCOPES: Record<Tab, string> = {
   vault: "Filter items",
@@ -278,7 +287,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
 
   let head: HTMLElement | undefined = undefined;
 
-  // The slotted subtabs grow after their page's data lands
+  // The guest banner changes the header's height
   onMount(() => {
     if (!head) {
       return;
@@ -810,6 +819,25 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     return at === undefined ? "Refresh" : `Refresh · last at ${clock(at)}`;
   };
 
+  const itemCount = () => {
+    const loaded = current();
+
+    if (!loaded || typed() === "") {
+      return undefined;
+    }
+
+    const notes = [
+      loaded.counts.hidden > 0 ? `${loaded.counts.hidden} hidden` : "",
+      loaded.counts.skipped > 0 ? `${loaded.counts.skipped} skipped` : "",
+    ].filter((note) => note !== "");
+
+    return (
+      <span title={notes.length > 0 ? notes.join(" · ") : undefined}>
+        {shown()} of {loaded.items.length}
+      </span>
+    );
+  };
+
   const panelLabel = () =>
     railCollapsed() ? "Show side panel" : "Hide side panel";
 
@@ -1014,9 +1042,11 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
       <Show
         when={!needsSignIn()}
         fallback={
-          <div class="max-w-[420px] px-6 py-12">
-            <h1 class="spaced-header">Vault</h1>
-            <p>Sign in with your Bungie account to load your inventory.</p>
+          <div class="flex max-w-[420px] flex-col items-start gap-3 px-6 py-12">
+            <h1 class="text-2xl font-semibold">Vault</h1>
+            <p class="text-muted-foreground">
+              Sign in with your Bungie account to load your inventory.
+            </p>
             <Button
               size="lg"
               onClick={() => {
@@ -1027,40 +1057,57 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
               Sign in with Bungie
             </Button>
             <Show when={authError()}>
-              {(message) => <p class="pt-3 text-danger">{message()}</p>}
+              {(message) => <p class="text-destructive">{message()}</p>}
             </Show>
           </div>
         }
       >
         <header
-          class="app-header"
-          classList={{ guest: Boolean(viewing()) }}
+          class="sticky top-0 z-5 border-b bg-background"
           ref={(el) => (head = el)}
         >
           <Show when={viewing()}>
-            <div class="guest-banner">
-              <GuestGlyph />
-              <span class="guest-who">{guestName()}</span>
-              <span class="guest-note">Read only</span>
-              <Button size="xs" variant="light" onClick={onLeave}>
+            <div class="flex h-10 items-center gap-3 border-b border-warning/40 bg-warning/15 px-4 text-warning">
+              <span class="size-4.5">
+                <GuestGlyph />
+              </span>
+              <span class="font-medium">{guestName()}</span>
+              <span class="mr-auto text-warning/70">Read only</span>
+              <Button
+                size="sm"
+                variant="outline"
+                class="border-warning/40 text-warning hover:bg-warning/15 hover:text-warning"
+                onClick={onLeave}
+              >
                 Leave
               </Button>
             </div>
           </Show>
 
-          <div class="header-bar">
-            <nav class="nav-subtabs">
+          <div class="flex h-11 items-center gap-3 px-4">
+            <nav class="flex shrink-0 items-center gap-1">
               <For each={TABS}>
                 {(one) => (
                   <Show
                     when={one !== "todo" || !viewing()}
                     fallback={
-                      <span class="nav-tab disabled" aria-disabled="true">
+                      <span
+                        class={`${PAGE_LINK} cursor-default text-muted-foreground opacity-50`}
+                        aria-disabled="true"
+                      >
                         {LABELS[one]}
                       </span>
                     }
                   >
-                    <A class="nav-tab" href={tabHref(one)}>
+                    <A
+                      href={tabHref(one)}
+                      class={PAGE_LINK}
+                      classList={{
+                        "bg-muted text-foreground": tab() === one,
+                        "text-muted-foreground hover:bg-muted/60 hover:text-foreground":
+                          tab() !== one,
+                      }}
+                    >
                       {LABELS[one]}
                     </A>
                   </Show>
@@ -1074,16 +1121,19 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
                 <Show
                   when={tab() === "collections"}
                   fallback={
-                    <input
-                      class="text-input inline header-filter"
-                      type="search"
+                    <SearchField
+                      wrapper={FILTER}
+                      class={FILTER_INPUT}
                       placeholder={SCOPES[tab()]}
                       value={typed()}
                       onInput={(e) => onQuery(e.currentTarget.value)}
+                      onClear={() => onQuery("")}
                     />
                   }
                 >
                   <SearchBar
+                    class={FILTER}
+                    inputClass={FILTER_INPUT}
                     query={typed()}
                     placeholder={KIND_SCOPES[url.get("kind")]}
                     engine={SEARCHES[url.get("kind")]}
@@ -1119,9 +1169,12 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
               }
             >
               <SearchBar
+                class={FILTER}
+                inputClass={FILTER_INPUT}
                 query={typed()}
                 placeholder={SCOPES.vault}
                 engine={itemEngine}
+                trailing={itemCount()}
                 onQuery={onQuery}
                 onPreview={setPreviewQuery}
                 entries={entryMatches}
@@ -1136,21 +1189,59 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
               />
             </Show>
 
-            <div class="header-session">
+            <Show
+              when={
+                failingSince() !== undefined ||
+                syncError() !== undefined ||
+                guestError() !== undefined
+              }
+            >
+              <span class="flex min-w-0 shrink items-center gap-3 truncate">
+                <Show when={failingSince()}>
+                  {(since) => (
+                    <span class="truncate text-warning">
+                      Refresh failing since {clock(since())}
+                      <Show when={refreshedAt()}>
+                        {(at) => <> · data from {clock(at())}</>}
+                      </Show>
+                    </span>
+                  )}
+                </Show>
+
+                <Show when={syncError()}>
+                  {(message) => (
+                    <span class="truncate text-destructive" title={message()}>
+                      {message()}
+                    </span>
+                  )}
+                </Show>
+
+                <Show when={guestError()}>
+                  {(e) => (
+                    <span class="truncate text-destructive" title={e().message}>
+                      {e().message}
+                    </span>
+                  )}
+                </Show>
+              </span>
+            </Show>
+
+            <div class="flex shrink-0 items-center gap-1 text-muted-foreground">
               <Show when={stale()}>
                 <Button
-                  size="xs"
-                  variant="light"
+                  size="sm"
+                  variant="outline"
+                  class="mr-2"
                   onClick={() => globalThis.location.reload()}
                 >
                   New manifest - reload
                 </Button>
               </Show>
-              <button
-                type="button"
-                class="header-action"
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 classList={{
-                  busy:
+                  "[&_svg]:animate-spin":
                     refreshing() ||
                     (current()?.source === "cache" && !liveFailed()),
                 }}
@@ -1168,24 +1259,24 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
                 }
               >
                 <RefreshGlyph />
-              </button>
+              </Button>
               <Show when={RAILED.includes(tab())}>
-                <button
-                  type="button"
-                  class="header-action"
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
                   title={panelLabel()}
                   aria-label={panelLabel()}
                   onClick={() => collapseRail(!railCollapsed())}
                 >
                   <PanelGlyph slashed={!railCollapsed()} />
-                </button>
+                </Button>
               </Show>
               <GuestPicker onChoose={onGuest} />
               <Settings />
-              <span class="header-rule" aria-hidden="true" />
-              <button
-                type="button"
-                class="header-action"
+              <Separator orientation="vertical" class="mx-1 h-4" />
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 title="Sign out"
                 aria-label="Sign out"
                 onClick={() => {
@@ -1194,51 +1285,20 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
                 }}
               >
                 <SignOutGlyph />
-              </button>
+              </Button>
             </div>
-          </div>
-
-          <div class="header-tools">
-            <div class="header-tools-start">{chrome()?.tabs}</div>
-            <div class="header-tools-end">{chrome()?.tools}</div>
-          </div>
-
-          <div class="header-status">
-            {chrome()?.status}
-
-            <Show when={failingSince()}>
-              {(since) => (
-                <span class="text-warning">
-                  Refresh failing since {clock(since())}
-                  <Show when={refreshedAt()}>
-                    {(at) => <> · data from {clock(at())}</>}
-                  </Show>
-                </span>
-              )}
-            </Show>
-
-            <Show when={syncError()}>
-              {(message) => <span class="text-danger">{message()}</span>}
-            </Show>
-
-            <Show when={guestError()}>
-              {(e) => <span class="text-danger">{e().message}</span>}
-            </Show>
           </div>
         </header>
 
         <Show when={error()}>
-          {(e) => <p class="p-3 text-danger">{e().message}</p>}
+          {(e) => <p class="p-4 text-destructive">{e().message}</p>}
         </Show>
 
         <Show when={(result.loading || guestResult.loading) && !current()}>
-          <div class="loading">
-            <span class="spinner" aria-hidden="true" />
-            <p class="text-muted">Loading inventory</p>
-          </div>
+          <Loading label="Loading inventory" />
         </Show>
 
-        <div class="body">
+        <div class="has-[[data-rail]:not([data-floating])]:mr-(--rail) has-[[data-rail][data-wide]:not([data-floating])]:mr-(--rail-compare)">
           <AppContext.Provider value={state}>
             {props.children}
           </AppContext.Provider>

@@ -3,7 +3,7 @@ import { Show } from "solid-js";
 
 import { verdictMode, type ModeVerdict } from "./arrivals.ts";
 import type { Catalyst } from "./collections.ts";
-import { ItemDetails, ItemHead } from "./ItemPanel.tsx";
+import { ItemDetails, ItemHead, VERDICT_ROW } from "./ItemPanel.tsx";
 import { noteFor } from "./notes.ts";
 import { AnchoredPanel } from "./ui/AnchoredPanel.tsx";
 
@@ -19,37 +19,27 @@ interface Props {
 
 const RivalNote = (props: { verdict: ModeVerdict }) => (
   <Show when={props.verdict.gains.length + props.verdict.losses.length > 0}>
-    <div class="tooltip-body">
-      <div class="aegis-note">
-        <p class="aegis-line">
-          <span class="aegis-lead">
-            <b class="tracking-wide uppercase">
-              Compared to the best instance
-              <Show when={verdictMode(props.verdict)}>
-                {(mode) => <> in {mode()}</>}
-              </Show>
-            </b>
-          </span>
-        </p>
-        <ul class="aegis-slots">
-          <Show when={props.verdict.gains.length > 0}>
-            <li class="hit">
-              <span class="aegis-slot-label">Has</span>
-              <span class="aegis-slot-perk">
-                {props.verdict.gains.join(", ")}
-              </span>
-            </li>
-          </Show>
-          <Show when={props.verdict.losses.length > 0}>
-            <li class="miss">
-              <span class="aegis-slot-label">Lacks</span>
-              <span class="aegis-slot-perk">
-                {props.verdict.losses.join(", ")}
-              </span>
-            </li>
-          </Show>
-        </ul>
-      </div>
+    <div class="tooltip-body flex flex-col gap-1.5">
+      <b class="font-medium text-foreground">
+        Compared to the best instance
+        <Show when={verdictMode(props.verdict)}>
+          {(mode) => <> in {mode()}</>}
+        </Show>
+      </b>
+      <ul class="flex flex-col gap-1.5 text-xs">
+        <Show when={props.verdict.gains.length > 0}>
+          <li class={VERDICT_ROW}>
+            <span class="text-good">Has</span>
+            <span>{props.verdict.gains.join(", ")}</span>
+          </li>
+        </Show>
+        <Show when={props.verdict.losses.length > 0}>
+          <li class={VERDICT_ROW}>
+            <span class="text-destructive">Lacks</span>
+            <span>{props.verdict.losses.join(", ")}</span>
+          </li>
+        </Show>
+      </ul>
     </div>
   </Show>
 );
@@ -65,7 +55,9 @@ export const HoverCard = (props: Props) => (
     >
       {(note) => (
         <div class="tooltip-body">
-          <p class="note-text line-clamp-3">{note()}</p>
+          <p class="line-clamp-3 whitespace-pre-wrap wrap-anywhere">
+            {note()}
+          </p>
         </div>
       )}
     </Show>

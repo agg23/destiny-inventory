@@ -7,6 +7,10 @@ import { CurrentActivity } from "./CurrentActivity.tsx";
 import { ItemMenu } from "./ItemMenu.tsx";
 import { railCollapsed } from "./rail.ts";
 
+/** The panel docked at the right edge, under the header */
+export const RAIL =
+  "rail fixed top-(--header-h,49px) right-(--scrollbar-width,0px) bottom-0 z-2 flex w-(--rail) flex-col border-l bg-card [anchor-name:--rail] data-wide:w-(--rail-compare) data-floating:shadow-[-8px_0_24px_#000c]";
+
 export const Rail = () => {
   const app = useApp();
 
@@ -16,18 +20,17 @@ export const Rail = () => {
   return (
     <Show when={railed()}>
       <aside
-        class="rail"
-        classList={{
-          comparing: app.pinned().length > 1,
-          floating: floating(),
-        }}
+        class={RAIL}
+        data-rail
+        data-wide={app.pinned().length > 1 ? "" : undefined}
+        data-floating={floating() ? "" : undefined}
       >
         <Show
           when={app.pinned().length > 0}
           fallback={
             <Show
               when={!app.awaitingPins()}
-              fallback={<p class="p-3 text-muted">Loading</p>}
+              fallback={<p class="p-4 text-muted-foreground">Loading</p>}
             >
               <CurrentActivity />
               <ItemMenu

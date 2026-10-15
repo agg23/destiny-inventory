@@ -49,7 +49,7 @@ export const rungColor = (name: string): string => {
   const rank = DIFFICULTIES.indexOf(name);
 
   if (rank >= MASTER_RANK) {
-    return "text-danger";
+    return "text-destructive";
   }
 
   if (rank >= LEGEND_RANK) {
@@ -57,8 +57,8 @@ export const rungColor = (name: string): string => {
   }
 
   if (rank >= HERO_RANK) {
-    return "text-text";
+    return "text-foreground";
   }
 
-  return "text-dim";
+  return "text-muted-foreground";
 };

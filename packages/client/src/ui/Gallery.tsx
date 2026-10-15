@@ -1,19 +1,62 @@
-import { For } from "solid-js";
+import { createSignal, For, type JSX } from "solid-js";
 
-import { Button, IconButton } from "./Button.tsx";
-import { SplitButton } from "./SplitButton.tsx";
+import { Checkbox } from "./Checkbox.tsx";
 import { cn } from "./cn.ts";
+import { PickOne } from "./PickOne.tsx";
+import { Objective, Progress } from "./Progress.tsx";
+import { SearchField } from "./SearchField.tsx";
+import { Select } from "./Select.tsx";
+import { Slider } from "./Slider.tsx";
+import { SplitButton } from "./SplitButton.tsx";
+import {
+  CARD,
+  HEADING,
+  HEADING_NOTE,
+  LABEL,
+  ROW,
+  SPENT,
+  TABLE_FRAME,
+  TABLE_HEADER,
+} from "./text.ts";
+import { Toggle } from "./Toggle.tsx";
+import { Badge } from "./zaidan/badge.tsx";
+import { Button } from "./zaidan/button.tsx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./zaidan/dropdown-menu.tsx";
+import { ChevronDown } from "./zaidan/icons.tsx";
+import { Input } from "./zaidan/input.tsx";
+import { Popover, PopoverContent, PopoverTrigger } from "./zaidan/popover.tsx";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "./zaidan/table.tsx";
+import { Textarea } from "./zaidan/textarea.tsx";
 
-const VARIANTS = ["default", "light", "danger", "ghost"] as const;
-const SIZES = ["sm", "md", "lg"] as const;
-const ICON_SIZES = ["icon-sm", "icon-md", "icon-lg"] as const;
+const VARIANTS = [
+  "default",
+  "outline",
+  "secondary",
+  "ghost",
+  "destructive",
+  "link",
+] as const;
+
+const SIZES = ["xs", "sm", "default", "lg"] as const;
 
 // Tailwind only sees class names that appear whole
 const TYPE_SIZES = [
   ["2xl", "text-2xl"],
   ["xl", "text-xl"],
   ["lg", "text-lg"],
-  ["md", "text-md"],
+  ["base", "text-base"],
   ["sm", "text-sm"],
   ["xs", "text-xs"],
 ] as const;
@@ -21,68 +64,95 @@ const TYPE_SIZES = [
 const CHOICES = [
   { id: "titan", label: "Titan", onChoose: () => undefined },
   { id: "hunter", label: "Hunter", onChoose: () => undefined },
-  { id: "vault", label: "Vault", onChoose: () => undefined },
+  {
+    id: "vault",
+    label: "Vault",
+    reason: "Vault is full",
+    onChoose: () => undefined,
+  },
 ];
 
 const COLORS = [
-  ["fg", "bg-fg"],
-  ["text", "bg-text"],
+  ["background", "bg-background"],
+  ["card", "bg-card"],
+  ["popover", "bg-popover"],
   ["muted", "bg-muted"],
-  ["dim", "bg-dim"],
-  ["line", "bg-line"],
-  ["line-bright", "bg-line-bright"],
-  ["panel", "bg-panel"],
-  ["panel-raised", "bg-panel-raised"],
+  ["border", "bg-border"],
+  ["input", "bg-input"],
+  ["foreground", "bg-foreground"],
+  ["muted-foreground", "bg-muted-foreground"],
+  ["destructive", "bg-destructive"],
   ["light", "bg-light"],
   ["cream", "bg-cream"],
-  ["error", "bg-error"],
   ["warning", "bg-warning"],
   ["good", "bg-good"],
-  ["exotic", "bg-exotic"],
-  ["legendary", "bg-legendary"],
-  ["rare", "bg-rare"],
-  ["uncommon", "bg-uncommon"],
-  ["common", "bg-common"],
-  ["kinetic", "bg-kinetic"],
-  ["solar", "bg-solar"],
-  ["arc", "bg-arc"],
-  ["void", "bg-void"],
-  ["stasis", "bg-stasis"],
-  ["strand", "bg-strand"],
+  ["pve", "bg-pve"],
+  ["pvp", "bg-pvp"],
 ] as const;
 
-const RARITIES = ["common", "uncommon", "rare", "legendary", "exotic"] as const;
-
-const STATS = [
-  ["Impact", 84],
-  ["Range", 46],
-  ["Stability", 55],
+const TEXT_COLORS = [
+  ["exotic", "text-exotic"],
+  ["legendary", "text-legendary"],
+  ["rare", "text-rare"],
+  ["uncommon", "text-uncommon"],
+  ["common", "text-common"],
+  ["kinetic", "text-kinetic"],
+  ["arc", "text-arc"],
+  ["solar", "text-solar"],
+  ["void", "text-void"],
+  ["stasis", "text-stasis"],
+  ["strand", "text-strand"],
 ] as const;
 
-const Section = (props: { title: string; children: unknown }) => (
-  <section class="border-t border-line pt-4">
-    <h2 class="mb-4 text-sm font-medium uppercase tracking-caps text-muted">
-      {props.title}
-    </h2>
-    {props.children as never}
+const RARITIES = ["common", "uncommon", "rare", "legendary", "exotic"];
+
+const REALMS = [
+  "Vanguard",
+  "Crucible",
+  "Gambit",
+  "Raids and dungeons",
+] as const;
+
+const SORTS = ["power", "name"] as const;
+
+const SORT_NAMES = { power: "Power", name: "Name" };
+
+const Section = (props: { title: string; children: JSX.Element }) => (
+  <section class="flex flex-col gap-3 border-t pt-4">
+    <h2 class={HEADING}>{props.title}</h2>
+    {props.children}
   </section>
 );
 
-export const Gallery = () => (
-  <main class="mx-auto flex max-w-4xl flex-col gap-6 p-6 text-text">
-    <header>
-      <h1 class="text-2xl">Components</h1>
-    </header>
+const Row = (props: { label: string; children: JSX.Element }) => (
+  <div class="flex flex-wrap items-center gap-3">
+    <div class="w-24 text-xs text-muted-foreground">{props.label}</div>
+    {props.children}
+  </div>
+);
 
-    <Section title="Button">
-      <div class="flex flex-col gap-4">
+/** Every shared component in every state, outside the app */
+export const Gallery = () => {
+  const [realm, setRealm] = createSignal<(typeof REALMS)[number]>("Vanguard");
+  const [sort, setSort] = createSignal<(typeof SORTS)[number]>("power");
+  const [checked, setChecked] = createSignal(true);
+  const [on, setOn] = createSignal(false);
+  const [size, setSize] = createSignal(48);
+  const [query, setQuery] = createSignal("is:weapon");
+
+  return (
+    <main class="mx-auto flex max-w-5xl flex-col gap-6 p-6">
+      <header>
+        <h1 class="text-2xl font-semibold">Components</h1>
+      </header>
+
+      <Section title="Button">
         <For each={VARIANTS}>
           {(variant) => (
-            <div class="flex flex-wrap items-center gap-4">
-              <div class="w-16 text-sm text-dim">{variant}</div>
+            <Row label={variant}>
               <For each={SIZES}>
-                {(size) => (
-                  <Button variant={variant} size={size}>
+                {(one) => (
+                  <Button variant={variant} size={one}>
                     Equip
                   </Button>
                 )}
@@ -90,178 +160,279 @@ export const Gallery = () => (
               <Button variant={variant} disabled>
                 Disabled
               </Button>
-            </div>
+              <Button variant={variant} size="icon" aria-label="Open">
+                <ChevronDown />
+              </Button>
+            </Row>
           )}
         </For>
-      </div>
-    </Section>
+      </Section>
 
-    <Section title="Icon button">
-      <div class="flex flex-wrap items-center gap-4">
-        <For each={ICON_SIZES}>
-          {(size) => (
-            <For each={VARIANTS}>
-              {(variant) => (
-                <IconButton label="Unpin" size={size} variant={variant}>
-                  ×
-                </IconButton>
-              )}
-            </For>
-          )}
-        </For>
-      </div>
-    </Section>
+      <Section title="Split button">
+        <Row label="outline">
+          <SplitButton
+            label="Transfer"
+            size="sm"
+            onPrimary={() => undefined}
+            choices={CHOICES}
+          />
+          <SplitButton
+            label="Transfer"
+            onPrimary={() => undefined}
+            choices={CHOICES}
+          />
+          <SplitButton
+            label="No targets"
+            onPrimary={() => undefined}
+            choices={[]}
+          />
+          <SplitButton
+            label="Transfer"
+            disabled
+            title="Moving"
+            onPrimary={() => undefined}
+            choices={CHOICES}
+          />
+        </Row>
+      </Section>
 
-    <Section title="Spacing scale">
-      <div class="flex items-end gap-4">
-        <For each={[0.5, 1, 1.5, 2, 3, 4, 6, 8]}>
-          {(step) => (
-            <div class="flex flex-col items-center gap-1">
-              <div
-                class="bg-light"
-                style={{ width: `${step * 4}px`, height: "24px" }}
-              />
-              <div class="text-xs text-dim">{step}</div>
-              <div class="text-xs text-dim">{step * 4}px</div>
-            </div>
-          )}
-        </For>
-      </div>
-    </Section>
+      <Section title="Filter row">
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <PickOne
+            value={realm()}
+            options={REALMS}
+            label={(one) => one}
+            disabled={(one) => (one === "Gambit" ? "Not this week" : undefined)}
+            onChange={setRealm}
+          />
+          <Select
+            label="Sort"
+            value={sort()}
+            options={SORTS}
+            names={SORT_NAMES}
+            onChange={setSort}
+          />
+          <Checkbox checked={checked()} onChange={setChecked}>
+            Show tagged
+          </Checkbox>
+          <Checkbox checked={false} disabled onChange={() => undefined}>
+            Disabled
+          </Checkbox>
+          <span class="ml-auto text-muted-foreground tabular-nums">
+            12 of 340 items
+          </span>
+        </div>
+      </Section>
 
-    <Section title="Color">
-      <div class="flex flex-wrap gap-3">
-        <For each={COLORS}>
-          {([name, cls]) => (
-            <div class="flex flex-col items-center gap-1">
-              <div
-                class={cn(
-                  cls,
-                  "size-10 shadow-[inset_0_0_0_1px_var(--color-line-bright)]",
-                )}
-              />
-              <div class="text-xs text-dim">{name}</div>
-            </div>
-          )}
-        </For>
-      </div>
-    </Section>
+      <Section title="Fields">
+        <div class="grid max-w-md gap-3">
+          <SearchField
+            placeholder="Filter items"
+            value={query()}
+            trailing="12 of 340"
+            onInput={(e) => setQuery(e.currentTarget.value)}
+            onClear={() => setQuery("")}
+          />
+          <Input placeholder="Bungie name" />
+          <Input placeholder="Disabled" disabled />
+          <Textarea placeholder="Add a note" />
+        </div>
+      </Section>
 
-    <Section title="Split button">
-      <div class="flex flex-col gap-4">
-        <For each={VARIANTS}>
-          {(variant) => (
-            <div class="flex flex-wrap items-center gap-4">
-              <div class="w-16 text-sm text-dim">{variant}</div>
-              <For each={SIZES}>
-                {(size) => (
-                  <SplitButton
-                    label="Equip"
-                    variant={variant}
-                    size={size}
-                    onPrimary={() => undefined}
-                    choices={CHOICES}
-                  />
-                )}
-              </For>
-              <SplitButton
-                label="No targets"
-                variant={variant}
-                onPrimary={() => undefined}
-                choices={[]}
-              />
-              <SplitButton
-                label="Equip"
-                variant={variant}
-                disabled
-                onPrimary={() => undefined}
-                choices={CHOICES}
-              />
-            </div>
-          )}
-        </For>
-      </div>
-    </Section>
+      <Section title="Settings controls">
+        <div class="flex w-80 flex-col gap-4">
+          <Slider
+            label="Vault icon size"
+            value={size()}
+            min={32}
+            max={64}
+            format={(value) => `${value}px`}
+            modified={size() !== 48}
+            onReset={() => setSize(48)}
+            onChange={setSize}
+          />
+          <Toggle label="Display expansions" checked={on()} onChange={setOn} />
+        </div>
+      </Section>
 
-    <Section title="Type">
-      <div class="flex flex-col gap-2">
+      <Section title="Menus">
+        <Row label="dropdown">
+          <DropdownMenu>
+            <DropdownMenuTrigger as={Button} variant="outline">
+              Tag
+              <ChevronDown />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem>Favorite</DropdownMenuItem>
+              <DropdownMenuItem>Keep</DropdownMenuItem>
+              <DropdownMenuItem disabled>Junk</DropdownMenuItem>
+              <DropdownMenuItem variant="destructive">
+                Clear tag
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Popover placement="bottom-start">
+            <PopoverTrigger as={Button} variant="outline">
+              Popover
+            </PopoverTrigger>
+            <PopoverContent class="w-80 gap-4 p-4">
+              <p>A popover holds a small form</p>
+              <Button size="sm" class="self-end">
+                Save
+              </Button>
+            </PopoverContent>
+          </Popover>
+        </Row>
+      </Section>
+
+      <Section title="Badge">
+        <Row label="variants">
+          <Badge>Default</Badge>
+          <Badge variant="secondary">Secondary</Badge>
+          <Badge variant="outline">Outline</Badge>
+          <Badge variant="outline" class="border-light/40 text-light">
+            Enhanced
+          </Badge>
+          <Badge variant="destructive">Destructive</Badge>
+        </Row>
+      </Section>
+
+      <Section title="Progress">
+        <div class="flex max-w-sm flex-col gap-3">
+          <Progress value={0.4} />
+          <Objective label="Defeat combatants" progress={34} goal={50} />
+          <Objective label="Complete strikes" progress={3} goal={3} />
+        </div>
+      </Section>
+
+      <Section title="Card and list">
+        <div class="grid grid-cols-2 gap-3">
+          <div class={CARD}>
+            <span class="font-medium">Weekly challenge</span>
+            <p class="text-xs text-muted-foreground">
+              Complete Vanguard Ops playlist activities
+            </p>
+            <Progress value={0.6} />
+          </div>
+          <ul class="flex flex-col">
+            <li>
+              <button type="button" class={ROW}>
+                <span class="flex-1">All</span>
+                <span class="text-xs text-muted-foreground">340</span>
+              </button>
+            </li>
+            <li>
+              <button type="button" class={cn(ROW, "bg-muted")}>
+                <span class="flex-1">Picked</span>
+                <span class="text-xs text-muted-foreground">12</span>
+              </button>
+            </li>
+          </ul>
+        </div>
+      </Section>
+
+      <Section title="Table">
+        <div class={TABLE_FRAME}>
+          <Table>
+            <TableHeader class={TABLE_HEADER}>
+              <TableRow>
+                <TableHead>Activity</TableHead>
+                <TableHead class="text-right">Runs</TableHead>
+                <TableHead>Rewards</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow class="bg-muted/30 hover:bg-muted/30">
+                <TableCell colSpan={3} class="py-1.5">
+                  <span class="flex items-baseline gap-2 text-xs">
+                    <span class="font-medium">Featured</span>
+                    <span class="text-muted-foreground">2</span>
+                  </span>
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell>The Coil</TableCell>
+                <TableCell class="text-right tabular-nums">14</TableCell>
+                <TableCell>Wild Style</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell>Grasp of Avarice</TableCell>
+                <TableCell class="text-right tabular-nums">3</TableCell>
+                <TableCell class={SPENT}>Gjallarhorn catalyst</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+      </Section>
+
+      <Section title="Type">
         <For each={TYPE_SIZES}>
           {([name, cls]) => (
-            <div class="flex items-baseline gap-4">
-              <div class="w-10 text-xs text-dim">{name}</div>
-              <div class={cn(cls, "tracking-base")}>Ouster Engine</div>
-            </div>
+            <Row label={name}>
+              <div class={cls}>Ouster Engine</div>
+            </Row>
           )}
         </For>
-        <div class="flex items-baseline gap-4">
-          <div class="w-10 text-xs text-dim">label</div>
-          <div class="text-sm font-medium uppercase tracking-caps text-muted">
-            Kinetic weapons
-          </div>
-        </div>
-      </div>
-    </Section>
+        <Row label="heading">
+          <h3 class={`${HEADING} flex items-baseline gap-2`}>
+            Daily challenges
+            <span class={HEADING_NOTE}>4h left</span>
+          </h3>
+        </Row>
+        <Row label="label">
+          <span class={LABEL}>Kinetic weapons</span>
+        </Row>
+      </Section>
 
-    <Section title="Item tile">
-      <div class="flex flex-wrap items-center gap-4">
-        <For each={RARITIES}>
-          {(rarity) => (
-            <button
-              type="button"
-              class={cn("item-tile small", rarity)}
-              aria-label={rarity}
-            />
-          )}
-        </For>
-        <button
-          type="button"
-          class="item-tile small exotic masterwork"
-          aria-label="exotic masterwork"
-        />
-      </div>
-    </Section>
+      <Section title="Color">
+        <div class="flex flex-wrap gap-3">
+          <For each={COLORS}>
+            {([name, cls]) => (
+              <div class="flex w-20 flex-col items-center gap-1">
+                <div class={cn(cls, "size-10 rounded-md ring-1 ring-input")} />
+                <div class="text-center text-xs text-muted-foreground">
+                  {name}
+                </div>
+              </div>
+            )}
+          </For>
+        </div>
+        <div class="flex flex-wrap gap-4">
+          <For each={TEXT_COLORS}>
+            {([name, cls]) => <span class={cls}>{name}</span>}
+          </For>
+        </div>
+      </Section>
 
-    <Section title="Item tooltip">
-      <div class="item-tooltip">
-        <div class="tooltip-header exotic">
-          <div class="tooltip-name">Gjallarhorn</div>
-          <div class="tooltip-type">
-            <span>Rocket launcher</span>
-            <span>Exotic</span>
-          </div>
+      <Section title="Item tile and header">
+        <div class="flex flex-wrap items-center gap-4">
+          <For each={RARITIES}>
+            {(rarity) => (
+              <button
+                type="button"
+                class={cn("item-tile small", rarity)}
+                aria-label={rarity}
+              />
+            )}
+          </For>
         </div>
-        <div class="tooltip-body">
-          <div class="tooltip-power">
-            <span class="power-value">1810</span>
-            <span class="power-type">Solar · Heavy</span>
-          </div>
-        </div>
-        <div class="tooltip-body">
-          <div class="tooltip-perk">
-            <span class="perk-icon" />
-            <div class="perk-text">
-              <b>Wolfpack Rounds</b>
-              <span>Rounds split into tracking cluster missiles.</span>
+        <div class="item-tooltip">
+          <div class="tooltip-header exotic">
+            <div class="tooltip-name">Gjallarhorn</div>
+            <div class="tooltip-type">
+              <span>Rocket launcher</span>
             </div>
           </div>
-        </div>
-      </div>
-    </Section>
-
-    <Section title="Stat bars">
-      <div class="stat-list max-w-90">
-        <For each={STATS}>
-          {([name, value]) => (
-            <>
-              <span class="stat-name">{name}</span>
-              <span class="stat-bar">
-                <span class="stat-fill" style={{ width: `${value}%` }} />
+          <div class="tooltip-body">
+            <div class="tooltip-power">
+              <span class="power-facts">
+                <span class="power-value">1810</span>
+                <span class="power-type">Solar</span>
               </span>
-              <span class="stat-value">{value}</span>
-            </>
-          )}
-        </For>
-      </div>
-    </Section>
-  </main>
-);
+            </div>
+          </div>
+        </div>
+      </Section>
+    </main>
+  );
+};

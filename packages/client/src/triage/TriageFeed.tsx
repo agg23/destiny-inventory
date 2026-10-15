@@ -7,7 +7,8 @@ import { ItemMenu, menued } from "../ItemMenu.tsx";
 import { previewed } from "../preview.ts";
 import { CATEGORIES } from "../triage.ts";
 import type { Selection } from "./triageSelection.ts";
-import { Button } from "../ui/Button.tsx";
+import { HEADING, LABEL, TILE_GRID } from "../ui/text.ts";
+import { Button } from "../ui/zaidan/button.tsx";
 
 interface Slot {
   hash: number;
@@ -87,11 +88,11 @@ export const TriageFeed = (props: Props) => {
       find={(index) => props.pool.find((one) => one.index === index)}
       onTag={props.onTag}
     >
-      <div class="triage p-3">
+      <div class="px-4 pb-4">
         <Show
           when={grouped().length > 0}
           fallback={
-            <p class="p-3 text-muted">
+            <p class="py-3 text-muted-foreground">
               Nothing left to triage under this filter.
             </p>
           }
@@ -99,11 +100,11 @@ export const TriageFeed = (props: Props) => {
           <For each={grouped()}>
             {(group) => (
               <section>
-                <h2 class="section-label mt-4 mb-1.5">{group.category}</h2>
+                <h2 class={`${HEADING} mt-4 mb-1.5`}>{group.category}</h2>
                 <For each={group.slots}>
                   {(slot) => (
-                    <div class="triage-slot">
-                      <h3 class="bucket-label">
+                    <div class="border-t py-1">
+                      <h3 class={`${LABEL} mb-1 flex h-6 items-center gap-2`}>
                         {slot.name}
                         <Button
                           size="xs"
@@ -120,7 +121,7 @@ export const TriageFeed = (props: Props) => {
                             : "Select all"}
                         </Button>
                       </h3>
-                      <div class="item-grid wide triage-grid">
+                      <div class={`triage-grid ${TILE_GRID}`}>
                         <For each={slot.items}>
                           {(item) => (
                             <ItemIcon

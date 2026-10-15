@@ -20,6 +20,7 @@ import {
 import { clear } from "./preview.ts";
 import { setOnlyTag, tagDefs, tagFor } from "./tags.ts";
 import { cn } from "./ui/cn.ts";
+import { Check, ChevronRight } from "./ui/zaidan/icons.tsx";
 import { entryHref } from "./url.ts";
 
 interface Props {
@@ -34,10 +35,10 @@ interface RowProps {
 }
 
 const ROW =
-  "menu-item px-3 py-2 text-sm tracking-caps outline-none data-[highlighted]:border-fg data-[highlighted]:bg-surface-active data-[highlighted]:text-fg";
+  "relative z-context-menu-item flex cursor-default items-center outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50";
 
 const FRAME =
-  "menu-list z-4 bg-panel-raised shadow-[inset_0_0_0_1px_var(--color-line-bright),0_8px_24px_#000c]";
+  "z-50 z-context-menu-content max-h-(--kb-popper-available-height) overflow-y-auto outline-none";
 
 const PANEL = `${FRAME} min-w-44`;
 
@@ -52,7 +53,6 @@ const Row = (props: {
 }) => (
   <ContextMenu.Item
     class={cn(ROW, props.class)}
-    classList={{ disabled: Boolean(props.reason) }}
     disabled={Boolean(props.reason)}
     title={props.reason}
     onSelect={props.onChoose}
@@ -79,18 +79,13 @@ const SplitRow = (props: SplitProps) => (
       onChoose={props.onChoose}
     />
     <Show when={props.others.length > 0}>
-      <span
-        aria-hidden="true"
-        class="w-px shrink-0 self-stretch bg-[var(--d2-border-faint)]"
-      />
-      <ContextMenu.Sub gutter={2}>
+      <span aria-hidden="true" class="my-1 w-px shrink-0 bg-border" />
+      <ContextMenu.Sub gutter={6}>
         <ContextMenu.SubTrigger
-          class={cn(ROW, "shrink-0 px-2")}
+          class={cn(ROW, "z-context-menu-sub-trigger shrink-0 text-muted-foreground")}
           aria-label={`${props.label}: other targets`}
         >
-          <svg viewBox="0 0 6 10" width="6" height="10" aria-hidden="true">
-            <path d="M0 0v10l6-5z" fill="currentColor" />
-          </svg>
+          <ChevronRight />
         </ContextMenu.SubTrigger>
         <ContextMenu.Portal>
           <ContextMenu.SubContent data-menu="item" class={SUB_PANEL}>
@@ -114,13 +109,13 @@ const TagRows = (props: {
   item: DimItem;
   onTag?: (item: DimItem, tagId: string | undefined) => void;
 }) => (
-  <ContextMenu.Sub gutter={2}>
-    <ContextMenu.SubTrigger class={cn(ROW, "flex items-center gap-2")}>
+  <ContextMenu.Sub gutter={6}>
+    <ContextMenu.SubTrigger class={cn(ROW, "z-context-menu-sub-trigger")}>
       <span class="min-w-0 flex-1">Tag</span>
-      <span class="text-dim">{tagFor(props.item.id)?.label ?? "No tag"}</span>
-      <svg viewBox="0 0 6 10" width="6" height="10" aria-hidden="true">
-        <path d="M0 0v10l6-5z" fill="currentColor" />
-      </svg>
+      <span class="text-muted-foreground">
+        {tagFor(props.item.id)?.label ?? "No tag"}
+      </span>
+      <ChevronRight class="text-muted-foreground" />
     </ContextMenu.SubTrigger>
     <ContextMenu.Portal>
       <ContextMenu.SubContent data-menu="item" class={SUB_PANEL}>
@@ -139,25 +134,31 @@ const TagRows = (props: {
           }}
         >
           <ContextMenu.RadioItem
-            class={cn(ROW, "flex items-center gap-2")}
+            class={cn(ROW, "z-context-menu-radio-item")}
             value=""
             closeOnSelect={false}
           >
-            <span class="tag-dot none" />
+            <span class="size-2 rounded-full border border-dashed border-input" />
             <span class="min-w-0 flex-1">No tag</span>
+            <ContextMenu.ItemIndicator class="z-context-menu-item-indicator">
+              <Check />
+            </ContextMenu.ItemIndicator>
           </ContextMenu.RadioItem>
           <For each={tagDefs()}>
             {(def) => (
               <ContextMenu.RadioItem
-                class={cn(ROW, "flex items-center gap-2")}
+                class={cn(ROW, "z-context-menu-radio-item")}
                 value={def.id}
                 closeOnSelect={false}
               >
                 <span
-                  class="tag-dot"
+                  class="size-2 rounded-full"
                   style={{ "background-color": `var(--color-${def.color})` }}
                 />
                 <span class="min-w-0 flex-1">{def.label}</span>
+                <ContextMenu.ItemIndicator class="z-context-menu-item-indicator">
+                  <Check />
+                </ContextMenu.ItemIndicator>
               </ContextMenu.RadioItem>
             )}
           </For>
@@ -234,7 +235,7 @@ const Rows = (props: RowProps) => {
         </Show>
 
         <Show when={equipOn() || transferTo() || props.item.id !== "0"}>
-          <ContextMenu.Separator class="mx-3 my-1 border-t border-line" />
+          <ContextMenu.Separator class="z-context-menu-separator border-0" />
         </Show>
       </Show>
 
@@ -318,7 +319,6 @@ export const ItemMenu = (props: Props) => {
         {props.children}
       </ContextMenu.Trigger>
       <ContextMenu.Portal>
-        {/* Opaque: this floats over the grid, not over game art */}
         <ContextMenu.Content data-menu="item" class={PANEL}>
           <Show when={menuFor()}>
             {(item) => <Rows item={item()} onTag={props.onTag} />}

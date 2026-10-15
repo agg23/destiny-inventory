@@ -3,7 +3,6 @@ import { BucketHashes } from "data/d2/generated-enums";
 import { createMemo, For, Show } from "solid-js";
 
 import { useApp } from "../App.tsx";
-import { PageChrome } from "../chrome.tsx";
 import {
   CLASSES,
   isArmorRailTerm,
@@ -21,6 +20,8 @@ import {
   type Group,
 } from "../collections.ts";
 import { useUrl } from "../router.ts";
+import { Loading } from "../ui/Loading.tsx";
+import { HEADING, HEADING_NOTE } from "../ui/text.ts";
 import { entryHref } from "../url.ts";
 import { armorOrder } from "./armorSets.ts";
 import { useCollectionData, useEntryPreview } from "./collectionData.ts";
@@ -225,44 +226,41 @@ export const Collections = () => {
 
   return (
     <>
-      <PageChrome
-        tabs={
-          <CollectionTabs
-            kind={kind()}
-            grouping={grouping()}
-            total={totalLabel()}
-            onKind={(one) => url.push({ kind: one, q: "" })}
-            onGrouping={(one) => url.push({ by: one })}
-          />
-        }
-        tools={
-          <Filters
-            kind={kind()}
-            query={app.query()}
-            className={className()}
-            layout={url.get("layout")}
-            onTerm={setTerm}
-            onLayout={(layout) => url.replace({ layout })}
-          />
-        }
-      />
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 pt-4">
+        <CollectionTabs
+          kind={kind()}
+          grouping={grouping()}
+          onKind={(one) => url.push({ kind: one, q: "" })}
+          onGrouping={(one) => url.push({ by: one })}
+        />
+        <Filters
+          kind={kind()}
+          query={app.query()}
+          className={className()}
+          layout={url.get("layout")}
+          onTerm={setTerm}
+          onLayout={(layout) => url.replace({ layout })}
+        />
+        <span class="ml-auto text-muted-foreground tabular-nums">
+          {totalLabel()}
+        </span>
+      </div>
 
       <Show when={data.index.error}>
-        {(e) => <p class="p-3 text-danger">{(e() as Error).message}</p>}
+        {(e) => (
+          <p class="p-4 text-destructive">{(e() as Error).message}</p>
+        )}
       </Show>
 
       <Show
         when={data.index()}
         fallback={
           <Show when={!data.index.error}>
-            <div class="loading">
-              <span class="spinner" aria-hidden="true" />
-              <p class="text-muted">Loading collections</p>
-            </div>
+            <Loading label="Loading collections" />
           </Show>
         }
       >
-        <div class="collections p-3">
+        <div class="grid grid-cols-[var(--store-column)_minmax(0,1fr)] items-start gap-4 p-4">
           <Rail
             sections={sections()}
             picked={picked()}
@@ -278,8 +276,10 @@ export const Collections = () => {
               when={shown().length > 0}
               fallback={
                 <>
-                  <h3 class="section-label mb-1.5">{heading()}</h3>
-                  <p class="text-muted">Nothing matches that filter.</p>
+                  <h3 class={`${HEADING} mb-1.5`}>{heading()}</h3>
+                  <p class="text-muted-foreground">
+                    Nothing matches that filter.
+                  </p>
                 </>
               }
             >
@@ -291,11 +291,13 @@ export const Collections = () => {
                   return (
                     <>
                       <h3
-                        class="section-label mb-1.5"
-                        classList={{ "mt-4": index() > 0 }}
+                        class={`${HEADING} mb-1.5 flex items-baseline gap-2`}
+                        classList={{ "mt-6": index() > 0 }}
                       >
                         {blockLabel(group)}
-                        <span class="text-muted">{tally(held())}</span>
+                        <span class={HEADING_NOTE}>
+                          {tally(held())}
+                        </span>
                       </h3>
                       <Show
                         when={url.get("layout") === "list"}

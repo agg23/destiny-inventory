@@ -14,8 +14,6 @@ import { beginLogin, completeLogin, markDevLogin, signedIn } from "./auth.ts";
 import { messageOf } from "./error.ts";
 import { primeBoot } from "./snapshot.ts";
 import "./tokens.css";
-import "./style.css";
-import "./destiny.scss";
 
 const root = document.getElementById("root");
 

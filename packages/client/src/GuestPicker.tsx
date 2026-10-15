@@ -1,4 +1,3 @@
-import { Popover } from "@kobalte/core/popover";
 import { createMemo, createResource, createSignal, For, Show } from "solid-js";
 
 import { searchPlayers } from "./bungie.ts";
@@ -11,6 +10,14 @@ import {
   type Guest,
 } from "./guest.ts";
 import { GuestGlyph } from "./ui/GuestGlyph.tsx";
+import { Button } from "./ui/zaidan/button.tsx";
+import { X } from "./ui/zaidan/icons.tsx";
+import { Input } from "./ui/zaidan/input.tsx";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "./ui/zaidan/popover.tsx";
 
 const SHORTEST = 3;
 
@@ -19,7 +26,9 @@ const DEBOUNCE = 300;
 const CODE = /^\d{1,4}$/;
 
 const ROW =
-  "flex w-full items-center gap-2 px-3 py-2 text-left text-sm tracking-caps text-text hover:bg-surface-active hover:text-fg";
+  "flex h-8 min-w-0 items-center rounded-md px-2 text-left hover:bg-accent";
+
+const NOTE = "px-2 py-1 text-muted-foreground";
 
 export const GuestPicker = (props: { onChoose: (who: Guest) => void }) => {
   const [open, setOpen] = createSignal(false);
@@ -86,113 +95,108 @@ export const GuestPicker = (props: { onChoose: (who: Guest) => void }) => {
       gutter={6}
       placement="bottom-end"
     >
-      <Popover.Trigger
-        class="header-action"
+      <PopoverTrigger
+        as={Button}
+        variant="ghost"
+        size="icon-sm"
+        class="text-muted-foreground"
         title="View another Guardian"
         aria-label="View another Guardian"
       >
         <GuestGlyph />
-      </Popover.Trigger>
-      <Popover.Portal>
-        <div class="settings-scrim" />
-        <Popover.Content data-menu="guest" class="settings-panel guest-panel">
-          <input
-            class="text-input inline"
-            type="search"
-            autofocus
-            placeholder="Bungie name"
-            value={typed()}
-            onInput={(e) => onType(e.currentTarget.value)}
-          />
+      </PopoverTrigger>
+      <PopoverContent data-menu="guest" class="w-80 gap-1 p-2">
+        <Input
+          class="mb-1"
+          type="search"
+          autofocus
+          placeholder="Bungie name"
+          value={typed()}
+          onInput={(e) => onType(e.currentTarget.value)}
+        />
 
-          <Show
-            when={searching()}
-            fallback={
+        <Show
+          when={searching()}
+          fallback={
+            <Show
+              when={remembered().length > 0}
+              fallback={
+                <p class={NOTE}>
+                  Search for a Guardian to see their gear and history
+                </p>
+              }
+            >
+              <div class="flex max-h-80 flex-col overflow-y-auto">
+                <For each={remembered()}>
+                  {(who) => (
+                    <div class="flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        class={`${ROW} flex-1`}
+                        onClick={() => choose(who)}
+                      >
+                        <span class="truncate">{guestLabel(who)}</span>
+                      </button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        class="text-muted-foreground"
+                        title={who.pinned ? "Unpin" : "Pin"}
+                        aria-label={who.pinned ? "Unpin" : "Pin"}
+                        onClick={() =>
+                          setRemembered(pinGuest(who, !who.pinned))
+                        }
+                      >
+                        {who.pinned ? "★" : "☆"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        class="text-muted-foreground"
+                        title="Remove"
+                        aria-label="Remove"
+                        onClick={() => setRemembered(forgetGuest(who))}
+                      >
+                        <X />
+                      </Button>
+                    </div>
+                  )}
+                </For>
+              </div>
+            </Show>
+          }
+        >
+          <Show when={!found.loading} fallback={<p class={NOTE}>Searching</p>}>
+            <Show
+              when={found.error === undefined}
+              fallback={
+                <p class="px-2 py-1 text-destructive">
+                  {messageOf(found.error)}
+                </p>
+              }
+            >
               <Show
-                when={remembered().length > 0}
-                fallback={
-                  <p class="px-3 text-sm text-muted">
-                    Search for a Guardian to see their gear and history
-                  </p>
-                }
+                when={results().length > 0}
+                fallback={<p class={NOTE}>No matches</p>}
               >
-                <div class="guest-list">
-                  <For each={remembered()}>
+                <div class="flex max-h-80 flex-col overflow-y-auto">
+                  <For each={results()}>
                     {(who) => (
-                      <div class="flex items-center">
-                        <button
-                          type="button"
-                          class={ROW}
-                          onClick={() => choose(who)}
-                        >
-                          <span class="min-w-0 flex-1 truncate">
-                            {guestLabel(who)}
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          class="header-action"
-                          title={who.pinned ? "Unpin" : "Pin"}
-                          aria-label={who.pinned ? "Unpin" : "Pin"}
-                          onClick={() =>
-                            setRemembered(pinGuest(who, !who.pinned))
-                          }
-                        >
-                          {who.pinned ? "★" : "☆"}
-                        </button>
-                        <button
-                          type="button"
-                          class="header-action"
-                          title="Remove"
-                          aria-label="Remove"
-                          onClick={() => setRemembered(forgetGuest(who))}
-                        >
-                          ✕
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        class={ROW}
+                        onClick={() => choose(who)}
+                      >
+                        <span class="truncate">{guestLabel(who)}</span>
+                      </button>
                     )}
                   </For>
                 </div>
               </Show>
-            }
-          >
-            <Show
-              when={!found.loading}
-              fallback={<p class="px-3 text-sm text-muted">Searching</p>}
-            >
-              <Show
-                when={found.error === undefined}
-                fallback={
-                  <p class="px-3 text-sm text-danger">
-                    {messageOf(found.error)}
-                  </p>
-                }
-              >
-                <Show
-                  when={results().length > 0}
-                  fallback={<p class="px-3 text-sm text-muted">No matches</p>}
-                >
-                  <div class="guest-list">
-                    <For each={results()}>
-                      {(who) => (
-                        <button
-                          type="button"
-                          class={ROW}
-                          onClick={() => choose(who)}
-                        >
-                          <span class="min-w-0 flex-1 truncate">
-                            {guestLabel(who)}
-                          </span>
-                        </button>
-                      )}
-                    </For>
-                  </div>
-                </Show>
-              </Show>
             </Show>
           </Show>
-        </Popover.Content>
-      </Popover.Portal>
+        </Show>
+      </PopoverContent>
     </Popover>
   );
 };

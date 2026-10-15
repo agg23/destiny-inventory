@@ -1,6 +1,6 @@
-import { For, Show } from "solid-js";
+import { Show } from "solid-js";
 
-import { TabButton } from "../../ui/TabButton.tsx";
+import { PickOne } from "../../ui/PickOne.tsx";
 import { GROUPINGS, KINDS, type Grouping, type Kind } from "../../url.ts";
 
 const KIND_LABELS: Record<Kind, string> = {
@@ -16,37 +16,23 @@ const GROUPING_LABELS: Record<Grouping, string> = {
 export const CollectionTabs = (props: {
   kind: Kind;
   grouping: Grouping;
-  total: string;
   onKind: (kind: Kind) => void;
   onGrouping: (grouping: Grouping) => void;
 }) => (
-  <div class="header-tabs-line">
-    <nav class="nav-subtabs">
-      <For each={KINDS}>
-        {(one) => (
-          <TabButton
-            active={props.kind === one}
-            onClick={() => props.onKind(one)}
-          >
-            {KIND_LABELS[one]}
-          </TabButton>
-        )}
-      </For>
-    </nav>
+  <>
+    <PickOne
+      value={props.kind}
+      options={KINDS}
+      label={(one) => KIND_LABELS[one]}
+      onChange={props.onKind}
+    />
     <Show when={props.kind === "weapon"}>
-      <nav class="nav-subtabs">
-        <For each={GROUPINGS}>
-          {(one) => (
-            <TabButton
-              active={props.grouping === one}
-              onClick={() => props.onGrouping(one)}
-            >
-              {GROUPING_LABELS[one]}
-            </TabButton>
-          )}
-        </For>
-      </nav>
+      <PickOne
+        value={props.grouping}
+        options={GROUPINGS}
+        label={(one) => GROUPING_LABELS[one]}
+        onChange={props.onGrouping}
+      />
     </Show>
-    <span class="text-sm text-dim tabular-nums">{props.total}</span>
-  </div>
+  </>
 );

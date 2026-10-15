@@ -8,10 +8,27 @@ import {
   type ActivityRow,
   type BucketGroup,
 } from "../history.ts";
-import { Button } from "../ui/Button.tsx";
+import {
+  HEADING,
+  HEADING_NOTE,
+  SECTION,
+  TABLE_FRAME,
+  TABLE_HEADER,
+} from "../ui/text.ts";
+import { Button } from "../ui/zaidan/button.tsx";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/zaidan/table.tsx";
 import { score } from "./runFormat.ts";
 
 const SERIES_ROWS = 10;
+
+const NUMBER = "text-right tabular-nums";
 
 export const ActivitySeries = (props: {
   groups: BucketGroup[];
@@ -26,72 +43,74 @@ export const ActivitySeries = (props: {
       : group.rows.slice(0, SERIES_ROWS);
 
   return (
-    <div class="flex flex-col gap-4">
+    <div class="flex flex-col gap-6">
       <For each={props.groups}>
         {(group) => (
-          <div class="card">
-            <div class="card-header">
-              <span class="card-title">{group.bucket.name}</span>
-              <span class="card-subtitle tabular-nums">
+          <section class={SECTION}>
+            <h2 class={`${HEADING} flex items-baseline gap-2`}>
+              {group.bucket.name}
+              <span class={HEADING_NOTE}>
                 {group.runs} entered · {group.cleared} cleared ·{" "}
                 {group.deathless} deathless · {span(group.playedSeconds)}
               </span>
-            </div>
-            <div class="card-body flex flex-col p-0">
-              <table class="table">
-                <thead>
-                  <tr>
-                    <th class="w-72">Activity</th>
-                    <th />
-                    <th class="num w-36">Entered</th>
-                    <th class="num w-36">Cleared</th>
-                    <th class="num w-36">Fastest</th>
-                    <th class="num w-40">Best score</th>
-                    <th class="num w-40">Last</th>
-                    <th class="w-8" />
-                  </tr>
-                </thead>
-                <tbody>
+            </h2>
+            <div class={TABLE_FRAME}>
+              <Table class="table-fixed">
+                <TableHeader class={TABLE_HEADER}>
+                  <TableRow>
+                    <TableHead>Activity</TableHead>
+                    <TableHead class={`${NUMBER} w-28`}>Entered</TableHead>
+                    <TableHead class={`${NUMBER} w-28`}>Cleared</TableHead>
+                    <TableHead class={`${NUMBER} w-28`}>Fastest</TableHead>
+                    <TableHead class={`${NUMBER} w-32`}>Best score</TableHead>
+                    <TableHead class={`${NUMBER} w-32`}>Last</TableHead>
+                    <TableHead class="w-8" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   <For each={rowsOf(group)}>
                     {(row) => (
-                      <tr
+                      <TableRow
                         class="group cursor-pointer"
                         onClick={() => props.onOpen(row)}
                       >
-                        <td class="p-0">
+                        <TableCell>
                           <Plate {...props.plateOf(row)} />
-                        </td>
-                        <td />
-                        <td class="num">{row.runs}</td>
-                        <td class="num">{row.cleared}</td>
-                        <td class="num">
+                        </TableCell>
+                        <TableCell class={NUMBER}>{row.runs}</TableCell>
+                        <TableCell class={NUMBER}>{row.cleared}</TableCell>
+                        <TableCell class={NUMBER}>
                           {row.fastestSeconds === undefined
                             ? "-"
                             : duration(row.fastestSeconds)}
-                        </td>
-                        <td class="num">{score(row.bestScore)}</td>
-                        <td class="num">{ago(row.lastRunAt)}</td>
+                        </TableCell>
+                        <TableCell class={NUMBER}>
+                          {score(row.bestScore)}
+                        </TableCell>
+                        <TableCell class={NUMBER}>
+                          {ago(row.lastRunAt)}
+                        </TableCell>
                         <Chevron />
-                      </tr>
+                      </TableRow>
                     )}
                   </For>
-                </tbody>
-              </table>
-              <Show when={group.rows.length > SERIES_ROWS}>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  class="m-3 self-start"
-                  aria-pressed={props.isExpanded(group.bucket.id)}
-                  onClick={() => props.onToggle(group.bucket.id)}
-                >
-                  {props.isExpanded(group.bucket.id)
-                    ? `Show top ${SERIES_ROWS}`
-                    : `Show all ${group.rows.length}`}
-                </Button>
-              </Show>
+                </TableBody>
+              </Table>
             </div>
-          </div>
+            <Show when={group.rows.length > SERIES_ROWS}>
+              <Button
+                size="sm"
+                variant="ghost"
+                class="self-start"
+                aria-pressed={props.isExpanded(group.bucket.id)}
+                onClick={() => props.onToggle(group.bucket.id)}
+              >
+                {props.isExpanded(group.bucket.id)
+                  ? `Show top ${SERIES_ROWS}`
+                  : `Show all ${group.rows.length}`}
+              </Button>
+            </Show>
+          </section>
         )}
       </For>
     </div>

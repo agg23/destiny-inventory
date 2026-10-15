@@ -15,7 +15,7 @@ describe("reading params", () => {
     expect(readParam("range", undefined)).toBe("30d");
     expect(readParam("q", undefined)).toBe("");
     expect(readParam("view", undefined)).toBe("recent");
-    expect(readParam("rest", undefined)).toBe(false);
+    expect(readParam("tagged", undefined)).toBe(false);
     expect(readParam("pin", undefined)).toEqual([]);
   });
 
@@ -28,8 +28,8 @@ describe("reading params", () => {
   });
 
   it("reads a flag only when it is set", () => {
-    expect(readParam("rest", "1")).toBe(true);
-    expect(readParam("rest", "0")).toBe(false);
+    expect(readParam("tagged", "1")).toBe(true);
+    expect(readParam("tagged", "0")).toBe(false);
   });
 
   it("ignores a count that is not a number", () => {
@@ -59,8 +59,8 @@ describe("writing params", () => {
   });
 
   it("writes a flag as one, or drops it", () => {
-    expect(writeParams({ rest: true })).toEqual({ rest: "1" });
-    expect(writeParams({ rest: false })).toEqual({ rest: undefined });
+    expect(writeParams({ tagged: true })).toEqual({ tagged: "1" });
+    expect(writeParams({ tagged: false })).toEqual({ tagged: undefined });
   });
 
   it("joins with a separator the query string leaves alone", () => {
@@ -81,11 +81,11 @@ describe("writing params", () => {
   });
 
   it("survives a round trip", () => {
-    const written = writeParams({ pin: ["1", "2"], days: 7, rest: true });
+    const written = writeParams({ pin: ["1", "2"], days: 7, tagged: true });
 
     expect(readParam("pin", written.pin)).toEqual(["1", "2"]);
     expect(readParam("days", written.days)).toBe(7);
-    expect(readParam("rest", written.rest)).toBe(true);
+    expect(readParam("tagged", written.tagged)).toBe(true);
   });
 });
 

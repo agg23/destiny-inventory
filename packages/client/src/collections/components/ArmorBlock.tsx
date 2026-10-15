@@ -21,7 +21,7 @@ export const ArmorBlock = (props: {
         tile={props.tile}
       />
       <Show when={sets().size > 0}>
-        <div class="collections-sets">
+        <div class="grid grid-cols-[repeat(auto-fill,minmax(calc(var(--tile)*5+1rem),1fr))] gap-x-4 gap-y-2 border-t py-1">
           <For each={[...sets().keys()]}>
             {(setKey) => {
               const pieces = () => sets().get(setKey) ?? [];

@@ -8,6 +8,7 @@ import { menued } from "./ItemMenu.tsx";
 import { typeName } from "./ItemPanel.tsx";
 import { dismiss, preview } from "./preview.ts";
 import { shownModes } from "./settings.ts";
+import { HEADING, ROW } from "./ui/text.ts";
 import { VersionGlyph } from "./ui/VersionGlyph.tsx";
 
 interface Props {
@@ -30,8 +31,8 @@ const RollVerdict = (props: { item: DimItem; stores: DimStore[] }) => (
     {(verdict) => (
       <span
         classList={{
-          "text-success": verdict().kind === "better",
-          "text-danger": verdict().kind === "worse",
+          "text-good": verdict().kind === "better",
+          "text-destructive": verdict().kind === "worse",
         }}
       >
         {WORDING[verdict().kind]}
@@ -57,20 +58,20 @@ const RollVerdict = (props: { item: DimItem; stores: DimStore[] }) => (
 );
 
 export const Arrivals = (props: Props) => (
-  <div class="arrivals overflow-hidden p-3">
-    <h2 class="section-label mb-2">Recently acquired</h2>
+  <div class="arrivals flex min-h-0 flex-col gap-2 overflow-hidden p-4">
+    <h2 class={HEADING}>Recently acquired</h2>
     <Show
       when={props.items.length > 0}
-      fallback={<p class="text-muted">Nothing acquired yet.</p>}
+      fallback={<p class="text-muted-foreground">Nothing acquired yet.</p>}
     >
-      <ul class="menu-list">
+      <ul class="-mx-1.5 flex min-h-0 flex-col overflow-y-auto">
         <For each={props.items}>
           {(item) => (
             <li>
               <button
                 type="button"
-                class="menu-item w-full text-left"
-                classList={{ menued: menued(item) }}
+                class={ROW}
+                classList={{ "bg-accent": menued(item) }}
                 data-item-index={item.index}
                 onClick={() => {
                   const rival = verdictFor(
@@ -98,11 +99,11 @@ export const Arrivals = (props: Props) => (
                 <ItemIcon item={item} />
                 <span class="min-w-0 flex-1">
                   <span class="block truncate">{item.name}</span>
-                  <span class="menu-item-note block truncate">
+                  <span class="block truncate text-xs text-muted-foreground">
                     {typeName(item)}
                     <Show when={item.power > 0}> · {item.power}</Show>
                   </span>
-                  <span class="menu-item-note block truncate">
+                  <span class="block truncate text-xs text-muted-foreground">
                     <RollVerdict item={item} stores={props.stores} />
                   </span>
                 </span>

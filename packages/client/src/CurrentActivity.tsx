@@ -11,6 +11,8 @@ import { ActivityFacts } from "./Activities.tsx";
 import { activityTables } from "./activityTables.ts";
 import { useApp } from "./App.tsx";
 import { guideNamed } from "./guides.ts";
+import { HEADING } from "./ui/text.ts";
+import { Button } from "./ui/zaidan/button.tsx";
 import { guideHref } from "./url.ts";
 
 export const CurrentActivity = () => {
@@ -65,21 +67,23 @@ export const CurrentActivity = () => {
   return (
     <Show when={current()}>
       {(now) => (
-        <div class="current-activity flex flex-col gap-2 px-3 pt-3">
-          <h2 class="section-label m-0">Current activity</h2>
+        <div class="flex flex-col gap-2 px-4 pt-4">
+          <h2 class={HEADING}>Current activity</h2>
           <button
             type="button"
-            class="plate current-activity-plate"
-            style={{ "--art": tileArt(now().art, now().entry?.typeName) }}
+            class="flex h-16 flex-col justify-end overflow-hidden rounded-lg bg-cover bg-center px-3 py-2 text-left ring-1 ring-foreground/10 hover:ring-foreground/40 aria-expanded:ring-foreground/40"
+            style={{
+              "background-image": `linear-gradient(to top, rgb(0 0 0 / 80%), rgb(0 0 0 / 20%)), ${tileArt(now().art, now().entry?.typeName)}`,
+            }}
             aria-expanded={open()}
             onClick={() => setOpen(!open())}
           >
-            <span class="block truncate text-md text-fg">
+            <span class="block truncate font-medium text-shadow-art">
               {now().guide.name}
             </span>
             <Show when={now().entry?.location}>
               {(location) => (
-                <span class="block truncate text-sm text-muted">
+                <span class="block truncate text-xs text-foreground/70 text-shadow-art">
                   {location()}
                 </span>
               )}
@@ -98,13 +102,16 @@ export const CurrentActivity = () => {
                 />
               )}
             </Show>
-            <A
-              class="button small self-start"
+            <Button
+              as={A}
+              variant="outline"
+              size="sm"
+              class="self-start"
               href={guideHref(now().guide.name)}
               state={{ inApp: true }}
             >
               Open guide
-            </A>
+            </Button>
           </Show>
         </div>
       )}

@@ -33,7 +33,7 @@ export interface Week {
 
 const tint = (level: number): string =>
   level === 0
-    ? "var(--color-surface-raised)"
+    ? "var(--color-muted)"
     : `color-mix(in srgb, var(--color-good) ${TINTS[level]}%, transparent)`;
 
 const shade = (seconds: number): number => {
@@ -131,7 +131,7 @@ export const ActivityMap = (props: {
         <For each={MONTHS}>
           {(month, index) => (
             <span
-              class="text-sm text-dim"
+              class="text-xs text-muted-foreground"
               style={{
                 "grid-column-start":
                   Math.round((index() * YEAR_WEEKS) / 12) + 2,
@@ -149,7 +149,7 @@ export const ActivityMap = (props: {
             class="grid items-center gap-[2px]"
             style={{ "grid-template-columns": columns }}
           >
-            <span class="text-md tabular-nums text-muted">{year}</span>
+            <span class="tabular-nums text-muted-foreground">{year}</span>
             <For each={Array.from({ length: YEAR_WEEKS }, (_, index) => index)}>
               {(column) => {
                 const week = () => grid().weeks.get(`${year}:${column}`);
@@ -163,7 +163,7 @@ export const ActivityMap = (props: {
                     style={{
                       "background-color": tint(shade(week()?.seconds ?? 0)),
                       outline: inWindow(week())
-                        ? "1px solid var(--color-fg)"
+                        ? "1px solid var(--color-foreground)"
                         : undefined,
                       "outline-offset": "1px",
                     }}
@@ -192,7 +192,7 @@ export const ActivityMap = (props: {
         )}
       </For>
 
-      <div class="flex items-center gap-1 text-sm text-dim">
+      <div class="flex items-center gap-1 text-xs text-muted-foreground">
         <span>Less</span>
         <For each={TINTS}>
           {(_, index) => (

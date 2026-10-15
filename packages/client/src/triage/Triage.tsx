@@ -1,8 +1,7 @@
 import type { DimItem } from "app/inventory/item-types";
-import { createMemo, For, Show } from "solid-js";
+import { createMemo, Show } from "solid-js";
 
 import { useApp } from "../App.tsx";
-import { PageChrome } from "../chrome.tsx";
 import { plural } from "../history/runFormat.ts";
 import { Rail } from "../Rail.tsx";
 import { useUrl } from "../router.ts";
@@ -13,7 +12,9 @@ import { TriageCompare } from "./TriageCompare.tsx";
 import { TriageFeed } from "./TriageFeed.tsx";
 import { createSelection } from "./triageSelection.ts";
 import { createWrites } from "./triageWrites.ts";
-import { TabButton } from "../ui/TabButton.tsx";
+import { Checkbox } from "../ui/Checkbox.tsx";
+import { PickOne } from "../ui/PickOne.tsx";
+import { Select } from "../ui/Select.tsx";
 import { TRIAGE_SORTS, TRIAGE_STEPS, type TriageStep } from "../url.ts";
 
 const STEP_LABELS: Record<TriageStep, string> = {
@@ -75,111 +76,73 @@ export const Triage = () => {
 
   return (
     <>
-      <PageChrome
-        tabs={
-          <>
-            <nav class="nav-subtabs">
-              <For each={TRIAGE_STEPS}>
-                {(one) => (
-                  <TabButton
-                    active={step() === one}
-                    onClick={() => {
-                      selection.clear();
-                      url.push({ step: one });
-                    }}
-                  >
-                    {STEP_LABELS[one]}
-                  </TabButton>
-                )}
-              </For>
-            </nav>
+      <div class="flex flex-col gap-3 px-4 pt-4">
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <PickOne
+            value={step()}
+            options={TRIAGE_STEPS}
+            label={(one) => STEP_LABELS[one]}
+            onChange={(one) => {
+              selection.clear();
+              url.push({ step: one });
+            }}
+          />
 
-            <Show when={step() !== "trash"}>
-              <TriageBar
-                step={step()}
-                selection={selection}
-                writes={writes}
-                pool={pool()}
-                shown={shown()}
-                guarded={url.get("guard")}
-              />
-            </Show>
-          </>
-        }
-        tools={
-          <>
-            <Show when={step() === "compare"}>
-              <label class="flex items-center gap-2 text-md text-dim">
-                Tag
-                <select
-                  class="select"
-                  value={url.get("tag")}
-                  onChange={(event) =>
-                    url.replace({
-                      tag: event.currentTarget.value,
-                      group: undefined,
-                    })
-                  }
-                >
-                  <For each={tagDefs()}>
-                    {(def) => <option value={def.id}>{def.label}</option>}
-                  </For>
-                </select>
-              </label>
-            </Show>
+          <Show when={step() === "compare"}>
+            <Select
+              label="Tag"
+              value={url.get("tag")}
+              options={tagDefs().map((def) => def.id)}
+              names={Object.fromEntries(
+                tagDefs().map((def) => [def.id, def.label]),
+              )}
+              onChange={(tag) => url.replace({ tag, group: undefined })}
+            />
+          </Show>
 
-            <Show when={step() === "tag"}>
-              <label class="flex items-center gap-2 text-md text-dim">
-                Sort
-                <select
-                  class="select"
-                  value={url.get("sort")}
-                  onChange={(event) =>
-                    url.replace({
-                      sort: event.currentTarget
-                        .value as (typeof TRIAGE_SORTS)[number],
-                    })
-                  }
-                >
-                  <For each={TRIAGE_SORTS}>
-                    {(one) => <option value={one}>{SORT_LABELS[one]}</option>}
-                  </For>
-                </select>
-              </label>
+          <Show when={step() === "tag"}>
+            <Select
+              label="Sort"
+              value={url.get("sort")}
+              options={TRIAGE_SORTS}
+              names={SORT_LABELS}
+              onChange={(sort) => url.replace({ sort })}
+            />
 
-              <label class="flex items-center gap-2 text-md text-dim">
-                <input
-                  type="checkbox"
-                  checked={url.get("tagged")}
-                  onChange={(event) =>
-                    url.replace({ tagged: event.currentTarget.checked })
-                  }
-                />
-                Show tagged
-              </label>
+            <Checkbox
+              checked={url.get("tagged")}
+              onChange={(tagged) => url.replace({ tagged })}
+            >
+              Show tagged
+            </Checkbox>
 
-              <label class="flex items-center gap-2 text-md text-dim">
-                <input
-                  type="checkbox"
-                  checked={url.get("guard")}
-                  onChange={(event) =>
-                    url.replace({ guard: event.currentTarget.checked })
-                  }
-                />
-                Protect favorites from sweeps
-              </label>
-            </Show>
-          </>
-        }
-        status={
+            <Checkbox
+              checked={url.get("guard")}
+              onChange={(guard) => url.replace({ guard })}
+            >
+              Protect favorites from sweeps
+            </Checkbox>
+          </Show>
+
           <Show when={app.loaded()}>
-            <span>
+            <span class="ml-auto text-muted-foreground tabular-nums">
               {shown().length} of {plural(pool().length, "item")} · {tagged()}{" "}
               tagged
             </span>
           </Show>
-        }
-      />
+        </div>
+
+        <Show when={step() !== "trash"}>
+          <TriageBar
+            step={step()}
+            selection={selection}
+            writes={writes}
+            pool={pool()}
+            shown={shown()}
+            guarded={url.get("guard")}
+          />
+        </Show>
+      </div>
 
       <Show when={step() === "tag"}>
         <TriageFeed
@@ -196,7 +159,7 @@ export const Triage = () => {
       </Show>
 
       <Show when={step() === "trash"}>
-        <p class="p-6 text-muted">Not built yet.</p>
+        <p class="p-4 text-muted-foreground">Not built yet.</p>
       </Show>
     </>
   );

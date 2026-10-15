@@ -1,7 +1,8 @@
-import { Slider as Kobalte } from "@kobalte/core/slider";
 import { Show } from "solid-js";
 
 import { RevertGlyph } from "./RevertGlyph.tsx";
+import { Button } from "./zaidan/button.tsx";
+import { Slider as Track } from "./zaidan/slider.tsx";
 
 interface Props {
   label: string;
@@ -16,39 +17,33 @@ interface Props {
 }
 
 export const Slider = (props: Props) => (
-  <Kobalte
-    class="slider"
-    value={[props.value]}
-    minValue={props.min}
-    maxValue={props.max}
-    step={props.step ?? 1}
-    onChange={([next]) => props.onChange(next ?? props.value)}
-  >
-    <div class="slider-head">
-      <Kobalte.Label class="section-label">{props.label}</Kobalte.Label>
-      <div class="slider-readout">
-        <span class="slider-value">
-          {props.format ? props.format(props.value) : props.value}
-        </span>
-        <Show when={props.onReset}>
-          <button
-            type="button"
-            class="slider-reset"
-            disabled={!props.modified}
-            title={`Reset ${props.label.toLowerCase()} to default`}
-            aria-label={`Reset ${props.label.toLowerCase()} to default`}
-            onClick={() => props.onReset?.()}
-          >
-            <RevertGlyph />
-          </button>
-        </Show>
-      </div>
+  <div class="flex flex-col gap-3">
+    <div class="flex h-6 items-center gap-2">
+      <span class="flex-1">{props.label}</span>
+      <span class="text-muted-foreground tabular-nums">
+        {props.format ? props.format(props.value) : props.value}
+      </span>
+      <Show when={props.onReset}>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          class="text-muted-foreground"
+          disabled={!props.modified}
+          title={`Reset ${props.label.toLowerCase()} to default`}
+          aria-label={`Reset ${props.label.toLowerCase()} to default`}
+          onClick={() => props.onReset?.()}
+        >
+          <RevertGlyph />
+        </Button>
+      </Show>
     </div>
-    <Kobalte.Track class="slider-track">
-      <Kobalte.Fill class="slider-fill" />
-      <Kobalte.Thumb class="slider-thumb">
-        <Kobalte.Input />
-      </Kobalte.Thumb>
-    </Kobalte.Track>
-  </Kobalte>
+    <Track
+      aria-label={props.label}
+      value={[props.value]}
+      minValue={props.min}
+      maxValue={props.max}
+      step={props.step ?? 1}
+      onChange={([next]: number[]) => props.onChange(next ?? props.value)}
+    />
+  </div>
 );

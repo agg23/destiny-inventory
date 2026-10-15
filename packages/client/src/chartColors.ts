@@ -16,12 +16,12 @@ export const chartColors = (): ChartColors => {
     const read = (name: string) => style.getPropertyValue(name).trim();
 
     resolved = {
-      text: read("--color-text"),
-      dim: read("--color-dim"),
-      line: read("--color-line"),
+      text: read("--text"),
+      dim: read("--dim"),
+      line: read("--line"),
       accent: read("--color-exotic"),
       good: read("--color-good"),
-      surface: read("--color-surface-raised"),
+      surface: read("--surface-raised"),
     };
   }
 

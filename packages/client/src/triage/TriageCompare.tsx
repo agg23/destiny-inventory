@@ -14,6 +14,7 @@ import { useUrl } from "../router.ts";
 import { tagFor } from "../tags.ts";
 import { bundlesOf, taggedIds, type Bundle } from "../triage.ts";
 import type { Writes } from "./triageWrites.ts";
+import { Button } from "../ui/zaidan/button.tsx";
 
 const KEPT = "keep";
 
@@ -73,23 +74,31 @@ export const TriageCompare = (props: Props) => {
     );
 
   return (
-    <div class="triage p-3">
+    <div class="flex flex-col gap-3 px-4 pt-3 pb-4">
       <Show
         when={bundles().length > 0}
-        fallback={<p class="p-3 text-muted">Nothing carries that tag.</p>}
+        fallback={
+          <p class="text-muted-foreground">Nothing carries that tag.</p>
+        }
       >
-        <div class="triage-groups">
+        <div class="flex flex-wrap gap-1.5">
           <For each={bundles()}>
             {(one) => (
-              <button
-                type="button"
-                class="menu-item"
-                classList={{ selected: bundle()?.hash === one.hash }}
+              <Button
+                size="sm"
+                variant="outline"
+                class="max-w-64"
+                classList={{
+                  "bg-muted": bundle()?.hash === one.hash,
+                }}
+                aria-pressed={bundle()?.hash === one.hash}
                 onClick={() => url.push({ group: one.hash })}
               >
-                <span class="min-w-0 flex-1 truncate">{one.name}</span>
-                <span class="text-dim">{one.items.length}</span>
-              </button>
+                <span class="min-w-0 truncate">{one.name}</span>
+                <span class="text-muted-foreground tabular-nums">
+                  {one.items.length}
+                </span>
+              </Button>
             )}
           </For>
         </div>

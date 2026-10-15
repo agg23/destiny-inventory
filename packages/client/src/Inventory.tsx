@@ -8,7 +8,7 @@ import { potentialSpaceLeftForItem } from "app/inventory/stores-helpers";
 import { createMemo, For, Index, Show } from "solid-js";
 
 import type { Matched } from "./App.tsx";
-import { CharacterPicker, StoreBanner } from "./CharacterPicker.tsx";
+import { CharacterPicker } from "./CharacterPicker.tsx";
 import { unmovable } from "./compare.ts";
 import { ItemIcon } from "./ItemIcon.tsx";
 import { ItemMenu, menued } from "./ItemMenu.tsx";
@@ -23,7 +23,12 @@ import {
   type VaultSort,
 } from "./settings.ts";
 import { tagFor } from "./tags.ts";
-import { Button } from "./ui/Button.tsx";
+import { Select } from "./ui/Select.tsx";
+import { HEADING, LABEL } from "./ui/text.ts";
+import { Button } from "./ui/zaidan/button.tsx";
+
+const COLUMNS =
+  "grid grid-cols-[var(--store-column)_minmax(0,1fr)] items-start gap-2";
 
 const CATEGORIES = ["Postmaster", "Weapons", "Armor", "General", "Inventory"];
 
@@ -42,29 +47,22 @@ interface Props {
 }
 
 const VaultHeader = (props: { store: DimStore }) => (
-  <div class="card store-head flex items-center gap-2 p-2">
-    <StoreBanner
-      icon={props.store.icon}
-      title="Vault"
-      note={`${props.store.items.length} items`}
+  <div class="flex h-(--banner) items-center gap-3 rounded-lg border bg-card px-3">
+    <img class="size-8 shrink-0" src={props.store.icon} alt="" />
+    <div class="min-w-0">
+      <div class="truncate font-medium">Vault</div>
+      <div class="truncate text-xs text-muted-foreground">
+        {props.store.items.length} items
+      </div>
+    </div>
+    <Select
+      label="Sort"
+      class="ml-auto shrink-0"
+      value={settings().sort}
+      options={VAULT_SORTS}
+      names={VAULT_SORT_NAMES}
+      onChange={(sort: VaultSort) => applySettings({ ...savedSettings(), sort })}
     />
-    <label class="ml-auto flex shrink-0 items-center gap-2 text-md text-dim">
-      Sort
-      <select
-        class="select min-w-32"
-        value={settings().sort}
-        onChange={(event) =>
-          applySettings({
-            ...savedSettings(),
-            sort: event.currentTarget.value as VaultSort,
-          })
-        }
-      >
-        <For each={VAULT_SORTS}>
-          {(sort) => <option value={sort}>{VAULT_SORT_NAMES[sort]}</option>}
-        </For>
-      </select>
-    </label>
   </div>
 );
 
@@ -265,8 +263,8 @@ export const Inventory = (props: Props) => {
 
   return (
     <ItemMenu find={itemAt}>
-      <div class="p-3">
-        <div class="stores">
+      <div class="px-4 pb-4">
+        <div class={`${COLUMNS} sticky top-(--header-h,49px) z-1 bg-background py-3`}>
           <CharacterPicker
             characters={characters()}
             selected={props.active}
@@ -285,14 +283,14 @@ export const Inventory = (props: Props) => {
                   ),
                 }}
               >
-                <h2 class="section-label mt-4 mb-1.5">
+                <h2 class={`${HEADING} mt-4 mb-1.5 flex h-7 items-center gap-3`}>
                   {category}
                   <Show when={category === "Postmaster" && collectible()}>
                     {(found) => (
                       <Button
                         type="button"
-                        size="sm"
-                        variant="ghost"
+                        size="xs"
+                        variant="outline"
                         disabled={!!props.moving || found().items.length === 0}
                         title={
                           found().items.length > 0
@@ -314,10 +312,10 @@ export const Inventory = (props: Props) => {
                   {(bucket) => (
                     <Show when={present(bucket())}>
                       <div
-                        class="row"
+                        class={`row ${COLUMNS} border-t py-1`}
                         classList={{ hidden: !occupied(bucket()) }}
                       >
-                        <h3 class="bucket-label">
+                        <h3 class={`${LABEL} col-span-full mb-1`}>
                           {bucket().name || `Bucket ${bucket().hash}`}
                         </h3>
                         <For each={shown()}>

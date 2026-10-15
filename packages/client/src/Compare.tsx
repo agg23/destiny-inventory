@@ -9,10 +9,14 @@ import {
   ItemDetails,
   ItemHead,
   Moves,
+  STAT_NAME,
+  TOTAL_ROW,
 } from "./ItemPanel.tsx";
 import { NoteEditor, SharedNote } from "./NoteEditor.tsx";
 import { shortStat } from "./statNames.ts";
-import { IconButton } from "./ui/Button.tsx";
+import { Checkbox } from "./ui/Checkbox.tsx";
+import { Button } from "./ui/zaidan/button.tsx";
+import { X } from "./ui/zaidan/icons.tsx";
 
 interface Props {
   items: DimItem[];
@@ -82,21 +86,21 @@ export const Compare = (props: Props) => {
 
   return (
     <Show when={props.items.length > 0}>
-      <aside class="item-tooltip compare overflow-y-auto p-4 [scrollbar-gutter:stable]">
+      <aside class="item-tooltip w-full max-w-none overflow-auto p-4 [scrollbar-gutter:stable]">
         <div
-          class="stat-list compare-grid grid items-center content-start"
+          class="grid content-start items-center gap-x-2.5 gap-y-1"
           style={{ "grid-template-columns": columns() }}
         >
           <For each={props.items}>
             {(item, column) => (
               <div
-                class="compare-head relative self-stretch pb-1.5"
+                class="relative self-stretch pb-1.5"
                 style={{ "grid-column": start(column()), "grid-row": "1" }}
               >
                 <Show when={ages()[column()]}>
                   {/* Lives in the panel's top padding, costing no height */}
                   {(age) => (
-                    <span class="absolute bottom-full left-0 pb-0.5 text-xs uppercase tracking-caps text-dim">
+                    <span class="absolute bottom-full left-0 pb-0.5 text-xs text-muted-foreground">
                       {age()}
                     </span>
                   )}
@@ -104,31 +108,27 @@ export const Compare = (props: Props) => {
                 <ItemHead item={item} compact taggable links />
                 <Show when={props.onUnpin}>
                   {(onUnpin) => (
-                    <IconButton
+                    <Button
                       type="button"
                       variant="ghost"
-                      size="icon-sm"
-                      place="absolute"
-                      class="top-[10px] right-[10px] size-6 min-w-0 p-0"
-                      label={`Unpin ${item.name}`}
+                      size="icon-xs"
+                      class="absolute top-2 right-2 text-white/75 hover:bg-black/30 hover:text-white"
+                      aria-label={`Unpin ${item.name}`}
                       onClick={() => onUnpin()(item)}
                     >
-                      ✕
-                    </IconButton>
+                      <X />
+                    </Button>
                   )}
                 </Show>
                 <Show when={props.onKeep}>
                   {(onKeep) => (
-                    <label class="keep-box mt-1.5 flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={props.kept?.(item) ?? false}
-                        onChange={(event) =>
-                          onKeep()(item, event.currentTarget.checked)
-                        }
-                      />
+                    <Checkbox
+                      class="mt-2"
+                      checked={props.kept?.(item) ?? false}
+                      onChange={(checked) => onKeep()(item, checked)}
+                    >
                       Keep this one
-                    </label>
+                    </Checkbox>
                   )}
                 </Show>
               </div>
@@ -138,8 +138,8 @@ export const Compare = (props: Props) => {
           <For each={rows()}>
             {(row, index) => (
               <div
-                class="stat-name"
-                classList={{ total: row.hash === TOTAL }}
+                class={STAT_NAME}
+                classList={{ [TOTAL_ROW]: row.hash === TOTAL }}
                 style={{ "grid-column": "1", "grid-row": String(4 + index()) }}
               >
                 {row.name}

@@ -1,0 +1,45 @@
+/* Hover panels pinned beside the element holding the anchor */
+@layer app {
+  .anchored {
+    position: fixed;
+    position-anchor: --hovered;
+    position-area: inline-end span-block-end;
+    position-try-fallbacks:
+      --pin-bottom,
+      flip-inline,
+      flip-inline --pin-bottom;
+    position-visibility: anchors-visible;
+    margin: 8px;
+  }
+
+  /* Top-aligned until the bottom runs out, then held at the viewport bottom */
+  @position-try --pin-bottom {
+    position-area: inline-end span-all;
+    align-self: end;
+  }
+
+  /* X follows the pointer across a wide row, Y stays on the row */
+  .anchored.tracking {
+    position-area: none;
+    left: var(--cursor-x);
+    top: anchor(top);
+    position-try-fallbacks: --track-bottom, --track-left, --track-left-bottom;
+  }
+
+  @position-try --track-left {
+    left: auto;
+    right: calc(100dvw - var(--cursor-x));
+  }
+
+  @position-try --track-bottom {
+    top: auto;
+    bottom: 0;
+  }
+
+  @position-try --track-left-bottom {
+    left: auto;
+    right: calc(100dvw - var(--cursor-x));
+    top: auto;
+    bottom: 0;
+  }
+}

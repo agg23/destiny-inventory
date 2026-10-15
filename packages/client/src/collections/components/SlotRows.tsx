@@ -2,6 +2,7 @@ import { For, type JSX } from "solid-js";
 
 import type { Entry } from "../../collections.ts";
 import { defs } from "../../defs.ts";
+import { LABEL, TILE_GRID } from "../../ui/text.ts";
 
 const bucketName = (hash: number): string =>
   defs()?.InventoryBucket.getOptional(hash)?.displayProperties.name ?? "";
@@ -18,9 +19,9 @@ export const SlotRows = (props: {
     )}
   >
     {(slot) => (
-      <div class="collections-slot">
-        <h4 class="bucket-label">{bucketName(slot)}</h4>
-        <div class="item-grid">
+      <div class="border-t py-1 first:border-t-0">
+        <h4 class={`${LABEL} mb-1`}>{bucketName(slot)}</h4>
+        <div class={TILE_GRID}>
           <For
             each={props.entries.filter((entry) => entry.bucketHash === slot)}
           >

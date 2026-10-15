@@ -2,9 +2,17 @@ import type { DimItem, DimPlug } from "app/inventory/item-types";
 import { isEnhancedPerk } from "app/utils/socket-utils";
 import { createMemo, Show } from "solid-js";
 
-import { Changes, PerkIcon } from "./ItemPanel.tsx";
+import {
+  Changes,
+  GOLD_BADGE,
+  PERK,
+  PERK_TITLE,
+  PERK_TEXT,
+  PerkIcon,
+} from "./ItemPanel.tsx";
 import { benefitFor } from "./perks.ts";
 import { AnchoredPanel } from "./ui/AnchoredPanel.tsx";
+import { Badge } from "./ui/zaidan/badge.tsx";
 
 interface Props {
   item: DimItem;
@@ -27,14 +35,18 @@ export const PerkCard = (props: Props) => {
       class={`item-tooltip perk-card${props.beside ? " beside" : ""}`}
     >
       <div class="tooltip-body">
-        <div class="tooltip-perk items-start">
+        <div class={PERK}>
           <PerkIcon icon={shown().icon} enhanced={enhanced()} />
-          <div class="perk-text">
-            <b classList={{ "text-light": enhanced() }}>
+          <div class="min-w-0">
+            <b
+              class={PERK_TITLE}
+              classList={{ "text-light!": enhanced() }}
+            >
               {shown().name}
               <Show when={enhanced()}>
-                {" "}
-                <span class="tag">Enhanced</span>
+                <Badge variant="outline" class={GOLD_BADGE}>
+                  Enhanced
+                </Badge>
               </Show>
             </b>
             <Show when={benefit()}>
@@ -42,9 +54,7 @@ export const PerkCard = (props: Props) => {
                 <>
                   <Changes stats={found().stats} />
                   <Show when={found().description}>
-                    <span class="block whitespace-pre-wrap">
-                      {found().description}
-                    </span>
+                    <span class={PERK_TEXT}>{found().description}</span>
                   </Show>
                 </>
               )}

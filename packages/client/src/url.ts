@@ -80,8 +80,6 @@ export const PARAMS = {
   character: text(),
   pin: ids(),
   realm: text(),
-  section: text(),
-  rest: flag(),
   view: choice(HISTORY_TABS, "recent"),
   range: filled("30d"),
   from: text(),
