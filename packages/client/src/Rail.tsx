@@ -6,6 +6,7 @@ import { Compare } from "./Compare.tsx";
 import { CurrentActivity } from "./CurrentActivity.tsx";
 import { ItemMenu } from "./ItemMenu.tsx";
 import { railCollapsed } from "./rail.ts";
+import { SelectionPanel } from "./SelectionPanel.tsx";
 
 /** The panel docked at the right edge, under the header */
 export const RAIL =
@@ -14,8 +15,8 @@ export const RAIL =
 export const Rail = () => {
   const app = useApp();
 
-  const floating = () => railCollapsed() && app.pinned().length > 0;
-  const railed = () => !railCollapsed() || app.pinned().length > 0;
+  const floating = () => railCollapsed() && app.selected().length > 0;
+  const railed = () => !railCollapsed() || app.selected().length > 0;
 
   return (
     <Show when={railed()}>
@@ -29,20 +30,36 @@ export const Rail = () => {
           when={app.pinned().length > 0}
           fallback={
             <Show
-              when={!app.awaitingPins()}
-              fallback={<p class="p-4 text-muted-foreground">Loading</p>}
-            >
-              <CurrentActivity />
-              <ItemMenu
-                find={(index) => app.feed().find((one) => one.index === index)}
-              >
-                <Arrivals
-                  items={app.feed()}
+              when={app.selected().length === 0}
+              fallback={
+                <SelectionPanel
+                  items={app.selected()}
                   stores={app.stores()}
-                  onSelect={app.onPin}
-                  onCompare={app.onCompare}
+                  active={app.active()}
+                  moving={app.moving()}
+                  onMoveMany={app.onMoveMany}
+                  onClear={app.onClearSelection}
                 />
-              </ItemMenu>
+              }
+            >
+              <Show
+                when={!app.awaitingPins()}
+                fallback={<p class="p-4 text-muted-foreground">Loading</p>}
+              >
+                <CurrentActivity />
+                <ItemMenu
+                  find={(index) =>
+                    app.feed().find((one) => one.index === index)
+                  }
+                >
+                  <Arrivals
+                    items={app.feed()}
+                    stores={app.stores()}
+                    onSelect={app.onPin}
+                    onCompare={app.onCompare}
+                  />
+                </ItemMenu>
+              </Show>
             </Show>
           }
         >

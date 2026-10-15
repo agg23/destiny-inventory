@@ -16,9 +16,13 @@ export const Vault = () => {
             buckets={loaded().buckets}
             matched={app.matched()}
             active={app.active()}
-            pinned={app.pinned()}
+            selected={app.selected()}
+            isSelected={app.isSelected}
             onSelectStore={app.onCharacter}
             onSelect={app.onPin}
+            onToggle={app.onToggle}
+            onExtend={app.onExtend}
+            onSelectMany={app.onSelectMany}
             onCollect={app.onCollect}
             moving={app.moving()}
           />

@@ -27,7 +27,8 @@ import type { Catalyst } from "./collections.ts";
 import { delta, TOTAL, type Delta } from "./compare.ts";
 import { defs } from "./defs.ts";
 import { guest } from "./guest.ts";
-import { setOnlyTag, tagDefs, tagFor } from "./tags.ts";
+import { commonTag, tagDefs } from "./tags.ts";
+import { requestTag } from "./tagConfirm.ts";
 import {
   defaultEquip,
   defaultTransfer,
@@ -1431,10 +1432,19 @@ const AMMO: Record<number, { url: string; name: string }> = {
   3: { url: ammoHeavy, name: "Heavy" },
 };
 
-const TagControl = (props: { item: DimItem }) => {
-  const current = () => tagFor(props.item.id);
-  const label = () => current()?.label ?? "No tag";
+/** The tag dropdown, setting one tag across every item it is given */
+export const TagControl = (props: { items: DimItem[] }) => {
+  const shared = () => commonTag(props.items);
+  const current = () => {
+    const tag = shared();
+
+    return tag === "mixed" ? undefined : tag;
+  };
+  const label = () =>
+    shared() === "mixed" ? "Mixed" : (current()?.label ?? "No tag");
   const tint = () => `var(--${current()?.color ?? "line-bright"})`;
+
+  const apply = (tagId: string | undefined) => requestTag(props.items, tagId);
 
   return (
     <DropdownMenu placement="bottom-end" modal={false} preventScroll={false}>
@@ -1442,14 +1452,14 @@ const TagControl = (props: { item: DimItem }) => {
         class="tag-control"
         classList={{ tagged: !!current() }}
         style={{ "--tag": tint() }}
-        aria-label={current() ? `Tag: ${current()!.label}` : "No tag"}
+        aria-label={current() ? `Tag: ${current()!.label}` : label()}
         title={label()}
       >
         {label()}
       </DropdownMenuTrigger>
       <DropdownMenuContent data-menu="tag" class="min-w-32">
         <DropdownMenuItem
-          onSelect={() => setOnlyTag(props.item.id, props.item.hash, undefined)}
+          onSelect={() => apply(undefined)}
         >
           <span class="size-2 rounded-full border border-dashed border-input" />
           No tag
@@ -1457,7 +1467,7 @@ const TagControl = (props: { item: DimItem }) => {
         <For each={tagDefs()}>
           {(def) => (
             <DropdownMenuItem
-              onSelect={() => setOnlyTag(props.item.id, props.item.hash, def.id)}
+              onSelect={() => apply(def.id)}
             >
               <span
                 class="size-2 rounded-full"
@@ -1565,7 +1575,7 @@ export const ItemPower = (props: {
           <ItemLinks item={props.item} />
         </Show>
         <Show when={props.taggable && props.item.id !== "0"}>
-          <TagControl item={props.item} />
+          <TagControl items={[props.item]} />
         </Show>
         <Show when={notes().length > 0}>
           <span class="power-notes">{notes().join(" · ")}</span>

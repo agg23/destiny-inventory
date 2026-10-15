@@ -174,3 +174,32 @@ export const defaultEquip = (
 
   return targets[0];
 };
+
+/** The items in a selection that can go to the target */
+export const movableTo = (
+  items: DimItem[],
+  stores: DimStore[],
+  active: DimStore | undefined,
+  target: DimStore,
+): DimItem[] =>
+  items.filter(
+    (item) =>
+      transferTargets(item, stores, active).some(
+        (store) => store.id === target.id,
+      ) && !transferBlocked(item, stores, target),
+  );
+
+/** The vault, unless the whole selection is already there */
+export const defaultBulkTransfer = (
+  items: DimItem[],
+  stores: DimStore[],
+  active: DimStore | undefined,
+): DimStore | undefined => {
+  const vault = stores.find((store) => store.isVault);
+
+  if (items.some((item) => item.owner !== vault?.id)) {
+    return vault;
+  }
+
+  return active ?? stores.find((store) => !store.isVault);
+};

@@ -5,11 +5,12 @@ import type {
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { potentialSpaceLeftForItem } from "app/inventory/stores-helpers";
-import { createMemo, For, Index, Show } from "solid-js";
+import { createMemo, For, Index, onCleanup, Show } from "solid-js";
 
 import type { Matched } from "./App.tsx";
 import { CharacterPicker } from "./CharacterPicker.tsx";
 import { unmovable } from "./compare.ts";
+import { createDragSelect } from "./dragSelect.ts";
 import { ItemIcon } from "./ItemIcon.tsx";
 import { ItemMenu, menued } from "./ItemMenu.tsx";
 import { LOST_ITEMS } from "./moveTargets.ts";
@@ -38,8 +39,12 @@ interface Props {
   stores: DimStore[];
   buckets: InventoryBuckets;
   matched: Matched;
-  onSelect: (item: DimItem, additive: boolean) => void;
-  pinned: DimItem[];
+  selected: DimItem[];
+  isSelected: (item: DimItem) => boolean;
+  onSelect: (item: DimItem) => void;
+  onToggle: (item: DimItem) => void;
+  onExtend: (item: DimItem, order: DimItem[]) => void;
+  onSelectMany: (items: DimItem[]) => void;
   active: DimStore | undefined;
   onSelectStore: (store: DimStore) => void;
   onCollect: (items: DimItem[], target: DimStore) => void;
@@ -208,6 +213,12 @@ export const Inventory = (props: Props) => {
   const vaultCell = (bucket: InventoryBucket) =>
     vaultCells().get(bucket.hash) ?? { favorites: [], rest: [] };
 
+  const vaultOrder = (bucket: InventoryBucket) => {
+    const split = vaultCell(bucket);
+
+    return [...split.favorites, ...split.rest];
+  };
+
   const tileState = (item: DimItem): string =>
     [
       previewed()?.item.index === item.index ? "hovered" : "",
@@ -229,14 +240,93 @@ export const Inventory = (props: Props) => {
     return undefined;
   };
 
-  const tile = (item: DimItem) => (
+  let root: HTMLDivElement | undefined = undefined;
+
+  const drag = createDragSelect(
+    () => root,
+    (indexes, additive) => {
+      const byIndex = new Map(
+        props.stores.flatMap((store) =>
+          store.items.map((one) => [one.index, one]),
+        ),
+      );
+      const swept = indexes.flatMap((index) => {
+        const found = byIndex.get(index);
+
+        return found === undefined ? [] : [found];
+      });
+
+      if (!additive) {
+        props.onSelectMany(swept);
+
+        return;
+      }
+
+      const held = new Set(props.selected.map((one) => one.id));
+
+      props.onSelectMany([
+        ...props.selected,
+        ...swept.filter((one) => !held.has(one.id)),
+      ]);
+    },
+  );
+
+  const tileSelected = (item: DimItem): boolean => {
+    const swept = drag.dragged();
+
+    if (!swept) {
+      return props.isSelected(item);
+    }
+
+    return (
+      swept.has(item.index) || (drag.additive() && props.isSelected(item))
+    );
+  };
+
+  const onTile = (item: DimItem, event: MouseEvent, order: DimItem[]) => {
+    if (event.metaKey || event.ctrlKey) {
+      props.onToggle(item);
+
+      return;
+    }
+
+    if (event.shiftKey) {
+      props.onExtend(item, order.filter((one) => hits().has(one)));
+
+      return;
+    }
+
+    props.onSelect(item);
+  };
+
+  const tile = (item: DimItem, order: () => DimItem[]) => (
     <ItemIcon
       item={item}
-      selected={props.pinned.some((pin) => pin.id === item.id)}
+      selected={tileSelected(item)}
       class={tileState(item)}
-      onSelect={(one, event) => props.onSelect(one, event.shiftKey)}
+      onSelect={(one, event) => onTile(one, event, order())}
     />
   );
+
+  const onKeyDown = (event: KeyboardEvent) => {
+    const target = event.target as HTMLElement;
+
+    if (
+      !(event.metaKey || event.ctrlKey) ||
+      event.key !== "a" ||
+      target.closest("input, textarea, select, [contenteditable]")
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    props.onSelectMany(
+      shown().flatMap((store) => store.items.filter((one) => hits().has(one))),
+    );
+  };
+
+  window.addEventListener("keydown", onKeyDown);
+  onCleanup(() => window.removeEventListener("keydown", onKeyDown));
 
   const collectible = createMemo(() => {
     const character = shown().find((store) => !store.isVault);
@@ -262,8 +352,27 @@ export const Inventory = (props: Props) => {
   });
 
   return (
-    <ItemMenu find={itemAt}>
-      <div class="px-4 pb-4">
+    <ItemMenu find={itemAt} selection={() => props.selected}>
+      <div
+        ref={root}
+        class="px-4 pb-4 select-none data-selecting:[&_.item-tile]:pointer-events-none"
+        data-selecting={drag.box() ? "" : undefined}
+        onPointerDown={drag.onPointerDown}
+        onDragStart={(event) => event.preventDefault()}
+      >
+        <Show when={drag.box()}>
+          {(box) => (
+            <div
+              class="pointer-events-none fixed z-3 border border-light bg-light/15"
+              style={{
+                left: `${box().left}px`,
+                top: `${box().top}px`,
+                width: `${box().width}px`,
+                height: `${box().height}px`,
+              }}
+            />
+          )}
+        </Show>
         <div class={`${COLUMNS} sticky top-(--header-h,49px) z-1 bg-background py-3`}>
           <CharacterPicker
             characters={characters()}
@@ -325,7 +434,9 @@ export const Inventory = (props: Props) => {
                               fallback={
                                 <div class="item-grid wide character">
                                   <For each={cell(store, bucket())}>
-                                    {(item) => tile(item)}
+                                    {(item) =>
+                                      tile(item, () => cell(store, bucket()))
+                                    }
                                   </For>
                                 </div>
                               }
@@ -340,7 +451,9 @@ export const Inventory = (props: Props) => {
                                   }}
                                 >
                                   <For each={vaultCell(bucket()).favorites}>
-                                    {(item) => tile(item)}
+                                    {(item) =>
+                                      tile(item, () => vaultOrder(bucket()))
+                                    }
                                   </For>
                                 </div>
                                 <div
@@ -352,7 +465,9 @@ export const Inventory = (props: Props) => {
                                   }}
                                 >
                                   <For each={vaultCell(bucket()).rest}>
-                                    {(item) => tile(item)}
+                                    {(item) =>
+                                      tile(item, () => vaultOrder(bucket()))
+                                    }
                                   </For>
                                 </div>
                               </div>

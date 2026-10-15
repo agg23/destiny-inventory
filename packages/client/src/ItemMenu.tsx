@@ -9,16 +9,19 @@ import { useApp } from "./App.tsx";
 import { comparable } from "./compare.ts";
 import { guest } from "./guest.ts";
 import {
+  defaultBulkTransfer,
   defaultEquip,
   defaultTransfer,
   equipTargets,
+  movableTo,
   pullBlocked,
   storeLabel,
   transferBlocked,
   transferTargets,
 } from "./moveTargets.ts";
 import { clear } from "./preview.ts";
-import { setOnlyTag, tagDefs, tagFor } from "./tags.ts";
+import { commonTag, setOnlyTag, tagDefs, tagFor } from "./tags.ts";
+import { requestTag } from "./tagConfirm.ts";
 import { cn } from "./ui/cn.ts";
 import { Check, ChevronRight } from "./ui/zaidan/icons.tsx";
 import { entryHref } from "./url.ts";
@@ -26,6 +29,8 @@ import { entryHref } from "./url.ts";
 interface Props {
   find: (index: string) => DimItem | undefined;
   onTag?: (item: DimItem, tagId: string | undefined) => void;
+  /** Right-clicking inside this acts on all of it */
+  selection?: () => DimItem[];
   children: JSX.Element;
 }
 
@@ -105,6 +110,40 @@ const SplitRow = (props: SplitProps) => (
   </div>
 );
 
+const TagChoices = (props: { closeOnSelect?: boolean }) => (
+  <>
+    <ContextMenu.RadioItem
+      class={cn(ROW, "z-context-menu-radio-item")}
+      value=""
+      closeOnSelect={!!props.closeOnSelect}
+    >
+      <span class="size-2 rounded-full border border-dashed border-input" />
+      <span class="min-w-0 flex-1">No tag</span>
+      <ContextMenu.ItemIndicator class="z-context-menu-item-indicator">
+        <Check />
+      </ContextMenu.ItemIndicator>
+    </ContextMenu.RadioItem>
+    <For each={tagDefs()}>
+      {(def) => (
+        <ContextMenu.RadioItem
+          class={cn(ROW, "z-context-menu-radio-item")}
+          value={def.id}
+          closeOnSelect={!!props.closeOnSelect}
+        >
+          <span
+            class="size-2 rounded-full"
+            style={{ "background-color": `var(--color-${def.color})` }}
+          />
+          <span class="min-w-0 flex-1">{def.label}</span>
+          <ContextMenu.ItemIndicator class="z-context-menu-item-indicator">
+            <Check />
+          </ContextMenu.ItemIndicator>
+        </ContextMenu.RadioItem>
+      )}
+    </For>
+  </>
+);
+
 const TagRows = (props: {
   item: DimItem;
   onTag?: (item: DimItem, tagId: string | undefined) => void;
@@ -133,40 +172,80 @@ const TagRows = (props: {
             setOnlyTag(props.item.id, props.item.hash, tagId);
           }}
         >
-          <ContextMenu.RadioItem
-            class={cn(ROW, "z-context-menu-radio-item")}
-            value=""
-            closeOnSelect={false}
-          >
-            <span class="size-2 rounded-full border border-dashed border-input" />
-            <span class="min-w-0 flex-1">No tag</span>
-            <ContextMenu.ItemIndicator class="z-context-menu-item-indicator">
-              <Check />
-            </ContextMenu.ItemIndicator>
-          </ContextMenu.RadioItem>
-          <For each={tagDefs()}>
-            {(def) => (
-              <ContextMenu.RadioItem
-                class={cn(ROW, "z-context-menu-radio-item")}
-                value={def.id}
-                closeOnSelect={false}
-              >
-                <span
-                  class="size-2 rounded-full"
-                  style={{ "background-color": `var(--color-${def.color})` }}
-                />
-                <span class="min-w-0 flex-1">{def.label}</span>
-                <ContextMenu.ItemIndicator class="z-context-menu-item-indicator">
-                  <Check />
-                </ContextMenu.ItemIndicator>
-              </ContextMenu.RadioItem>
-            )}
-          </For>
+          <TagChoices />
         </ContextMenu.RadioGroup>
       </ContextMenu.SubContent>
     </ContextMenu.Portal>
   </ContextMenu.Sub>
 );
+
+const SelectionRows = (props: { items: DimItem[] }) => {
+  const app = useApp();
+
+  const shared = () => commonTag(props.items);
+  const current = () => {
+    const tag = shared();
+
+    return tag === "mixed" ? undefined : tag;
+  };
+  const reason = (target: DimStore) =>
+    app.moving() ??
+    (movableTo(props.items, app.stores(), app.active(), target).length === 0
+      ? "Nothing to move"
+      : undefined);
+  const moveTo = (target: DimStore) =>
+    app.onMoveMany(
+      movableTo(props.items, app.stores(), app.active(), target),
+      target,
+    );
+  const transferTo = () =>
+    defaultBulkTransfer(props.items, app.stores(), app.active());
+
+  return (
+    <ContextMenu.Group>
+      <ContextMenu.GroupLabel class="z-dropdown-menu-label">
+        {props.items.length} items
+      </ContextMenu.GroupLabel>
+      <Show when={!guest()}>
+        <Show when={transferTo()}>
+          {(target) => (
+            <SplitRow
+              label={`Transfer to ${storeLabel(target())}`}
+              reason={reason(target())}
+              onChoose={() => moveTo(target())}
+              others={app.stores().filter((store) => store.id !== target().id)}
+              reasonFor={reason}
+              onChooseOther={moveTo}
+            />
+          )}
+        </Show>
+        <ContextMenu.Sub gutter={6}>
+          <ContextMenu.SubTrigger class={cn(ROW, "z-context-menu-sub-trigger")}>
+            <span class="min-w-0 flex-1">Tag</span>
+            <span class="text-muted-foreground">
+              {shared() === "mixed" ? "Mixed" : (current()?.label ?? "No tag")}
+            </span>
+            <ChevronRight class="text-muted-foreground" />
+          </ContextMenu.SubTrigger>
+          <ContextMenu.Portal>
+            <ContextMenu.SubContent data-menu="item" class={SUB_PANEL}>
+              <ContextMenu.RadioGroup
+                value={shared() === "mixed" ? undefined : (current()?.id ?? "")}
+                onChange={(id) =>
+                  requestTag(props.items, id === "" ? undefined : id)
+                }
+              >
+                <TagChoices closeOnSelect />
+              </ContextMenu.RadioGroup>
+            </ContextMenu.SubContent>
+          </ContextMenu.Portal>
+        </ContextMenu.Sub>
+      </Show>
+      <ContextMenu.Separator class="z-context-menu-separator border-0" />
+      <Row label="Clear selection" onChoose={app.onClearSelection} />
+    </ContextMenu.Group>
+  );
+};
 
 const Rows = (props: RowProps) => {
   const app = useApp();
@@ -301,6 +380,14 @@ export const ItemMenu = (props: Props) => {
     setMenuFor(found);
   };
 
+  const swept = (item: DimItem): DimItem[] | undefined => {
+    const chosen = props.selection?.() ?? [];
+
+    return chosen.length > 1 && chosen.some((one) => one.id === item.id)
+      ? chosen
+      : undefined;
+  };
+
   const onOpenChange = (open: boolean) => {
     if (open) {
       clear();
@@ -321,7 +408,14 @@ export const ItemMenu = (props: Props) => {
       <ContextMenu.Portal>
         <ContextMenu.Content data-menu="item" class={PANEL}>
           <Show when={menuFor()}>
-            {(item) => <Rows item={item()} onTag={props.onTag} />}
+            {(item) => (
+              <Show
+                when={swept(item())}
+                fallback={<Rows item={item()} onTag={props.onTag} />}
+              >
+                {(items) => <SelectionRows items={items()} />}
+              </Show>
+            )}
           </Show>
         </ContextMenu.Content>
       </ContextMenu.Portal>

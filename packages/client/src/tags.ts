@@ -332,6 +332,21 @@ export const setOnlyTagMany = (
   );
 };
 
+/** The tag every item shares, or "mixed" when they differ */
+export const commonTag = (
+  items: { id: string }[],
+): TagDef | undefined | "mixed" => {
+  const [first, ...rest] = items;
+
+  if (!first) {
+    return undefined;
+  }
+
+  const tag = tagFor(first.id);
+
+  return rest.every((one) => tagFor(one.id)?.id === tag?.id) ? tag : "mixed";
+};
+
 /** What the items carry now, enough to put them back after one bulk write */
 export const snapshotTags = (targets: TagTarget[]): TagSnapshot[] =>
   targets.map((target) => ({

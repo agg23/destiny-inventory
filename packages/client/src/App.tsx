@@ -94,6 +94,7 @@ import { itemFilter, itemSearch, primeSearch } from "./search.ts";
 import { Settings } from "./Settings.tsx";
 import { settings } from "./settings.ts";
 import { showToast, Toasts } from "./toast.tsx";
+import { TagConfirm } from "./TagConfirm.tsx";
 import { GuestGlyph } from "./ui/GuestGlyph.tsx";
 import { Loading } from "./ui/Loading.tsx";
 import { PanelGlyph } from "./ui/PanelGlyph.tsx";
@@ -191,6 +192,8 @@ export interface AppState {
   shown: () => number;
   query: () => string;
   pinned: () => DimItem[];
+  selected: () => DimItem[];
+  isSelected: (item: DimItem) => boolean;
   awaitingPins: () => boolean;
   feed: () => DimItem[];
   moving: () => string | undefined;
@@ -198,11 +201,16 @@ export interface AppState {
   syncing: () => boolean;
   syncError: () => string | undefined;
   timings: () => ReturnType<typeof timingsByHash>;
-  onPin: (item: DimItem, additive?: boolean) => void;
+  onPin: (item: DimItem) => void;
+  onToggle: (item: DimItem) => void;
+  onExtend: (item: DimItem, order: DimItem[]) => void;
+  onSelectMany: (items: DimItem[]) => void;
   onUnpin: (item: DimItem) => void;
+  onClearSelection: () => void;
   onCompare: (item: DimItem, rival: DimItem) => void;
   onMove: (item: DimItem, target: DimStore, equip: boolean) => void;
   onCollect: (items: DimItem[], target: DimStore) => void;
+  onMoveMany: (items: DimItem[], target: DimStore) => void;
   onCharacter: (store: DimStore) => void;
   onQuery: (query: string) => void;
 }
@@ -738,63 +746,146 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
 
   onCleanup(subscribeStores((next) => setMoved([...next])));
 
-  const pinned = createMemo(() => {
+  // Big selections stay out of the URL
+  const [bulk, setBulk] = createSignal<string[]>([]);
+  let anchor: string | undefined = undefined;
+
+  createEffect(
+    on(
+      () => url.get("pin"),
+      (ids) => {
+        if (ids.length > 0) {
+          setBulk([]);
+        }
+      },
+      { defer: true },
+    ),
+  );
+
+  // Tab links drop pins
+  createEffect(on(tab, () => setBulk([]), { defer: true }));
+
+  const selectedIds = createMemo(() =>
+    bulk().length > 0 ? bulk() : url.get("pin"),
+  );
+
+  const selectedSet = createMemo(() => new Set(selectedIds()));
+
+  const selected = createMemo(() => {
     const held = new Map(
       stores().flatMap((store) => store.items.map((one) => [one.id, one])),
     );
 
-    return url.get("pin").flatMap((id) => {
+    return selectedIds().flatMap((id) => {
       const found = held.get(id);
 
       return found === undefined ? [] : [found];
     });
   });
 
+  const pinned = createMemo(() => {
+    const chosen = selected();
+    const [first, second] = chosen;
+
+    if (chosen.length === 1) {
+      return chosen;
+    }
+
+    if (chosen.length === 2 && comparable(first!, second!)) {
+      return chosen;
+    }
+
+    return [];
+  });
+
   // The profile may not have loaded these items yet
   const awaitingPins = () =>
-    url.get("pin").length > 0 && pinned().length === 0 && !current();
+    url.get("pin").length > 0 && selected().length === 0 && !current();
 
-  const pin = (item: DimItem, additive = false) => {
-    const was = pinned();
-    const ids = was.map((one) => one.id);
+  const select = (ids: string[]) => {
+    if (ids.length > PINS) {
+      setBulk(ids);
 
-    if (!additive) {
-      url.push({
-        pin: ids.length === 1 && ids[0] === item.id ? [] : [item.id],
-      });
-
-      return;
-    }
-
-    if (ids.includes(item.id)) {
-      url.push({ pin: ids.filter((id) => id !== item.id) });
+      if (url.get("pin").length > 0) {
+        url.replace({ pin: [] });
+      }
 
       return;
     }
 
-    const [reference] = was;
+    const was = url.get("pin");
 
-    if (reference && !comparable(reference, item)) {
-      url.push({ pin: [item.id] });
+    setBulk([]);
+
+    if (was.length !== ids.length || was.some((id, at) => id !== ids[at])) {
+      url.push({ pin: ids });
+    }
+  };
+
+  const pin = (item: DimItem) => {
+    const ids = selectedIds();
+
+    anchor = item.id;
+    select(ids.length === 1 && ids[0] === item.id ? [] : [item.id]);
+  };
+
+  // DIM gives every uninstanced item the id "0"
+  const toggle = (item: DimItem) => {
+    if (item.id === "0") {
+      pin(item);
 
       return;
     }
 
-    url.push({ pin: [...ids.slice(0, PINS - 1), item.id].slice(-PINS) });
+    const ids = selectedIds();
+
+    anchor = item.id;
+    select(
+      ids.includes(item.id)
+        ? ids.filter((id) => id !== item.id)
+        : [...ids, item.id],
+    );
+  };
+
+  const extend = (item: DimItem, order: DimItem[]) => {
+    const from = order.findIndex((one) => one.id === anchor);
+    const to = order.findIndex((one) => one.id === item.id);
+
+    if (from < 0 || to < 0 || item.id === "0") {
+      toggle(item);
+
+      return;
+    }
+
+    const ids = selectedIds();
+    const span = order
+      .slice(Math.min(from, to), Math.max(from, to) + 1)
+      .map((one) => one.id)
+      .filter((id) => id !== "0" && !ids.includes(id));
+
+    select([...ids, ...span]);
+  };
+
+  const selectMany = (items: DimItem[]) => {
+    anchor = undefined;
+    select(items.flatMap((one) => (one.id === "0" ? [] : [one.id])));
   };
 
   const unpin = (item: DimItem) => {
-    url.push({ pin: url.get("pin").filter((id) => id !== item.id) });
+    select(selectedIds().filter((id) => id !== item.id));
   };
 
   const unpinAll = () => {
-    if (url.get("pin").length > 0) {
-      url.push({ pin: [] });
+    anchor = undefined;
+
+    if (selectedIds().length > 0) {
+      select([]);
     }
   };
 
+  // Kobalte marks the Escape that closes a menu
   const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Escape") {
+    if (e.key === "Escape" && !e.defaultPrevented) {
       clear();
       unpinAll();
     }
@@ -981,7 +1072,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     return space > 0 ? Math.min(item.amount || 1, space) : item.amount;
   };
 
-  const onCollect = (items: DimItem[], target: DimStore) => {
+  const moveMany = (items: DimItem[], target: DimStore, verb: string) => {
     if (viewing() || moving() || items.length === 0) {
       return;
     }
@@ -992,7 +1083,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
 
       for (const item of items) {
         index += 1;
-        setMoving(`Collecting ${item.name} (${index} of ${items.length})`);
+        setMoving(`${verb} ${item.name} (${index} of ${items.length})`);
 
         try {
           await moveItem(item, target, false, pullAmount(item, target));
@@ -1020,6 +1111,8 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     shown,
     query: typed,
     pinned,
+    selected,
+    isSelected: (item) => selectedSet().has(item.id),
     awaitingPins,
     feed,
     moving,
@@ -1028,11 +1121,16 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     syncError,
     timings,
     onPin: pin,
+    onToggle: toggle,
+    onExtend: extend,
+    onSelectMany: selectMany,
     onUnpin: unpin,
+    onClearSelection: unpinAll,
     // The rival leads so the drop's column carries the deltas
     onCompare: (item, rival) => url.push({ pin: [rival.id, item.id] }),
     onMove,
-    onCollect,
+    onCollect: (items, target) => moveMany(items, target, "Collecting"),
+    onMoveMany: (items, target) => moveMany(items, target, "Moving"),
     onCharacter: (store) => url.push({ character: store.id }),
     onQuery,
   };
@@ -1333,6 +1431,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
       </Show>
 
       <Toasts />
+      <TagConfirm />
     </main>
   );
 };
