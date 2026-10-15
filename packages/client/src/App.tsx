@@ -95,6 +95,7 @@ import { Settings } from "./Settings.tsx";
 import { settings } from "./settings.ts";
 import { showToast, Toasts } from "./toast.tsx";
 import { TagConfirm } from "./TagConfirm.tsx";
+import { TrashWatch } from "./triage/TrashWatch.tsx";
 import { GuestGlyph } from "./ui/GuestGlyph.tsx";
 import { Loading } from "./ui/Loading.tsx";
 import { PanelGlyph } from "./ui/PanelGlyph.tsx";
@@ -211,6 +212,14 @@ export interface AppState {
   onMove: (item: DimItem, target: DimStore, equip: boolean) => void;
   onCollect: (items: DimItem[], target: DimStore) => void;
   onMoveMany: (items: DimItem[], target: DimStore) => void;
+  /** Resolves with the items that moved */
+  onMoveAll: (
+    items: DimItem[],
+    target: DimStore,
+    verb: string,
+    stop?: () => boolean,
+  ) => Promise<DimItem[]>;
+  refresh: () => Promise<void>;
   onCharacter: (store: DimStore) => void;
   onQuery: (query: string) => void;
 }
@@ -1072,34 +1081,45 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     return space > 0 ? Math.min(item.amount || 1, space) : item.amount;
   };
 
-  const moveMany = (items: DimItem[], target: DimStore, verb: string) => {
+  const moveMany = async (
+    items: DimItem[],
+    target: DimStore,
+    verb: string,
+    stop?: () => boolean,
+  ): Promise<DimItem[]> => {
     if (viewing() || moving() || items.length === 0) {
-      return;
+      return [];
     }
 
-    void (async () => {
-      const errors = new Set<string>();
-      let index = 0;
+    const errors = new Set<string>();
+    const moved: DimItem[] = [];
+    let index = 0;
 
-      for (const item of items) {
-        index += 1;
-        setMoving(`${verb} ${item.name} (${index} of ${items.length})`);
-
-        try {
-          await moveItem(item, target, false, pullAmount(item, target));
-        } catch (e: unknown) {
-          const message = messageOf(e);
-
-          if (!errors.has(message)) {
-            errors.add(message);
-            showToast(message, "danger");
-          }
-        }
+    for (const item of items) {
+      if (stop?.()) {
+        break;
       }
 
-      setMoving(undefined);
-      poller.now();
-    })();
+      index += 1;
+      setMoving(`${verb} ${item.name} (${index} of ${items.length})`);
+
+      try {
+        await moveItem(item, target, false, pullAmount(item, target));
+        moved.push(item);
+      } catch (e: unknown) {
+        const message = messageOf(e);
+
+        if (!errors.has(message)) {
+          errors.add(message);
+          showToast(message, "danger");
+        }
+      }
+    }
+
+    setMoving(undefined);
+    poller.now();
+
+    return moved;
   };
 
   const state: AppState = {
@@ -1129,8 +1149,10 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     // The rival leads so the drop's column carries the deltas
     onCompare: (item, rival) => url.push({ pin: [rival.id, item.id] }),
     onMove,
-    onCollect: (items, target) => moveMany(items, target, "Collecting"),
-    onMoveMany: (items, target) => moveMany(items, target, "Moving"),
+    onCollect: (items, target) => void moveMany(items, target, "Collecting"),
+    onMoveMany: (items, target) => void moveMany(items, target, "Moving"),
+    onMoveAll: moveMany,
+    refresh: refreshAll,
     onCharacter: (store) => url.push({ character: store.id }),
     onQuery,
   };
@@ -1398,6 +1420,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
 
         <div class="has-[[data-rail]:not([data-floating])]:mr-(--rail) has-[[data-rail][data-wide]:not([data-floating])]:mr-(--rail-compare)">
           <AppContext.Provider value={state}>
+            <TrashWatch app={state} />
             {props.children}
           </AppContext.Provider>
         </div>

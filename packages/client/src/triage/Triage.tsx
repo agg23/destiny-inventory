@@ -10,6 +10,8 @@ import { feed, triageable } from "../triage.ts";
 import { TriageBar } from "./TriageBar.tsx";
 import { TriageCompare } from "./TriageCompare.tsx";
 import { TriageFeed } from "./TriageFeed.tsx";
+import { TriageTrash } from "./TriageTrash.tsx";
+import { trashRun } from "./trashRun.ts";
 import { createSelection } from "./triageSelection.ts";
 import { createWrites } from "./triageWrites.ts";
 import { Checkbox } from "../ui/Checkbox.tsx";
@@ -124,6 +126,16 @@ export const Triage = () => {
             </Checkbox>
           </Show>
 
+          <Show when={step() === "trash"}>
+            <Checkbox
+              checked={url.get("dry")}
+              disabled={trashRun() !== undefined}
+              onChange={(dry) => url.replace({ dry })}
+            >
+              Dry run
+            </Checkbox>
+          </Show>
+
           <Show when={app.loaded()}>
             <span class="ml-auto text-muted-foreground tabular-nums">
               {shown().length} of {plural(pool().length, "item")} · {tagged()}{" "}
@@ -159,7 +171,7 @@ export const Triage = () => {
       </Show>
 
       <Show when={step() === "trash"}>
-        <p class="p-4 text-muted-foreground">Not built yet.</p>
+        <TriageTrash dry={url.get("dry")} />
       </Show>
     </>
   );

@@ -93,6 +93,7 @@ export const PARAMS = {
   sort: choice(TRIAGE_SORTS, "received"),
   tagged: flag(),
   guard: flagOn(),
+  dry: flag(),
   tag: filled("junk"),
   group: count(),
   kind: choice(KINDS, "weapon"),
