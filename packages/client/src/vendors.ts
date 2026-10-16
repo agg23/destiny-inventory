@@ -183,19 +183,20 @@ export const TILED: number[] = WATCHED.filter(
 ).map((watch) => watch.vendor);
 
 export interface VendorFetch {
+  character: string;
   response: DestinyVendorsResponse;
   items: VendorItems;
   components: VendorComponents;
   ornaments: DestinyVendorSaleItemComponent[];
 }
 
-let held: { character: string; fetched: VendorFetch } | undefined = undefined;
+let held: VendorFetch | undefined = undefined;
 
 /** The last fetch for a character, kept across unmounts */
 export const lastVendorFetch = (
   character: string | undefined,
 ): VendorFetch | undefined =>
-  held && held.character === character ? held.fetched : undefined;
+  held && held.character === character ? held : undefined;
 
 export const fetchVendorState = async (
   membership: Membership,
@@ -241,9 +242,15 @@ export const fetchVendorState = async (
     }
   });
 
-  const fetched: VendorFetch = { response, items, components, ornaments };
+  const fetched: VendorFetch = {
+    character,
+    response,
+    items,
+    components,
+    ornaments,
+  };
 
-  held = { character, fetched };
+  held = fetched;
 
   return fetched;
 };
@@ -502,12 +509,22 @@ export const readVendors = (
         ? offers.filter((offer) => offer.costs.length > 0)
         : offers;
 
+    if (owned === undefined) {
+      return [{ ...shell, refreshesAt, offers: shown }];
+    }
+
+    const holding = ownedOffers(held, owned);
+    const holdingHashes = new Set(holding.map((offer) => offer.itemHash));
+
     return [
       {
         ...shell,
         refreshesAt,
-        offers:
-          owned === undefined ? shown : [...shown, ...ownedOffers(held, owned)],
+        offers: [
+          // The vendor snapshot can lag the profile and still list held stock
+          ...shown.filter((offer) => !holdingHashes.has(offer.itemHash)),
+          ...holding,
+        ],
       },
     ];
   });

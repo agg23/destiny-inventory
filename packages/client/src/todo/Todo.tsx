@@ -114,8 +114,9 @@ export const Todo = () => {
         : readVendors(
             fetched.response,
             fetched.items,
-            values(),
-            app.active()?.items ?? [],
+            app.loaded()?.variables[fetched.character] ?? {},
+            app.stores().find((store) => store.id === fetched.character)
+              ?.items ?? [],
             fetched.ornaments,
           );
     },

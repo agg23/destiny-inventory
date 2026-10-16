@@ -4,6 +4,7 @@ import { A, useNavigate, useParams } from "@solidjs/router";
 import { createMemo, createResource, For, Show } from "solid-js";
 
 import { useApp } from "../App.tsx";
+import { BUNGIE } from "../bungie.ts";
 import {
   CLASSES,
   entryForHash,
@@ -19,6 +20,7 @@ import {
   type Cosmetic,
   type Entry,
 } from "../collections.ts";
+import { defs } from "../defs.ts";
 import { fakeItems } from "../fakeItems.ts";
 import { ItemIcon } from "../ItemIcon.tsx";
 import { ItemDetails, ItemHead, typeName } from "../ItemPanel.tsx";
@@ -147,6 +149,22 @@ export const EntryPage = () => {
     return found?.kind === "armor" ? found.setKey : undefined;
   };
 
+  const screenshot = () => {
+    const found = entry();
+    const table = defs();
+
+    // Defs only hold these items once fakeItems materializes them
+    if (!found || !table || !versions.latest) {
+      return undefined;
+    }
+
+    const path = [found.newestItemHash, ...found.itemHashes]
+      .map((hash) => table.InventoryItem.getOptional(hash)?.screenshot)
+      .find((one) => !!one);
+
+    return path ? `${BUNGIE}${path}` : undefined;
+  };
+
   const versionCollected = (collectibleHash: number): boolean | undefined =>
     data.acquired.latest?.has(collectibleHash);
 
@@ -230,127 +248,139 @@ export const EntryPage = () => {
               )}
             </Show>
 
-            <div class="flex min-w-80 flex-1 flex-col gap-6">
-              <div class={BLOCK}>
-                <h4 class={HEADING}>
-                  {found().collectibleHashes.length > 1
-                    ? "Versions"
-                    : "Collection"}
-                </h4>
-                <ul class="flex flex-col gap-1.5">
-                  <For each={found().collectibleHashes}>
-                    {(collectibleHash) => {
-                      const collectible = () =>
-                        data.index()?.collectibles[collectibleHash];
-                      const item = () =>
-                        versions.latest?.get(collectible()?.itemHash ?? 0);
+            <div class="flex min-w-80 flex-1 flex-wrap items-start gap-6">
+              <div class="flex min-w-80 flex-1 flex-col gap-6">
+                <div class={BLOCK}>
+                  <h4 class={HEADING}>
+                    {found().collectibleHashes.length > 1
+                      ? "Versions"
+                      : "Collection"}
+                  </h4>
+                  <ul class="flex flex-col gap-1.5">
+                    <For each={found().collectibleHashes}>
+                      {(collectibleHash) => {
+                        const collectible = () =>
+                          data.index()?.collectibles[collectibleHash];
+                        const item = () =>
+                          versions.latest?.get(collectible()?.itemHash ?? 0);
 
-                      return (
-                        <li class="flex items-center gap-2">
-                          <Show
-                            when={item()}
-                            fallback={<span class="item-tile small" />}
-                          >
-                            {(version) => (
-                              <ItemIcon item={version()} badges={false} />
-                            )}
-                          </Show>
-                          <div>
-                            <div
-                              classList={{
-                                "text-muted-foreground":
-                                  versionCollected(collectibleHash) === false,
-                              }}
+                        return (
+                          <li class="flex items-center gap-2">
+                            <Show
+                              when={item()}
+                              fallback={<span class="item-tile small" />}
                             >
-                              {versionCollected(collectibleHash) === undefined
-                                ? ""
-                                : versionCollected(collectibleHash)
+                              {(version) => (
+                                <ItemIcon item={version()} badges={false} />
+                              )}
+                            </Show>
+                            <div>
+                              <div
+                                classList={{
+                                  "text-muted-foreground":
+                                    versionCollected(collectibleHash) === false,
+                                }}
+                              >
+                                {versionCollected(collectibleHash) === undefined
+                                  ? ""
+                                  : versionCollected(collectibleHash)
                                   ? "Collected"
                                   : "Not collected"}
+                              </div>
+                              <div class="text-xs text-muted-foreground">
+                                {sourceLabel(collectible()?.sourceString ?? "")}
+                              </div>
                             </div>
-                            <div class="text-xs text-muted-foreground">
-                              {sourceLabel(collectible()?.sourceString ?? "")}
-                            </div>
+                          </li>
+                        );
+                      }}
+                    </For>
+                  </ul>
+                </div>
+
+                <Show when={target.latest}>
+                  {(fits) => (
+                    <div class={BLOCK}>
+                      <h4 class={HEADING}>Applies to</h4>
+                      <A
+                        class="flex items-center gap-2"
+                        href={entryHref(fits().hash, {
+                          kind: fits().bucket.inArmor ? "armor" : "weapon",
+                        })}
+                      >
+                        <ItemIcon item={fits()} badges={false} />
+                        <div>
+                          <div>{fits().name}</div>
+                          <div class="text-xs text-muted-foreground">
+                            {typeName(fits())}
                           </div>
-                        </li>
-                      );
-                    }}
-                  </For>
-                </ul>
-              </div>
-
-              <Show when={target.latest}>
-                {(fits) => (
-                  <div class={BLOCK}>
-                    <h4 class={HEADING}>Applies to</h4>
-                    <A
-                      class="flex items-center gap-2"
-                      href={entryHref(fits().hash, {
-                        kind: fits().bucket.inArmor ? "armor" : "weapon",
-                      })}
-                    >
-                      <ItemIcon item={fits()} badges={false} />
-                      <div>
-                        <div>{fits().name}</div>
-                        <div class="text-xs text-muted-foreground">
-                          {typeName(fits())}
                         </div>
-                      </div>
-                    </A>
-                  </div>
-                )}
-              </Show>
+                      </A>
+                    </div>
+                  )}
+                </Show>
 
-              <Copies entry={found()} copies={data.copiesOf(found())} />
+                <Copies entry={found()} copies={data.copiesOf(found())} />
 
-              <Show
-                when={setKey()}
-                fallback={
-                  <div class={BLOCK}>
-                    <h4 class={HEADING}>Notes</h4>
-                    <NoteEditor
-                      target={{ kind: "item", targetId: found().key }}
-                    />
-                  </div>
-                }
-              >
-                {(key) => (
-                  <div class={BLOCK}>
-                    <h4 class={HEADING}>Set notes</h4>
-                    <NoteEditor target={{ kind: "set", targetId: key() }} />
-                  </div>
-                )}
-              </Show>
-
-              <div class="flex gap-2">
                 <Show
-                  when={data.copiesOf(found()).length > 0}
+                  when={setKey()}
                   fallback={
-                    <Button size="sm" variant="outline" disabled>
-                      Show in vault
-                    </Button>
+                    <div class={BLOCK}>
+                      <h4 class={HEADING}>Notes</h4>
+                      <NoteEditor
+                        target={{ kind: "item", targetId: found().key }}
+                      />
+                    </div>
                   }
                 >
+                  {(key) => (
+                    <div class={BLOCK}>
+                      <h4 class={HEADING}>Set notes</h4>
+                      <NoteEditor target={{ kind: "set", targetId: key() }} />
+                    </div>
+                  )}
+                </Show>
+
+                <div class="flex gap-2">
+                  <Show
+                    when={data.copiesOf(found()).length > 0}
+                    fallback={
+                      <Button size="sm" variant="outline" disabled>
+                        Show in vault
+                      </Button>
+                    }
+                  >
+                    <Button
+                      as={A}
+                      size="sm"
+                      variant="outline"
+                      href={vaultHref(vaultQuery(found()), undefined)}
+                    >
+                      Show in vault
+                    </Button>
+                  </Show>
                   <Button
-                    as={A}
+                    as="a"
                     size="sm"
                     variant="outline"
-                    href={vaultHref(vaultQuery(found()), undefined)}
+                    href={lightGgHref(found().newestItemHash)}
+                    target="_blank"
+                    rel="noreferrer"
                   >
-                    Show in vault
+                    Show on light.gg
                   </Button>
-                </Show>
-                <Button
-                  as="a"
-                  size="sm"
-                  variant="outline"
-                  href={lightGgHref(found().newestItemHash)}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Show on light.gg
-                </Button>
+                </div>
               </div>
+
+              <Show when={screenshot()}>
+                {(src) => (
+                  <img
+                    class="aspect-video min-w-80 max-w-2xl flex-1 rounded-md bg-muted object-cover"
+                    src={src()}
+                    alt=""
+                  />
+                )}
+              </Show>
             </div>
           </div>
         )}

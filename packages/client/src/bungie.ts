@@ -213,7 +213,7 @@ export const fetchVendors = (
       membership.membershipId
     }/Character/${characterId}/Vendors/?components=${VENDOR_COMPONENTS.join(
       ",",
-    )}`,
+    )}&_=${Date.now()}`,
     accessToken,
     PLATFORM,
     "reload",
