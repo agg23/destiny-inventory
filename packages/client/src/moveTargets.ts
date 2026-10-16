@@ -6,11 +6,30 @@ import {
   potentialSpaceLeftForItem,
 } from "app/inventory/stores-helpers";
 import { isClassCompatible, itemCanBeEquippedBy } from "app/utils/item-utils";
+import { BucketHashes } from "data/d2/generated-enums";
 
 import { unmovable } from "./compare.ts";
 
 // BucketHashes.LostItems, inlined
 export const LOST_ITEMS = 215593132;
+
+const VAULTABLE_BUCKETS = new Set<number>([
+  BucketHashes.KineticWeapons,
+  BucketHashes.EnergyWeapons,
+  BucketHashes.PowerWeapons,
+  BucketHashes.Helmet,
+  BucketHashes.Gauntlets,
+  BucketHashes.ChestArmor,
+  BucketHashes.LegArmor,
+  BucketHashes.ClassArmor,
+  BucketHashes.Ghost,
+  BucketHashes.Vehicle,
+  BucketHashes.Ships,
+]);
+
+/** Gear that moves in and out of the vault, leaving out consumables and mods */
+export const vaultable = (item: DimItem): boolean =>
+  VAULTABLE_BUCKETS.has(item.bucket.hash);
 
 export const storeLabel = (store: DimStore): string =>
   store.isVault ? "Vault" : store.className;

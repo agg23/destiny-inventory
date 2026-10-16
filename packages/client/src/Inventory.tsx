@@ -5,6 +5,7 @@ import type {
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { potentialSpaceLeftForItem } from "app/inventory/stores-helpers";
+import { BucketHashes } from "data/d2/generated-enums";
 import { createMemo, For, Index, onCleanup, Show } from "solid-js";
 
 import type { Matched } from "./App.tsx";
@@ -13,7 +14,7 @@ import { unmovable } from "./compare.ts";
 import { createDragSelect } from "./dragSelect.ts";
 import { ItemIcon } from "./ItemIcon.tsx";
 import { ItemMenu, menued } from "./ItemMenu.tsx";
-import { LOST_ITEMS } from "./moveTargets.ts";
+import { LOST_ITEMS, vaultable } from "./moveTargets.ts";
 import { previewed } from "./preview.ts";
 import {
   applySettings,
@@ -51,13 +52,13 @@ interface Props {
   moving: string | undefined;
 }
 
-const VaultHeader = (props: { store: DimStore }) => (
+const VaultHeader = (props: { store: DimStore; capacity: number }) => (
   <div class="flex h-(--banner) items-center gap-3 rounded-lg border bg-card px-3">
     <img class="size-8 shrink-0" src={props.store.icon} alt="" />
     <div class="min-w-0">
       <div class="truncate font-medium">Vault</div>
       <div class="truncate text-xs text-muted-foreground">
-        {props.store.items.length} items
+        {props.store.items.filter(vaultable).length}/{props.capacity} items
       </div>
     </div>
     <Select
@@ -93,6 +94,9 @@ export const Inventory = (props: Props) => {
 
   const characters = () => props.stores.filter((store) => !store.isVault);
   const vault = () => props.stores.find((store) => store.isVault);
+  // Always in the manifest
+  const vaultCapacity = () =>
+    props.buckets.byHash[BucketHashes.General]!.capacity;
 
   const shown = createMemo(() => {
     const columns: DimStore[] = [];
@@ -379,7 +383,14 @@ export const Inventory = (props: Props) => {
             selected={props.active}
             onSelect={props.onSelectStore}
           />
-          <Show when={vault()}>{(store) => <VaultHeader store={store()} />}</Show>
+          <Show when={vault()}>
+            {(store) => (
+              <VaultHeader
+                store={store()}
+                capacity={vaultCapacity()}
+              />
+            )}
+          </Show>
         </div>
 
         <For each={SECTIONS}>

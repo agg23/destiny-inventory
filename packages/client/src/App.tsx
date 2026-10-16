@@ -81,6 +81,7 @@ import {
   type RefreshOutcome,
 } from "./load.ts";
 import { currentStores, moveItem, subscribeStores } from "./moves.ts";
+import { vaultable } from "./moveTargets.ts";
 import { syncOrders } from "./orders.ts";
 import { plugIcons, tileIcons, warmIcons } from "./preload.ts";
 import { clearPerk, previewedPerk } from "./perkPreview.ts";
@@ -640,7 +641,10 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
           const bucket = buckets.get(item.location.hash) ?? [];
           bucket.push(item);
           buckets.set(item.location.hash, bucket);
-          total += 1;
+
+          if (vaultable(item)) {
+            total += 1;
+          }
         }
 
         byStore.set(store.id, buckets);
@@ -933,7 +937,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
 
     return (
       <span title={notes.length > 0 ? notes.join(" · ") : undefined}>
-        {shown()} of {loaded.items.length}
+        {shown()} of {loaded.items.filter(vaultable).length}
       </span>
     );
   };
