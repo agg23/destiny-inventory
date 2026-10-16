@@ -559,3 +559,52 @@ export const priorityOffers = (
 
   return found;
 };
+
+const RANKS_BEFORE_CAP = 2;
+
+export interface RankReset {
+  vendor: number;
+  name: string;
+  rank: number;
+  cap: number;
+  resets: number;
+}
+
+/** Resettable vendor ranks at or near their cap, closest first */
+export const rankResets = (
+  response: DestinyVendorsResponse | undefined,
+): RankReset[] => {
+  const seen = new Set<number>();
+  const found: RankReset[] = [];
+
+  for (const [vendor, live] of Object.entries(response?.vendors?.data ?? {})) {
+    const progression = live.progression;
+    const def = vendorDef(Number(vendor));
+
+    // Only resettable ranks carry currentResetCount
+    if (
+      !progression ||
+      !def ||
+      typeof progression.currentResetCount !== "number" ||
+      seen.has(progression.progressionHash)
+    ) {
+      continue;
+    }
+
+    seen.add(progression.progressionHash);
+
+    if (progression.level < progression.levelCap - RANKS_BEFORE_CAP) {
+      continue;
+    }
+
+    found.push({
+      vendor: Number(vendor),
+      name: def.displayProperties.name,
+      rank: progression.level,
+      cap: progression.levelCap,
+      resets: progression.currentResetCount,
+    });
+  }
+
+  return found.sort((a, b) => a.cap - a.rank - (b.cap - b.rank));
+};

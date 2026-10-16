@@ -70,7 +70,7 @@ const SUPPORT = [
 const CURRENT = "current";
 
 // Bumped whenever the shipped def shape changes, so cached records get refetched
-const SHAPE = 7;
+const SHAPE = 8;
 
 const stamp = (version: string): string => `${version}/${SHAPE}`;
 

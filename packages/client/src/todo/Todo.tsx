@@ -26,8 +26,10 @@ import {
   fetchVendorState,
   lastVendorFetch,
   priorityOffers,
+  rankResets,
   readVendors,
   type Priority,
+  type RankReset,
   type VendorState,
 } from "../vendors.ts";
 import { Challenges } from "./Challenges.tsx";
@@ -171,6 +173,12 @@ export const Todo = () => {
     held<Priority>(),
   );
 
+  const ranks = createMemo(
+    () => rankResets(vendors()?.response),
+    undefined,
+    held<RankReset>(),
+  );
+
   const openEntry = (item: DimItem) =>
     navigate(
       entryHref(item.hash, { kind: item.bucket.inArmor ? "armor" : "weapon" }),
@@ -193,6 +201,38 @@ export const Todo = () => {
                         <TableCell class="w-2/5">{payout.name}</TableCell>
                         <TableCell class="text-right tabular-nums">
                           {payout.waiting}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </For>
+                </TableBody>
+              </Table>
+            </div>
+          </section>
+        </Show>
+
+        <Show when={ranks().length > 0}>
+          <section class={SECTION}>
+            <h2 class={HEADING}>Rank resets</h2>
+            <div class={TABLE_FRAME}>
+              <Table>
+                <TableBody>
+                  <For each={ranks()}>
+                    {(rank) => (
+                      <TableRow>
+                        <TableCell class="w-2/5">{rank.name}</TableCell>
+                        <TableCell>
+                          <Show
+                            when={rank.rank >= rank.cap}
+                            fallback={`Rank ${rank.rank} of ${rank.cap}`}
+                          >
+                            <span class="text-warning">Ready to reset</span>
+                          </Show>
+                        </TableCell>
+                        <TableCell class="text-right tabular-nums text-muted-foreground">
+                          {rank.resets === 1
+                            ? "1 reset"
+                            : `${rank.resets} resets`}
                         </TableCell>
                       </TableRow>
                     )}
