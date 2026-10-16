@@ -71,7 +71,11 @@ export const Todo = () => {
   };
 
   const orders = createMemo(
-    () => activeOrders(app.stores(), settled()),
+    () =>
+      activeOrders(
+        app.stores().filter((store) => store.id === app.active()?.id),
+        settled(),
+      ),
     undefined,
     held<Order>(),
   );
@@ -343,7 +347,6 @@ export const Todo = () => {
               Active orders
               <span class={HEADING_NOTE}>
                 {orders().length}
-                <Show when={log().length > 0}> · {log().length} logged</Show>
               </span>
             </h2>
             <Show
