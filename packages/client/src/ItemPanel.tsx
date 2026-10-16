@@ -1495,8 +1495,8 @@ const ItemLinks = (props: { item: DimItem }) => (
       href={entryHref(props.item.hash, {
         kind: props.item.bucket.inArmor ? "armor" : "weapon",
       })}
-      title="Show in collections"
-      aria-label="Show in collections"
+      title="Show in Collections"
+      aria-label="Show in Collections"
     >
       <CollectionsGlyph />
     </A>

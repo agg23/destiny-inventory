@@ -342,7 +342,7 @@ const Rows = (props: RowProps) => {
       />
       <Show when={props.item.bucket.inWeapons || props.item.bucket.inArmor}>
         <Row
-          label="Show in collections"
+          label="Show in Collections"
           onChoose={() =>
             navigate(
               entryHref(props.item.hash, {
