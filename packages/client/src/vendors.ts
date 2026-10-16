@@ -6,7 +6,7 @@ import type {
 } from "bungie-api-ts/destiny2";
 import { VendorItemStatus } from "bungie-api-ts/destiny2";
 
-import type { SlimReward, SlimVendor } from "@dvm/defs-core";
+import type { SlimVendor, SlimVendorItem } from "@dvm/defs-core";
 
 import { fetchRecords } from "./artifacts.ts";
 import { accessToken } from "./auth.ts";
@@ -30,9 +30,12 @@ export const visitEndsAt = (now: number): number =>
 interface Watch {
   vendor: number;
   mode: Mode;
-  category?: string;
+  name?: string;
+  categories?: string[];
   only?: number[];
+  skip?: number[];
   rows?: number[][];
+  currency?: number;
   // Stack label of stock the vendor stops offering once you hold it
   owned?: string;
 }
@@ -40,6 +43,8 @@ interface Watch {
 const EXCHANGE = [2865242233, 825199458, 2001857187, 3612161799];
 
 const BRIGHT_DUST = 2817410917;
+
+const STRANGE_COIN = 800069450;
 
 // Each character only sees its own class's ornament here
 const ARMOR_ORNAMENTS = 2031393824;
@@ -50,15 +55,43 @@ const BRIGHT_DUST_ROWS = [
   [2184482416, 1446296883, 2041776156, 213864513],
 ];
 
+const XUR = 2190858386;
+
+// Xur's exotic weapons and catalysts are behind his Strange Gear Offers screen
+const STRANGE_GEAR_OFFERS = 3751514131;
+
+const EXOTIC_ENGRAM = 903043774;
+
+const PURCHASED_REASONS = [
+  "Already Purchased on Account",
+  "Already Acquired",
+  "Already Claimed This Week",
+];
+
 export const WATCHED: Watch[] = [
-  { vendor: 2190858386, mode: "visit" },
-  { vendor: 3361454721, mode: "rotation", rows: BRIGHT_DUST_ROWS },
-  { vendor: 153857624, mode: "claims" },
+  {
+    vendor: 3361454721,
+    mode: "rotation",
+    rows: BRIGHT_DUST_ROWS,
+    currency: BRIGHT_DUST,
+  },
+  {
+    vendor: XUR,
+    mode: "visit",
+    rows: [[XUR], [STRANGE_GEAR_OFFERS]],
+    categories: [
+      "category_xur_offers_peculiar",
+      "category_black_market_exotics",
+    ],
+    skip: [EXOTIC_ENGRAM],
+    currency: STRANGE_COIN,
+  },
+  { vendor: 153857624, mode: "claims", name: "Zavala" },
   { vendor: 3949128738, mode: "offers", only: EXCHANGE },
   {
     vendor: 3347378076,
     mode: "offers",
-    category: "clan_bounties_vendor_display",
+    categories: ["clan_bounties_vendor_display"],
     owned: "social.clans.",
   },
 ];
@@ -66,7 +99,7 @@ export const WATCHED: Watch[] = [
 // Worth surfacing wherever it turns up, however rarely a vendor stocks it
 const PRIORITY = [2001857187, 2228452164];
 
-export type VendorItems = Record<number, SlimReward>;
+export type VendorItems = Record<number, SlimVendorItem>;
 
 let pending: Promise<VendorItems> | undefined = undefined;
 
@@ -77,7 +110,7 @@ let pending: Promise<VendorItems> | undefined = undefined;
 export const vendorItems = (): Promise<VendorItems> => {
   pending ??= (async () => {
     const { artifacts } = await loadConfig();
-    const rows = await fetchRecords<SlimReward>(artifacts, "VendorItem");
+    const rows = await fetchRecords<SlimVendorItem>(artifacts, "VendorItem");
     const byHash: VendorItems = {};
 
     for (const row of rows) {
@@ -122,6 +155,7 @@ export interface Slot {
 
 export interface RotationItem extends SlotItem {
   cost: CardCost;
+  reasons: string[];
   purchased: boolean;
 }
 
@@ -178,9 +212,13 @@ export type VendorComponents = Record<
 >;
 
 /** Vendors whose stock we draw as item tiles, so their rolls have to be fetched */
-export const TILED: number[] = WATCHED.filter(
-  (watch) => watch.mode === "claims",
-).map((watch) => watch.vendor);
+export const TILED: number[] = WATCHED.flatMap((watch) => {
+  if (watch.mode === "claims") {
+    return [watch.vendor];
+  }
+
+  return watch.mode === "visit" ? (watch.rows ?? []).flat() : [];
+});
 
 export interface VendorFetch {
   character: string;
@@ -282,6 +320,34 @@ export const vendorPlugHashes = (components: VendorComponents): number[] => {
 
 const VARIABLE = /\{var:(\d+)\}/g;
 
+// The profile groups sale indexes by category, and only the definition names them
+const categorySales = (
+  response: DestinyVendorsResponse,
+  vendor: number,
+  def: SlimVendor,
+  identifiers: string[],
+): Set<number> => {
+  const indexes = def.displayCategories
+    .filter((named) => identifiers.includes(named.identifier))
+    .map((named) => named.index);
+
+  return new Set(
+    (response.categories?.data?.[vendor]?.categories ?? [])
+      .filter((one) => indexes.includes(one.displayCategoryIndex))
+      .flatMap((one) => one.itemIndexes),
+  );
+};
+
+const reasonsOf = (
+  sale: DestinyVendorSaleItemComponent,
+  def: SlimVendor,
+): string[] =>
+  (sale.failureIndexes ?? []).flatMap((at) => {
+    const reason = def.failureStrings[at];
+
+    return reason ? [reason] : [];
+  });
+
 const slotsOf = (
   def: SlimVendor,
   response: DestinyVendorsResponse,
@@ -333,34 +399,62 @@ const slotsOf = (
 const rotationRows = (
   response: DestinyVendorsResponse,
   items: VendorItems,
-  rows: number[][],
+  watch: Watch,
   ornaments: DestinyVendorSaleItemComponent[],
 ): RotationItem[][] =>
-  rows
+  (watch.rows ?? [])
     .map((row) =>
       row.flatMap((rotator) => {
-        const sales =
-          rotator === ARMOR_ORNAMENTS
+        const def = vendorDef(rotator);
+
+        if (!def) {
+          return [];
+        }
+
+        const wanted =
+          watch.categories === undefined
+            ? undefined
+            : categorySales(response, rotator, def, watch.categories);
+        const sales = [
+          ...(rotator === ARMOR_ORNAMENTS
             ? ornaments
-            : Object.values(response.sales?.data?.[rotator]?.saleItems ?? {});
+            : Object.values(response.sales?.data?.[rotator]?.saleItems ?? {})),
+        ].sort(
+          (a, b) =>
+            (def.itemSorts[a.vendorItemIndex] ?? 0) -
+              (def.itemSorts[b.vendorItemIndex] ?? 0) ||
+            a.vendorItemIndex - b.vendorItemIndex,
+        );
 
         return sales.flatMap((sale): RotationItem[] => {
           const price = sale.costs?.find(
-            (cost) => cost.itemHash === BRIGHT_DUST,
+            (cost) => cost.itemHash === watch.currency,
           )?.quantity;
 
-          if (price === undefined) {
+          if (
+            price === undefined ||
+            watch.skip?.includes(sale.itemHash) ||
+            (wanted !== undefined && !wanted.has(sale.vendorItemIndex))
+          ) {
             return [];
           }
+
+          const reasons = reasonsOf(sale, def);
 
           return [
             {
               vendor: rotator,
-              itemHash: sale.itemHash,
+              // Dummy stock never ships, so its tile comes from the real item
+              itemHash: items[sale.itemHash]?.standIn ?? sale.itemHash,
               vendorItemIndex: sale.vendorItemIndex,
-              cost: { icon: items[BRIGHT_DUST]?.icon, quantity: price },
-              // Their only refusal is "Already Purchased on Account"
-              purchased: (sale.failureIndexes ?? []).length > 0,
+              cost: {
+                icon: items[watch.currency ?? 0]?.icon,
+                quantity: price,
+              },
+              reasons,
+              purchased: reasons.some((reason) =>
+                PURCHASED_REASONS.includes(reason),
+              ),
             },
           ];
         });
@@ -403,7 +497,7 @@ export const readVendors = (
   }
 
   return WATCHED.flatMap((watch): VendorState[] => {
-    const { vendor, mode, category, only, rows, owned } = watch;
+    const { vendor, mode, categories, only, owned } = watch;
 
     const live = response.vendors?.data?.[vendor];
     const def = vendorDef(vendor);
@@ -414,7 +508,7 @@ export const readVendors = (
 
     const shell = {
       hash: vendor,
-      name: def.displayProperties.name,
+      name: watch.name ?? def.displayProperties.name,
       mode,
       offers: [],
       slots: [],
@@ -423,7 +517,13 @@ export const readVendors = (
 
     // The visit countdown is a clock reading, so the caller derives it and this stays stable
     if (mode === "visit") {
-      return [{ ...shell, refreshesAt: undefined }];
+      return [
+        {
+          ...shell,
+          refreshesAt: undefined,
+          rows: rotationRows(response, items, watch, ornaments),
+        },
+      ];
     }
 
     const refreshesAt =
@@ -447,24 +547,15 @@ export const readVendors = (
         {
           ...shell,
           refreshesAt: undefined,
-          rows: rotationRows(response, items, rows ?? [], ornaments),
+          rows: rotationRows(response, items, watch, ornaments),
         },
       ];
     }
 
-    // The profile groups sale indexes by category, and only the definition names them
     const wanted =
-      category === undefined
+      categories === undefined
         ? undefined
-        : new Set(
-            (response.categories?.data?.[vendor]?.categories ?? []).find(
-              (one) =>
-                one.displayCategoryIndex ===
-                def.displayCategories.find(
-                  (named) => named.identifier === category,
-                )?.index,
-            )?.itemIndexes ?? [],
-          );
+        : categorySales(response, vendor, def, categories);
 
     const offers = Object.values(
       response.sales?.data?.[vendor]?.saleItems ?? {},
@@ -494,18 +585,14 @@ export const readVendors = (
           costs: costOf(sale, items),
           available: sale.saleStatus === VendorItemStatus.Success,
           // The profile returns indices into the vendor's own refusal strings
-          reasons: (sale.failureIndexes ?? []).flatMap((at) => {
-            const reason = def.failureStrings[at];
-
-            return reason ? [reason] : [];
-          }),
+          reasons: reasonsOf(sale, def),
         },
       ];
     });
 
     // A costless row is a subscreen the vendor opens, or a rank-track reward
     const shown =
-      category === undefined
+      categories === undefined
         ? offers.filter((offer) => offer.costs.length > 0)
         : offers;
 
@@ -565,11 +652,7 @@ export const priorityOffers = (
         quantity: sale.quantity,
         costs: costOf(sale, items),
         available: sale.saleStatus === VendorItemStatus.Success,
-        reasons: (sale.failureIndexes ?? []).flatMap((at) => {
-          const reason = def.failureStrings[at];
-
-          return reason ? [reason] : [];
-        }),
+        reasons: reasonsOf(sale, def),
       });
     }
   }

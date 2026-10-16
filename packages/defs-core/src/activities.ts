@@ -65,6 +65,10 @@ export interface SlimReward {
   gearTier: GearTier | undefined;
 }
 
+export interface SlimVendorItem extends SlimReward {
+  standIn: number | undefined;
+}
+
 export interface SlimOrnament {
   hash: number;
   items: number[];
@@ -348,6 +352,8 @@ export interface SlimVendor {
   failureStrings: string[];
   acceptedItems: DestinyVendorDefinition["acceptedItems"];
   displayCategories: { index: number; identifier: string; name: string }[];
+  /** Sort value for each vendorItemIndex */
+  itemSorts: number[];
 }
 
 /** Enough of a vendor to name it and read its refusal reasons; stock is live-only */
@@ -365,6 +371,11 @@ export const slimVendor = (item: DestinyVendorDefinition): SlimVendor => ({
     identifier: category.identifier,
     name: category.displayProperties?.name ?? "",
   })),
+  // Same order DIM sorts vendor stock in
+  itemSorts: (item.itemList ?? []).map(
+    (entry) =>
+      item.originalCategories?.[entry.originalCategoryIndex]?.sortValue ?? 0,
+  ),
 });
 
 export const slimReward = (

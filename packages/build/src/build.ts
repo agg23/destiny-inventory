@@ -23,6 +23,7 @@ import {
   slimVendor,
   skullTable,
   type SlimOrnament,
+  type SlimVendorItem,
   type Tables,
 } from "@dvm/defs-core";
 import type {
@@ -363,10 +364,35 @@ const main = async () => {
     }
   }
 
-  const vendorItems = [...vendorHashes].flatMap((hash) => {
+  // Some vendors sell a dummy copy of a real item, linked only by name
+  const sameNamed = new Map<string, number[]>();
+
+  for (const item of shipped) {
+    const key = `${item.displayProperties.name}|${item.inventory?.tierType}`;
+
+    sameNamed.set(key, [...(sameNamed.get(key) ?? []), item.hash]);
+  }
+
+  const vendorItems = [...vendorHashes].flatMap((hash): SlimVendorItem[] => {
     const item = tables.items[hash];
 
-    return item ? [slimReward(item)] : [];
+    if (!item) {
+      return [];
+    }
+
+    const matches =
+      item.itemType === DUMMY
+        ? sameNamed.get(
+            `${item.displayProperties.name}|${item.inventory?.tierType}`,
+          )
+        : undefined;
+
+    return [
+      {
+        ...slimReward(item),
+        standIn: matches?.length === 1 ? matches[0] : undefined,
+      },
+    ];
   });
 
   // Ornament defs don't name their item, only the sockets offering them do

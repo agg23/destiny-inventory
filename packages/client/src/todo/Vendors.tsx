@@ -118,6 +118,7 @@ export const VendorSection = (props: {
   items: Map<string, DimItem>;
   now: number;
   values: Record<number, number>;
+  collected: (itemHash: number) => boolean | undefined;
   onSelect: (item: DimItem) => void;
 }) => (
   <section class={SECTION}>
@@ -157,7 +158,12 @@ export const VendorSection = (props: {
                       <ItemIcon
                         item={item()}
                         class={one.purchased ? "opacity-40" : undefined}
-                        notes={one.purchased ? ["Already Purchased"] : []}
+                        notes={[
+                          ...one.reasons,
+                          ...(props.collected(one.itemHash)
+                            ? ["Unlocked"]
+                            : []),
+                        ]}
                         cost={one.cost}
                         onSelect={props.onSelect}
                       />

@@ -54,6 +54,7 @@ export {
   type SlimPlace,
   type SlimReward,
   type SlimVendor,
+  type SlimVendorItem,
   type SlimSkull,
   type SlimTier,
 } from "./activities.ts";

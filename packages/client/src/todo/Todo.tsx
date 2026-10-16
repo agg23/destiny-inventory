@@ -10,6 +10,13 @@ import {
   type OrderPayout,
 } from "../challenges.ts";
 import { useClock } from "../clock.ts";
+import {
+  acquiredFor,
+  definedSession,
+  entryForHash,
+  isCollected,
+  primeCollections,
+} from "../collections.ts";
 import { builtTiles, vendorTiles, type VendorTile } from "../fakeItems.ts";
 import {
   activeOrders,
@@ -174,6 +181,25 @@ export const Todo = () => {
     held<Priority>(),
   );
 
+  const [collection] = createResource(
+    () => definedSession(app.loaded()?.session),
+    (session) =>
+      Promise.all([primeCollections(session), acquiredFor(session)])
+        .then(([index, acquired]) => ({ index, acquired }))
+        // Tiles just go without the unlocked marker
+        .catch(() => undefined),
+  );
+
+  const collected = (itemHash: number): boolean | undefined => {
+    const loaded = collection();
+    const entry =
+      loaded === undefined ? undefined : entryForHash(loaded.index, itemHash);
+
+    return loaded === undefined || entry === undefined
+      ? undefined
+      : isCollected(entry, loaded.acquired);
+  };
+
   const ranks = createMemo(
     () => rankResets(vendors()?.response),
     undefined,
@@ -288,6 +314,7 @@ export const Todo = () => {
               items={offered()}
               now={now()}
               values={values()}
+              collected={collected}
               onSelect={openEntry}
             />
           )}
