@@ -52,6 +52,7 @@ export const ItemIcon = (props: Props) => (
       props.item.breakerType?.displayProperties.icon,
     ]}
     tiers={(mode) => itemTiers(props.item, mode)}
+    masterwork={props.item.masterwork}
     badges={props.badges}
     onClick={
       props.onSelect

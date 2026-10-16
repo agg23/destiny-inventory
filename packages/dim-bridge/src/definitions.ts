@@ -33,6 +33,7 @@ const shortName = (table: string): string =>
   table.replace(/^Destiny/, "").replace(/Definition$/, "");
 
 const ITEMS = "InventoryItem";
+const CONSTANTS = "InventoryItemConstants";
 
 export const buildDefinitions = (
   tables: Map<string, Record<string, unknown>>,
@@ -42,6 +43,13 @@ export const buildDefinitions = (
 
   for (const [table, raw] of tables) {
     const name = shortName(table);
+
+    // DIM stores this table's only row, not a lookup
+    if (name === CONSTANTS) {
+      defs[name] = raw[1];
+      continue;
+    }
+
     defs[name] = makeTable(name, raw, name === ITEMS ? withheld : undefined);
   }
 

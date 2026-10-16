@@ -470,13 +470,21 @@
     inset: calc(var(--edge) * -1);
   }
 
-  /* Gold pinned, cream equipped; the framework names neither */
-  .item-tile.equipped .tile-edge {
-    border-color: var(--cream);
+  .item-tile .masterwork-glow {
+    position: absolute;
+    inset: 0;
+    /* Bungie darkened the art 40% */
+    opacity: calc(1 / 1.4);
   }
 
-  .item-tile.selected .tile-edge {
+  .item-tile.masterwork .tile-edge {
+    border-width: 2px;
     border-color: var(--light);
+  }
+
+  /* Outside the border so a masterwork's gold still shows */
+  .item-tile.selected .tile-edge {
+    box-shadow: 0 0 0 1.5px var(--cream);
   }
 
   /* Framework's tooltip assumes game art behind it. Above the sticky header */
@@ -621,20 +629,7 @@
     height: var(--tile);
   }
 
-  /* The framework's white hover wash swallows a 1px gold edge */
-  .triage-grid .item-tile.selected .tile-edge {
-    border-width: 3px;
-  }
-
-  .triage-grid .item-tile.selected::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: color-mix(in srgb, var(--light) 18%, transparent);
-    pointer-events: none;
-  }
-
-  /* Selection owns the gold edge, so the pin gets the outline instead */
+  /* The edge belongs to selection and masterwork */
   .triage-grid .item-tile.pinned {
     outline: 1px solid var(--fg);
     outline-offset: 1px;

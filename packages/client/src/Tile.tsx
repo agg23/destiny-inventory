@@ -1,6 +1,7 @@
 import { For, Show } from "solid-js";
 
 import { BUNGIE } from "./bungie.ts";
+import { defs } from "./defs.ts";
 import type { AegisSetBonus, Mode, Tier } from "./rolls.ts";
 import { settings, shownModes } from "./settings.ts";
 
@@ -80,6 +81,7 @@ export interface TileProps {
   icons: (string | undefined)[];
   tiers: (mode: Mode) => Tier[] | undefined;
   catalyst?: { progress: number; complete: boolean };
+  masterwork?: boolean;
   badges?: boolean;
   onClick?: (event: MouseEvent) => void;
   onEnter?: (element: HTMLElement) => void;
@@ -87,13 +89,36 @@ export interface TileProps {
 }
 
 const tileClass = (props: TileProps): string =>
-  ["item-tile small", props.rarity.toLowerCase(), ...props.classes]
+  [
+    "item-tile small",
+    props.rarity.toLowerCase(),
+    props.masterwork ? "masterwork" : "",
+    ...props.classes,
+  ]
     .filter((part) => part.length > 0)
     .join(" ");
+
+const masterworkGlow = (rarity: string): string | undefined => {
+  const constants = defs()?.InventoryItemConstants;
+
+  return rarity === "Exotic"
+    ? constants?.masterworkExoticOverlayPath
+    : constants?.masterworkOverlayPath;
+};
 
 const Face = (props: TileProps) => (
   <>
     <img src={`${BUNGIE}${props.icon}`} loading="lazy" alt="" />
+    <Show when={props.masterwork && masterworkGlow(props.rarity)}>
+      {(glow) => (
+        <img
+          class="masterwork-glow"
+          src={`${BUNGIE}${glow()}`}
+          loading="lazy"
+          alt=""
+        />
+      )}
+    </Show>
     <span class="tile-edge" />
     <Show when={props.badges !== false}>
       <Show when={settings().overlay && props.overlay}>

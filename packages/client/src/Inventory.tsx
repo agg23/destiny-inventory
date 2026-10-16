@@ -367,7 +367,7 @@ export const Inventory = (props: Props) => {
         <Show when={drag.box()}>
           {(box) => (
             <div
-              class="pointer-events-none fixed z-3 border border-light bg-light/15"
+              class="pointer-events-none fixed z-3 border border-cream bg-cream/15"
               style={{
                 left: `${box().left}px`,
                 top: `${box().top}px`,
