@@ -3,6 +3,7 @@ import type { DimItem } from "app/inventory/item-types";
 import { createMemo, createResource, For, Show } from "solid-js";
 
 import { useApp } from "../App.tsx";
+import { CharacterPicker } from "../CharacterPicker.tsx";
 import {
   orderPayouts,
   seasonalChallenges,
@@ -213,7 +214,15 @@ export const Todo = () => {
 
   return (
     <>
-      <div class="flex flex-col gap-6 p-4">
+      <div class="flex flex-col gap-6 px-4 pt-3 pb-4">
+        <div class="w-(--store-column)">
+          <CharacterPicker
+            characters={app.stores().filter((store) => !store.isVault)}
+            selected={app.active()}
+            onSelect={app.onCharacter}
+          />
+        </div>
+
         <Resets resets={resets()} now={now()} />
 
         <Show when={payouts().length > 0}>

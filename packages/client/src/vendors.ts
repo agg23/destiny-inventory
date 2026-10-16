@@ -38,9 +38,14 @@ interface Watch {
   currency?: number;
   // Stack label of stock the vendor stops offering once you hold it
   owned?: string;
+  pursuits?: number[];
 }
 
 const EXCHANGE = [2865242233, 825199458, 2001857187, 3612161799];
+
+const CLAN_BOUNTIES = [
+  4036455306, 2736452412, 3553274676, 241149628, 425910192,
+];
 
 const BRIGHT_DUST = 2817410917;
 
@@ -93,6 +98,7 @@ export const WATCHED: Watch[] = [
     mode: "offers",
     categories: ["clan_bounties_vendor_display"],
     owned: "social.clans.",
+    pursuits: CLAN_BOUNTIES,
   },
 ];
 
@@ -138,7 +144,12 @@ export interface Offer {
   costs: Cost[];
   available: boolean;
   reasons: string[];
+  pursuit: PursuitState | undefined;
 }
+
+export type PursuitState =
+  | { kind: "held"; progress: string; expiresAt: number | undefined }
+  | { kind: "completed" };
 
 export interface SlotItem {
   vendor: number;
@@ -462,28 +473,28 @@ const rotationRows = (
     )
     .filter((row) => row.length > 0);
 
-const ownedOffers = (held: readonly DimItem[], label: string): Offer[] =>
-  held.flatMap((item) => {
-    const stack = defs()?.InventoryItem.getOptional(item.hash)?.inventory
-      ?.stackUniqueLabel;
+const heldOffer = (item: DimItem): Offer => {
+  const steps = item.objectives ?? [];
+  const progress = steps.reduce((sum, step) => sum + (step.progress ?? 0), 0);
+  const goal = steps.reduce((sum, step) => sum + step.completionValue, 0);
+  const expires = item.pursuit?.expiration?.expirationDate;
 
-    if (stack === undefined || !stack.startsWith(label)) {
-      return [];
-    }
-
-    return [
-      {
-        index: item.hash,
-        itemHash: item.hash,
-        name: item.name,
-        icon: item.icon,
-        quantity: 1,
-        costs: [],
-        available: false,
-        reasons: ["Already held"],
-      },
-    ];
-  });
+  return {
+    index: item.hash,
+    itemHash: item.hash,
+    name: item.name,
+    icon: item.icon,
+    quantity: 1,
+    costs: [],
+    available: false,
+    reasons: [],
+    pursuit: {
+      kind: "held",
+      progress: `${progress.toLocaleString()}/${goal.toLocaleString()}`,
+      expiresAt: expires === undefined ? undefined : expires.getTime(),
+    },
+  };
+};
 
 export const readVendors = (
   response: DestinyVendorsResponse | undefined,
@@ -497,7 +508,7 @@ export const readVendors = (
   }
 
   return WATCHED.flatMap((watch): VendorState[] => {
-    const { vendor, mode, categories, only, owned } = watch;
+    const { vendor, mode, categories, only, owned, pursuits } = watch;
 
     const live = response.vendors?.data?.[vendor];
     const def = vendorDef(vendor);
@@ -586,6 +597,7 @@ export const readVendors = (
           available: sale.saleStatus === VendorItemStatus.Success,
           // The profile returns indices into the vendor's own refusal strings
           reasons: reasonsOf(sale, def),
+          pursuit: undefined,
         },
       ];
     });
@@ -600,18 +612,60 @@ export const readVendors = (
       return [{ ...shell, refreshesAt, offers: shown }];
     }
 
-    const holding = ownedOffers(held, owned);
-    const holdingHashes = new Set(holding.map((offer) => offer.itemHash));
+    const holding = held.filter(
+      (item) =>
+        !!defs()
+          ?.InventoryItem.getOptional(item.hash)
+          ?.inventory?.stackUniqueLabel?.startsWith(owned),
+    );
+    const hashes = [
+      ...new Set([
+        ...(pursuits ?? []),
+        ...shown.map((offer) => offer.itemHash),
+        ...holding.map((item) => item.hash),
+      ]),
+    ];
 
     return [
       {
         ...shell,
-        refreshesAt,
-        offers: [
+        // Each one expires a week after pickup
+        refreshesAt: undefined,
+        offers: hashes.flatMap((hash): Offer[] => {
           // The vendor snapshot can lag the profile and still list held stock
-          ...shown.filter((offer) => !holdingHashes.has(offer.itemHash)),
-          ...holding,
-        ],
+          const holds = holding.find((item) => item.hash === hash);
+
+          if (holds) {
+            return [heldOffer(holds)];
+          }
+
+          const sold = shown.find((offer) => offer.itemHash === hash);
+
+          if (sold) {
+            return [sold];
+          }
+
+          const item = nameOf(items, hash);
+
+          if (!item) {
+            return [];
+          }
+
+          // Neither sold nor held, probably turned in this week
+          return [
+            {
+              index: hash,
+              itemHash: hash,
+              name: item.name,
+              icon: item.icon,
+              quantity: 1,
+              costs: [],
+              available: false,
+              reasons: [],
+              pursuit: { kind: "completed" },
+            },
+          ];
+        }),
       },
     ];
   });
@@ -653,6 +707,7 @@ export const priorityOffers = (
         costs: costOf(sale, items),
         available: sale.saleStatus === VendorItemStatus.Success,
         reasons: reasonsOf(sale, def),
+        pursuit: undefined,
       });
     }
   }

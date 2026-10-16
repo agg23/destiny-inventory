@@ -1,5 +1,5 @@
 import type { DimItem } from "app/inventory/item-types";
-import { For, Show } from "solid-js";
+import { For, Match, Show, Switch } from "solid-js";
 
 import { readable } from "../activities.ts";
 import { BUNGIE } from "../bungie.ts";
@@ -22,8 +22,13 @@ import {
 import { Table, TableBody, TableCell, TableRow } from "../ui/zaidan/table.tsx";
 import { exact } from "./todoFormat.ts";
 
-const OfferRow = (props: { offer: Offer }) => (
-  <TableRow classList={{ "text-muted-foreground": !props.offer.available }}>
+const OfferRow = (props: { offer: Offer; now: number }) => (
+  <TableRow
+    classList={{
+      "text-muted-foreground":
+        !props.offer.available && props.offer.pursuit?.kind !== "held",
+    }}
+  >
     <TableCell class="w-2/5">
       <span class="flex min-w-0 items-center gap-2">
         <Show when={props.offer.icon}>
@@ -42,21 +47,49 @@ const OfferRow = (props: { offer: Offer }) => (
       </span>
     </TableCell>
     <TableCell>
-      <Show
-        when={props.offer.reasons.length > 0}
-        fallback={<span class="text-good">Available</span>}
-      >
-        <span class="text-warning">{props.offer.reasons.join(" · ")}</span>
-      </Show>
+      <Switch fallback={<span class="text-good">Available</span>}>
+        <Match
+          when={
+            props.offer.pursuit?.kind === "held"
+              ? props.offer.pursuit
+              : undefined
+          }
+        >
+          {(held) => (
+            <span class="tabular-nums">In Progress {held().progress}</span>
+          )}
+        </Match>
+        <Match when={props.offer.pursuit?.kind === "completed"}>
+          Completed
+        </Match>
+        <Match when={props.offer.reasons.length > 0}>
+          <span class="text-warning">{props.offer.reasons.join(" · ")}</span>
+        </Match>
+      </Switch>
     </TableCell>
     <TableCell class="text-right tabular-nums">
-      <For each={props.offer.costs}>
-        {(cost) => (
-          <>
-            {cost.quantity.toLocaleString()} {cost.name}
-          </>
+      <Show
+        when={
+          props.offer.pursuit?.kind === "held"
+            ? props.offer.pursuit.expiresAt
+            : undefined
+        }
+        fallback={
+          <For each={props.offer.costs}>
+            {(cost) => (
+              <>
+                {cost.quantity.toLocaleString()} {cost.name}
+              </>
+            )}
+          </For>
+        }
+      >
+        {(at) => (
+          <span class="text-muted-foreground" title={`Expires ${exact(at())}`}>
+            {remaining(at() - props.now)} left
+          </span>
         )}
-      </For>
+      </Show>
     </TableCell>
   </TableRow>
 );
@@ -182,7 +215,7 @@ export const VendorSection = (props: {
         <Table>
           <TableBody>
             <For each={props.vendor.offers}>
-              {(offer) => <OfferRow offer={offer} />}
+              {(offer) => <OfferRow offer={offer} now={props.now} />}
             </For>
           </TableBody>
         </Table>
