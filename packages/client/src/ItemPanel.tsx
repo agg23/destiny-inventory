@@ -39,6 +39,7 @@ import {
   transferTargets,
 } from "./moveTargets.ts";
 import { dismissPerk, previewPerk } from "./perkPreview.ts";
+import type { CardCost } from "./preview.ts";
 import {
   archetype,
   benefits,
@@ -907,7 +908,11 @@ const MODE_GLYPHS: Record<Mode, string> = {
   pvp: crucibleGlyph,
 };
 
-const OptionMark = (props: { option: MergedOption; judges: number }) => (
+/** The card's mark for a perk: a mode glyph when one sheet wants it, a check when all do */
+export const OptionMark = (props: {
+  option: Pick<MergedOption, "wantedBy">;
+  judges: number;
+}) => (
   <Show
     when={
       props.option.wantedBy.length > 0 &&
@@ -1372,6 +1377,7 @@ export const ItemHead = (props: {
   /** Collections and light.gg links */
   links?: boolean;
   notes?: string[];
+  cost?: CardCost;
 }) => (
   <>
     <div
@@ -1420,6 +1426,7 @@ export const ItemHead = (props: {
         taggable={props.taggable}
         links={props.links}
         notes={props.notes}
+        cost={props.cost}
       />
     </div>
   </>
@@ -1510,6 +1517,7 @@ export const ItemPower = (props: {
   taggable?: boolean;
   links?: boolean;
   notes?: string[];
+  cost?: CardCost;
 }) => {
   const armor = () => props.item.bucket.inArmor;
   const notes = () => props.notes ?? [];
@@ -1525,7 +1533,8 @@ export const ItemPower = (props: {
         props.item.breakerType ||
         linked() ||
         (props.taggable && props.item.id !== "0") ||
-        notes().length > 0
+        notes().length > 0 ||
+        props.cost
       }
     >
       <div class="tooltip-power">
@@ -1561,6 +1570,18 @@ export const ItemPower = (props: {
                 alt=""
                 title={props.item.breakerType?.displayProperties.name}
               />
+            )}
+          </Show>
+          <Show when={props.cost}>
+            {(cost) => (
+              <span class="power-type">
+                <Show when={cost().icon}>
+                  {(icon) => (
+                    <img class="cost-icon" src={`${BUNGIE}${icon()}`} alt="" />
+                  )}
+                </Show>
+                {cost().quantity.toLocaleString()}
+              </span>
             )}
           </Show>
           <Show when={armor() && props.item.energy}>

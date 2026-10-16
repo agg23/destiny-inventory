@@ -10,6 +10,7 @@ import {
   ownershipOf,
   primeCollections,
   type Catalyst,
+  type Cosmetic,
   type Entry,
   type Ownership,
 } from "../collections.ts";
@@ -37,12 +38,13 @@ export const useCollectionData = () => {
 
   const copies = createMemo(() => copiesByKey(app.stores()));
 
-  const copiesOf = (entry: Entry): DimItem[] => copies().get(entry.key) ?? [];
+  const copiesOf = (entry: Entry | Cosmetic): DimItem[] =>
+    copies().get(entry.key) ?? [];
 
   const ownership = (entry: Entry): Ownership | undefined =>
     ownershipOf(entry, copies().get(entry.key), acquired.latest);
 
-  const catalyst = (entry: Entry): Catalyst | undefined =>
+  const catalyst = (entry: Entry | Cosmetic): Catalyst | undefined =>
     catalystFor(entry, app.loaded()?.records ?? {});
 
   const lastPlayedClass = (): number =>

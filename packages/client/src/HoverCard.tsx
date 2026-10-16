@@ -5,6 +5,7 @@ import { verdictMode, type ModeVerdict } from "./arrivals.ts";
 import type { Catalyst } from "./collections.ts";
 import { ItemDetails, ItemHead, VERDICT_ROW } from "./ItemPanel.tsx";
 import { noteFor } from "./notes.ts";
+import type { CardCost } from "./preview.ts";
 import { AnchoredPanel } from "./ui/AnchoredPanel.tsx";
 
 interface Props {
@@ -14,6 +15,7 @@ interface Props {
   cursorX: number | undefined;
   rollWarning: boolean;
   notes: string[];
+  cost: CardCost | undefined;
   catalyst: Catalyst | undefined;
 }
 
@@ -46,7 +48,12 @@ const RivalNote = (props: { verdict: ModeVerdict }) => (
 
 export const HoverCard = (props: Props) => (
   <AnchoredPanel class="item-tooltip hover-card" cursorX={props.cursorX}>
-    <ItemHead item={props.item} taggable notes={props.notes} />
+    <ItemHead
+      item={props.item}
+      taggable
+      notes={props.notes}
+      cost={props.cost}
+    />
     <Show
       when={
         props.item.id !== "0" &&

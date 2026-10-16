@@ -1,6 +1,6 @@
 import type { DimItem } from "app/inventory/item-types";
 
-import { dismiss, preview } from "./preview.ts";
+import { dismiss, preview, type CardCost } from "./preview.ts";
 import { assess, setRatings, type Mode, type Tier } from "./rolls.ts";
 import { tagFor } from "./tags.ts";
 import { setTiers, Tile } from "./Tile.tsx";
@@ -11,6 +11,8 @@ interface Props {
   onSelect?: (item: DimItem, event: MouseEvent) => void;
   badges?: boolean;
   class?: string;
+  notes?: string[];
+  cost?: CardCost;
 }
 
 // The framework's power slot hangs below the tile
@@ -59,7 +61,17 @@ export const ItemIcon = (props: Props) => (
         ? (event) => props.onSelect?.(props.item, event)
         : undefined
     }
-    onEnter={(element) => preview(props.item, element)}
+    onEnter={(element) =>
+      preview(
+        props.item,
+        element,
+        undefined,
+        undefined,
+        false,
+        props.notes,
+        props.cost,
+      )
+    }
     onLeave={() => dismiss(props.item)}
   />
 );

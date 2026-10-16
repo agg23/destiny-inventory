@@ -1438,6 +1438,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
               cursorX={card().cursorX}
               rollWarning={card().rollWarning}
               notes={card().notes}
+              cost={card().cost}
               catalyst={catalystForItem(
                 card().item.hash,
                 current()?.records ?? {},

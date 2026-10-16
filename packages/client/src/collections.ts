@@ -18,12 +18,13 @@ import { ItemCategoryHashes } from "data/d2/generated-enums";
 import D2Sources from "data/d2/source-info-v2";
 import { createSignal } from "solid-js";
 
-import type { SlimCollectible } from "@dvm/defs-core";
+import type { SlimCollectible, SlimOrnament } from "@dvm/defs-core";
 
-import { fetchTable } from "./artifacts.ts";
+import { fetchRecords, fetchTable } from "./artifacts.ts";
 import { primeWeaponPerks } from "./collections/weaponPerks.ts";
 import { accessToken } from "./auth.ts";
 import { fetchCollectibles } from "./bungie.ts";
+import { loadConfig } from "./config.ts";
 import { NotSignedIn, type CharacterRecords, type Session } from "./load.ts";
 import { defs } from "./defs.ts";
 import { CORE } from "./store.ts";
@@ -97,6 +98,17 @@ export interface Armor extends Collected {
 }
 
 export type Entry = Weapon | Armor;
+
+/** Any other item, which gets a collection page but no place in the index */
+export interface Cosmetic {
+  kind: "cosmetic";
+  key: string;
+  name: string;
+  rarity: string;
+  newestItemHash: number;
+  itemHashes: number[];
+  collectibleHashes: number[];
+}
 
 export interface ArmorSet {
   kind: "set";
@@ -702,11 +714,42 @@ export const entryForHash = (
     return undefined;
   }
 
+  // A cosmetic can share a name with a weapon
+  if (item.itemType !== ARMOR && item.itemType !== WEAPON) {
+    return undefined;
+  }
+
   return index.byKey.get(
     item.itemType === ARMOR
       ? armorKey(name, rarityOf(item), item.classType)
       : `${name}|${rarityOf(item)}`,
   );
+};
+
+export const cosmeticEntry = (index: Collections, item: DimItem): Cosmetic => ({
+  kind: "cosmetic",
+  key: `${item.name}|${item.rarity}`,
+  name: item.name,
+  rarity: item.rarity,
+  newestItemHash: item.hash,
+  itemHashes: [item.hash],
+  collectibleHashes: Object.values(index.collectibles).flatMap((one) =>
+    one.itemHash === item.hash ? [one.hash] : [],
+  ),
+});
+
+let ornamentsPending: Promise<Map<number, number[]>> | undefined = undefined;
+
+/** Items an item-specific ornament applies to, read from the served index */
+export const ornamentTargets = (): Promise<Map<number, number[]>> => {
+  ornamentsPending ??= (async () => {
+    const { artifacts } = await loadConfig();
+    const rows = await fetchRecords<SlimOrnament>(artifacts, "OrnamentTarget");
+
+    return new Map(rows.map((row) => [row.hash, row.items]));
+  })();
+
+  return ornamentsPending;
 };
 
 /** The snapshot paint carries a session with no definitions behind it */
@@ -806,10 +849,6 @@ export const copiesByKey = (stores: DimStore[]): Map<string, DimItem[]> => {
 
   for (const store of stores) {
     for (const item of store.items) {
-      if (!item.bucket.inWeapons && !item.bucket.inArmor) {
-        continue;
-      }
-
       const key = item.bucket.inArmor
         ? armorKey(item.name, item.rarity, item.classType)
         : `${item.name}|${item.rarity}`;
@@ -883,7 +922,7 @@ const catalystRecord = (
 };
 
 export const catalystFor = (
-  entry: Entry,
+  entry: Entry | Cosmetic,
   records: CharacterRecords,
 ): Catalyst | undefined =>
   entry.kind === "weapon"

@@ -65,6 +65,11 @@ export interface SlimReward {
   gearTier: GearTier | undefined;
 }
 
+export interface SlimOrnament {
+  hash: number;
+  items: number[];
+}
+
 export interface SlimModifier {
   hash: number;
   name: string;

@@ -1,3 +1,5 @@
+import { useNavigate } from "@solidjs/router";
+import type { DimItem } from "app/inventory/item-types";
 import { createMemo, createResource, For, Show } from "solid-js";
 
 import { useApp } from "../App.tsx";
@@ -19,6 +21,7 @@ import { railCollapsed } from "../rail.ts";
 import { RAIL } from "../Rail.tsx";
 import { HEADING, HEADING_NOTE, SECTION, TABLE_FRAME } from "../ui/text.ts";
 import { Table, TableBody, TableCell, TableRow } from "../ui/zaidan/table.tsx";
+import { entryHref } from "../url.ts";
 import {
   fetchVendorState,
   lastVendorFetch,
@@ -35,11 +38,15 @@ import { IdleVendors, VendorSection } from "./Vendors.tsx";
 
 const stocked = (vendors: VendorState[]): VendorState[] =>
   vendors.filter(
-    (vendor) => vendor.slots.length > 0 || vendor.offers.length > 0,
+    (vendor) =>
+      vendor.slots.length > 0 ||
+      vendor.offers.length > 0 ||
+      vendor.rows.length > 0,
   );
 
 export const Todo = () => {
   const app = useApp();
+  const navigate = useNavigate();
   const now = useClock();
   const settled = createMemo(() => Math.floor(now() / MINUTE) * MINUTE);
 
@@ -86,7 +93,13 @@ export const Todo = () => {
       return loaded && character ? { loaded, character } : undefined;
     },
     ({ loaded, character }) =>
-      fetchVendorState(loaded.session.membership, character),
+      fetchVendorState(
+        loaded.session.membership,
+        character,
+        loaded.stores
+          .filter((store) => !store.isVault)
+          .map((store) => ({ id: store.id, classType: store.classType })),
+      ),
     { initialValue: lastVendorFetch(app.active()?.id) },
   );
 
@@ -101,6 +114,7 @@ export const Todo = () => {
             fetched.items,
             values(),
             app.active()?.items ?? [],
+            fetched.ornaments,
           );
     },
     undefined,
@@ -109,7 +123,10 @@ export const Todo = () => {
   const idle = createMemo(
     () =>
       stock().filter(
-        (vendor) => vendor.slots.length === 0 && vendor.offers.length === 0,
+        (vendor) =>
+          vendor.slots.length === 0 &&
+          vendor.offers.length === 0 &&
+          vendor.rows.length === 0,
       ),
     undefined,
     held<VendorState>(),
@@ -118,13 +135,10 @@ export const Todo = () => {
   // Keyed on the tiles themselves, so a rebuilt stock does not refetch the same items
   const slotted = createMemo(
     () =>
-      stock().flatMap((vendor) =>
-        vendor.slots.flatMap((slot) =>
-          slot.items.map(
-            (one): VendorTile => ({ vendor: vendor.hash, ...one }),
-          ),
-        ),
-      ),
+      stock().flatMap((vendor) => [
+        ...vendor.slots.flatMap((slot) => slot.items),
+        ...vendor.rows.flat(),
+      ]),
     undefined,
     held<VendorTile>(),
   );
@@ -156,6 +170,11 @@ export const Todo = () => {
     undefined,
     held<Priority>(),
   );
+
+  const openEntry = (item: DimItem) =>
+    navigate(
+      entryHref(item.hash, { kind: item.bucket.inArmor ? "armor" : "weapon" }),
+    );
 
   return (
     <>
@@ -228,7 +247,7 @@ export const Todo = () => {
               items={offered()}
               now={now()}
               values={values()}
-              onSelect={app.onPin}
+              onSelect={openEntry}
             />
           )}
         </For>

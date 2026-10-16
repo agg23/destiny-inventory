@@ -5,7 +5,7 @@ import { readable } from "../activities.ts";
 import { BUNGIE } from "../bungie.ts";
 import { tileKey } from "../fakeItems.ts";
 import { ItemIcon } from "../ItemIcon.tsx";
-import { remaining } from "../reset.ts";
+import { nextDailyReset, remaining } from "../reset.ts";
 import {
   visitEndsAt,
   type Offer,
@@ -62,7 +62,6 @@ const OfferRow = (props: { offer: Offer }) => (
 );
 
 const SlotTiles = (props: {
-  vendor: number;
   slot: Slot;
   items: Map<string, DimItem>;
   values: Record<number, number>;
@@ -77,7 +76,7 @@ const SlotTiles = (props: {
       <For each={props.slot.items}>
         {(one) => (
           <Show
-            when={props.items.get(tileKey(props.vendor, one.vendorItemIndex))}
+            when={props.items.get(tileKey(one.vendor, one.vendorItemIndex))}
           >
             {(item) => <ItemIcon item={item()} onSelect={props.onSelect} />}
           </Show>
@@ -87,14 +86,20 @@ const SlotTiles = (props: {
   </div>
 );
 
+const clockAt = (vendor: VendorState, now: number): number | undefined => {
+  if (vendor.mode === "visit") {
+    return visitEndsAt(now);
+  }
+
+  if (vendor.mode === "rotation") {
+    return nextDailyReset(now);
+  }
+
+  return vendor.refreshesAt;
+};
+
 export const VendorClock = (props: { vendor: VendorState; now: number }) => (
-  <Show
-    when={
-      props.vendor.mode === "visit"
-        ? visitEndsAt(props.now)
-        : props.vendor.refreshesAt
-    }
-  >
+  <Show when={clockAt(props.vendor, props.now)}>
     {(at) => (
       <span
         class={HEADING_NOTE}
@@ -126,12 +131,41 @@ export const VendorSection = (props: {
         <For each={props.vendor.slots}>
           {(slot) => (
             <SlotTiles
-              vendor={props.vendor.hash}
               slot={slot}
               items={props.items}
               values={props.values}
               onSelect={props.onSelect}
             />
+          )}
+        </For>
+      </div>
+    </Show>
+
+    <Show when={props.vendor.rows.length > 0}>
+      <div class="flex flex-col gap-1">
+        <For each={props.vendor.rows}>
+          {(row) => (
+            <div class="flex flex-wrap gap-1">
+              <For each={row}>
+                {(one) => (
+                  <Show
+                    when={props.items.get(
+                      tileKey(one.vendor, one.vendorItemIndex),
+                    )}
+                  >
+                    {(item) => (
+                      <ItemIcon
+                        item={item()}
+                        class={one.purchased ? "opacity-40" : undefined}
+                        notes={one.purchased ? ["Already Purchased"] : []}
+                        cost={one.cost}
+                        onSelect={props.onSelect}
+                      />
+                    )}
+                  </Show>
+                )}
+              </For>
+            </div>
           )}
         </For>
       </div>

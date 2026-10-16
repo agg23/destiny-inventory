@@ -13,6 +13,7 @@ import { accessToken } from "./auth.ts";
 import { fetchVendor, fetchVendors, type Membership } from "./bungie.ts";
 import { loadConfig } from "./config.ts";
 import { defs } from "./defs.ts";
+import type { CardCost } from "./preview.ts";
 import { nextWeekendReset, nextWeeklyReset, xurPresent } from "./reset.ts";
 // The shipped vendor is narrower than the shape DIM's manifest type describes
 const vendorDef = (hash: number): SlimVendor | undefined =>
@@ -20,7 +21,7 @@ const vendorDef = (hash: number): SlimVendor | undefined =>
 
 const DISPLAY_ONLY = VendorItemStatus.DisplayOnly;
 
-export type Mode = "visit" | "offers" | "claims";
+export type Mode = "visit" | "offers" | "claims" | "rotation";
 
 /** Xur's own nextRefreshDate is his next arrival, not the end of the visit you are in */
 export const visitEndsAt = (now: number): number =>
@@ -31,14 +32,27 @@ interface Watch {
   mode: Mode;
   category?: string;
   only?: number[];
+  rows?: number[][];
   // Stack label of stock the vendor stops offering once you hold it
   owned?: string;
 }
 
 const EXCHANGE = [2865242233, 825199458, 2001857187, 3612161799];
 
+const BRIGHT_DUST = 2817410917;
+
+// Each character only sees its own class's ornament here
+const ARMOR_ORNAMENTS = 2031393824;
+
+// Tess's weekly stock lives in these nameless sub-vendors, not on her
+const BRIGHT_DUST_ROWS = [
+  [2168194999, ARMOR_ORNAMENTS, 3118972542, 4020265966, 3702989297, 1105106638],
+  [2184482416, 1446296883, 2041776156, 213864513],
+];
+
 export const WATCHED: Watch[] = [
   { vendor: 2190858386, mode: "visit" },
+  { vendor: 3361454721, mode: "rotation", rows: BRIGHT_DUST_ROWS },
   { vendor: 153857624, mode: "claims" },
   { vendor: 3949128738, mode: "offers", only: EXCHANGE },
   {
@@ -94,6 +108,7 @@ export interface Offer {
 }
 
 export interface SlotItem {
+  vendor: number;
   itemHash: number;
   vendorItemIndex: number;
 }
@@ -105,6 +120,11 @@ export interface Slot {
   items: SlotItem[];
 }
 
+export interface RotationItem extends SlotItem {
+  cost: CardCost;
+  purchased: boolean;
+}
+
 export interface VendorState {
   hash: number;
   name: string;
@@ -112,6 +132,7 @@ export interface VendorState {
   refreshesAt: number | undefined;
   offers: Offer[];
   slots: Slot[];
+  rows: RotationItem[][];
 }
 
 export interface Priority extends Offer {
@@ -165,6 +186,7 @@ export interface VendorFetch {
   response: DestinyVendorsResponse;
   items: VendorItems;
   components: VendorComponents;
+  ornaments: DestinyVendorSaleItemComponent[];
 }
 
 let held: { character: string; fetched: VendorFetch } | undefined = undefined;
@@ -178,6 +200,7 @@ export const lastVendorFetch = (
 export const fetchVendorState = async (
   membership: Membership,
   character: string,
+  characters: { id: string; classType: number }[],
 ): Promise<VendorFetch | undefined> => {
   const token = await accessToken();
 
@@ -185,11 +208,28 @@ export const fetchVendorState = async (
     return undefined;
   }
 
-  const [response, items, ...tiled] = await Promise.all([
+  const ordered = [...characters].sort((a, b) => a.classType - b.classType);
+
+  const [response, items, classed, ...tiled] = await Promise.all([
     fetchVendors(membership, character, token),
     vendorItems(),
+    Promise.all(
+      ordered.map((one) =>
+        one.id === character
+          ? undefined
+          : fetchVendor(membership, one.id, ARMOR_ORNAMENTS, token),
+      ),
+    ),
     ...TILED.map((vendor) => fetchVendor(membership, character, vendor, token)),
   ]);
+
+  const ornaments = classed.flatMap((one) =>
+    Object.values(
+      one === undefined
+        ? (response.sales?.data?.[ARMOR_ORNAMENTS]?.saleItems ?? {})
+        : (one.sales?.data ?? {}),
+    ),
+  );
 
   const components: VendorComponents = {};
 
@@ -201,7 +241,7 @@ export const fetchVendorState = async (
     }
   });
 
-  const fetched: VendorFetch = { response, items, components };
+  const fetched: VendorFetch = { response, items, components, ornaments };
 
   held = { character, fetched };
 
@@ -271,6 +311,7 @@ const slotsOf = (
             return sale
               ? [
                   {
+                    vendor,
                     itemHash: sale.itemHash,
                     vendorItemIndex: sale.vendorItemIndex,
                   },
@@ -281,6 +322,44 @@ const slotsOf = (
       ];
     });
 };
+
+const rotationRows = (
+  response: DestinyVendorsResponse,
+  items: VendorItems,
+  rows: number[][],
+  ornaments: DestinyVendorSaleItemComponent[],
+): RotationItem[][] =>
+  rows
+    .map((row) =>
+      row.flatMap((rotator) => {
+        const sales =
+          rotator === ARMOR_ORNAMENTS
+            ? ornaments
+            : Object.values(response.sales?.data?.[rotator]?.saleItems ?? {});
+
+        return sales.flatMap((sale): RotationItem[] => {
+          const price = sale.costs?.find(
+            (cost) => cost.itemHash === BRIGHT_DUST,
+          )?.quantity;
+
+          if (price === undefined) {
+            return [];
+          }
+
+          return [
+            {
+              vendor: rotator,
+              itemHash: sale.itemHash,
+              vendorItemIndex: sale.vendorItemIndex,
+              cost: { icon: items[BRIGHT_DUST]?.icon, quantity: price },
+              // Their only refusal is "Already Purchased on Account"
+              purchased: (sale.failureIndexes ?? []).length > 0,
+            },
+          ];
+        });
+      }),
+    )
+    .filter((row) => row.length > 0);
 
 const ownedOffers = (held: readonly DimItem[], label: string): Offer[] =>
   held.flatMap((item) => {
@@ -310,13 +389,14 @@ export const readVendors = (
   items: VendorItems,
   variables: Record<number, number>,
   held: readonly DimItem[],
+  ornaments: DestinyVendorSaleItemComponent[],
 ): VendorState[] => {
   if (!response || !defs()) {
     return [];
   }
 
   return WATCHED.flatMap((watch): VendorState[] => {
-    const { vendor, mode, category, only, owned } = watch;
+    const { vendor, mode, category, only, rows, owned } = watch;
 
     const live = response.vendors?.data?.[vendor];
     const def = vendorDef(vendor);
@@ -331,6 +411,7 @@ export const readVendors = (
       mode,
       offers: [],
       slots: [],
+      rows: [],
     };
 
     // The visit countdown is a clock reading, so the caller derives it and this stays stable
@@ -349,6 +430,17 @@ export const readVendors = (
           ...shell,
           refreshesAt,
           slots: slotsOf(def, response, vendor, variables),
+        },
+      ];
+    }
+
+    if (mode === "rotation") {
+      // The API says Tuesday, but the stock changes at the daily reset
+      return [
+        {
+          ...shell,
+          refreshesAt: undefined,
+          rows: rotationRows(response, items, rows ?? [], ornaments),
         },
       ];
     }

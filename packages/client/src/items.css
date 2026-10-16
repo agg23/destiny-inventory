@@ -613,7 +613,8 @@
   }
 
   .element-icon,
-  .breaker-icon {
+  .breaker-icon,
+  .cost-icon {
     height: 0.875rem;
   }
 

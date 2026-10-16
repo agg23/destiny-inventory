@@ -15,6 +15,13 @@ export interface Previewed {
   rollWarning: boolean;
   /** Short status lines, like collection state on a collections card */
   notes: string[];
+  /** Vendor price, for stock shown as tiles */
+  cost: CardCost | undefined;
+}
+
+export interface CardCost {
+  icon: string | undefined;
+  quantity: number;
 }
 
 const [shown, setShown] = createSignal<Previewed | undefined>(undefined);
@@ -31,10 +38,11 @@ export const preview = (
   verdict: ModeVerdict | undefined = undefined,
   rollWarning: boolean = false,
   notes: string[] = [],
+  cost: CardCost | undefined = undefined,
 ) => {
   const open = () => {
     holdAnchor(element, clear);
-    setShown({ item, cursorX, verdict, rollWarning, notes });
+    setShown({ item, cursorX, verdict, rollWarning, notes, cost });
   };
 
   if (shown()?.item.index === item.index) {

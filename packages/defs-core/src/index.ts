@@ -50,6 +50,7 @@ export {
   type SlimGraphNode,
   type SlimMode,
   type SlimModifier,
+  type SlimOrnament,
   type SlimPlace,
   type SlimReward,
   type SlimVendor,

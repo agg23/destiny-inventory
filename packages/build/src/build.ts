@@ -22,6 +22,7 @@ import {
   slimReward,
   slimVendor,
   skullTable,
+  type SlimOrnament,
   type Tables,
 } from "@dvm/defs-core";
 import type {
@@ -52,8 +53,12 @@ const SOCKET_TYPES = "DestinySocketTypeDefinition";
 const EMPTY_CATALYST = "v400.empty.exotic.masterwork";
 
 // DestinyItemType
+const ARMOR = 2;
 const WEAPON = 3;
 const DUMMY = 20;
+
+// DestinyItemSubType
+const ORNAMENT = 21;
 
 // TierType.Exotic
 const EXOTIC = 6;
@@ -364,6 +369,49 @@ const main = async () => {
     return item ? [slimReward(item)] : [];
   });
 
+  // Ornament defs don't name their item, only the sockets offering them do
+  const ornamentHashes = new Set(
+    all
+      .filter((item) => item.itemSubType === ORNAMENT)
+      .map((item) => item.hash),
+  );
+  const fits = new Map<number, Set<number>>();
+
+  for (const item of shipped) {
+    if (item.itemType !== WEAPON && item.itemType !== ARMOR) {
+      continue;
+    }
+
+    for (const entry of item.sockets?.socketEntries ?? []) {
+      const sets = [entry.reusablePlugSetHash, entry.randomizedPlugSetHash];
+      const offered = [
+        ...(entry.reusablePlugItems ?? []).map((plug) => plug.plugItemHash),
+        ...sets.flatMap((hash) =>
+          hash === undefined
+            ? []
+            : (tables.plugSets[hash]?.reusablePlugItems ?? []).map(
+                (plug) => plug.plugItemHash,
+              ),
+        ),
+      ];
+
+      for (const plug of offered) {
+        if (ornamentHashes.has(plug)) {
+          fits.set(plug, (fits.get(plug) ?? new Set()).add(item.hash));
+        }
+      }
+    }
+  }
+
+  // Universal ornaments fit a whole slot and get no link
+  const ornaments = [...fits].flatMap(([hash, targets]): SlimOrnament[] => {
+    const names = new Set(
+      [...targets].map((one) => tables.items[one]?.displayProperties.name),
+    );
+
+    return names.size === 1 ? [{ hash, items: [...targets] }] : [];
+  });
+
   const rewards = [...rewardHashes].flatMap((hash) => {
     const item = tables.items[hash];
 
@@ -385,6 +433,7 @@ const main = async () => {
   await emit("ActivityReward", rewards);
   await emit("ActivityChallenge", challenges);
   await emit("VendorItem", vendorItems);
+  await emit("OrnamentTarget", ornaments);
   const detailFile = await emit("detail", detail);
   await emit("plugsets", plugsets);
   await emit("hidden", hidden);

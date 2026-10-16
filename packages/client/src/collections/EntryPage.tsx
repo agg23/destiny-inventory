@@ -9,22 +9,25 @@ import {
   entryForHash,
   isArmorRailTerm,
   isRailTerm,
+  cosmeticEntry,
+  ornamentTargets,
   queryPicks,
   sourceLabel,
   termValue,
   withClass,
   withTerms,
+  type Cosmetic,
   type Entry,
 } from "../collections.ts";
 import { fakeItems } from "../fakeItems.ts";
 import { ItemIcon } from "../ItemIcon.tsx";
-import { ItemDetails, ItemHead } from "../ItemPanel.tsx";
+import { ItemDetails, ItemHead, typeName } from "../ItemPanel.tsx";
 import { NoteEditor } from "../NoteEditor.tsx";
 import { useUrl } from "../router.ts";
 import { Loading } from "../ui/Loading.tsx";
 import { HEADING } from "../ui/text.ts";
 import { Button } from "../ui/zaidan/button.tsx";
-import { collectionsHref, lightGgHref, vaultHref } from "../url.ts";
+import { collectionsHref, entryHref, lightGgHref, vaultHref } from "../url.ts";
 import { useCollectionData } from "./collectionData.ts";
 import { collectionFilter } from "./collectionSearch.ts";
 
@@ -36,13 +39,13 @@ const KILL_LABELS: Record<string, string> = {
   gambit: "Gambit",
 };
 
-const vaultQuery = (entry: Entry): string => {
+const vaultQuery = (entry: Entry | Cosmetic): string => {
   const query = `name:"${entry.name}" is:${entry.rarity.toLowerCase()}`;
 
   return entry.kind === "armor" ? withClass(query, entry.classType) : query;
 };
 
-const Copies = (props: { entry: Entry; copies: DimItem[] }) => {
+const Copies = (props: { entry: Entry | Cosmetic; copies: DimItem[] }) => {
   const navigate = useNavigate();
 
   return (
@@ -83,11 +86,44 @@ export const EntryPage = () => {
   const url = useUrl();
   const data = useCollectionData();
 
-  const entry = createMemo(() => {
+  const indexed = createMemo(() => {
     const index = data.index();
 
     return index ? entryForHash(index, Number(params.hash)) : undefined;
   });
+
+  const [standIn] = createResource(
+    () => {
+      const loaded = app.loaded();
+      const index = data.index();
+
+      return loaded && index && !indexed()
+        ? { loaded, index, hash: Number(params.hash) }
+        : undefined;
+    },
+    async ({ loaded, index, hash }) => {
+      const item = (await fakeItems(loaded, [hash])).get(hash);
+
+      return item ? cosmeticEntry(index, item) : undefined;
+    },
+  );
+
+  const entry = () => indexed() ?? standIn.latest;
+
+  const [target] = createResource(
+    () => {
+      const loaded = app.loaded();
+
+      return loaded ? { loaded, hash: Number(params.hash) } : undefined;
+    },
+    async ({ loaded, hash }) => {
+      const [first] = (await ornamentTargets()).get(hash) ?? [];
+
+      return first === undefined
+        ? undefined
+        : (await fakeItems(loaded, [first])).get(first);
+    },
+  );
 
   const [versions] = createResource(
     () => {
@@ -115,7 +151,8 @@ export const EntryPage = () => {
     data.acquired.latest?.has(collectibleHash);
 
   const back = () => {
-    const found = entry();
+    const viewed = entry();
+    const found = viewed?.kind === "cosmetic" ? undefined : viewed;
     const kind = found?.kind ?? url.get("kind");
     const by = url.get("by");
     const index = data.index();
@@ -168,7 +205,7 @@ export const EntryPage = () => {
         when={entry()}
         fallback={
           <Show
-            when={data.index()}
+            when={data.index() && !standIn.loading}
             fallback={
               <Loading label="Loading collections" />
             }
@@ -241,6 +278,28 @@ export const EntryPage = () => {
                   </For>
                 </ul>
               </div>
+
+              <Show when={target.latest}>
+                {(fits) => (
+                  <div class={BLOCK}>
+                    <h4 class={HEADING}>Applies to</h4>
+                    <A
+                      class="flex items-center gap-2"
+                      href={entryHref(fits().hash, {
+                        kind: fits().bucket.inArmor ? "armor" : "weapon",
+                      })}
+                    >
+                      <ItemIcon item={fits()} badges={false} />
+                      <div>
+                        <div>{fits().name}</div>
+                        <div class="text-xs text-muted-foreground">
+                          {typeName(fits())}
+                        </div>
+                      </div>
+                    </A>
+                  </div>
+                )}
+              </Show>
 
               <Copies entry={found()} copies={data.copiesOf(found())} />
 
