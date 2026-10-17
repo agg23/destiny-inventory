@@ -23,6 +23,7 @@ import { useNoteLeaveGuard } from "./components/NoteEditor.tsx";
 import { SignIn } from "./components/SignIn.tsx";
 import { TagConfirm } from "./components/TagConfirm.tsx";
 import { Toasts } from "./components/Toasts.tsx";
+import { UpdateDialog } from "./components/UpdateDialog.tsx";
 import { createActiveCharacter } from "./core/app/activeCharacter.ts";
 import { createEntrySearch } from "./core/app/entrySearch.ts";
 import { createIconWarmup } from "./core/app/iconWarmup.ts";
@@ -49,6 +50,7 @@ import { itemSearch } from "./core/search/search.ts";
 import { settings } from "./core/settings.ts";
 import { showToast } from "./core/toast.ts";
 import { syncOrders } from "./core/todo/orders.ts";
+import { startUpdateCheck } from "./core/update.ts";
 import { tabHref, TABS, type Tab } from "./core/url.ts";
 import { TrashWatch } from "./triage/shared/TrashWatch.tsx";
 
@@ -63,6 +65,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   const query = createQuery(url);
 
   useNoteLeaveGuard();
+  onCleanup(startUpdateCheck());
 
   createEffect(() => {
     if (session.authed()) {
@@ -268,6 +271,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
 
       <Toasts />
       <TagConfirm />
+      <UpdateDialog />
     </main>
   );
 };
