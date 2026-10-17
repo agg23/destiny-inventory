@@ -9,9 +9,7 @@ let ticker: number | undefined = undefined;
 
 const tick = () => setNow(Date.now());
 
-/**
- * Ticks every second
- */
+/** Ticks every second */
 export const useClock = (): (() => number) => {
   watching += 1;
 
@@ -34,6 +32,3 @@ export const useClock = (): (() => number) => {
 
   return now;
 };
-
-export const timeWithSeconds = (at: number) =>
-  new Date(at).toLocaleTimeString();

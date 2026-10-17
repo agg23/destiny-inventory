@@ -1,9 +1,11 @@
 import type { DimItem } from "app/inventory/item-types";
 import { For, Match, Show, Switch } from "solid-js";
 
+import { BungieImage } from "../../components/BungieImage.tsx";
+import { Countdown } from "../../components/Countdown.tsx";
+import { Heading } from "../../components/Heading.tsx";
 import { ItemTile } from "../../components/ItemTile.tsx";
 import {
-  HEADING,
   HEADING_NOTE,
   LABEL,
   SECTION,
@@ -15,13 +17,13 @@ import {
   TableCell,
   TableRow,
 } from "../../components/lib/zaidan/table.tsx";
+import { NumCell } from "../../components/NumCell.tsx";
+import { TableSection } from "../../components/TableSection.tsx";
 import { readable } from "../../core/activities/activities.ts";
-import { BUNGIE } from "../../core/api/bungie.ts";
 import { tileKey } from "../../core/profile/fakeItems.ts";
-import { nextDailyReset, remaining } from "../../core/todo/reset.ts";
+import { nextDailyReset } from "../../core/todo/reset.ts";
 import { visitEndsAt } from "../../core/todo/vendors.ts";
 import type { Offer, Slot, VendorState } from "../../core/todo/vendorTypes.ts";
-import { exact } from "./todoFormat.ts";
 
 const OfferRow = (props: { offer: Offer; now: number }) => (
   <TableRow
@@ -32,15 +34,10 @@ const OfferRow = (props: { offer: Offer; now: number }) => (
   >
     <TableCell class="w-2/5">
       <span class="flex min-w-0 items-center gap-2">
-        <Show when={props.offer.icon}>
-          {(icon) => (
-            <img
-              class="size-(--icon-sm) shrink-0 object-contain"
-              src={`${BUNGIE}${icon()}`}
-              alt=""
-            />
-          )}
-        </Show>
+        <BungieImage
+          path={props.offer.icon}
+          class="size-(--icon-sm) shrink-0 object-contain"
+        />
         {props.offer.name}
         <Show when={props.offer.quantity > 1}>
           <span class="text-muted-foreground">x{props.offer.quantity}</span>
@@ -68,7 +65,7 @@ const OfferRow = (props: { offer: Offer; now: number }) => (
         </Match>
       </Switch>
     </TableCell>
-    <TableCell class="text-right tabular-nums">
+    <NumCell>
       <Show
         when={
           props.offer.pursuit?.kind === "held"
@@ -86,12 +83,15 @@ const OfferRow = (props: { offer: Offer; now: number }) => (
         }
       >
         {(at) => (
-          <span class="text-muted-foreground" title={`Expires ${exact(at())}`}>
-            {remaining(at() - props.now)} left
-          </span>
+          <Countdown
+            at={at()}
+            now={props.now}
+            label="Expires"
+            class="text-muted-foreground"
+          />
         )}
       </Show>
-    </TableCell>
+    </NumCell>
   </TableRow>
 );
 
@@ -132,17 +132,15 @@ const clockAt = (vendor: VendorState, now: number): number | undefined => {
   return vendor.refreshesAt;
 };
 
-export const VendorClock = (props: { vendor: VendorState; now: number }) => (
+const VendorClock = (props: { vendor: VendorState; now: number }) => (
   <Show when={clockAt(props.vendor, props.now)}>
     {(at) => (
-      <span
+      <Countdown
+        at={at()}
+        now={props.now}
+        label={props.vendor.mode === "visit" ? "Leaves" : "Refreshes"}
         class={HEADING_NOTE}
-        title={`${
-          props.vendor.mode === "visit" ? "Leaves" : "Refreshes"
-        } ${exact(at())}`}
-      >
-        {remaining(at() - props.now)} left
-      </span>
+      />
     )}
   </Show>
 );
@@ -156,10 +154,10 @@ export const VendorSection = (props: {
   onSelect: (item: DimItem) => void;
 }) => (
   <section class={SECTION}>
-    <h2 class={`${HEADING} flex items-baseline gap-2`}>
+    <Heading>
       {props.vendor.name}
       <VendorClock vendor={props.vendor} now={props.now} />
-    </h2>
+    </Heading>
 
     <Show when={props.vendor.slots.length > 0}>
       <div class="flex flex-wrap gap-4">
@@ -226,23 +224,14 @@ export const VendorSection = (props: {
 );
 
 export const IdleVendors = (props: { vendors: VendorState[]; now: number }) => (
-  <section class={SECTION}>
-    <h2 class={HEADING}>Nothing to buy</h2>
-    <div class={TABLE_FRAME}>
-      <Table>
-        <TableBody>
-          <For each={props.vendors}>
-            {(vendor) => (
-              <TableRow>
-                <TableCell class="w-2/5">{vendor.name}</TableCell>
-                <TableCell class="text-right">
-                  <VendorClock vendor={vendor} now={props.now} />
-                </TableCell>
-              </TableRow>
-            )}
-          </For>
-        </TableBody>
-      </Table>
-    </div>
-  </section>
+  <TableSection title="Nothing to buy" each={props.vendors}>
+    {(vendor) => (
+      <TableRow>
+        <TableCell class="w-2/5">{vendor.name}</TableCell>
+        <TableCell class="text-right">
+          <VendorClock vendor={vendor} now={props.now} />
+        </TableCell>
+      </TableRow>
+    )}
+  </TableSection>
 );

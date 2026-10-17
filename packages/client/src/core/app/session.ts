@@ -6,8 +6,9 @@ import {
   createSignal,
 } from "solid-js";
 
-import { signedIn } from "../api/auth.ts";
+import { NotSignedIn, signedIn } from "../api/auth.ts";
 import type { Membership } from "../api/bungie.ts";
+import { definedSession } from "../collections/collections.ts";
 import { messageOf } from "../error.ts";
 import {
   guestLabel,
@@ -21,7 +22,7 @@ import {
 } from "../profile/guest.ts";
 import { load } from "../profile/load.ts";
 import { loadGuest } from "../profile/loadGuest.ts";
-import { NotSignedIn, type LoadResult } from "../profile/loadTypes.ts";
+import type { LoadResult } from "../profile/loadTypes.ts";
 import type { Url } from "../router.ts";
 import { showToast } from "../toast.ts";
 
@@ -63,7 +64,7 @@ export const createSession = (url: Url, primed: LoadResult | undefined) => {
 
   const [guestResult, { refetch: refetchGuest }] = createResource(
     // A snapshot paint has no definitions to build a guest against
-    () => (owned()?.session.support.size ? viewing() : undefined),
+    () => (definedSession(owned()?.session) ? viewing() : undefined),
     (who) => loadGuest(owned()!, who),
   );
 

@@ -1,11 +1,4 @@
 import type { DimItem, DimPlug } from "app/inventory/item-types";
-import type {
-  DestinyEquipableItemSetDefinition,
-  DestinyInventoryItemDefinition,
-  DestinyObjectiveProgress,
-} from "bungie-api-ts/destiny2";
-
-import type { Catalyst } from "../collections/types.ts";
 import {
   getArmorArchetype,
   getSocketsByIndexes,
@@ -13,16 +6,30 @@ import {
   isEnhancedPerk,
   isSocketEmpty,
 } from "app/utils/socket-utils";
+import {
+  DestinyItemType,
+  ItemPerkVisibility,
+  type DestinyDisplayPropertiesDefinition,
+  type DestinyEquipableItemSetDefinition,
+  type DestinyInventoryItemDefinition,
+  type DestinyObjectiveProgress,
+  type DestinySandboxPerkDefinition,
+} from "bungie-api-ts/destiny2";
+import {
+  PlugCategoryHashes,
+  SocketCategoryHashes,
+} from "data/d2/generated-enums";
 
+import type { CATALYSTS } from "../collections/terms.ts";
+import type { Catalyst } from "../collections/types.ts";
 import { defs } from "../profile/defs.ts";
+import { deltaOf, type Delta } from "./compare.ts";
 
-export interface StatChange {
+export interface StatChange extends Delta {
   name: string;
-  value: number;
-  better: boolean;
 }
 
-export interface Benefit {
+interface Benefit {
   name: string;
   icon: string | undefined;
   enhanced: boolean;
@@ -31,23 +38,21 @@ export interface Benefit {
   stats: StatChange[];
 }
 
-export interface CatalystLine {
+interface CatalystLine {
   name: string | undefined;
   description: string;
 }
 
-export type CatalystState = "missing" | "obtained" | "complete";
+export type CatalystState = (typeof CATALYSTS)[number];
 
-export interface CatalystPlug {
+interface CatalystPlug {
   hash: number;
   name: string;
   icon: string | undefined;
   lines: CatalystLine[];
   stats: StatChange[];
-  /** Account wide, from the catalyst triumph; undefined without one */
   state: CatalystState | undefined;
   objectives: DestinyObjectiveProgress[];
-  /** In this copy's socket */
   inserted: boolean;
 }
 
@@ -57,7 +62,7 @@ export interface Archetype {
   icon: string | undefined;
 }
 
-export interface SetPerk {
+interface SetPerk {
   hash: number;
   name: string;
   description: string;
@@ -72,24 +77,27 @@ export interface SetBonus {
 
 const COSMETICS = new Set([2048875504, 1926152773]);
 
-// DIM keeps the catalyst slot out of isSocketEmpty
-const EMPTY_EXOTIC_MASTERWORK = 1915962497;
-
-// ItemPerkVisibility.Hidden
-const HIDDEN = 2;
-
-// DestinyItemType.Dummy
-const DUMMY = 20;
-
-// PlugCategoryHashes.Intrinsics
-const INTRINSICS = 1744546145;
-
-// SocketCategoryHashes.IntrinsicTraits
-const INTRINSIC_TRAITS = 3956125808;
-
 /** Frames and exotic perks */
 export const isIntrinsicPlug = (plug: DimPlug | null | undefined): boolean =>
-  plug?.plugDef.plug.plugCategoryHash === INTRINSICS;
+  plug?.plugDef.plug.plugCategoryHash === PlugCategoryHashes.Intrinsics;
+
+/** The icon, undefined when the def has none */
+export const iconOf = (
+  display: DestinyDisplayPropertiesDefinition,
+): string | undefined => (display.hasIcon ? display.icon : undefined);
+
+/** Sandbox perks a plug shows, in plug order */
+export const visibleSandboxPerks = (
+  plug: DestinyInventoryItemDefinition,
+): DestinySandboxPerkDefinition[] =>
+  (plug.perks ?? []).flatMap((perk) => {
+    const found =
+      perk.perkVisibility === ItemPerkVisibility.Hidden
+        ? undefined
+        : defs()?.SandboxPerk.getOptional(perk.perkHash);
+
+    return found ? [found] : [];
+  });
 
 const change = (item: DimItem, hash: number, value: number): StatChange[] => {
   const own = item.stats?.find((stat) => stat.statHash === hash);
@@ -98,13 +106,7 @@ const change = (item: DimItem, hash: number, value: number): StatChange[] => {
     return [];
   }
 
-  return [
-    {
-      name: own.displayProperties.name,
-      value,
-      better: own.smallerIsBetter ? value < 0 : value > 0,
-    },
-  ];
+  return [{ name: own.displayProperties.name, ...deltaOf(own, value) }];
 };
 
 const changes = (item: DimItem, plug: DimPlug): StatChange[] =>
@@ -125,29 +127,26 @@ const restates = (description: string, stats: StatChange[]): boolean =>
 // Armor mods put their effect on sandbox perks
 const describe = (plug: DimPlug): string => {
   const own = plug.plugDef.displayProperties.description;
-  const table = defs()?.SandboxPerk;
 
-  if (own || !table) {
+  if (own) {
     return own;
   }
 
-  return plug.plugDef.perks
-    .filter((perk) => perk.perkVisibility !== HIDDEN)
-    .flatMap((perk) => {
-      const found = table.getOptional(perk.perkHash);
-      const description = found?.displayProperties.description;
+  return visibleSandboxPerks(plug.plugDef)
+    .flatMap((found) => {
+      const description = found.displayProperties.description;
 
       return description ? [description] : [];
     })
     .join("\n\n");
 };
 
-/** One perk or mod as the panels write it, whether or not it carries anything worth showing */
+/** Panel entry for a perk or mod, undefined for nameless plugs */
 export const benefitFor = (
   item: DimItem,
   plug: DimPlug,
 ): Benefit | undefined => {
-  const { icon, hasIcon, name } = plug.plugDef.displayProperties;
+  const { name } = plug.plugDef.displayProperties;
 
   // The archetype's stats hang off a second, nameless plug
   if (!name) {
@@ -159,9 +158,9 @@ export const benefitFor = (
 
   return {
     name,
-    icon: hasIcon ? icon : undefined,
+    icon: iconOf(plug.plugDef.displayProperties),
     enhanced: isEnhancedPerk(plug.plugDef),
-    intrinsic: plug.plugDef.plug.plugCategoryHash === INTRINSICS,
+    intrinsic: isIntrinsicPlug(plug),
     description: restates(written, stats) ? "" : written,
     stats,
   };
@@ -177,7 +176,7 @@ export const benefits = (item: DimItem): Benefit[] => {
   return sockets.categories.flatMap((category) => {
     if (
       COSMETICS.has(category.category.hash) ||
-      category.category.hash === INTRINSIC_TRAITS
+      category.category.hash === SocketCategoryHashes.IntrinsicTraits
     ) {
       return [];
     }
@@ -195,7 +194,9 @@ export const benefits = (item: DimItem): Benefit[] => {
           isArmorArchetypePlug(plug) ||
           isIntrinsicPlug(plug) ||
           plug.plugDef.plug.plugCategoryIdentifier.includes("trackers") ||
-          plug.plugDef.plug.plugCategoryHash === EMPTY_EXOTIC_MASTERWORK
+          // DIM keeps the catalyst slot out of isSocketEmpty
+          plug.plugDef.plug.plugCategoryHash ===
+            PlugCategoryHashes.V400EmptyExoticMasterwork
         ) {
           return [];
         }
@@ -212,7 +213,6 @@ export const benefits = (item: DimItem): Benefit[] => {
   });
 };
 
-// The numbers live on the sandbox perks
 export const setBonus = (item: DimItem): SetBonus | undefined =>
   item.setBonus ? setBonusOf(item.setBonus) : undefined;
 
@@ -240,7 +240,7 @@ export const setBonusOf = (
           hash: found.hash,
           name: displayProperties.name,
           description: displayProperties.description,
-          icon: displayProperties.hasIcon ? displayProperties.icon : undefined,
+          icon: iconOf(displayProperties),
           requiredSetCount: perk.requiredSetCount,
         },
       ];
@@ -261,12 +261,12 @@ export const archetype = (item: DimItem): Archetype | undefined => {
     return undefined;
   }
 
-  const { name, description, icon, hasIcon } = found.displayProperties;
+  const { name, description } = found.displayProperties;
 
-  return { name, description, icon: hasIcon ? icon : undefined };
+  return { name, description, icon: iconOf(found.displayProperties) };
 };
 
-/** The plugged intrinsic perks in any socket category, leaving out the armor archetype */
+/** Plugged intrinsic perks from any socket category, minus the armor archetype */
 export const intrinsics = (item: DimItem): Benefit[] => {
   const sockets = item.sockets;
 
@@ -276,7 +276,10 @@ export const intrinsics = (item: DimItem): Benefit[] => {
 
   const traits = new Set(
     sockets.categories
-      .filter((category) => category.category.hash === INTRINSIC_TRAITS)
+      .filter(
+        (category) =>
+          category.category.hash === SocketCategoryHashes.IntrinsicTraits,
+      )
       .flatMap((category) => category.socketIndexes),
   );
 
@@ -302,16 +305,9 @@ const catalystLines = (
   plug: DestinyInventoryItemDefinition,
 ): CatalystLine[] => {
   const { name, description } = plug.displayProperties;
-  const table = defs()?.SandboxPerk;
 
-  const perks = (plug.perks ?? []).flatMap((perk) => {
-    const found = table?.getOptional(perk.perkHash);
-
-    if (
-      perk.perkVisibility === HIDDEN ||
-      !found?.isDisplayable ||
-      !found.displayProperties.name
-    ) {
+  const perks = visibleSandboxPerks(plug).flatMap((found) => {
+    if (!found.isDisplayable || !found.displayProperties.name) {
       return [];
     }
 
@@ -329,14 +325,15 @@ const catalystLines = (
   return perks.length > 0 ? perks : [{ name: undefined, description }];
 };
 
-/** Exotic catalysts and year one masterworks, leaving out legendary masterworks and trackers */
+/** Exotic catalysts and year one masterworks, not legendary masterworks or trackers */
 export const isCatalyst = (def: DestinyInventoryItemDefinition): boolean => {
   const category = def.plug?.plugCategoryIdentifier ?? "";
 
   return category === "catalysts" || category.endsWith("masterwork");
 };
 
-const stateOf = (
+/** Catalyst progress as the card shows it, undefined without account data */
+export const catalystState = (
   account: Catalyst | undefined,
   objectives: DestinyObjectiveProgress[],
 ): CatalystState | undefined => {
@@ -359,10 +356,7 @@ const stateOf = (
   return "obtained";
 };
 
-/**
- * Every catalyst the weapon's catalyst socket takes. Year one exotics have two steps, the
- * catalyst and then a masterwork unlocked by kills; refit exotics offer several at once
- */
+/** Every catalyst an exotic's socket takes; year one exotics add a masterwork unlocked by kills */
 export const catalysts = (
   item: DimItem,
   account: Catalyst | undefined,
@@ -406,8 +400,9 @@ export const catalysts = (
       if (
         seen.has(def.hash) ||
         !isCatalyst(def) ||
-        def.itemType === DUMMY ||
-        def.plug?.plugCategoryHash === EMPTY_EXOTIC_MASTERWORK ||
+        def.itemType === DestinyItemType.Dummy ||
+        def.plug?.plugCategoryHash ===
+          PlugCategoryHashes.V400EmptyExoticMasterwork ||
         !def.displayProperties.name
       ) {
         return false;
@@ -447,12 +442,10 @@ export const catalysts = (
       return {
         hash: def.hash,
         name: def.displayProperties.name,
-        icon: def.displayProperties.hasIcon
-          ? def.displayProperties.icon
-          : undefined,
+        icon: iconOf(def.displayProperties),
         lines: catalystLines(def),
         stats,
-        state: stateOf(account, objectives),
+        state: catalystState(account, objectives),
         objectives,
         inserted: item.id !== "0" && socket.plugged?.plugDef.hash === def.hash,
       };

@@ -1,4 +1,4 @@
-// The store factory imports emblem placeholders, which the bundler turns into URLs
+// DIM's store factory imports emblem placeholders as URLs
 declare module "images/*" {
   const url: string;
   export default url;

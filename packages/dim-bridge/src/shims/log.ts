@@ -2,8 +2,7 @@ type Collector = (tag: string, message: unknown, error: Error) => void;
 
 let collector: Collector | undefined = undefined;
 
-// processItems swallows a failed item rather than throwing, so this is the only place a
-// skipped item is observable
+// processItems swallows failed items. Only way to observe a skip
 export const collectErrors = (next: Collector | undefined): void => {
   collector = next;
 };

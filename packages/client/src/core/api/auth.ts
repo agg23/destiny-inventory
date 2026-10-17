@@ -1,3 +1,5 @@
+import { readStored, writeStored } from "../storage.ts";
+import { MINUTE } from "../time.ts";
 import { loadConfig } from "./config.ts";
 
 const AUTHORIZE = "https://www.bungie.net/en/OAuth/Authorize";
@@ -9,7 +11,14 @@ const DEV_FORWARD = "dvm.devForward";
 // Dev has no HTTPS origin of its own
 const DEV_ORIGIN = "http://localhost:5183";
 
-const SKEW_MS = 60_000;
+const SKEW_MS = MINUTE;
+
+export class NotSignedIn extends Error {
+  constructor() {
+    super("Not signed in");
+    this.name = "NotSignedIn";
+  }
+}
 
 interface Tokens {
   accessToken: string;
@@ -27,11 +36,8 @@ interface TokenResponse {
   session?: string;
 }
 
-const read = (): Tokens | undefined => {
-  const raw = localStorage.getItem(TOKENS);
-
-  return raw ? (JSON.parse(raw) as Tokens) : undefined;
-};
+const read = (): Tokens | undefined =>
+  readStored(TOKENS) as Tokens | undefined;
 
 const write = (response: TokenResponse): Tokens => {
   const now = Date.now();
@@ -46,7 +52,7 @@ const write = (response: TokenResponse): Tokens => {
     session: response.session,
   };
 
-  localStorage.setItem(TOKENS, JSON.stringify(tokens));
+  writeStored(TOKENS, tokens);
 
   return tokens;
 };
@@ -104,28 +110,29 @@ export const beginLogin = async () => {
   location.assign(url.toString());
 };
 
-/** Forces a fresh session token, for when the service rejects the held one */
-export const renewSession = async (): Promise<string | undefined> => {
-  const tokens = read();
-
+const renew = async (
+  tokens: Tokens | undefined,
+): Promise<Tokens | undefined> => {
   if (!tokens?.refreshToken || (tokens.refreshExpires ?? 0) < Date.now()) {
     return undefined;
   }
 
   return write(
     await post("/api/auth/refresh", { refreshToken: tokens.refreshToken }),
-  ).session;
+  );
 };
 
-/** Signed proof of identity for our own endpoints, minted alongside the Bungie tokens */
-export const sessionToken = async (): Promise<string | undefined> => {
+const renewSession = async (): Promise<string | undefined> =>
+  (await renew(read()))?.session;
+
+const sessionToken = async (): Promise<string | undefined> => {
   const tokens = read();
 
   if (!tokens) {
     return undefined;
   }
 
-  // Sessions landed after tokens did, so a sign in from before this has to refresh once
+  // Sign ins from before sessions existed have none
   return tokens.session ?? (await renewSession());
 };
 
@@ -171,15 +178,26 @@ export const accessToken = async (): Promise<string | undefined> => {
     return tokens.accessToken;
   }
 
-  if (!tokens.refreshToken || (tokens.refreshExpires ?? 0) < Date.now()) {
+  const renewed = await renew(tokens);
+
+  if (!renewed) {
     signOut();
 
     return undefined;
   }
 
-  return write(
-    await post("/api/auth/refresh", { refreshToken: tokens.refreshToken }),
-  ).accessToken;
+  return renewed.accessToken;
+};
+
+/** The access token, or throws NotSignedIn */
+export const requireToken = async (): Promise<string> => {
+  const token = await accessToken();
+
+  if (!token) {
+    throw new NotSignedIn();
+  }
+
+  return token;
 };
 
 // True when this load only starts a dev sign in

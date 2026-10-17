@@ -8,6 +8,8 @@ import { VendorItemStatus } from "bungie-api-ts/destiny2";
 import type { SlimVendor } from "@dvm/defs-core";
 
 import { defs } from "../profile/defs.ts";
+import { VARIABLE } from "../text.ts";
+import { objectiveTotals } from "./challenges.ts";
 import { nextWeekendReset, nextWeeklyReset, xurPresent } from "./reset.ts";
 import type {
   Cost,
@@ -27,13 +29,13 @@ import {
   WATCHED,
 } from "./watched.ts";
 
-// The shipped vendor is narrower than the shape DIM's manifest type describes
+// Shipped vendor defs are trimmed from DIM's type
 const vendorDef = (hash: number): SlimVendor | undefined =>
   defs()?.Vendor.getOptional(hash) as SlimVendor | undefined;
 
 const DISPLAY_ONLY = VendorItemStatus.DisplayOnly;
 
-/** Xur's own nextRefreshDate is his next arrival, not the end of the visit you are in */
+/** End of Xur's visit, his nextRefreshDate is his next arrival */
 export const visitEndsAt = (now: number): number =>
   xurPresent(now) ? nextWeeklyReset(now) : nextWeekendReset(now);
 
@@ -70,9 +72,6 @@ const costOf = (
     ];
   });
 
-const VARIABLE = /\{var:(\d+)\}/g;
-
-// The profile groups sale indexes by category, and only the definition names them
 const categorySales = (
   response: DestinyVendorsResponse,
   vendor: number,
@@ -120,7 +119,7 @@ const slotsOf = (
         return [];
       }
 
-      // The heading spells its own allowance out, as remaining over allowed
+      // Heading reads remaining/allowed
       const [remaining, allowed] = [...named.name.matchAll(VARIABLE)].map(
         (match) => variables[Number(match[1])] ?? 0,
       );
@@ -196,7 +195,7 @@ const rotationRows = (
           return [
             {
               vendor: rotator,
-              // Dummy stock never ships, so its tile comes from the real item
+              // Dummy items aren't shipped
               itemHash: items[sale.itemHash]?.standIn ?? sale.itemHash,
               vendorItemIndex: sale.vendorItemIndex,
               cost: {
@@ -214,27 +213,47 @@ const rotationRows = (
     )
     .filter((row) => row.length > 0);
 
-const heldOffer = (item: DimItem): Offer => {
-  const steps = item.objectives ?? [];
-  const progress = steps.reduce((sum, step) => sum + (step.progress ?? 0), 0);
-  const goal = steps.reduce((sum, step) => sum + step.completionValue, 0);
-  const expires = item.pursuit?.expiration?.expirationDate;
+const saleOffer = (
+  sale: DestinyVendorSaleItemComponent,
+  item: { name: string; icon: string | undefined },
+  items: VendorItems,
+  def: SlimVendor,
+): Offer => ({
+  index: sale.vendorItemIndex,
+  itemHash: sale.itemHash,
+  name: item.name,
+  icon: item.icon,
+  quantity: sale.quantity,
+  costs: costOf(sale, items),
+  available: sale.saleStatus === VendorItemStatus.Success,
+  reasons: reasonsOf(sale, def),
+  pursuit: undefined,
+});
 
-  return {
-    index: item.hash,
-    itemHash: item.hash,
-    name: item.name,
-    icon: item.icon,
-    quantity: 1,
-    costs: [],
-    available: false,
-    reasons: [],
-    pursuit: {
-      kind: "held",
-      progress: `${progress.toLocaleString()}/${goal.toLocaleString()}`,
-      expiresAt: expires === undefined ? undefined : expires.getTime(),
-    },
-  };
+const placeholderOffer = (
+  hash: number,
+  item: { name: string; icon: string | undefined },
+  pursuit: Offer["pursuit"],
+): Offer => ({
+  index: hash,
+  itemHash: hash,
+  name: item.name,
+  icon: item.icon,
+  quantity: 1,
+  costs: [],
+  available: false,
+  reasons: [],
+  pursuit,
+});
+
+const heldOffer = (item: DimItem): Offer => {
+  const { progress, goal } = objectiveTotals(item.objectives ?? []);
+
+  return placeholderOffer(item.hash, item, {
+    kind: "held",
+    progress: `${progress.toLocaleString()}/${goal.toLocaleString()}`,
+    expiresAt: item.pursuit?.expiration?.expirationDate?.getTime(),
+  });
 };
 
 export const readVendors = (
@@ -267,8 +286,9 @@ export const readVendors = (
       rows: [],
     };
 
-    // The visit countdown is a clock reading, so the caller derives it and this stays stable
-    if (mode === "visit") {
+    // Caller computes the countdown to keep this stable
+    // The rotation API says Tuesday, but the stock changes at the daily reset
+    if (mode === "visit" || mode === "rotation") {
       return [
         {
           ...shell,
@@ -289,17 +309,6 @@ export const readVendors = (
           ...shell,
           refreshesAt,
           slots: slotsOf(def, response, vendor, variables),
-        },
-      ];
-    }
-
-    if (mode === "rotation") {
-      // The API says Tuesday, but the stock changes at the daily reset
-      return [
-        {
-          ...shell,
-          refreshesAt: undefined,
-          rows: rotationRows(response, items, watch, ornaments),
         },
       ];
     }
@@ -327,20 +336,7 @@ export const readVendors = (
         return [];
       }
 
-      return [
-        {
-          index: sale.vendorItemIndex,
-          itemHash: sale.itemHash,
-          name: item.name,
-          icon: item.icon,
-          quantity: sale.quantity,
-          costs: costOf(sale, items),
-          available: sale.saleStatus === VendorItemStatus.Success,
-          // The profile returns indices into the vendor's own refusal strings
-          reasons: reasonsOf(sale, def),
-          pursuit: undefined,
-        },
-      ];
+      return [saleOffer(sale, item, items, def)];
     });
 
     // A costless row is a subscreen the vendor opens, or a rank-track reward
@@ -393,19 +389,7 @@ export const readVendors = (
           }
 
           // Neither sold nor held, probably turned in this week
-          return [
-            {
-              index: hash,
-              itemHash: hash,
-              name: item.name,
-              icon: item.icon,
-              quantity: 1,
-              costs: [],
-              available: false,
-              reasons: [],
-              pursuit: { kind: "completed" },
-            },
-          ];
+          return [placeholderOffer(hash, item, { kind: "completed" })];
         }),
       },
     ];
@@ -440,15 +424,7 @@ export const priorityOffers = (
 
       found.push({
         vendor: def.displayProperties.name,
-        index: sale.vendorItemIndex,
-        itemHash: sale.itemHash,
-        name: item.name,
-        icon: item.icon,
-        quantity: sale.quantity,
-        costs: costOf(sale, items),
-        available: sale.saleStatus === VendorItemStatus.Success,
-        reasons: reasonsOf(sale, def),
-        pursuit: undefined,
+        ...saleOffer(sale, item, items, def),
       });
     }
   }

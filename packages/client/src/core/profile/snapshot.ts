@@ -1,24 +1,15 @@
 import type { InventoryBuckets } from "app/inventory/inventory-buckets";
-import type { DimStore } from "app/inventory/store-types";
+import { pick } from "es-toolkit";
+
+import type { ArtifactIndex } from "@dvm/service";
 
 import { storedMembership, type Membership } from "../api/bungie.ts";
-import type { ArtifactIndex } from "../api/config.ts";
-import {
-  loadRolls,
-  primeRolls,
-  readCachedRolls,
-  type CachedSheets,
-} from "../items/rolls.ts";
-import type {
-  CharacterActivities,
-  CharacterRecords,
-  OrderRewards,
-  LoadResult,
-  StringVariables,
-} from "./loadTypes.ts";
+import { loadRolls, primeRolls, readCachedRolls } from "../items/rollSheets.ts";
+import type { CachedSheets } from "../items/rollTypes.ts";
+import type { LoadResult } from "./loadTypes.ts";
 import { seedInventory } from "./moves.ts";
 import { openStore, PROFILE, type DefStore } from "./store.ts";
-import { storeItems, type Failure } from "./stores.ts";
+import { storeItems } from "./stores.ts";
 
 const PRIME_CAP = 400;
 
@@ -37,22 +28,24 @@ declare global {
 
 const BUILT = "built";
 
-// Built stores saved whole, so the next boot paints without building anything
-interface Snapshot {
+const SAVED = [
+  "tier",
+  "stores",
+  "counts",
+  "skipped",
+  "degraded",
+  "playing",
+  "activities",
+  "variables",
+  "records",
+  "orderRewards",
+] as const;
+
+interface Snapshot extends Pick<LoadResult, (typeof SAVED)[number]> {
   stamp: string;
   index: ArtifactIndex;
   minted: number;
-  tier: "core" | "detail";
-  stores: DimStore[];
   buckets: Omit<InventoryBuckets, "setHasUnknown">;
-  counts: LoadResult["counts"];
-  skipped: Failure[];
-  degraded: Failure[];
-  playing: string | undefined;
-  activities: CharacterActivities;
-  variables: StringVariables;
-  records: CharacterRecords;
-  orderRewards: OrderRewards;
 }
 
 const hydrate = (
@@ -66,7 +59,7 @@ const hydrate = (
     return undefined;
   }
 
-  // Matching cached sheets are in the first render; otherwise they render when fetched
+  // Cached sheets make the first render if they match
   primeRolls(rolls, snapshot.index);
   loadRolls(snapshot.index, store).catch((e: unknown) => {
     console.warn("Rolls failed", e);
@@ -79,11 +72,7 @@ const hydrate = (
   return fromSnapshot(snapshot, store, membership);
 };
 
-/**
- * Snapshot read for before the first render, so the data is there when the app mounts.
- * Prefers the read the inline script started at HTML parse; capped so a slow database
- * delays startup by at most PRIME_CAP
- */
+/** Snapshot load before first render, reusing the index.html read and capped at PRIME_CAP */
 export const primeBoot = async (): Promise<LoadResult | undefined> => {
   const membership = storedMembership();
 
@@ -120,11 +109,7 @@ export const primeBoot = async (): Promise<LoadResult | undefined> => {
   return Promise.race([read, cap]);
 };
 
-/**
- * Paints the last saved build without touching the network: validates the snapshot against
- * the locally stored manifest stamp, seeds the move engine behind the paint, and hands back
- * a LoadResult, or undefined when there is nothing usable to show
- */
+/** Paints the last saved build without the network, or undefined if nothing usable */
 export const bootFromSnapshot = async (
   store: DefStore,
   membership: Membership | undefined,
@@ -151,20 +136,11 @@ export const saveSnapshot = (
   const { setHasUnknown, ...buckets } = result.buckets;
 
   const snapshot: Snapshot = {
+    ...pick(result, SAVED),
     stamp: stampValue,
     index: result.session.index,
     minted: result.session.minted,
-    tier: result.tier,
-    stores: result.stores,
     buckets,
-    counts: result.counts,
-    skipped: result.skipped,
-    degraded: result.degraded,
-    playing: result.playing,
-    activities: result.activities,
-    variables: result.variables,
-    records: result.records,
-    orderRewards: result.orderRewards,
   };
 
   // Losing the snapshot only costs paint speed
@@ -178,20 +154,13 @@ const fromSnapshot = (
   store: DefStore,
   membership: Membership,
 ): LoadResult => ({
-  stores: snapshot.stores,
+  ...pick(snapshot, SAVED),
   buckets: { ...snapshot.buckets, setHasUnknown: () => {} },
   items: storeItems(snapshot.stores),
   manifestVersion: snapshot.index.manifestVersion,
-  tier: snapshot.tier,
   source: "cache",
-  counts: snapshot.counts,
-  skipped: snapshot.skipped,
-  degraded: snapshot.degraded,
-  playing: snapshot.playing,
-  activities: snapshot.activities,
   records: snapshot.records ?? {},
   orderRewards: snapshot.orderRewards ?? {},
-  variables: snapshot.variables,
   // Empty defs until the live pass fills them in
   session: {
     store,

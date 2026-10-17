@@ -10,7 +10,6 @@ import {
 
 import { Compare } from "../../components/Compare.tsx";
 import { Button } from "../../components/lib/zaidan/button.tsx";
-import { useApp } from "../../core/app/state.ts";
 import { tagFor } from "../../core/items/tags.ts";
 import { useUrl } from "../../core/router.ts";
 import { bundlesOf, taggedIds, type Bundle } from "./triage.ts";
@@ -24,10 +23,9 @@ interface Props {
 }
 
 export const TriageCompare = (props: Props) => {
-  const app = useApp();
   const url = useUrl();
 
-  // Captured on arrival so retagging inside the comparison cannot empty the table
+  // Retagging would otherwise empty the table
   const [membership, setMembership] = createSignal<ReadonlySet<string>>(
     new Set(),
   );
@@ -39,7 +37,7 @@ export const TriageCompare = (props: Props) => {
     ),
   );
 
-  // Stores and tags both land after this mounts, and a refresh empties the stores between
+  // Grow only - a refresh empties the stores mid-way
   createEffect(() => {
     const browsed = taggedIds(props.pool, url.get("tag"));
 
@@ -61,10 +59,8 @@ export const TriageCompare = (props: Props) => {
     return held.find((one) => one.hash === wanted) ?? held[0];
   };
 
-  // Anything not carrying the tag you are working through is being spared
   const kept = (item: DimItem) => tagFor(item.id)?.id !== url.get("tag");
 
-  // Sparing something already in the keep pile promotes it instead
   const sparedTag = () => (url.get("tag") === KEPT ? "favorite" : KEPT);
 
   const onKeep = (item: DimItem, keep: boolean) =>
@@ -107,14 +103,9 @@ export const TriageCompare = (props: Props) => {
           {(held) => (
             <Compare
               items={held().items}
-              stores={app.stores()}
-              active={app.active()}
-              onMove={app.onMove}
-              onPrefer={app.onCharacter}
               kept={kept}
               onKeep={onKeep}
               minColumn="220px"
-              moving={app.moving()}
             />
           )}
         </Show>

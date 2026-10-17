@@ -112,7 +112,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
 
   const [moved, setMoved] = createSignal<DimStore[] | undefined>(undefined);
 
-  // The engine mutates its own stores, and it is never seeded with a guest
+  // The move engine mutates its own stores and never holds a guest
   const stores = () =>
     (session.viewing()
       ? session.current()?.stores
@@ -126,7 +126,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
 
   const entrySearch = createEntrySearch(session.current, stores, url, navigate);
 
-  // Only item tabs run the item filter, so a stale ?q= cannot skew the counts on another tab
+  // A stale ?q= skews counts on other tabs
   const itemQuery = () => (filtersItems() ? query.typed() : "");
   const { matched, shown } = createMatched(
     stores,
@@ -177,7 +177,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     onSelectMany: selection.selectMany,
     onUnpin: selection.unpin,
     onClearSelection: selection.unpinAll,
-    // The rival leads so the drop's column carries the deltas
+    // Rival first puts the deltas on the drop's column
     onCompare: (item, rival) => url.push({ pin: [rival.id, item.id] }),
     onMove: moves.onMove,
     onCollect: (items, target) =>

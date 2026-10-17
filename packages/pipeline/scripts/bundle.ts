@@ -1,9 +1,9 @@
 import { build } from "esbuild";
 
+import { REPO_ROOT } from "@dvm/build";
+
 import { DIM_GLOBALS } from "../../dim-bridge/build-globals.ts";
 import { dimShimsPlugin } from "../../dim-bridge/dim-shims.ts";
-
-const REPO_ROOT = new URL("../../../", import.meta.url).pathname;
 
 const COUPLED = /node_modules\/(react|react-dom|react-redux|redux|redux-thunk|@reduxjs)\//;
 

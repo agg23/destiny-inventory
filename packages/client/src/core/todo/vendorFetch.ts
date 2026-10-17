@@ -1,8 +1,11 @@
+import { keyBy } from "es-toolkit";
+
 import type { SlimVendorItem } from "@dvm/defs-core";
 
 import { fetchRecords } from "../api/artifacts.ts";
 import { accessToken } from "../api/auth.ts";
 import { fetchVendor, fetchVendors, type Membership } from "../api/bungie.ts";
+import { cached } from "../api/cache.ts";
 import { loadConfig } from "../api/config.ts";
 import type {
   VendorComponents,
@@ -11,30 +14,15 @@ import type {
 } from "./vendorTypes.ts";
 import { ARMOR_ORNAMENTS, WATCHED } from "./watched.ts";
 
-let pending: Promise<VendorItems> | undefined = undefined;
+// Reads the served index, a snapshot boot carries an older one
+export const vendorItems = cached(async (): Promise<VendorItems> => {
+  const { artifacts } = await loadConfig();
+  const rows = await fetchRecords<SlimVendorItem>(artifacts, "VendorItem");
 
-/**
- * Vendor stock is dummy items, shipped separately from the vault's own definitions.
- * Reads the served index, since a boot from snapshot carries an older one.
- */
-export const vendorItems = (): Promise<VendorItems> => {
-  pending ??= (async () => {
-    const { artifacts } = await loadConfig();
-    const rows = await fetchRecords<SlimVendorItem>(artifacts, "VendorItem");
-    const byHash: VendorItems = {};
+  return keyBy(rows, (row) => row.hash);
+});
 
-    for (const row of rows) {
-      byHash[row.hash] = row;
-    }
-
-    return byHash;
-  })();
-
-  return pending;
-};
-
-/** Vendors whose stock we draw as item tiles, so their rolls have to be fetched */
-export const TILED: number[] = WATCHED.flatMap((watch) => {
+const TILED: number[] = WATCHED.flatMap((watch) => {
   if (watch.mode === "claims") {
     return [watch.vendor];
   }
@@ -105,29 +93,4 @@ export const fetchVendorState = async (
   held = fetched;
 
   return fetched;
-};
-
-/** Plugs the vendors' rolls name, for the on-demand def pull */
-export const vendorPlugHashes = (components: VendorComponents): number[] => {
-  const hashes: number[] = [];
-
-  for (const set of Object.values(components)) {
-    for (const sale of Object.values(set.sockets?.data ?? {})) {
-      for (const socket of sale.sockets) {
-        if (socket.plugHash !== undefined) {
-          hashes.push(socket.plugHash);
-        }
-      }
-    }
-
-    for (const sale of Object.values(set.reusablePlugs?.data ?? {})) {
-      for (const plugs of Object.values(sale.plugs)) {
-        for (const plug of plugs) {
-          hashes.push(plug.plugItemHash);
-        }
-      }
-    }
-  }
-
-  return hashes;
 };

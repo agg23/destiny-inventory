@@ -1,10 +1,10 @@
 import { For } from "solid-js";
 
+import { GroupRow } from "../../components/GroupRow.tsx";
 import { TABLE_FRAME, TABLE_HEADER } from "../../components/lib/text.ts";
 import {
   Table,
   TableBody,
-  TableCell,
   TableHead,
   TableHeader,
   TableRow,
@@ -49,18 +49,12 @@ export const RunTable = (props: TableProps) => (
         <For each={props.sections}>
           {(section) => (
             <>
-              <TableRow class="bg-muted/30 hover:bg-transparent">
-                <TableCell colSpan={COLUMNS.length} class="py-1.5">
-                  <span class="flex items-baseline gap-2 text-xs">
-                    <span class="font-medium text-foreground">
-                      {section.name}
-                    </span>
-                    <span class="tabular-nums text-muted-foreground">
-                      {section.entries.length}
-                    </span>
-                  </span>
-                </TableCell>
-              </TableRow>
+              <GroupRow
+                colSpan={COLUMNS.length}
+                class="hover:bg-transparent"
+                title={section.name}
+                note={section.entries.length}
+              />
               <For each={section.entries}>
                 {(entry) => <Row data={props.data} entry={entry} />}
               </For>

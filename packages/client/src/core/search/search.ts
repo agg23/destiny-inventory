@@ -24,26 +24,28 @@ import wishlistFilters from "app/search/items/search-filters/wishlist";
 import statFilters from "app/search/items/search-filters/stats";
 import locationFilters from "app/search/items/search-filters/stores";
 import { autocompleteTermSuggestions } from "app/search/autocomplete";
-
-import { makeComplete } from "./complete.ts";
-import { indexKeywords, keywordFilter } from "./keyword.ts";
-import {
-  assess,
-  ratingFor,
-  rollFor,
-  rollsByHash,
-  setRatings,
-  type Mode,
-} from "../items/rolls.ts";
-import { ITEM_SEARCHES } from "./searches.ts";
-import { tagDefs, tagFor } from "../items/tags.ts";
 import { buildFiltersMap, buildSearchConfig } from "app/search/search-config";
 import {
   makeSearchFilterFactory,
   parseAndValidateQuery,
 } from "app/search/search-filter";
 
-const RATINGS = ["s", "a", "b", "c", "d", "e", "f"];
+import { TIERS } from "@dvm/defs-core";
+
+import {
+  assess,
+  ratingFor,
+  rollFor,
+  rollsByHash,
+  setRatings,
+} from "../items/rolls.ts";
+import { MODES, type Mode } from "../items/rollTypes.ts";
+import { tagDefs, tagFor } from "../items/tags.ts";
+import { makeComplete } from "./complete.ts";
+import { indexKeywords, keywordFilter } from "./keyword.ts";
+import { ITEM_SEARCHES } from "./searches.ts";
+
+const RATINGS = TIERS.map((tier) => tier.toLowerCase());
 
 const PIECES: Record<string, number> = { "2pc": 2, "4pc": 4 };
 
@@ -70,54 +72,54 @@ const SHEET_NAMES: Record<Mode, string> = { pve: "Aegis", pvp: "PvP sheet" };
 
 const KEYWORD_PREFIXES: Record<Mode, string> = { pve: "", pvp: "pvp" };
 
-// DIM's tier: is a range over Destiny's own gear tiers, so the sheet rating takes its own keyword
-const ratingFilters: ItemFilterDefinition[] = (["pve", "pvp"] as const).flatMap(
+const ratingFilter = (
+  keywords: string[],
+  description: string,
+  suggestions: string[],
+  test: (item: DimItem, wanted: string) => boolean,
+): ItemFilterDefinition => ({
+  keywords,
+  description,
+  format: "query",
+  suggestions,
+  destinyVersion: 2,
+  filter: ({ filterValue }) => {
+    const wanted = filterValue.toLowerCase();
+
+    return (item) => test(item, wanted);
+  },
+});
+
+// DIM's tier: already means Destiny's gear tier
+const ratingFilters: ItemFilterDefinition[] = MODES.flatMap(
   (mode): ItemFilterDefinition[] => {
     const prefix = KEYWORD_PREFIXES[mode];
     const sheetName = SHEET_NAMES[mode];
 
     return [
-      {
-        keywords: [`${prefix}rate`, `${prefix}rating`],
-        description: `${sheetName} rating for the roll, the weapon's tier stepped down for each perk column that missed, or either of an armor set's bonuses`,
-        format: "query",
-        suggestions: RATINGS,
-        destinyVersion: 2,
-        filter: ({ filterValue }) => {
-          const wanted = filterValue.toLowerCase();
-
-          return (item) =>
-            assess(item, mode)?.overall?.toLowerCase() === wanted ||
-            setRated(item, wanted, mode);
-        },
-      },
-      {
-        keywords: [`${prefix}ratebase`, `${prefix}ratingbase`],
-        description: `${sheetName} rating for the weapon itself, whatever this one rolled. Armor rates the same either way`,
-        format: "query",
-        suggestions: RATINGS,
-        destinyVersion: 2,
-        filter: ({ filterValue }) => {
-          const wanted = filterValue.toLowerCase();
-
-          return (item) =>
-            ratingFor(item.hash, mode)?.tier?.toLowerCase() === wanted ||
-            setRated(item, wanted, mode);
-        },
-      },
-      {
-        // The query lexer only takes letters before the colon, so the size is an argument
-        keywords: [`${prefix}setbonus`],
-        description: `${sheetName} rating for an armor set bonus, either of them or ${prefix}setbonus:2pc: and ${prefix}setbonus:4pc: for one`,
-        format: "query",
-        suggestions: SET_SUGGESTIONS,
-        destinyVersion: 2,
-        filter: ({ filterValue }) => {
-          const wanted = filterValue.toLowerCase();
-
-          return (item) => setRated(item, wanted, mode);
-        },
-      },
+      ratingFilter(
+        [`${prefix}rate`, `${prefix}rating`],
+        `${sheetName} rating for the roll, the weapon's tier stepped down for each perk column that missed, or either of an armor set's bonuses`,
+        RATINGS,
+        (item, wanted) =>
+          assess(item, mode)?.overall?.toLowerCase() === wanted ||
+          setRated(item, wanted, mode),
+      ),
+      ratingFilter(
+        [`${prefix}ratebase`, `${prefix}ratingbase`],
+        `${sheetName} rating for the weapon itself, whatever this one rolled. Armor rates the same either way`,
+        RATINGS,
+        (item, wanted) =>
+          ratingFor(item.hash, mode)?.tier?.toLowerCase() === wanted ||
+          setRated(item, wanted, mode),
+      ),
+      ratingFilter(
+        // The lexer only allows letters before the colon
+        [`${prefix}setbonus`],
+        `${sheetName} rating for an armor set bonus, either of them or ${prefix}setbonus:2pc: and ${prefix}setbonus:4pc: for one`,
+        SET_SUGGESTIONS,
+        (item, wanted) => setRated(item, wanted, mode),
+      ),
     ];
   },
 );
@@ -137,8 +139,7 @@ const tagFilters: ItemFilterDefinition[] = [
   },
 ];
 
-// Notes and loadouts would arrive with DIM Sync, so those filter sets are left out
-// and their keywords read as unknown instead of matching nothing
+// Notes and loadout filters need DIM Sync; left out to make their keywords unknown
 const FILTERS = [
   ...dupeFilters,
   ...freeformFilters.filter((one) => one.keywords !== keywordFilter.keywords),
@@ -160,13 +161,12 @@ const FILTERS_MAP = buildFiltersMap(2, FILTERS);
 
 const CONFIG = buildSearchConfig("en", {}, FILTERS_MAP);
 
-// A quest's reward items sit outside the closure we ship, and the freeform filters read
-// strings straight off the result of a lookup
+// Quest rewards are outside the shipped closure; freeform filters read strings off the lookup
 const MISSING = {
   displayProperties: { name: "", description: "" },
 } as unknown as never;
 
-// DIM's tables answer a miss with undefined; ours throw, which the filters never expect
+// DIM's tables return undefined on a miss; ours throw
 const lenient = (definitions: D2ManifestDefinitions): D2ManifestDefinitions => {
   const tables = Object.entries(definitions).map(([name, table]) => {
     if (typeof table !== "object" || !("getOptional" in table)) {
@@ -210,8 +210,7 @@ interface Completer {
 
 let suggesting: Completer | undefined = undefined;
 
-// Item and perk name suggestions are generated from the whole manifest, so this is built once
-// per set of stores rather than per keystroke
+// Name suggestions walk the whole manifest; cache per stores
 const completer = (
   stores: DimStore[],
   definitions: D2ManifestDefinitions | undefined,
@@ -233,9 +232,7 @@ const completer = (
   return suggesting;
 };
 
-/**
- * Build the keyword index before first reference
- */
+/** Builds the keyword index ahead of the first search */
 export const primeSearch = (
   stores: DimStore[],
   definitions: D2ManifestDefinitions | undefined,
@@ -246,17 +243,46 @@ export const primeSearch = (
     "en",
   );
 
-export const searchConfig = (
-  stores: DimStore[],
-  definitions: D2ManifestDefinitions | undefined,
-): ItemSearchConfig => completer(stores, definitions).config;
-
 export interface Suggestion {
   query: string;
   help: string | undefined;
-  /** The characters of the suggested query that complete what was typed */
+  /** Span of the suggestion that completes what was typed */
   range: [number, number];
 }
+
+/** DIM's autocomplete rows for a query, minus any without a span to complete */
+export const autocompleteRows = (
+  query: string,
+  caret: number,
+  complete: (term: string) => string[],
+  config: ItemSearchConfig,
+): Suggestion[] =>
+  autocompleteTermSuggestions(query, caret, complete, config).flatMap((item) =>
+    item.highlightRange === undefined
+      ? []
+      : [
+          {
+            query: item.query.fullText,
+            help: item.query.helpText,
+            range: item.highlightRange.range,
+          },
+        ],
+  );
+
+/** Top suggestion if it extends the query, undefined once the query parses */
+export const topCompletion = (
+  query: string,
+  valid: (query: string) => boolean,
+  suggest: () => Suggestion[],
+): string | undefined => {
+  if (query === "" || valid(query)) {
+    return undefined;
+  }
+
+  const [first] = suggest();
+
+  return first?.query.startsWith(query) ? first.query : undefined;
+};
 
 interface Suggested {
   query: string;
@@ -266,7 +292,7 @@ interface Suggested {
   rows: Suggestion[];
 }
 
-// The ghost, the menu and the filter all ask for the same query, so the last answer is kept
+// Ghost, menu, and filter all ask for the same query
 let suggested: Suggested | undefined = undefined;
 
 /** Autocomplete rows for a partially typed query, in DIM's own ordering */
@@ -288,22 +314,7 @@ export const suggest = (
 
   const { config, complete } = completer(stores, definitions);
 
-  const rows = autocompleteTermSuggestions(
-    query,
-    caret,
-    complete,
-    config,
-  ).flatMap((item) =>
-    item.highlightRange === undefined
-      ? []
-      : [
-          {
-            query: item.query.fullText,
-            help: item.query.helpText,
-            range: item.highlightRange.range,
-          },
-        ],
-  );
+  const rows = autocompleteRows(query, caret, complete, config);
 
   suggested = { query, caret, stores, definitions, rows };
 
@@ -312,9 +323,7 @@ export const suggest = (
 
 let validated: { query: string; result: boolean } | undefined = undefined;
 
-// A query is invalid until its last term is finished, so the term being typed is dropped
-// instead of emptying the results
-/** Whether every term in a query names a filter we carry and parses */
+/** Whether every term in a query names a known filter and parses */
 export const valid = (query: string): boolean => {
   if (validated !== undefined && validated.query === query) {
     return validated.result;
@@ -327,26 +336,16 @@ export const valid = (query: string): boolean => {
   return result;
 };
 
-/**
- * The completion that stands in for an unfinished query. A query that is already valid gets none,
- * so `is:dupe` never quietly becomes `is:dupelower`
- */
+/** Top completion for an unfinished query, undefined if it already parses (is:dupe vs is:dupelower) */
 export const completion = (
   query: string,
   caret: number,
   stores: DimStore[],
   definitions: D2ManifestDefinitions | undefined,
-): string | undefined => {
-  if (query === "" || valid(query)) {
-    return undefined;
-  }
+): string | undefined =>
+  topCompletion(query, valid, () => suggest(query, caret, stores, definitions));
 
-  const [first] = suggest(query, caret, stores, definitions);
-
-  return first?.query.startsWith(query) ? first.query : undefined;
-};
-
-/** Compile a DIM search query into a predicate over items. An unfinished term is completed */
+/** Compiles a DIM search query into an item predicate, completing an unfinished term */
 export const itemFilter = (
   query: string,
   stores: DimStore[],
@@ -372,18 +371,17 @@ export const itemFilter = (
     d2Definitions: searchable(definitions),
   };
 
-  // A term nothing can complete is a typo, and dropping it would quietly widen the search
+  // Keep an uncompletable typo; dropping it widens the search
   const applied = completion(query, query.length, stores, definitions) ?? query;
 
   return makeSearchFilterFactory(CONFIG, context)(applied);
 };
 
-/** What the search field needs from whatever it searches */
 export interface SearchEngine {
   suggest: (query: string, caret: number) => Suggestion[];
   completion: (query: string, caret: number) => string | undefined;
   valid: (query: string) => boolean;
-  /** Where this search keeps its recent queries */
+  /** Storage key for recent queries */
   recents: string;
 }
 

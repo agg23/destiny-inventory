@@ -4,16 +4,17 @@ import { createMemo, createResource } from "solid-js";
 import { useApp } from "../../core/app/state.ts";
 import {
   definedSession,
+  entryForHash,
   primeCollections,
 } from "../../core/collections/collections.ts";
 import {
   acquiredFor,
-  catalystFor,
   copiesByKey,
-  ownershipOf,
+  entryFacts,
+  isCollected,
+  lastPlayedClass,
 } from "../../core/collections/ownership.ts";
 import type {
-  Catalyst,
   Cosmetic,
   Entry,
   Ownership,
@@ -45,16 +46,37 @@ export const useCollectionData = () => {
   const copiesOf = (entry: Entry | Cosmetic): DimItem[] =>
     copies().get(entry.key) ?? [];
 
-  const ownership = (entry: Entry): Ownership | undefined =>
-    ownershipOf(entry, copies().get(entry.key), acquired.latest);
+  const { ownership, catalyst } = entryFacts(
+    copies,
+    () => acquired.latest,
+    () => app.loaded()?.records ?? {},
+  );
 
-  const catalyst = (entry: Entry | Cosmetic): Catalyst | undefined =>
-    catalystFor(entry, app.loaded()?.records ?? {});
+  const collected = (itemHash: number): boolean | undefined => {
+    // Tiles just go without the unlocked marker
+    if (index.error || acquired.error) {
+      return undefined;
+    }
 
-  const lastPlayedClass = (): number =>
-    app.stores().find((store) => store.current)?.classType ?? 0;
+    const built = index();
+    const owned = acquired();
+    const entry =
+      built === undefined ? undefined : entryForHash(built, itemHash);
 
-  return { index, acquired, copiesOf, ownership, catalyst, lastPlayedClass };
+    return owned === undefined || entry === undefined
+      ? undefined
+      : isCollected(entry, owned);
+  };
+
+  return {
+    index,
+    acquired,
+    collected,
+    copiesOf,
+    ownership,
+    catalyst,
+    lastPlayedClass: () => lastPlayedClass(app.stores()),
+  };
 };
 
 export type CollectionData = ReturnType<typeof useCollectionData>;

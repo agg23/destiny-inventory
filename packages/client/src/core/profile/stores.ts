@@ -3,9 +3,7 @@ import { buildStores } from "app/inventory/store/d2-store-factory";
 import type { InventoryBuckets } from "app/inventory/inventory-buckets";
 import type { DimStore } from "app/inventory/store-types";
 import type {
-  DestinyInventoryItemDefinition,
   DestinyItemComponent,
-  DestinyPlugSetDefinition,
   DestinyProfileResponse,
 } from "bungie-api-ts/destiny2";
 import { collectErrors } from "app/utils/log";
@@ -13,6 +11,7 @@ import { collectErrors } from "app/utils/log";
 import { buildDefinitions } from "@dvm/dim-bridge";
 
 import { setDefs } from "./defs.ts";
+import type { ItemDef, LoadResult, PlugSetDef } from "./loadTypes.ts";
 
 export interface Failure {
   reason: string;
@@ -20,7 +19,7 @@ export interface Failure {
   origin?: string;
 }
 
-export interface BuiltStores {
+interface BuiltStores {
   stores: DimStore[];
   buckets: InventoryBuckets;
   skipped: Failure[];
@@ -30,9 +29,6 @@ export interface BuiltStores {
 
 // The factory drops an item it cannot build
 const DROPPED = "Error processing item";
-
-type ItemDef = DestinyInventoryItemDefinition;
-type PlugSetDef = DestinyPlugSetDefinition;
 
 interface Withheld {
   profile: DestinyProfileResponse;
@@ -158,3 +154,23 @@ export const buildStoresFrom = (
 
 export const storeItems = (stores: DimStore[]) =>
   stores.flatMap((store) => store.items);
+
+/** The LoadResult fields a store build fills */
+export const fromBuilt = (
+  built: BuiltStores,
+  counts: Pick<LoadResult["counts"], "owned" | "defs">,
+): Pick<
+  LoadResult,
+  "stores" | "buckets" | "items" | "counts" | "skipped" | "degraded"
+> => ({
+  stores: built.stores,
+  buckets: built.buckets,
+  items: storeItems(built.stores),
+  counts: {
+    ...counts,
+    skipped: built.skipped.reduce((total, group) => total + group.count, 0),
+    hidden: built.hidden,
+  },
+  skipped: built.skipped,
+  degraded: built.degraded,
+});

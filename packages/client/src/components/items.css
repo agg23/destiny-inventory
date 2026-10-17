@@ -1,14 +1,10 @@
-/* Item tiles, the item card, rating chips and the tag control */
-
-/* destiny-ui-css's item.scss and tooltip.scss, minus what nothing uses */
+/* From destiny-ui-css's item.scss and tooltip.scss, unused rules dropped */
 @layer destiny {
   .item-tile {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     position: relative;
-    width: 4.5rem;
-    height: 4.5rem;
     background-color: #333;
     border: 2px solid rgba(255, 255, 255, 0.4);
     cursor: pointer;
@@ -50,25 +46,15 @@
     );
   }
 
-  .item-tile:hover,
-  .item-tile.selected {
-    border-color: #fff;
-  }
-
   .item-tile:hover::before,
   .item-tile.selected::before {
     content: "";
     position: absolute;
-    inset: 0;
     background-color: rgba(255, 255, 255, 0.25);
   }
 
   .item-tile .item-quantity {
     position: absolute;
-    right: 0;
-    bottom: 0;
-    padding: 0.05rem 0.25rem;
-    font-size: 0.8rem;
     font-weight: 500;
     color: #fff;
     background-color: rgba(0, 0, 0, 0.7);
@@ -149,23 +135,13 @@
     padding-top: 0.8rem;
   }
 
-  .item-tooltip .tooltip-power {
-    display: flex;
-    align-items: baseline;
-    gap: 0.6rem;
-  }
-
   .item-tooltip .tooltip-power .power-value {
-    font-size: 2.2rem;
     font-weight: 500;
-    line-height: 1;
     color: var(--d2-warning);
   }
 
   .item-tooltip .tooltip-power .power-type {
-    font-size: 0.9rem;
     font-weight: 400;
-    letter-spacing: 0.15rem;
     text-transform: uppercase;
     color: var(--d2-text);
   }
@@ -177,25 +153,23 @@
   .row .item-grid.wide {
     display: grid;
     grid-template-columns: repeat(auto-fill, var(--tile));
+    justify-content: center;
     gap: var(--space-2);
   }
 
   .row .item-grid.character {
     grid-template-columns: repeat(3, var(--tile));
-    justify-content: center;
   }
 
-  /* Remainder splits between the middle gutter and the rail */
-  .row .item-grid.wide:not(.character) {
-    justify-content: center;
-  }
-
-  /* Same empty row the character column leaves under equipped */
+  /* Matches the empty row under equipped in the character column */
   .row .item-grid.favorites:not(.hidden) + .item-grid {
     margin-top: calc(var(--tile) + var(--space-2) * 2);
   }
 
-  .row .item-grid .item-tile.small {
+  .row .item-grid .item-tile.small,
+  .triage-grid .item-tile.small,
+  .collections-grid .item-tile.small,
+  .weapon-page .item-tile.small {
     width: var(--tile);
     height: var(--tile);
   }
@@ -209,7 +183,7 @@
     justify-self: start;
   }
 
-  /* Rows size to the spanned tile without this, halving the empty row */
+  /* Without this the empty row is half height */
   .row
     .item-grid.character:has(> :nth-child(2 of :not(.hidden))):has(
       .item-tile.equipped:not(.hidden)
@@ -240,7 +214,7 @@
     --edge: 1px;
   }
 
-  /* A parent's border paints under its children, so the states ride on one of them */
+  /* A parent's border paints under its children */
   .item-tile .tile-edge {
     position: absolute;
     inset: calc(var(--edge) * -1);
@@ -249,7 +223,7 @@
     pointer-events: none;
   }
 
-  .item-tile:hover .tile-edge {
+  .item-tile:is(:hover, .menued, .hovered) .tile-edge {
     border-color: #fff;
   }
 
@@ -258,39 +232,22 @@
     --tile: 3rem;
   }
 
-  /* A nested tile is decoration; the row around it owns the hover */
+  /* Parent row handles hover */
   .item-tile.nested {
     pointer-events: none;
   }
 
-  /* Hold the hover treatment while this tile's menu is open */
-  .item-tile.menued .tile-edge {
-    border-color: #fff;
-  }
-
-  .item-tile.menued::before {
+  .item-tile:is(.menued, .hovered)::before {
     content: "";
     position: absolute;
     inset: calc(var(--edge) * -1);
     background-color: rgb(255 255 255 / 0.25);
   }
 
-  /* Badges anchor to the padding box, so the border width comes back off */
+  /* Badges anchor to the padding box */
   .item-tile::before {
     z-index: 1;
     inset: calc(var(--edge) * -1);
-  }
-
-  /* Forcibly hovered */
-  .item-tile.hovered .tile-edge {
-    border-color: #fff;
-  }
-
-  .item-tile.hovered::before {
-    content: "";
-    position: absolute;
-    inset: calc(var(--edge) * -1);
-    background-color: rgb(255 255 255 / 0.25);
   }
 
   .item-tile .item-quantity {
@@ -317,7 +274,7 @@
     filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9));
   }
 
-  /* All four tile corners already carry a badge, so tags join the icon row */
+  /* All four corners already have badges */
   .item-tile .tag-dot {
     align-self: center;
     width: calc(var(--badge) * 5 / 6);
@@ -381,8 +338,7 @@
     flex-direction: row;
   }
 
-  .tile-ratings .item-tier,
-  .item-tile .gear-tier {
+  .tile-ratings .item-tier {
     width: 17px;
     padding: 0;
     font-size: 10px;
@@ -390,9 +346,6 @@
     line-height: 1.4;
     letter-spacing: var(--track-caps);
     text-align: center;
-  }
-
-  .tile-ratings .item-tier {
     background: var(--tier);
     color: #000;
   }
@@ -402,7 +355,6 @@
     color: var(--cream);
   }
 
-  /* A set grades in two halves, so the corner carries a chip each */
   .tile-ratings .set-tier {
     display: flex;
     gap: 2px;
@@ -420,6 +372,8 @@
     top: calc(var(--edge) * -1);
     left: calc(var(--edge) * -1);
     z-index: 2;
+    width: 17px;
+    padding: 0;
   }
 
   .tooltip-header {
@@ -430,34 +384,6 @@
     flex-shrink: 0;
     margin-left: auto;
     padding: 0 var(--space-3);
-  }
-
-  .tier-s {
-    --tier: var(--tier-s);
-  }
-
-  .tier-a {
-    --tier: var(--tier-a);
-  }
-
-  .tier-b {
-    --tier: var(--tier-b);
-  }
-
-  .tier-c {
-    --tier: var(--tier-c);
-  }
-
-  .tier-d {
-    --tier: var(--tier-d);
-  }
-
-  .tier-e {
-    --tier: var(--tier-e);
-  }
-
-  .tier-f {
-    --tier: var(--tier-f);
   }
 
   .item-tile img {
@@ -496,33 +422,26 @@
     pointer-events: none;
   }
 
-  /* Held clear of the rail so the perk being read stays visible */
+  /* Keeps the hovered perk in the rail visible */
   .anchored.perk-card {
     z-index: 7;
     position-anchor: --hovered-perk;
-    position-area: none;
-    right: anchor(--rail left, var(--rail));
-    top: anchor(top);
     max-height: calc(100vh - 16px);
     overflow: hidden;
     background-color: var(--panel);
     pointer-events: none;
+  }
+
+  .anchored.perk-card:not(.beside) {
+    position-area: none;
+    right: anchor(--rail left, var(--rail));
+    top: anchor(top);
     position-try-fallbacks: --perk-bottom;
   }
 
   @position-try --perk-bottom {
     top: auto;
     bottom: 0;
-  }
-
-  .anchored.perk-card.beside {
-    position-area: inline-end span-block-end;
-    right: auto;
-    top: auto;
-    position-try-fallbacks:
-      --pin-bottom,
-      flip-inline,
-      flip-inline --pin-bottom;
   }
 
   .tooltip-body:empty {
@@ -550,7 +469,7 @@
     gap: var(--space-3);
   }
 
-  /* The framework's power figure is a showpiece; here it matches the type line */
+  /* Shrinks the framework's power figure to the type line */
   .item-tooltip .tooltip-power {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -618,28 +537,16 @@
     height: 0.875rem;
   }
 
-  /* Anchored opposite the power figure, under the header's tier badge */
   .ammo-icon {
     height: 0.75rem;
     margin-left: auto;
     opacity: 0.75;
   }
 
-  .triage-grid .item-tile.small {
-    width: var(--tile);
-    height: var(--tile);
-  }
-
-  /* The edge belongs to selection and masterwork */
+  /* .tile-edge is taken by selection and masterwork */
   .triage-grid .item-tile.pinned {
     outline: 1px solid var(--fg);
     outline-offset: 1px;
-  }
-
-  .collections-grid .item-tile.small,
-  .weapon-page .item-tile.small {
-    width: var(--tile);
-    height: var(--tile);
   }
 
   .item-tile.neverseen img {
@@ -671,7 +578,7 @@
     background: var(--light);
   }
 
-  /* New on this branch. The header clips to the rounded corners */
+  /* Clips the header to the rounded corners */
   .item-tooltip {
     border-radius: var(--radius-lg);
     overflow: hidden;

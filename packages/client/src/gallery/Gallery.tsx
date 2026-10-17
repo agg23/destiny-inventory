@@ -1,5 +1,6 @@
 import { createSignal, For, type JSX } from "solid-js";
 
+import { Heading } from "../components/Heading.tsx";
 import { Checkbox } from "../components/lib/Checkbox.tsx";
 import { cn } from "../components/lib/cn.ts";
 import { PickOne } from "../components/lib/PickOne.tsx";
@@ -11,7 +12,6 @@ import { SplitButton } from "../components/lib/SplitButton.tsx";
 import {
   CARD,
   HEADING,
-  HEADING_NOTE,
   LABEL,
   ROW,
   SPENT,
@@ -43,6 +43,7 @@ import {
   TableRow,
 } from "../components/lib/zaidan/table.tsx";
 import { Textarea } from "../components/lib/zaidan/textarea.tsx";
+import { NumCell } from "../components/NumCell.tsx";
 
 const VARIANTS = [
   "default",
@@ -356,12 +357,12 @@ export const Gallery = () => {
               </TableRow>
               <TableRow>
                 <TableCell>The Coil</TableCell>
-                <TableCell class="text-right tabular-nums">14</TableCell>
+                <NumCell>14</NumCell>
                 <TableCell>Wild Style</TableCell>
               </TableRow>
               <TableRow>
                 <TableCell>Grasp of Avarice</TableCell>
-                <TableCell class="text-right tabular-nums">3</TableCell>
+                <NumCell>3</NumCell>
                 <TableCell class={SPENT}>Gjallarhorn catalyst</TableCell>
               </TableRow>
             </TableBody>
@@ -378,10 +379,7 @@ export const Gallery = () => {
           )}
         </For>
         <Row label="heading">
-          <h3 class={`${HEADING} flex items-baseline gap-2`}>
-            Daily challenges
-            <span class={HEADING_NOTE}>4h left</span>
-          </h3>
+          <Heading as="h3" note="4h left">Daily challenges</Heading>
         </Row>
         <Row label="label">
           <span class={LABEL}>Kinetic weapons</span>

@@ -1,5 +1,3 @@
-/* shadcn's roles, bound to the Destiny palette */
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -76,7 +74,7 @@
     cursor: pointer;
   }
 
-  /* Keeps alt text from rendering while an icon loads or when it 404s */
+  /* Hides alt text while loading or on 404 */
   img {
     color: transparent;
     font-size: 0;

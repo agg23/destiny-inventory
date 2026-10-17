@@ -1,58 +1,35 @@
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
-import { spaceLeftForItem } from "app/inventory/stores-helpers";
-import { isClassCompatible } from "app/utils/item-utils";
 import { createSignal } from "solid-js";
 
 import type { AppState } from "../../core/app/state.ts";
-import {
-  setOnlyTagMany,
-  tagFor,
-  type TagTarget,
-} from "../../core/items/tags.ts";
-import { LOST_ITEMS, storeLabel } from "../../core/profile/moveTargets.ts";
+import { setOnlyTagMany, tagTarget } from "../../core/items/tags.ts";
+import { storeLabel } from "../../core/profile/moveTargets.ts";
+import { readStored, writeStored } from "../../core/storage.ts";
+import { plural } from "../../core/text.ts";
 import { showToast } from "../../core/toast.ts";
-import { plural } from "../../history/shared/runFormat.ts";
+import {
+  isTrash,
+  planTrash,
+  slotContents,
+  trashQueue,
+  type TrashPhase,
+  type TrashRun,
+} from "./trashPlan.ts";
 
 const KEY = "dvm.trash";
-
-const TRASH_TAG = "junk";
 
 const MOVE_WAIT_MS = 250;
 
 // One auto refresh
 const DRY_DISMANTLE_MS = 15_000;
 
-export type TrashPhase = "evacuating" | "feeding" | "waiting" | "restoring";
-
-export interface TrashRun {
-  characterId: string;
-  bucketHash: number;
-  dry: boolean;
-  phase: TrashPhase;
-  holdback: string[];
-  fed: TagTarget[];
-  skipped: string[];
-  dismantled: string[];
-  interrupted: boolean;
-}
-
 const restore = (): TrashRun | undefined => {
-  try {
-    const raw = localStorage.getItem(KEY);
+  const parsed = readStored(KEY) as TrashRun | undefined;
 
-    if (raw === null) {
-      return undefined;
-    }
-
-    const parsed = JSON.parse(raw) as TrashRun;
-
-    return typeof parsed.characterId === "string"
-      ? { ...parsed, interrupted: true }
-      : undefined;
-  } catch {
-    return undefined;
-  }
+  return typeof parsed?.characterId === "string"
+    ? { ...parsed, interrupted: true }
+    : undefined;
 };
 
 const [run, setRun] = createSignal<TrashRun | undefined>(restore());
@@ -70,10 +47,10 @@ const save = (next: TrashRun | undefined) => {
     if (next === undefined) {
       localStorage.removeItem(KEY);
     } else {
-      localStorage.setItem(KEY, JSON.stringify(next));
+      writeStored(KEY, next);
     }
   } catch {
-    // Quota or private mode. Only crash recovery is lost
+    // Quota or private mode - only crash recovery is lost
   }
 };
 
@@ -83,57 +60,6 @@ const patch = (change: Partial<TrashRun>) => {
   if (was) {
     save({ ...was, ...change });
   }
-};
-
-const isTrash = (item: DimItem): boolean => tagFor(item.id)?.id === TRASH_TAG;
-
-const targetOf = (item: DimItem): TagTarget => ({
-  instanceId: item.id,
-  itemHash: item.hash,
-});
-
-/** Unequipped items sitting in one of a character's slots */
-export const slotContents = (
-  character: DimStore,
-  bucketHash: number,
-): DimItem[] =>
-  character.items.filter(
-    (item) => item.location.hash === bucketHash && !item.equipped,
-  );
-
-/** Trash for one slot that the character could dismantle, wherever it sits */
-export const trashFor = (
-  stores: DimStore[],
-  character: DimStore,
-  bucketHash: number,
-): DimItem[] =>
-  stores
-    .flatMap((store) => store.items)
-    .filter(
-      (item) =>
-        item.bucket.hash === bucketHash &&
-        isTrash(item) &&
-        !item.equipped &&
-        item.location.hash !== LOST_ITEMS &&
-        (item.owner === character.id || !item.notransfer) &&
-        isClassCompatible(item.classType, character.classType),
-    );
-
-/** Trash still waiting to be moved in */
-export const trashQueue = (
-  held: TrashRun,
-  stores: DimStore[],
-  character: DimStore,
-): DimItem[] => {
-  const done = new Set([
-    ...held.fed.map((one) => one.instanceId),
-    ...held.skipped,
-    ...held.dismantled,
-  ]);
-
-  return trashFor(stores, character, held.bucketHash).filter(
-    (item) => item.owner !== character.id && !done.has(item.id),
-  );
 };
 
 let app: AppState | undefined = undefined;
@@ -151,7 +77,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const gateOpen = (held: TrashRun): boolean =>
   held.dry || app?.playing() === held.characterId;
 
-/** The run's character left the game, so feeding waits */
+/** The run's character left the game */
 export const trashPaused = (): boolean => {
   const held = run();
 
@@ -283,7 +209,7 @@ const advance = async (): Promise<boolean> => {
   );
 
   if (adopted.length > 0) {
-    patch({ fed: [...run()!.fed, ...adopted.map(targetOf)] });
+    patch({ fed: [...run()!.fed, ...adopted.map(tagTarget)] });
   }
 
   const now = run()!;
@@ -332,7 +258,7 @@ const advance = async (): Promise<boolean> => {
     forced = false;
     settle(
       {
-        fed: [...after.fed, ...moved.map(targetOf)],
+        fed: [...after.fed, ...moved.map(tagTarget)],
         skipped: [
           ...after.skipped,
           ...batch
@@ -398,39 +324,6 @@ export const advanceTrash = (): Promise<void> => {
   })();
 
   return working;
-};
-
-export interface TrashPlan {
-  holdback: DimItem[];
-  trash: DimItem[];
-  blocked: string | undefined;
-}
-
-/** What a run on the slot would move, and why it can't start */
-export const planTrash = (
-  stores: DimStore[],
-  character: DimStore,
-  bucketHash: number,
-): TrashPlan => {
-  const vault = stores.find((store) => store.isVault);
-  const holdback = slotContents(character, bucketHash).filter(
-    (item) => !isTrash(item),
-  );
-  let blocked: string | undefined = undefined;
-
-  if (
-    vault &&
-    holdback.length > 0 &&
-    spaceLeftForItem(vault, holdback[0]!, stores) < holdback.length
-  ) {
-    blocked = `The vault needs ${plural(holdback.length, "free slot")}`;
-  }
-
-  return {
-    holdback,
-    trash: trashFor(stores, character, bucketHash),
-    blocked,
-  };
 };
 
 /** Starts a run on one of the character's slots, or says why it can't */

@@ -1,4 +1,4 @@
-// The move service branches on destinyVersion and never reaches these for a D2 account
+// Move service never reaches these for a D2 account
 const unsupported = (): never => {
   throw new Error("Destiny 1 is not supported");
 };

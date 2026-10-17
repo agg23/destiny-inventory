@@ -1,10 +1,11 @@
 import { Show } from "solid-js";
 
 import { signOut } from "../../core/api/auth.ts";
-import { timeWithSeconds } from "../../core/clock.ts";
 import type { Guest } from "../../core/profile/guest.ts";
 import { collapseRail, railCollapsed } from "../../core/rail.ts";
+import { timeWithSeconds } from "../../core/time.ts";
 import { GuestPicker } from "../GuestPicker.tsx";
+import { IconButton } from "../lib/IconButton.tsx";
 import { PanelGlyph } from "../lib/PanelGlyph.tsx";
 import { RefreshGlyph } from "../lib/RefreshGlyph.tsx";
 import { SignOutGlyph } from "../lib/SignOutGlyph.tsx";
@@ -46,43 +47,37 @@ export const HeaderActions = (props: Props) => {
             New manifest - reload
           </Button>
         </Show>
-        <Button
-          variant="ghost"
+        <IconButton
           size="icon-sm"
           classList={{ "[&_svg]:animate-spin": props.spinning }}
-          title={refreshLabel()}
-          aria-label={refreshLabel()}
+          label={refreshLabel()}
           disabled={props.disabled}
           onClick={() => props.onRefresh()}
         >
           <RefreshGlyph />
-        </Button>
+        </IconButton>
         <Show when={props.railed}>
-          <Button
-            variant="ghost"
+          <IconButton
             size="icon-sm"
-            title={panelLabel()}
-            aria-label={panelLabel()}
+            label={panelLabel()}
             onClick={() => collapseRail(!railCollapsed())}
           >
             <PanelGlyph slashed={!railCollapsed()} />
-          </Button>
+          </IconButton>
         </Show>
         <GuestPicker onChoose={props.onGuest} />
         <Settings />
         <Separator orientation="vertical" class="mx-1 h-4" />
-        <Button
-          variant="ghost"
+        <IconButton
           size="icon-sm"
-          title="Sign out"
-          aria-label="Sign out"
+          label="Sign out"
           onClick={() => {
             signOut();
             globalThis.location.reload();
           }}
         >
           <SignOutGlyph />
-        </Button>
+        </IconButton>
       </div>
   );
 };

@@ -1,13 +1,13 @@
-import { createSignal, For, Show } from "solid-js";
+import { For, Show } from "solid-js";
 
-import { holdAnchor, releaseAnchor } from "../../components/lib/anchor.ts";
 import { AnchoredPanel } from "../../components/lib/AnchoredPanel.tsx";
 import { readable } from "../../core/activities/activities.ts";
 import type { Values } from "../../core/activities/activityFormat.ts";
+import { createHoverCard } from "../../core/items/preview.ts";
 import { defs } from "../../core/profile/defs.ts";
-import { clock } from "../../history/shared/runFormat.ts";
+import { HOUR, shortTime } from "../../core/time.ts";
 import type { Data } from "./activityData.ts";
-import { countdown, HOUR, type Rotation } from "./distortion.ts";
+import { countdown, type Rotation } from "./distortion.ts";
 import { PANEL } from "./RunDetail.tsx";
 
 // Now plus the next three
@@ -55,15 +55,10 @@ const SetBonuses = (props: { turn: Rotation; values: Values }) => (
 const zoneTime = (turn: Rotation, active: boolean, now: number): string =>
   active
     ? `Now · ${countdown(turn.start + HOUR - now)} left`
-    : clock(turn.start);
+    : shortTime(turn.start);
 
 export const ZoneStrip = (props: { data: Data }) => {
-  const [shown, setShown] = createSignal<Rotation | undefined>(undefined);
-
-  const close = () => {
-    releaseAnchor();
-    setShown(undefined);
-  };
+  const card = createHoverCard<Rotation>({});
 
   return (
     <div class="flex h-10 items-center gap-1 rounded-lg border px-2">
@@ -72,11 +67,8 @@ export const ZoneStrip = (props: { data: Data }) => {
         {(turn, index) => (
           <span
             class="flex h-7 items-center gap-2 rounded-md px-2 hover:bg-muted"
-            onMouseEnter={(event) => {
-              holdAnchor(event.currentTarget, close);
-              setShown(turn);
-            }}
-            onMouseLeave={close}
+            onMouseEnter={(event) => card.open(turn, event.currentTarget)}
+            onMouseLeave={card.clear}
           >
             <span
               classList={{
@@ -98,7 +90,7 @@ export const ZoneStrip = (props: { data: Data }) => {
           </span>
         )}
       </For>
-      <Show when={shown()}>
+      <Show when={card.shown()}>
         {(turn) => (
           <AnchoredPanel class={PANEL}>
             <span class="text-base font-medium text-foreground">

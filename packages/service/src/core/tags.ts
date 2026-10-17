@@ -128,7 +128,7 @@ export const parseWrite = (body: unknown): TagWrite | undefined => {
     }),
   };
 
-  // A partial write would silently lose changes the client thinks it sent
+  // Partial writes would silently drop changes
   if (
     clean.defs.length !== rawDefs.length ||
     clean.items.length !== rawItems.length

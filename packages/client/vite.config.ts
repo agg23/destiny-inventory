@@ -1,11 +1,10 @@
 import { fileURLToPath } from "node:url";
-
 import tailwind from "@tailwindcss/vite";
 import solid from "vite-plugin-solid";
 import { defineConfig } from "vite";
 
 import { DIM_GLOBALS } from "../dim-bridge/build-globals.ts";
-import { dimPathShimsPlugin, SHIMS } from "../dim-bridge/dim-shims.ts";
+import { dimAliases, dimPathShimsPlugin } from "../dim-bridge/dim-shims.ts";
 
 const root = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 
@@ -19,13 +18,7 @@ export default defineConfig(() => {
     define: DIM_GLOBALS,
     resolve: {
       alias: [
-        ...SHIMS.map(({ match, shim }) => ({
-          find: match,
-          replacement: root(`../dim-bridge/src/shims/${shim}`),
-        })),
-        { find: /^app\//, replacement: root("../../vendor/DIM/src/app/") },
-        { find: /^data\//, replacement: root("../../vendor/DIM/src/data/") },
-        { find: /^images\//, replacement: root("../../vendor/DIM/src/images/") },
+        ...dimAliases(root("../../")),
         {
           find: /^destiny-icons\//,
           replacement: root("../../vendor/DIM/destiny-icons/"),

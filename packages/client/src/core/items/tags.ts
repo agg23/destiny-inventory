@@ -1,8 +1,11 @@
+import type { DimItem } from "app/inventory/item-types";
 import { createSignal } from "solid-js";
 
-import type { ItemTag, TagDef, TagDefChange } from "@dvm/service";
+import type { ItemTag, TagDef } from "@dvm/service";
 
 import { callService } from "../api/auth.ts";
+import { readStored, writeStored } from "../storage.ts";
+import { mergeNewer } from "./sync.ts";
 
 const KEY = "dvm.tags";
 
@@ -25,91 +28,44 @@ export interface TagSnapshot extends TagTarget {
   tagId: string | undefined;
 }
 
-// Tags a bulk action leaves alone while the guard is on
 const PROTECTED = new Set(["favorite", "keep", "pvp", "pve"]);
 
 const EMPTY: Held = { defs: [], items: [], since: 0 };
 
 // Colors from tokens.css
-const DEFAULT_DEFS: TagDef[] = [
-  {
-    id: "favorite",
-    label: "Favorite",
-    color: "exotic",
-    position: 0,
-    removed: false,
-    updatedAt: 0,
-  },
-  {
-    id: "keep",
-    label: "Keep",
-    color: "good",
-    position: 1,
-    removed: false,
-    updatedAt: 0,
-  },
-  {
-    id: "pvp",
-    label: "PvP",
-    color: "pvp",
-    position: 2,
-    removed: false,
-    updatedAt: 0,
-  },
-  {
-    id: "pve",
-    label: "PvE",
-    color: "pve",
-    position: 3,
-    removed: false,
-    updatedAt: 0,
-  },
-  {
-    id: "junk",
-    label: "Junk",
-    color: "error",
-    position: 4,
-    removed: false,
-    updatedAt: 0,
-  },
-  {
-    id: "infuse",
-    label: "Infuse",
-    color: "arc",
-    position: 5,
-    removed: false,
-    updatedAt: 0,
-  },
-  {
-    id: "archive",
-    label: "Archive",
-    color: "void",
-    position: 6,
-    removed: false,
-    updatedAt: 0,
-  },
-];
+const DEFAULT_DEFS: TagDef[] = (
+  [
+    ["favorite", "Favorite", "exotic"],
+    ["keep", "Keep", "good"],
+    ["pvp", "PvP", "pvp"],
+    ["pve", "PvE", "pve"],
+    ["junk", "Junk", "error"],
+    ["infuse", "Infuse", "arc"],
+    ["archive", "Archive", "void"],
+  ] as const
+).map(([id, label, color], position) => ({
+  id,
+  label,
+  color,
+  position,
+  removed: false,
+  updatedAt: 0,
+}));
 
 const itemKey = (item: ItemTag): string => `${item.instanceId}/${item.tagId}`;
 
 const restore = (): Held => {
-  const raw = localStorage.getItem(KEY);
+  const parsed = readStored(KEY) as Partial<Held> | undefined;
 
-  if (raw === null) {
+  if (!parsed) {
     return EMPTY;
   }
 
-  try {
-    const parsed = JSON.parse(raw) as Partial<Held>;
-
-    return {
-      defs: Array.isArray(parsed.defs) ? parsed.defs : [],
-      items: Array.isArray(parsed.items) ? parsed.items : [],
-      since: typeof parsed.since === "number" ? parsed.since : 0,
-    };
-  } catch {
-    return EMPTY;
-  }
+  return {
+    defs: Array.isArray(parsed.defs) ? parsed.defs : [],
+    items: Array.isArray(parsed.items) ? parsed.items : [],
+    since: typeof parsed.since === "number" ? parsed.since : 0,
+  };
 };
 
 let held: Held = restore();
@@ -120,7 +76,7 @@ const [assigned, setAssigned] = createSignal<
   ReadonlyMap<string, ReadonlySet<string>>
 >(new Map());
 
-/** Tag definitions in display order, with removed ones dropped */
+/** Tag definitions in display order */
 export const tagDefs = defs;
 
 /** The one tag an item carries. Storage allows several; the UI does not */
@@ -138,21 +94,16 @@ const index = (items: ItemTag[]): Map<string, Set<string>> => {
       continue;
     }
 
-    const existing = map.get(item.instanceId);
+    const existing = map.get(item.instanceId) ?? new Set<string>();
 
-    if (existing) {
-      existing.add(item.tagId);
-      continue;
-    }
-
-    map.set(item.instanceId, new Set([item.tagId]));
+    existing.add(item.tagId);
+    map.set(item.instanceId, existing);
   }
 
   return map;
 };
 
-// Stored definitions are synced but not read yet. There is no editor, so anything in the
-// table is leftover test data, and honoring it would hide the defaults
+// Stored defs are ignored for now; with no editor the table is only test data
 const publishDefs = () => {
   setDefs(
     [...DEFAULT_DEFS].sort((one, two) => one.position - two.position),
@@ -163,28 +114,10 @@ const publishItems = () => setAssigned(index(held.items));
 
 const save = () => {
   try {
-    localStorage.setItem(KEY, JSON.stringify(held));
+    writeStored(KEY, held);
   } catch {
-    // Quota or private mode, and the server still holds it
+    // Quota or private mode, server still has it
   }
-};
-
-const merge = <T extends { updatedAt: number }>(
-  current: T[],
-  incoming: T[],
-  keyOf: (row: T) => string,
-): T[] => {
-  const map = new Map(current.map((row) => [keyOf(row), row]));
-
-  for (const row of incoming) {
-    const existing = map.get(keyOf(row));
-
-    if (!existing || row.updatedAt >= existing.updatedAt) {
-      map.set(keyOf(row), row);
-    }
-  }
-
-  return [...map.values()];
 };
 
 interface Served {
@@ -204,8 +137,8 @@ export const syncTags = async (): Promise<void> => {
   const body = (await response.json()) as Served;
 
   held = {
-    defs: merge(held.defs, body.defs, (def) => def.id),
-    items: merge(held.items, body.items, itemKey),
+    defs: mergeNewer(held.defs, body.defs, (def) => def.id),
+    items: mergeNewer(held.items, body.items, itemKey),
     since: body.now,
   };
 
@@ -240,9 +173,9 @@ const flush = async () => {
     }),
   });
 
-  // Nothing is dropped on a failure. The next change carries these along
+  // Requeue on failure; the next flush retries
   if (!response?.ok) {
-    queued = merge(sending, queued, itemKey);
+    queued = mergeNewer(sending, queued, itemKey);
   }
 };
 
@@ -251,31 +184,31 @@ const queue = (changes: ItemTag[]) => {
     return;
   }
 
-  held = { ...held, items: merge(held.items, changes, itemKey) };
+  held = { ...held, items: mergeNewer(held.items, changes, itemKey) };
 
   save();
   publishItems();
 
-  queued = merge(queued, changes, itemKey);
+  queued = mergeNewer(queued, changes, itemKey);
 
   timer ??= setTimeout(() => void flush(), FLUSH_MS);
 };
 
-/** Creates or updates one tag definition. Rare and deliberate, so it reports a failure */
-export const saveTagDef = async (def: TagDefChange): Promise<boolean> => {
-  const response = await callService(ENDPOINT, {
-    method: "POST",
-    body: JSON.stringify({ defs: [def], items: [] }),
-  });
-
-  if (!response?.ok) {
-    return false;
-  }
-
-  await syncTags();
-
-  return true;
-};
+// /** Creates or updates one tag definition. Rare and deliberate, so it reports a failure */
+// export const saveTagDef = async (def: TagDefChange): Promise<boolean> => {
+//   const response = await callService(ENDPOINT, {
+//     method: "POST",
+//     body: JSON.stringify({ defs: [def], items: [] }),
+//   });
+//
+//   if (!response?.ok) {
+//     return false;
+//   }
+//
+//   await syncTags();
+//
+//   return true;
+// };
 
 const changesFor = (
   target: TagTarget,
@@ -300,61 +233,11 @@ const changesFor = (
     : [...cleared, { instanceId, itemHash, tagId, removed: false, updatedAt }];
 };
 
-// DIM gives every non-instanced item the same id, and one tag would land on all of them
+// DIM gives every non-instanced item the id "0"
 const taggable = (target: TagTarget): boolean => target.instanceId !== "0";
 
-/** Sets the tag an item carries, clearing any other. Undefined leaves it untagged */
-export const setOnlyTag = (
-  instanceId: string,
-  itemHash: number,
-  tagId: string | undefined,
-): void => {
-  const target = { instanceId, itemHash };
-
-  if (!taggable(target)) {
-    return;
-  }
-
-  queue(changesFor(target, tagId, Date.now()));
-};
-
-/** Sets one tag across many items, flushed as a single write */
-export const setOnlyTagMany = (
-  targets: TagTarget[],
-  tagId: string | undefined,
-): void => {
-  const updatedAt = Date.now();
-
-  queue(
-    targets
-      .filter(taggable)
-      .flatMap((target) => changesFor(target, tagId, updatedAt)),
-  );
-};
-
-/** The tag every item shares, or "mixed" when they differ */
-export const commonTag = (
-  items: { id: string }[],
-): TagDef | undefined | "mixed" => {
-  const [first, ...rest] = items;
-
-  if (!first) {
-    return undefined;
-  }
-
-  const tag = tagFor(first.id);
-
-  return rest.every((one) => tagFor(one.id)?.id === tag?.id) ? tag : "mixed";
-};
-
-/** What the items carry now, enough to put them back after one bulk write */
-export const snapshotTags = (targets: TagTarget[]): TagSnapshot[] =>
-  targets.map((target) => ({
-    ...target,
-    tagId: tagFor(target.instanceId)?.id,
-  }));
-
-export const restoreTags = (snapshot: TagSnapshot[]): void => {
+/** Sets each item's own tag, flushed as a single write */
+export const writeTags = (snapshot: TagSnapshot[]): void => {
   const updatedAt = Date.now();
 
   queue(
@@ -363,6 +246,50 @@ export const restoreTags = (snapshot: TagSnapshot[]): void => {
       .flatMap((one) => changesFor(one, one.tagId, updatedAt)),
   );
 };
+
+/** The tag store's handle on an item */
+export const tagTarget = (item: DimItem): TagTarget => ({
+  instanceId: item.id,
+  itemHash: item.hash,
+});
+
+/** Sets the tag an item carries, clearing any other. Undefined leaves it untagged */
+export const setOnlyTag = (
+  instanceId: string,
+  itemHash: number,
+  tagId: string | undefined,
+): void => writeTags([{ instanceId, itemHash, tagId }]);
+
+/** Sets one tag across many items, flushed as a single write */
+export const setOnlyTagMany = (
+  targets: TagTarget[],
+  tagId: string | undefined,
+): void => writeTags(targets.map((target) => ({ ...target, tagId })));
+
+export interface TagSummary {
+  mixed: boolean;
+  current: TagDef | undefined;
+  label: string;
+}
+
+/** The tag every item shares and its label, "Mixed" when they differ */
+export const tagSummary = (items: { id: string }[]): TagSummary => {
+  const [first, ...rest] = items;
+  const tag = first ? tagFor(first.id) : undefined;
+
+  if (rest.some((one) => tagFor(one.id)?.id !== tag?.id)) {
+    return { mixed: true, current: undefined, label: "Mixed" };
+  }
+
+  return { mixed: false, current: tag, label: tag?.label ?? "No tag" };
+};
+
+/** Current tags, for writeTags to undo a bulk write */
+export const snapshotTags = (targets: TagTarget[]): TagSnapshot[] =>
+  targets.map((target) => ({
+    ...target,
+    tagId: tagFor(target.instanceId)?.id,
+  }));
 
 /** Whether the item carries a tag that guarded bulk actions skip */
 export const protectedTag = (instanceId: string): boolean => {

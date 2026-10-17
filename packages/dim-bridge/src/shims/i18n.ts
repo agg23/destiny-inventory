@@ -1,4 +1,4 @@
-// DIM's boots i18next and pulls a catalogue over HTTP
+// DIM's version boots i18next and fetches a catalog over HTTP
 
 export type DimLanguage = "en";
 

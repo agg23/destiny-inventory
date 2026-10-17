@@ -1,5 +1,7 @@
-import { readBaseline, type Reference, type Store } from "./baseline.ts";
+import { readBaseline, type Store } from "./baseline.ts";
+import type { Membership } from "./bungie.ts";
 import type { ArtifactLoader } from "./loader.ts";
+import { parseNote, type NoteStore } from "./notes.ts";
 import {
   exchangeCode,
   refreshTokens,
@@ -12,26 +14,23 @@ import {
   SESSION_MS,
   type Session,
 } from "./session.ts";
-import { parseNote, type NoteStore } from "./notes.ts";
 import { parseWrite, type TagStore } from "./tags.ts";
 
 export interface ServiceConfig {
   apiKey: string;
   clientId: string;
   clientSecret: string;
-  /** Signs the session token that proves who a tag request is from */
   sessionSecret: string;
   allowedOrigin: string;
-  /** Where OAuth has to start, which is the one origin Bungie has registered */
+  /** The one origin registered with Bungie for OAuth */
   authOrigin: string;
   loader: ArtifactLoader;
-  /** Absent until a KV namespace is bound, in which case tiles simply omit what was spent */
-  baseline?: { store: Store; reference: Reference };
+  baseline?: { store: Store; reference: Membership };
   tags: TagStore;
   notes: NoteStore;
 }
 
-// Content-hashed names only, so a request can never walk out of the artifact directory
+// Blocks path traversal
 const ARTIFACT_NAME = /^[A-Za-z0-9._-]+$/;
 
 const BEARER = "Bearer ";
@@ -78,8 +77,21 @@ export const createHandler = (config: ServiceConfig) => {
     );
   };
 
-  // The membership comes from the verified session, never from the request
-  const tags = async (request: Request): Promise<Response> => {
+  // Membership from the verified session, never the request
+  const sync = async <Snapshot, Change>(
+    request: Request,
+    store: {
+      read: (membershipId: string, since: number) => Promise<Snapshot>;
+      write: (
+        membershipId: string,
+        change: Change,
+        now: number,
+      ) => Promise<void>;
+    },
+    present: (snapshot: Snapshot) => object,
+    parse: (body: unknown) => Change | undefined,
+    invalid: string,
+  ): Promise<Response> => {
     const session = await sessionOf(request);
 
     if (!session) {
@@ -92,53 +104,21 @@ export const createHandler = (config: ServiceConfig) => {
 
       return json(
         {
-          ...(await config.tags.read(session.membershipId, since)),
+          ...present(await store.read(session.membershipId, since)),
           now: Date.now(),
         },
         config.allowedOrigin,
       );
     }
 
-    const changes = parseWrite(await request.json());
-
-    if (!changes) {
-      return json({ error: "Bad tag changes" }, config.allowedOrigin, 400);
-    }
-
-    const now = Date.now();
-    await config.tags.write(session.membershipId, changes, now);
-
-    return json({ now }, config.allowedOrigin);
-  };
-
-  const notes = async (request: Request): Promise<Response> => {
-    const session = await sessionOf(request);
-
-    if (!session) {
-      return json({ error: "Sign in required" }, config.allowedOrigin, 401);
-    }
-
-    if (request.method === "GET") {
-      const raw = Number(new URL(request.url).searchParams.get("since"));
-      const since = Number.isSafeInteger(raw) && raw > 0 ? raw : 0;
-
-      return json(
-        {
-          notes: await config.notes.read(session.membershipId, since),
-          now: Date.now(),
-        },
-        config.allowedOrigin,
-      );
-    }
-
-    const change = parseNote(await request.json());
+    const change = parse(await request.json());
 
     if (!change) {
-      return json({ error: "Bad note" }, config.allowedOrigin, 400);
+      return json({ error: invalid }, config.allowedOrigin, 400);
     }
 
     const now = Date.now();
-    await config.notes.write(session.membershipId, change, now);
+    await store.write(session.membershipId, change, now);
 
     return json({ now }, config.allowedOrigin);
   };
@@ -158,8 +138,7 @@ export const createHandler = (config: ServiceConfig) => {
         return json({ ok: true }, config.allowedOrigin);
       }
 
-      // Credentials are public, and the artifact index rides along so the client learns the
-      // current manifest without a separately cacheable request that could go stale
+      // Credentials are public. Index included to avoid a separately cached request going stale
       if (pathname === "/config") {
         const index = await config.loader.index();
 
@@ -174,7 +153,6 @@ export const createHandler = (config: ServiceConfig) => {
         );
       }
 
-      // What the week held before anyone spent it, captured by the cron just after reset
       if (pathname === "/baseline") {
         const held = config.baseline
           ? await readBaseline(config.baseline.store, new Date())
@@ -183,8 +161,7 @@ export const createHandler = (config: ServiceConfig) => {
         return json(held ?? { rows: {} }, config.allowedOrigin);
       }
 
-      // Only the Node adapter reaches this. On Workers the files are static assets, served
-      // and compressed by the platform, because re-wrapping them broke Content-Encoding
+      // Node adapter only. Workers serves these as static assets
       if (pathname.startsWith("/artifacts/")) {
         const file = pathname.slice("/artifacts/".length);
 
@@ -215,14 +192,26 @@ export const createHandler = (config: ServiceConfig) => {
         pathname === "/tags" &&
         (request.method === "GET" || request.method === "POST")
       ) {
-        return tags(request);
+        return sync(
+          request,
+          config.tags,
+          (snapshot) => snapshot,
+          parseWrite,
+          "Bad tag changes",
+        );
       }
 
       if (
         pathname === "/notes" &&
         (request.method === "GET" || request.method === "POST")
       ) {
-        return notes(request);
+        return sync(
+          request,
+          config.notes,
+          (notes) => ({ notes }),
+          parseNote,
+          "Bad note",
+        );
       }
 
       if (pathname === "/auth/token" && request.method === "POST") {

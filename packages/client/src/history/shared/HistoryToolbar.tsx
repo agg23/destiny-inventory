@@ -1,12 +1,16 @@
-import { For, Show } from "solid-js";
+import { Show } from "solid-js";
 
+import { Select } from "../../components/lib/Select.tsx";
 import { Button } from "../../components/lib/zaidan/button.tsx";
 import { Input } from "../../components/lib/zaidan/input.tsx";
-import { NativeSelect } from "../../components/lib/zaidan/native-select.tsx";
-import { span } from "../../core/activities/history.ts";
+import { plural } from "../../core/text.ts";
+import { span } from "../../core/time.ts";
 import { RANGES } from "./range.ts";
-import { plural } from "./runFormat.ts";
 import type { Totals } from "./totals.ts";
+
+const RANGE_NAMES = Object.fromEntries(
+  RANGES.map((one) => [one.id, one.label]),
+);
 
 export const HistoryRange = (props: {
   range: string;
@@ -16,21 +20,17 @@ export const HistoryRange = (props: {
   onClear: () => void;
 }) => (
   <>
-    <label class="flex items-center gap-2 text-muted-foreground">
-      Showing
-      <NativeSelect
-        class="text-foreground"
-        value={props.pinned ? "custom" : props.range}
-        onChange={(event) => props.onRange(event.currentTarget.value)}
-      >
-        <For each={RANGES}>
-          {(one) => <option value={one.id}>{one.label}</option>}
-        </For>
-        <Show when={props.pinned}>
-          <option value="custom">Chosen dates</option>
-        </Show>
-      </NativeSelect>
-    </label>
+    <Select
+      label="Showing"
+      value={props.pinned ? "custom" : props.range}
+      options={RANGES.map((one) => one.id)}
+      names={RANGE_NAMES}
+      onChange={props.onRange}
+    >
+      <Show when={props.pinned}>
+        <option value="custom">Chosen dates</option>
+      </Show>
+    </Select>
 
     <Input
       type="date"

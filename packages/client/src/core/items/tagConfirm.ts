@@ -1,7 +1,7 @@
 import type { DimItem } from "app/inventory/item-types";
 import { createSignal } from "solid-js";
 
-import { setOnlyTagMany, tagDefs, tagFor } from "./tags.ts";
+import { setOnlyTagMany, tagDefs, tagFor, tagTarget } from "./tags.ts";
 
 const CONFIRM_OVER = 8;
 
@@ -10,7 +10,7 @@ export interface Request {
   tagId: string | undefined;
 }
 
-export interface Replaced {
+interface Replaced {
   label: string;
   color: string;
   count: number;
@@ -18,16 +18,12 @@ export interface Replaced {
 
 const [pending, setPending] = createSignal<Request | undefined>(undefined);
 
-/** The tag write waiting on the confirm */
 export const pendingTag = pending;
 
 export const dismissTag = () => setPending(undefined);
 
 export const applyTag = (request: Request) =>
-  setOnlyTagMany(
-    request.items.map((one) => ({ instanceId: one.id, itemHash: one.hash })),
-    request.tagId,
-  );
+  setOnlyTagMany(request.items.map(tagTarget), request.tagId);
 
 /** Tags the write would overwrite, counted per tag */
 export const replacedBy = (request: Request): Replaced[] => {

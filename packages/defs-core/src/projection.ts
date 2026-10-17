@@ -4,7 +4,7 @@ import type {
   DestinyInventoryItemDefinition,
 } from "bungie-api-ts/destiny2";
 
-// Display properties are projected too, so the shipped shape is narrower than Bungie's
+// displayProperties are projected too
 export type SlimItem = Partial<
   Omit<DestinyInventoryItemDefinition, "displayProperties">
 > & { displayProperties?: Partial<DestinyDisplayPropertiesDefinition> };
@@ -40,7 +40,7 @@ export const slimItem = (item: DestinyInventoryItemDefinition): SlimItem => ({
   breakerType: item.breakerType,
 });
 
-// The socket fields are what pull the plug pools in, so tier 1 goes without them
+// Tier 1 skips sockets to avoid pulling in the plug pools
 export const coreItem = (item: DestinyInventoryItemDefinition): SlimItem => {
   const { sockets, plug, perks, ...core } = slimItem(item);
 
@@ -69,7 +69,7 @@ export interface SlimCollectible {
   parentNodeHashes: number[];
 }
 
-/** A collectible's source and place in the tree; its item carries the name and icon */
+/** Collectible source and tree position. Name and icon live on its item */
 export const slimCollectible = (
   collectible: DestinyCollectibleDefinition,
 ): SlimCollectible => ({

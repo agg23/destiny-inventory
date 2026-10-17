@@ -14,7 +14,7 @@ const FILES = import.meta.glob<string>("../../../guides/*.md", {
 const FRONT_MATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
 const NAME_LINE = /^name:\s*(.+?)\s*$/m;
 
-export const GUIDES: Guide[] = Object.entries(FILES).map(([path, text]) => {
+const GUIDES: Guide[] = Object.entries(FILES).map(([path, text]) => {
   const front = FRONT_MATTER.exec(text);
   const name = front ? NAME_LINE.exec(front[1]!)?.[1] : undefined;
 
@@ -25,6 +25,6 @@ export const GUIDES: Guide[] = Object.entries(FILES).map(([path, text]) => {
   return { name, body: text.slice(front[0].length) };
 });
 
-/** Matches the activity name the Activities page shows, without any difficulty suffix */
+/** Looks up by the Activities page name, without a difficulty suffix */
 export const guideNamed = (name: string): Guide | undefined =>
   GUIDES.find((guide) => guide.name === name);

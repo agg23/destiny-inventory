@@ -2,13 +2,14 @@ import type { DimItem } from "app/inventory/item-types";
 import { getValueStyle } from "app/inventory/store/objectives";
 import type { DimStore } from "app/inventory/store-types";
 import { DestinyUnlockValueUIStyle } from "bungie-api-ts/destiny2";
+import { BucketHashes } from "data/d2/generated-enums";
+import { pick } from "es-toolkit";
 import { createSignal, untrack } from "solid-js";
 
 import { defs } from "../profile/defs.ts";
 import type { OrderRewards } from "../profile/loadTypes.ts";
-import { payoutsByReward } from "./challenges.ts";
-
-export const ORDERS_BUCKET = 635141261;
+import { readStored, writeStored } from "../storage.ts";
+import { objectiveTotals, payoutsByReward } from "./challenges.ts";
 
 const LEDGER = "dvm.orders";
 
@@ -31,27 +32,26 @@ export interface Order {
   rewards: number[];
 }
 
-export interface Tracked {
-  character: string;
-  hash: number;
-  name: string;
-  family: string;
-  progress: number;
-  goal: number;
-  complete: boolean;
+const TRACKED_FIELDS = [
+  "character",
+  "hash",
+  "name",
+  "family",
+  "progress",
+  "goal",
+  "complete",
+  "expiresAt",
+  "rewards",
+] as const;
+
+interface Tracked extends Pick<Order, (typeof TRACKED_FIELDS)[number]> {
   completedAt: number | undefined;
-  expiresAt: number | undefined;
-  rewards: number[];
 }
 
-export interface Claimed {
-  id: string;
-  hash: number;
-  name: string;
-  family: string;
+export interface Claimed
+  extends Pick<Order, "id" | "hash" | "name" | "family" | "rewards"> {
   completedAt: number;
   claimedAt: number;
-  rewards: number[];
 }
 
 export interface Ledger {
@@ -62,7 +62,7 @@ export interface Ledger {
 
 export const EMPTY_LEDGER: Ledger = { seen: {}, payouts: {}, log: [] };
 
-// Orders count internal points, so the raw 90500/250000 is not what the game shows
+// Raw values are internal points (90500/250000)
 const readoutOf = (item: DimItem, progress: number, goal: number): string => {
   const [first] = item.objectives ?? [];
 
@@ -85,9 +85,7 @@ const readoutOf = (item: DimItem, progress: number, goal: number): string => {
 
 const orderOf = (item: DimItem, character: string): Order => {
   const steps = item.objectives ?? [];
-  const progress = steps.reduce((sum, step) => sum + (step.progress ?? 0), 0);
-  const goal = steps.reduce((sum, step) => sum + step.completionValue, 0);
-  const expires = item.pursuit?.expiration?.expirationDate;
+  const { progress, goal } = objectiveTotals(steps);
 
   return {
     id: item.id,
@@ -102,15 +100,15 @@ const orderOf = (item: DimItem, character: string): Order => {
     goal,
     readout: readoutOf(item, progress, goal),
     complete: steps.length > 0 && steps.every((step) => step.complete),
-    expiresAt: expires === undefined ? undefined : expires.getTime(),
+    expiresAt: item.pursuit?.expiration?.expirationDate?.getTime(),
     rewards: (item.pursuit?.rewards ?? []).map((reward) => reward.itemHash),
   };
 };
 
-export const readOrders = (stores: DimStore[]): Order[] =>
+const readOrders = (stores: DimStore[]): Order[] =>
   stores.flatMap((store) =>
     store.items
-      .filter((item) => item.location.hash === ORDERS_BUCKET)
+      .filter((item) => item.location.hash === BucketHashes.Orders)
       .map((item) => orderOf(item, store.id)),
   );
 
@@ -128,19 +126,11 @@ const track = (
   was: Tracked | undefined,
   now: number,
 ): Tracked => ({
-  character: order.character,
-  hash: order.hash,
-  name: order.name,
-  family: order.family,
-  progress: order.progress,
-  goal: order.goal,
-  complete: order.complete,
+  ...pick(order, TRACKED_FIELDS),
   completedAt: order.complete ? was?.completedAt ?? now : undefined,
-  expiresAt: order.expiresAt,
-  rewards: order.rewards,
 });
 
-// No stored count is no baseline, not growth from zero
+// A missing stored count isn't growth from zero
 const growth = (before: OrderRewards, after: OrderRewards): OrderRewards => {
   const rows: OrderRewards = {};
 
@@ -183,11 +173,7 @@ const spend = (gained: OrderRewards, was: Tracked): boolean => {
   return false;
 };
 
-/**
- * Folds the current bucket into the ledger, logging orders that left it after completing.
- * A refresh rarely catches one sitting complete. A payout gained since the last fold is
- * the same proof.
- */
+// Refreshes rarely catch an order sitting complete, payout gains count too
 export const absorb = (
   ledger: Ledger,
   orders: Order[],
@@ -237,39 +223,29 @@ export const absorb = (
   return { seen, payouts, log };
 };
 
-export const loadLedger = (): Ledger => {
-  const raw = localStorage.getItem(LEDGER);
+const loadLedger = (): Ledger => {
+  const held = readStored(LEDGER) as Partial<Ledger> | undefined;
 
-  if (!raw) {
+  if (!held) {
     return EMPTY_LEDGER;
   }
 
-  try {
-    const held = JSON.parse(raw) as Partial<Ledger>;
-
-    return {
-      seen: held.seen ?? {},
-      payouts: held.payouts ?? {},
-      log: held.log ?? [],
-    };
-  } catch {
-    return EMPTY_LEDGER;
-  }
+  return {
+    seen: held.seen ?? {},
+    payouts: held.payouts ?? {},
+    log: held.log ?? [],
+  };
 };
 
-export const saveLedger = (ledger: Ledger) => {
-  localStorage.setItem(LEDGER, JSON.stringify(ledger));
+const saveLedger = (ledger: Ledger) => {
+  writeStored(LEDGER, ledger);
 };
 
 const [held, setHeld] = createSignal<Ledger>(loadLedger());
 
 export const orderLedger = held;
 
-/**
- * Folds the live bucket into the stored ledger. Safe to call on every refresh.
- * Empty stores mean the profile has not landed, and absorbing that would log
- * every complete order as claimed.
- */
+/** Folds the live bucket into the stored ledger, safe on every refresh */
 export const syncOrders = (
   stores: DimStore[],
   rewards: OrderRewards,
@@ -277,12 +253,12 @@ export const syncOrders = (
 ) => {
   const payouts = payoutsByReward(rewards);
 
-  // A boot from snapshot has the bucket but not the counters
+  // Profile not landed yet, or a snapshot boot without counters
   if (stores.length === 0 || Object.keys(payouts).length === 0) {
     return;
   }
 
-  // Reading the ledger we are about to write would make an effect depend on itself
+  // Avoids the effect depending on its own write
   const next = absorb(untrack(held), readOrders(stores), payouts, now);
 
   setHeld(next);

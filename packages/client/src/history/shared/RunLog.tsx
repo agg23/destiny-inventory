@@ -1,5 +1,6 @@
 import { For } from "solid-js";
 
+import { GroupRow } from "../../components/GroupRow.tsx";
 import { TABLE_FRAME, TABLE_HEADER } from "../../components/lib/text.ts";
 import {
   Table,
@@ -9,17 +10,17 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/lib/zaidan/table.tsx";
+import { NUMBER, NumCell } from "../../components/NumCell.tsx";
+import type { PlateProps } from "../../core/activities/activityLookup.ts";
 import {
-  duration,
   playedSeconds,
-  span,
   type HistoryRun,
 } from "../../core/activities/history.ts";
-import { Chevron, Plate, Result, type PlateProps } from "./ActivityRow.tsx";
+import { plural } from "../../core/text.ts";
+import { dayTitle, duration, shortTime, span } from "../../core/time.ts";
+import { Chevron, Plate, Result } from "./ActivityRow.tsx";
 import type { Day } from "./groups.ts";
-import { clock, dayTitle, plural, score } from "./runFormat.ts";
-
-const NUMBER = "text-right tabular-nums";
+import { score } from "./runFormat.ts";
 
 export const RunLog = (props: {
   days: Day[];
@@ -44,19 +45,12 @@ export const RunLog = (props: {
         <For each={props.days}>
           {(day) => (
             <>
-              <TableRow class="bg-muted/30 hover:bg-muted/30">
-                <TableCell colSpan={8} class="py-1.5">
-                  <span class="flex items-baseline gap-2 text-xs">
-                    <span class="font-medium text-foreground">
-                      {dayTitle(day.day)}
-                    </span>
-                    <span class="text-muted-foreground tabular-nums">
-                      {plural(day.runs.length, "run")} ·{" "}
-                      {span(playedSeconds(day.runs))}
-                    </span>
-                  </span>
-                </TableCell>
-              </TableRow>
+              <GroupRow
+                colSpan={8}
+                class="hover:bg-muted/30"
+                title={dayTitle(day.day)}
+                note={`${plural(day.runs.length, "run")} · ${span(playedSeconds(day.runs))}`}
+              />
               <For each={day.runs}>
                 {(run) => (
                   <TableRow
@@ -66,13 +60,11 @@ export const RunLog = (props: {
                     <TableCell>
                       <Plate {...props.plateOf(run)} />
                     </TableCell>
-                    <TableCell class={NUMBER}>{clock(run.startedAt)}</TableCell>
-                    <TableCell class={NUMBER}>
-                      {duration(run.durationSeconds)}
-                    </TableCell>
-                    <TableCell class={NUMBER}>{run.kills}</TableCell>
-                    <TableCell class={NUMBER}>{run.deaths}</TableCell>
-                    <TableCell class={NUMBER}>{score(run.score)}</TableCell>
+                    <NumCell>{shortTime(run.startedAt)}</NumCell>
+                    <NumCell>{duration(run.durationSeconds)}</NumCell>
+                    <NumCell>{run.kills}</NumCell>
+                    <NumCell>{run.deaths}</NumCell>
+                    <NumCell>{score(run.score)}</NumCell>
                     <Result completed={run.completed} />
                     <Chevron />
                   </TableRow>

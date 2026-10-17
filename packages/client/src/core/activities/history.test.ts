@@ -2,23 +2,17 @@ import type { DestinyHistoricalStatsPeriodGroup } from "bungie-api-ts/destiny2";
 import { describe, expect, it, vi } from "vitest";
 
 import type { DefStore } from "../profile/store.ts";
+import { ago, duration, span } from "../time.ts";
 import {
-  ago,
   bestTiming,
   bucketOf,
   byBucket,
-  duration,
   playedSeconds,
   runsByDay,
-  sessions,
-  span,
-  summarize,
   timingsByHash,
   type HistoryRun,
 } from "./history.ts";
 import { NO_TIER, project, syncTiers } from "./historySync.ts";
-
-const MINUTE = 60 * 1000;
 
 const run = (
   instanceId: string,
@@ -91,56 +85,7 @@ describe("history", () => {
     expect(project("c1", row("1", {})).kills).toBe(0);
   });
 
-  it("takes the fastest time from completed runs only", () => {
-    const summary = summarize([
-      run("1", 1000, 600),
-      run("2", 2000, 120, { completed: false }),
-      run("3", 3000, 480),
-    ]);
-
-    expect(summary).toHaveLength(1);
-    expect(summary[0]).toMatchObject({
-      runs: 3,
-      completions: 2,
-      lastRunAt: 3000,
-      fastestSeconds: 480,
-    });
-  });
-
-  it("has no fastest time until something is completed", () => {
-    const summary = summarize([run("1", 1000, 600, { completed: false })]);
-
-    expect(summary[0]?.fastestSeconds).toBeUndefined();
-  });
-
-  it("orders activities by when they were last run", () => {
-    const summary = summarize([
-      run("1", 5000, 60, { referenceId: 10 }),
-      run("2", 9000, 60, { referenceId: 20 }),
-    ]);
-
-    expect(summary.map((one) => one.referenceId)).toEqual([20, 10]);
-  });
-
-  it("joins runs less than half an hour apart into one session", () => {
-    const found = sessions([
-      run("1", 0, 600),
-      run("2", 20 * MINUTE, 600),
-      run("3", 5 * 60 * MINUTE, 600),
-    ]);
-
-    expect(found).toHaveLength(2);
-    expect(found[1]?.runs.map((one) => one.instanceId)).toEqual(["1", "2"]);
-    expect(found[1]?.playedSeconds).toBe(1200);
-  });
-
-  it("returns sessions newest first", () => {
-    const found = sessions([run("1", 0, 60), run("2", 5 * 60 * MINUTE, 60)]);
-
-    expect(found.map((one) => one.runs[0]?.instanceId)).toEqual(["2", "1"]);
-  });
-
-  // Every nightfall mode parents to Strikes, and its rung shows as a difficulty
+  // Every nightfall mode parents to Strikes
   it("folds all the nightfall modes into Strikes", () => {
     const ancestors = (mode: number) => (mode === 7 ? [] : [18, 7]);
 
@@ -226,7 +171,7 @@ describe("history", () => {
     expect(groups.map((one) => one.bucket.id)).toEqual(["raid", "strike"]);
   });
 
-  // One Portal hash serves every rung, so a Grandmaster clear is its own record
+  // One Portal hash serves every rung
   it("splits an activity into a row per difficulty", () => {
     const rungs: Record<string, string> = { "1": "Advanced", "2": "Master" };
     const groups = byBucket(
@@ -258,7 +203,7 @@ describe("history", () => {
     ).toBe(900);
   });
 
-  // Bungie reissues a hash per season, so one label spans years of the same content
+  // Bungie reissues a hash per season
   it("merges the seasonal hashes wearing one label", () => {
     const groups = byBucket(
       [
@@ -280,7 +225,7 @@ describe("history", () => {
         difficulty: "Master",
         runs: 3,
         fastestSeconds: 1200,
-        // The newest run's hash, so the row shows current art
+        // Newest run's hash
         referenceId: 11,
         lastRunAt: 9000,
       },
@@ -365,7 +310,7 @@ describe("history", () => {
     ]);
   });
 
-  // Asking again every session would cost a request a run forever
+  // Avoids a PGCR request per run every session
   it("remembers a run the report gave no rung for", async () => {
     const store = { putAll: async () => undefined } as unknown as DefStore;
     const seen: HistoryRun[] = [];
@@ -415,23 +360,6 @@ describe("history", () => {
   });
 
   // Best must never read as slower than average
-  it("averages completed runs only", () => {
-    const summary = summarize([
-      run("1", 1000, 2005),
-      run("2", 2000, 600, { completed: false }),
-      run("3", 3000, 1545),
-    ]);
-
-    expect(summary[0]?.fastestSeconds).toBe(1545);
-    expect(summary[0]?.averageSeconds).toBe(1775);
-  });
-
-  it("has no average until something is completed", () => {
-    const summary = summarize([run("1", 1000, 800, { completed: false })]);
-
-    expect(summary[0]?.averageSeconds).toBeUndefined();
-  });
-
   it("times an activity under both of its hashes", () => {
     const timings = timingsByHash([
       run("1", 1000, 600, { referenceId: 10, directorActivityHash: 99 }),

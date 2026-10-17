@@ -1,14 +1,19 @@
 import { normalizeQuotes, plainString } from "app/search/text-utils";
-import type {
-  DestinyInventoryItemDefinition,
-  DestinyItemSocketEntryDefinition,
-  DestinyPlugSetDefinition,
+import {
+  DestinyItemType,
+  type DestinyInventoryItemDefinition,
+  type DestinyItemSocketEntryDefinition,
+  type DestinyPlugSetDefinition,
 } from "bungie-api-ts/destiny2";
 import { emptyPlugHashes } from "data/d2/empty-plug-hashes";
+import {
+  PlugCategoryHashes,
+  SocketCategoryHashes,
+} from "data/d2/generated-enums";
+import { keyBy } from "es-toolkit";
 import { createSignal } from "solid-js";
 
-import { isCatalyst } from "../items/perks.ts";
-import { defs } from "../profile/defs.ts";
+import { isCatalyst, visibleSandboxPerks } from "../items/perks.ts";
 import { readMerged } from "../profile/load.ts";
 import type { Session } from "../profile/loadTypes.ts";
 import { PLUG_SETS } from "../profile/store.ts";
@@ -20,19 +25,11 @@ export interface PerkText {
   descriptions: string[];
 }
 
-// SocketCategoryHashes
-const INTRINSIC_TRAITS = 3956125808;
-const WEAPON_PERKS = 4241085061;
-const WEAPON_MODS = 2685412949;
-
-// PlugCategoryHashes.V400EmptyExoticMasterwork
-const EMPTY_EXOTIC_MASTERWORK = 1915962497;
-
-// ItemPerkVisibility.Hidden
-const HIDDEN = 2;
-
-// DestinyItemType.Dummy
-const DUMMY = 20;
+const KEPT_SOCKET_CATEGORIES = new Set<number>([
+  SocketCategoryHashes.IntrinsicTraits,
+  SocketCategoryHashes.WeaponPerks_Reusable,
+  SocketCategoryHashes.WeaponMods,
+]);
 
 const [pool, setPool] = createSignal<Map<Weapon, PerkText[]> | undefined>(
   undefined,
@@ -50,10 +47,8 @@ const textOf = (plug: DestinyInventoryItemDefinition): PerkText => {
   const names = [plug.displayProperties?.name ?? ""];
   const descriptions = [plug.displayProperties?.description ?? ""];
 
-  for (const perk of plug.perks ?? []) {
-    const found = defs()?.SandboxPerk.getOptional(perk.perkHash);
-
-    if (perk.perkVisibility !== HIDDEN && found?.displayProperties.name) {
+  for (const found of visibleSandboxPerks(plug)) {
+    if (found.displayProperties.name) {
       names.push(found.displayProperties.name);
       descriptions.push(found.displayProperties.description);
     }
@@ -66,20 +61,19 @@ const textOf = (plug: DestinyInventoryItemDefinition): PerkText => {
 };
 
 const buildPerks = async (session: Session, index: Collections) => {
-  const weaponDefs = new Map(
-    (
-      await readMerged(
-        session.store,
-        index.weapons.flatMap((weapon) => weapon.itemHashes),
-      )
-    ).map((def) => [def.hash, def]),
+  const weaponDefs = keyBy(
+    await readMerged(
+      session.store,
+      index.weapons.flatMap((weapon) => weapon.itemHashes),
+    ),
+    (def) => def.hash,
   );
 
   const entries = new Map<number, DestinyItemSocketEntryDefinition[]>();
   const catalystEntries = new Set<DestinyItemSocketEntryDefinition>();
   const plugSetHashes = new Set<number>();
 
-  for (const def of weaponDefs.values()) {
+  for (const def of Object.values(weaponDefs)) {
     const sockets = def.sockets;
 
     if (!sockets) {
@@ -87,9 +81,7 @@ const buildPerks = async (session: Session, index: Collections) => {
     }
 
     const kept = sockets.socketCategories.flatMap((category) =>
-      category.socketCategoryHash === INTRINSIC_TRAITS ||
-      category.socketCategoryHash === WEAPON_PERKS ||
-      category.socketCategoryHash === WEAPON_MODS
+      KEPT_SOCKET_CATEGORIES.has(category.socketCategoryHash)
         ? category.socketIndexes.flatMap((socketIndex) => {
             const entry = sockets.socketEntries[socketIndex];
 
@@ -97,7 +89,9 @@ const buildPerks = async (session: Session, index: Collections) => {
               return [];
             }
 
-            if (category.socketCategoryHash === WEAPON_MODS) {
+            if (
+              category.socketCategoryHash === SocketCategoryHashes.WeaponMods
+            ) {
               catalystEntries.add(entry);
             }
 
@@ -119,21 +113,20 @@ const buildPerks = async (session: Session, index: Collections) => {
     entries.set(def.hash, kept);
   }
 
-  const plugSets = new Map(
-    (
-      await session.store.getMany<DestinyPlugSetDefinition>(PLUG_SETS, [
-        ...plugSetHashes,
-      ])
-    ).map((set) => [set.hash, set]),
+  const plugSets = keyBy(
+    await session.store.getMany<DestinyPlugSetDefinition>(PLUG_SETS, [
+      ...plugSetHashes,
+    ]),
+    (set) => set.hash,
   );
 
   const plugsOf = (entry: DestinyItemSocketEntryDefinition): number[] => [
     entry.singleInitialItemHash,
     ...(entry.reusablePlugItems ?? []).map((plug) => plug.plugItemHash),
-    ...(
-      plugSets.get(entry.reusablePlugSetHash ?? 0)?.reusablePlugItems ?? []
-    ).map((plug) => plug.plugItemHash),
-    ...(plugSets.get(entry.randomizedPlugSetHash ?? 0)?.reusablePlugItems ?? [])
+    ...(plugSets[entry.reusablePlugSetHash ?? 0]?.reusablePlugItems ?? []).map(
+      (plug) => plug.plugItemHash,
+    ),
+    ...(plugSets[entry.randomizedPlugSetHash ?? 0]?.reusablePlugItems ?? [])
       .filter((plug) => plug.currentlyCanRoll)
       .map((plug) => plug.plugItemHash),
   ];
@@ -148,11 +141,9 @@ const buildPerks = async (session: Session, index: Collections) => {
     }
   }
 
-  const plugDefs = new Map(
-    (await readMerged(session.store, [...plugHashes])).map((def) => [
-      def.hash,
-      def,
-    ]),
+  const plugDefs = keyBy(
+    await readMerged(session.store, [...plugHashes]),
+    (def) => def.hash,
   );
   const texts = new Map<number, PerkText>();
   const built = new Map<Weapon, PerkText[]>();
@@ -163,7 +154,7 @@ const buildPerks = async (session: Session, index: Collections) => {
     for (const itemHash of weapon.itemHashes) {
       for (const entry of entries.get(itemHash) ?? []) {
         const plugs = plugsOf(entry).flatMap((hash) => {
-          const def = plugDefs.get(hash);
+          const def = plugDefs[hash];
 
           return def ? [def] : [];
         });
@@ -171,8 +162,9 @@ const buildPerks = async (session: Session, index: Collections) => {
         for (const plug of plugs) {
           if (
             emptyPlugHashes.has(plug.hash) ||
-            plug.itemType === DUMMY ||
-            plug.plug?.plugCategoryHash === EMPTY_EXOTIC_MASTERWORK ||
+            plug.itemType === DestinyItemType.Dummy ||
+            plug.plug?.plugCategoryHash ===
+              PlugCategoryHashes.V400EmptyExoticMasterwork ||
             // Of the mod sockets only the catalyst's count
             (catalystEntries.has(entry) && !isCatalyst(plug))
           ) {
@@ -191,7 +183,7 @@ const buildPerks = async (session: Session, index: Collections) => {
 
         if (!text) {
           // Only found defs are seen
-          text = textOf(plugDefs.get(hash)!);
+          text = textOf(plugDefs[hash]!);
           texts.set(hash, text);
         }
 

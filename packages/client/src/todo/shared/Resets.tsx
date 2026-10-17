@@ -1,6 +1,7 @@
 import { For } from "solid-js";
 
 import { HEADING, LABEL, SECTION } from "../../components/lib/text.ts";
+import { weekdayTime } from "../../core/time.ts";
 import {
   nextDailyReset,
   nextWeekendReset,
@@ -8,7 +9,6 @@ import {
   remaining,
   xurPresent,
 } from "../../core/todo/reset.ts";
-import { stamp } from "./todoFormat.ts";
 
 export interface Deadline {
   name: string;
@@ -46,7 +46,7 @@ export const Resets = (props: { resets: Deadline[]; now: number }) => (
               {remaining(row.at - props.now)}
             </span>
             <span class="text-xs text-muted-foreground">
-              {row.note} · {stamp(row.at)}
+              {row.note} · {weekdayTime(row.at)}
             </span>
           </div>
         )}

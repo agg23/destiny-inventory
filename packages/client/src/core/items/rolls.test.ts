@@ -6,25 +6,24 @@ import { buildStores } from "app/inventory/store/d2-store-factory";
 import { getTestDefinitions, getTestProfile } from "testing/test-utils.ts";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
+import type { AegisPerk, AegisRoll } from "@dvm/defs-core";
+
 import { itemFilter, valid } from "../search/search.ts";
 import {
   assess,
   perkFor,
-  perkRanked,
   ratingFor,
   rollFor,
   rollsByHash,
-  setRolls,
   versionsOf,
-  type AegisPerk,
-  type AegisRoll,
 } from "./rolls.ts";
+import { setRolls } from "./rollSheets.ts";
 
 const ALL_OR_NOTHING = 3984776322;
 const SLICE = 3422796781;
 const DESPERADO = 624891305;
 const FLUTED_BARREL = 1840239774;
-// Sits in the same socket as Desperado without being what rolled there
+// Same socket as Desperado but not the rolled perk
 const KILL_CLIP = 1015611457;
 
 let defs: D2ManifestDefinitions;
@@ -196,25 +195,6 @@ describe("perkFor", () => {
 
     expect(perkFor(SLICE)?.rank).toBe(77);
   });
-
-  it("counts the ranked perks of each kind", () => {
-    loadPerks(
-      [roll({})],
-      [
-        perk({}),
-        perk({ name: "Desperado", hashes: [DESPERADO], rank: 3 }),
-        perk({
-          name: "Dealer's Choice",
-          hashes: [FLUTED_BARREL],
-          kind: "origin",
-          rank: 1,
-        }),
-      ],
-    );
-
-    expect(perkRanked("perk")).toBe(2);
-    expect(perkRanked("origin")).toBe(1);
-  });
 });
 
 describe("assess", () => {
@@ -257,7 +237,6 @@ describe("assess", () => {
     const read = assess(weapon)!;
 
     expect(read.slots.map((s) => s.matched)).toEqual([true, false]);
-    // The pick is in that socket's pool, so the column resolves and names what rolled
     expect(read.slots[1]?.rolled?.name).toBe("Desperado");
     expect(read.score).toBe(1);
   });

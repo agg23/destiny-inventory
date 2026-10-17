@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { countdown, HOUR, schedule, ZONES } from "./distortion.ts";
+import { HOUR } from "../../core/time.ts";
+import { countdown, schedule, ZONES } from "./distortion.ts";
 
 // The window verified in-game: Europa active 2026-07-26 13:00-14:00 UTC
 const VERIFIED = Date.UTC(2026, 6, 26, 13);

@@ -21,7 +21,6 @@ interface Props {
   label: string;
   disabled?: boolean;
   title?: string;
-  variant?: "default" | "outline" | "secondary";
   size?: "sm" | "default";
   block?: boolean;
   onPrimary: () => void;
@@ -41,7 +40,7 @@ export const SplitButton = (props: Props) => {
     >
       <Button
         type="button"
-        variant={props.variant ?? "outline"}
+        variant="outline"
         size={size()}
         disabled={props.disabled}
         onClick={props.onPrimary}
@@ -61,7 +60,7 @@ export const SplitButton = (props: Props) => {
         >
           <DropdownMenuTrigger
             as={Button}
-            variant={props.variant ?? "outline"}
+            variant="outline"
             size={size() === "sm" ? "icon-sm" : "icon"}
             disabled={props.disabled || props.choices.length < 2}
             class="-ml-px rounded-l-none disabled:opacity-100"

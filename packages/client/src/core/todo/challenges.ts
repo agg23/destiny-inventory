@@ -2,7 +2,12 @@ import type {
   D2ManifestDefinitions,
   DefinitionTable,
 } from "app/destiny2/d2-definitions";
-import type { DestinyGlobalConstantsDefinition } from "bungie-api-ts/destiny2";
+import type {
+  DestinyGlobalConstantsDefinition,
+  DestinyObjectiveProgress,
+} from "bungie-api-ts/destiny2";
+import { DestinyRecordState } from "bungie-api-ts/destiny2";
+import { groupBy, sumBy } from "es-toolkit";
 
 import { defs } from "../profile/defs.ts";
 import type { CharacterRecords, OrderRewards } from "../profile/loadTypes.ts";
@@ -13,12 +18,6 @@ type Manifest = D2ManifestDefinitions & {
 };
 
 const manifest = (): Manifest | undefined => defs() as Manifest | undefined;
-
-// DestinyRecordState
-const REDEEMED = 1;
-const NOT_COMPLETED = 4;
-const OBSCURED = 8;
-const INVISIBLE = 16;
 
 export interface Challenge {
   hash: number;
@@ -43,16 +42,20 @@ export interface OrderPayout {
   waiting: number;
 }
 
+/** Progress and goal summed across every objective */
+export const objectiveTotals = (
+  objectives: DestinyObjectiveProgress[],
+): { progress: number; goal: number } => ({
+  progress: sumBy(objectives, (step) => step.progress ?? 0),
+  goal: sumBy(objectives, (step) => step.completionValue),
+});
+
 const constants = (
   loaded: Manifest,
 ): DestinyGlobalConstantsDefinition | undefined =>
   Object.values(loaded.GlobalConstants.getAll())[0];
 
-/**
- * The hub's challenge node holds one child node per reset group, each carrying its own
- * records. Nothing in the manifest names the groups or their period.
- */
-export const challengeNodes = (): { node: number; records: number[] }[] => {
+const challengeNodes = (): { node: number; records: number[] }[] => {
   const loaded = manifest();
 
   if (!loaded) {
@@ -80,15 +83,7 @@ export const challengeNodes = (): { node: number; records: number[] }[] => {
   });
 };
 
-/**
- * The seasonal hub's live challenges. Obscured and invisible records are the ones the
- * hub is not offering, so they never reach the list.
- */
-/**
- * Nothing in the manifest names a group's period. The hub offers one record per daily
- * slot and keeps the week's set in a single pool, and the pairs bear it out - "B Great"
- * wants 2 Ops where the pool's "B Greater" wants 7.
- */
+// The manifest has no period, daily groups hold a single record
 const periodOf = (records: number[]): Period =>
   records.length === 1 ? "daily" : "weekly";
 
@@ -103,55 +98,46 @@ export const seasonalChallenges = (
   }
 
   const held = records[character] ?? {};
-  const byPeriod = new Map<Period, Challenge[]>();
-
-  for (const group of challengeNodes()) {
-    const challenges = group.records.flatMap((hash) => {
-      const live = held[hash];
-      const def = loaded.Record.getOptional(hash);
-      const name = def?.displayProperties?.name;
-
-      if (!live || !name || live.state & (OBSCURED | INVISIBLE)) {
-        return [];
-      }
-
-      const steps = live.objectives ?? [];
-      const progress = steps.reduce(
-        (sum, step) => sum + (step.progress ?? 0),
-        0,
-      );
-      const goal = steps.reduce((sum, step) => sum + step.completionValue, 0);
-
-      return [
-        {
-          hash,
-          name,
-          description: def?.displayProperties?.description ?? "",
-          progress,
-          goal,
-          complete: (live.state & NOT_COMPLETED) === 0,
-          redeemed: (live.state & REDEEMED) !== 0,
-        },
-      ];
-    });
-
-    if (challenges.length === 0) {
-      continue;
-    }
-
-    const period = periodOf(group.records);
-
-    byPeriod.set(period, [...(byPeriod.get(period) ?? []), ...challenges]);
-  }
+  const byPeriod = groupBy(challengeNodes(), (group) =>
+    periodOf(group.records),
+  );
 
   return (["daily", "weekly"] as const).flatMap((period) => {
-    const challenges = byPeriod.get(period);
+    const challenges = (byPeriod[period] ?? []).flatMap((group) =>
+      group.records.flatMap((hash): Challenge[] => {
+        const live = held[hash];
+        const def = loaded.Record.getOptional(hash);
+        const name = def?.displayProperties?.name;
 
-    return challenges === undefined ? [] : [{ period, challenges }];
+        // Obscured and invisible ones aren't on offer
+        if (
+          !live ||
+          !name ||
+          live.state &
+            (DestinyRecordState.Obscured | DestinyRecordState.Invisible)
+        ) {
+          return [];
+        }
+
+        return [
+          {
+            hash,
+            name,
+            description: def?.displayProperties?.description ?? "",
+            ...objectiveTotals(live.objectives ?? []),
+            complete:
+              (live.state & DestinyRecordState.ObjectiveNotCompleted) === 0,
+            redeemed: (live.state & DestinyRecordState.RecordRedeemed) !== 0,
+          },
+        ];
+      }),
+    );
+
+    return challenges.length === 0 ? [] : [{ period, challenges }];
   });
 };
 
-/** Payout counters rekeyed from the unlock values the profile uses to the reward items */
+/** Payout counters rekeyed from profile unlock values to reward items */
 export const payoutsByReward = (rewards: OrderRewards): OrderRewards => {
   const loaded = manifest();
   const byUnlockValue =

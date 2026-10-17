@@ -1,24 +1,16 @@
 import { For, Show } from "solid-js";
 
+import { Countdown } from "../../components/Countdown.tsx";
+import { Heading } from "../../components/Heading.tsx";
 import { Progress } from "../../components/lib/Progress.tsx";
-import {
-  CARD,
-  HEADING,
-  HEADING_NOTE,
-  SECTION,
-} from "../../components/lib/text.ts";
+import { CARD, HEADING_NOTE, SECTION } from "../../components/lib/text.ts";
 import { readable } from "../../core/activities/activities.ts";
 import type {
   Challenge,
   ChallengeGroup,
   Period,
 } from "../../core/todo/challenges.ts";
-import {
-  nextDailyReset,
-  nextWeeklyReset,
-  remaining,
-} from "../../core/todo/reset.ts";
-import { exact } from "./todoFormat.ts";
+import { nextDailyReset, nextWeeklyReset } from "../../core/todo/reset.ts";
 
 const PERIODS: Record<Period, string> = {
   daily: "Daily challenges",
@@ -68,15 +60,15 @@ export const Challenges = (props: {
   values: Record<number, number>;
 }) => (
   <section class={SECTION}>
-    <h2 class={`${HEADING} flex items-baseline gap-2`}>
+    <Heading>
       {PERIODS[props.group.period]}
-      <span
+      <Countdown
+        at={resetOf(props.group.period, props.now)}
+        now={props.now}
+        label="Resets"
         class={HEADING_NOTE}
-        title={`Resets ${exact(resetOf(props.group.period, props.now))}`}
-      >
-        {remaining(resetOf(props.group.period, props.now) - props.now)} left
-      </span>
-    </h2>
+      />
+    </Heading>
     <div class="grid grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] gap-3">
       <For each={props.group.challenges}>
         {(challenge) => (

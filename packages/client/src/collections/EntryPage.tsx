@@ -1,8 +1,9 @@
 import type { DimItem } from "app/inventory/item-types";
 import { getItemKillTrackerInfo } from "app/utils/item-utils";
 import { A, useNavigate, useParams } from "@solidjs/router";
-import { createMemo, createResource, For, Show } from "solid-js";
+import { createMemo, createResource, For, Show, type JSX } from "solid-js";
 
+import { BackButton } from "../components/BackButton.tsx";
 import { ItemDetails } from "../components/card/ItemDetails.tsx";
 import { ItemHead, typeName } from "../components/card/ItemHead.tsx";
 import { ItemTile } from "../components/ItemTile.tsx";
@@ -17,6 +18,7 @@ import {
   cosmeticEntry,
   ornamentTargets,
 } from "../core/collections/collections.ts";
+import { collectionFilter } from "../core/collections/collectionSearch.ts";
 import { sourceLabel } from "../core/collections/ownership.ts";
 import {
   CLASSES,
@@ -33,14 +35,11 @@ import { fakeItems } from "../core/profile/fakeItems.ts";
 import { useUrl } from "../core/router.ts";
 import {
   collectionsHref,
-  entryHref,
+  itemEntryHref,
   lightGgHref,
   vaultHref,
 } from "../core/url.ts";
 import { useCollectionData } from "./shared/collectionData.ts";
-import { collectionFilter } from "./shared/collectionSearch.ts";
-
-const BLOCK = "flex flex-col gap-2";
 
 const KILL_LABELS: Record<string, string> = {
   pve: "PvE",
@@ -54,13 +53,19 @@ const vaultQuery = (entry: Entry | Cosmetic): string => {
   return entry.kind === "armor" ? withClass(query, entry.classType) : query;
 };
 
+const Block = (props: { title: string; children: JSX.Element }) => (
+  <div class="flex flex-col gap-2">
+    <h4 class={HEADING}>{props.title}</h4>
+    {props.children}
+  </div>
+);
+
 const Copies = (props: { entry: Entry | Cosmetic; copies: DimItem[] }) => {
   const navigate = useNavigate();
 
   return (
     <Show when={props.copies.length > 0}>
-      <div class={BLOCK}>
-        <h4 class={HEADING}>Your copies</h4>
+      <Block title="Your copies">
         <div class="grid grid-cols-[repeat(auto-fill,minmax(var(--tile),max-content))] gap-1.5">
           <For each={props.copies}>
             {(copy) => (
@@ -83,7 +88,7 @@ const Copies = (props: { entry: Entry | Cosmetic; copies: DimItem[] }) => {
             )}
           </For>
         </div>
-      </div>
+      </Block>
     </Show>
   );
 };
@@ -222,9 +227,7 @@ export const EntryPage = () => {
 
   return (
     <div class="flex flex-col gap-3 p-4">
-      <Button size="sm" variant="ghost" class="self-start" onClick={back}>
-        &larr; All collections
-      </Button>
+      <BackButton onClick={back}>All collections</BackButton>
 
       <Show
         when={entry()}
@@ -257,12 +260,13 @@ export const EntryPage = () => {
 
             <div class="flex min-w-80 flex-1 flex-wrap items-start gap-6">
               <div class="flex min-w-80 flex-1 flex-col gap-6">
-                <div class={BLOCK}>
-                  <h4 class={HEADING}>
-                    {found().collectibleHashes.length > 1
+                <Block
+                  title={
+                    found().collectibleHashes.length > 1
                       ? "Versions"
-                      : "Collection"}
-                  </h4>
+                      : "Collection"
+                  }
+                >
                   <ul class="flex flex-col gap-1.5">
                     <For each={found().collectibleHashes}>
                       {(collectibleHash) => {
@@ -303,17 +307,14 @@ export const EntryPage = () => {
                       }}
                     </For>
                   </ul>
-                </div>
+                </Block>
 
                 <Show when={target.latest}>
                   {(fits) => (
-                    <div class={BLOCK}>
-                      <h4 class={HEADING}>Applies to</h4>
+                    <Block title="Applies to">
                       <A
                         class="flex items-center gap-2"
-                        href={entryHref(fits().hash, {
-                          kind: fits().bucket.inArmor ? "armor" : "weapon",
-                        })}
+                        href={itemEntryHref(fits())}
                       >
                         <ItemTile item={fits()} badges={false} />
                         <div>
@@ -323,30 +324,26 @@ export const EntryPage = () => {
                           </div>
                         </div>
                       </A>
-                    </div>
+                    </Block>
                   )}
                 </Show>
 
                 <Copies entry={found()} copies={data.copiesOf(found())} />
 
-                <Show
-                  when={setKey()}
-                  fallback={
-                    <div class={BLOCK}>
-                      <h4 class={HEADING}>Notes</h4>
+                <Block title={setKey() ? "Set notes" : "Notes"}>
+                  <Show
+                    when={setKey()}
+                    fallback={
                       <NoteEditor
                         target={{ kind: "item", targetId: found().key }}
                       />
-                    </div>
-                  }
-                >
-                  {(key) => (
-                    <div class={BLOCK}>
-                      <h4 class={HEADING}>Set notes</h4>
+                    }
+                  >
+                    {(key) => (
                       <NoteEditor target={{ kind: "set", targetId: key() }} />
-                    </div>
-                  )}
-                </Show>
+                    )}
+                  </Show>
+                </Block>
 
                 <div class="flex gap-2">
                   <Show

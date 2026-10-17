@@ -13,12 +13,13 @@ import {
 } from "app/utils/socket-utils";
 import { For, Show } from "solid-js";
 
-import { BUNGIE } from "../../core/api/bungie.ts";
 import { dismissPerk, previewPerk } from "../../core/items/perkPreview.ts";
 import { isIntrinsicPlug } from "../../core/items/perks.ts";
 import { perkFor } from "../../core/items/rolls.ts";
+import { sentence } from "../../core/text.ts";
+import { BungieImage } from "../BungieImage.tsx";
 import { cn } from "../lib/cn.ts";
-import { LABEL, sentence } from "../lib/text.ts";
+import { LABEL } from "../lib/text.ts";
 import { Button } from "../lib/zaidan/button.tsx";
 
 // SocketCategoryHashes for weapon, armor and ghost cosmetics
@@ -33,7 +34,6 @@ const identity = (plug: DimPlug): string => {
   return `${name}|${icon}`;
 };
 
-// The game lights the plugged perk and dims the rest
 const plugClass = (
   socket: DimSocket,
   plug: DimPlug,
@@ -58,7 +58,7 @@ const Socket = (props: {
   socket: DimSocket;
   all?: boolean;
 }) => {
-  // Enhanced variants roll under their own hash, so match the way the pool dedupes
+  // Enhanced variants have their own hash
   const onInstance = () =>
     new Map(props.socket.plugOptions.map((plug) => [identity(plug), plug]));
 
@@ -97,7 +97,7 @@ const Socket = (props: {
 
     const carried = onInstance();
 
-    // The pool holds the base variant, so swap in the one the item carries
+    // Pool only has the base variant
     const sorted = [
       ...rest.flatMap((plug) => {
         const own = carried.get(identity(plug));
@@ -135,15 +135,14 @@ const Socket = (props: {
             }
             onMouseLeave={() => dismissPerk(plug)}
           >
-            <img
+            <BungieImage
+              path={plug.plugDef.displayProperties.icon}
               class={plugClass(
                 props.socket,
                 plug,
                 onInstance().has(identity(plug)),
               )}
-              src={`${BUNGIE}${plug.plugDef.displayProperties.icon}`}
-              loading="lazy"
-              alt=""
+              lazy
             />
             <Show when={perkFor(plug.plugDef.hash)?.rank}>
               {(rank) => (

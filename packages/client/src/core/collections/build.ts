@@ -7,6 +7,7 @@ import type {
   DestinyEquipableItemSetDefinition,
   DestinyPresentationNodeDefinition,
 } from "bungie-api-ts/destiny2";
+import { DestinyItemType } from "bungie-api-ts/destiny2";
 import exoticToCatalystRecordHash from "data/d2/exotic-to-catalyst-record.json" with { type: "json" };
 import extendedICH from "data/d2/extended-ich.json" with { type: "json" };
 import { ItemCategoryHashes } from "data/d2/generated-enums";
@@ -26,10 +27,6 @@ const ARMOR_NODE = 1605042242;
 // Exotics sit under Items > Exotic, split by slot or class
 const EXOTIC_WEAPONS_NODE = 2214408526;
 const EXOTIC_ARMOR_NODE = 1789205056;
-
-// DestinyItemType
-export const ARMOR = 2;
-export const WEAPON = 3;
 
 export const CATALYST_RECORDS = exoticToCatalystRecordHash as Record<
   string,
@@ -115,7 +112,6 @@ const SOURCE_SECTIONS: { label: string; keys: [string, string][] }[] = [
   },
 ];
 
-// DIM's own item-to-term mapping
 const categoryTerm = (weapon: Weapon): string =>
   itemCategoryFilter.fromItem({
     itemCategoryHashes: weapon.itemCategoryHashes,
@@ -174,8 +170,15 @@ const readItems = async (
   return found;
 };
 
-export const armorKey = (name: string, rarity: string, classType: number): string =>
-  `${name}|${rarity}|${classType}`;
+/** Weapons key on name and rarity, armor adds the class */
+export const entryKey = (
+  name: string,
+  rarity: string,
+  classType?: number,
+): string =>
+  classType === undefined
+    ? `${name}|${rarity}`
+    : `${name}|${rarity}|${classType}`;
 
 export const rarityOf = (item: DestinyInventoryItemDefinition): string =>
   ItemRarityMap[item.inventory?.tierType ?? 0] ?? "Common";
@@ -201,64 +204,55 @@ export const buildCollections = async (session: Session): Promise<Collections> =
       return node ? [node] : [];
     });
 
+  const collectiblesUnder = (
+    rootHash: number,
+    depth: number,
+  ): {
+    collectible: SlimCollectible;
+    node: DestinyPresentationNodeDefinition;
+  }[] => {
+    let level = childrenOf(rootHash);
+
+    for (let step = 1; step < depth; step += 1) {
+      level = level.flatMap((node) => childrenOf(node.hash));
+    }
+
+    return level.flatMap((node) =>
+      node.children.collectibles.flatMap((child) => {
+        const collectible = collectibles[child.collectibleHash];
+
+        return collectible ? [{ collectible, node }] : [];
+      }),
+    );
+  };
+
   const placed: {
     collectible: SlimCollectible;
     typeLabel: string | undefined;
-  }[] = [];
-
-  for (const ammo of childrenOf(WEAPONS_NODE)) {
-    for (const type of childrenOf(ammo.hash)) {
-      for (const child of type.children.collectibles) {
-        const collectible = collectibles[child.collectibleHash];
-
-        if (collectible) {
-          placed.push({ collectible, typeLabel: type.displayProperties.name });
-        }
-      }
-    }
-  }
-
-  for (const slot of childrenOf(EXOTIC_WEAPONS_NODE)) {
-    for (const child of slot.children.collectibles) {
-      const collectible = collectibles[child.collectibleHash];
-
-      if (collectible) {
-        placed.push({ collectible, typeLabel: undefined });
-      }
-    }
-  }
+  }[] = [
+    ...collectiblesUnder(WEAPONS_NODE, 2).map(({ collectible, node }) => ({
+      collectible,
+      typeLabel: node.displayProperties.name,
+    })),
+    ...collectiblesUnder(EXOTIC_WEAPONS_NODE, 1).map(({ collectible }) => ({
+      collectible,
+      typeLabel: undefined,
+    })),
+  ];
 
   const armorPlaced: {
     collectible: SlimCollectible;
     setName: string | undefined;
-  }[] = [];
-
-  for (const classNode of childrenOf(ARMOR_NODE)) {
-    for (const category of childrenOf(classNode.hash)) {
-      for (const set of childrenOf(category.hash)) {
-        for (const child of set.children.collectibles) {
-          const collectible = collectibles[child.collectibleHash];
-
-          if (collectible) {
-            armorPlaced.push({
-              collectible,
-              setName: set.displayProperties.name,
-            });
-          }
-        }
-      }
-    }
-  }
-
-  for (const classNode of childrenOf(EXOTIC_ARMOR_NODE)) {
-    for (const child of classNode.children.collectibles) {
-      const collectible = collectibles[child.collectibleHash];
-
-      if (collectible) {
-        armorPlaced.push({ collectible, setName: undefined });
-      }
-    }
-  }
+  }[] = [
+    ...collectiblesUnder(ARMOR_NODE, 3).map(({ collectible, node }) => ({
+      collectible,
+      setName: node.displayProperties.name,
+    })),
+    ...collectiblesUnder(EXOTIC_ARMOR_NODE, 1).map(({ collectible }) => ({
+      collectible,
+      setName: undefined,
+    })),
+  ];
 
   const itemSets = Object.values(
     (session.support.get("EquipableItemSet") ?? {}) as Record<
@@ -299,6 +293,12 @@ export const buildCollections = async (session: Session): Promise<Collections> =
     };
   };
 
+  const makeNewest = (held: Entry, item: DestinyInventoryItemDefinition) => {
+    held.newestItemHash = item.hash;
+    held.icon = item.displayProperties.icon ?? held.icon;
+    held.watermark = item.iconWatermark || held.watermark;
+  };
+
   const merge = (
     held: Entry,
     item: DestinyInventoryItemDefinition,
@@ -322,9 +322,7 @@ export const buildCollections = async (session: Session): Promise<Collections> =
 
     if (collectible.index > held.index) {
       held.index = collectible.index;
-      held.newestItemHash = item.hash;
-      held.icon = item.displayProperties.icon ?? held.icon;
-      held.watermark = item.iconWatermark || held.watermark;
+      makeNewest(held, item);
     }
   };
 
@@ -335,11 +333,14 @@ export const buildCollections = async (session: Session): Promise<Collections> =
     const item = items.get(collectible.itemHash);
 
     // Weapon Ornaments hangs off the same nodes
-    if (item?.itemType !== WEAPON || !item.displayProperties?.name) {
+    if (
+      item?.itemType !== DestinyItemType.Weapon ||
+      !item.displayProperties?.name
+    ) {
       continue;
     }
 
-    const key = `${item.displayProperties.name}|${rarityOf(item)}`;
+    const key = entryKey(item.displayProperties.name, rarityOf(item));
     const typeKey = `${item.equippingBlock?.ammoType ?? 0}:${item.itemSubType}`;
     const held = byKey.get(key);
 
@@ -370,11 +371,14 @@ export const buildCollections = async (session: Session): Promise<Collections> =
     const item = items.get(collectible.itemHash);
 
     // Ornament sets sit beside the armor
-    if (item?.itemType !== ARMOR || !item.displayProperties?.name) {
+    if (
+      item?.itemType !== DestinyItemType.Armor ||
+      !item.displayProperties?.name
+    ) {
       continue;
     }
 
-    const key = armorKey(
+    const key = entryKey(
       item.displayProperties.name,
       rarityOf(item),
       item.classType,
@@ -406,7 +410,7 @@ export const buildCollections = async (session: Session): Promise<Collections> =
       const held =
         item &&
         armorByKey.get(
-          armorKey(item.displayProperties.name, rarityOf(item), item.classType),
+          entryKey(item.displayProperties.name, rarityOf(item), item.classType),
         );
 
       if (!item || !held) {
@@ -417,9 +421,7 @@ export const buildCollections = async (session: Session): Promise<Collections> =
 
       if (!held.itemHashes.includes(hash)) {
         held.itemHashes.push(hash);
-        held.newestItemHash = hash;
-        held.icon = item.displayProperties.icon ?? held.icon;
-        held.watermark = item.iconWatermark || held.watermark;
+        makeNewest(held, item);
       }
     }
   }
@@ -440,7 +442,7 @@ export const buildCollections = async (session: Session): Promise<Collections> =
     }
   }
 
-  // Off-ammo exotics like Arbalest have no legendary node to borrow a label from
+  // Off-ammo exotics like Arbalest have no legendary node label
   for (const weapon of weapons) {
     if (!typeLabels.has(weapon.typeKey)) {
       typeLabels.set(weapon.typeKey, `${weapon.typeName}s`);
@@ -516,7 +518,6 @@ export const buildCollections = async (session: Session): Promise<Collections> =
       return groups.length === 0 ? [] : [{ ...section, groups }];
     });
 
-  // Exotics have no set
   const armorSections: Section[] = [
     {
       label: "",

@@ -1,5 +1,9 @@
 export { createHandler, type ServiceConfig } from "./handler.ts";
-export type { ArtifactIndex, ArtifactLoader } from "./loader.ts";
+export {
+  loaderFrom,
+  type ArtifactIndex,
+  type ArtifactLoader,
+} from "./loader.ts";
 export {
   exchangeCode,
   refreshTokens,
@@ -13,6 +17,7 @@ export {
   type Session,
 } from "./session.ts";
 export {
+  MAX_NOTE_LENGTH,
   parseNote,
   type Note,
   type NoteChange,
@@ -42,7 +47,6 @@ export {
   refresh,
   weekStart,
   type Baseline,
-  type Reference,
   type Reward,
   type Store,
 } from "./baseline.ts";

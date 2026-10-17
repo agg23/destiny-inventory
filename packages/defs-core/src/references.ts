@@ -40,7 +40,7 @@ export const itemReferences = (
     items.push(item.summaryItemHash);
   }
 
-  // DIM names a pursuit after its questline, and no profile ever mentions that item
+  // DIM names pursuits after the questline item. Profiles never reference it
   if (item.objectives?.questlineItemHash) {
     items.push(item.objectives.questlineItemHash);
   }

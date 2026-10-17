@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 
+import { DATA_ROOT } from "@dvm/build";
 import {
   currentMemberships,
   fetchProfile,
@@ -9,9 +9,7 @@ import {
   type Membership,
 } from "@dvm/service";
 
-const REPO_ROOT = new URL("../../../", import.meta.url).pathname;
-const FIXTURE = join(REPO_ROOT, ".cache", "profile.json");
-const TOKENS = join(REPO_ROOT, ".cache", "tokens.json");
+import { PROFILE_FIXTURE, TOKENS } from "./fixture.ts";
 
 const loadAccessToken = async (): Promise<string | undefined> => {
   if (process.env.BUNGIE_ACCESS_TOKEN) {
@@ -73,8 +71,8 @@ const main = async () => {
 
   const profile = await fetchProfile(membership, apiKey, accessToken);
 
-  await mkdir(join(REPO_ROOT, ".cache"), { recursive: true });
-  await writeFile(FIXTURE, JSON.stringify(profile), "utf8");
+  await mkdir(DATA_ROOT, { recursive: true });
+  await writeFile(PROFILE_FIXTURE, JSON.stringify(profile), "utf8");
 
   const vault = profile.profileInventory?.data?.items.length ?? 0;
   const characters = Object.keys(profile.characters?.data ?? {}).length;
@@ -83,7 +81,7 @@ const main = async () => {
     0,
   );
 
-  console.log(`\nWrote ${FIXTURE}`);
+  console.log(`\nWrote ${PROFILE_FIXTURE}`);
   console.log(`  vault items: ${vault}`);
   console.log(`  characters:  ${characters}`);
   console.log(`  equipped:    ${equipped}`);

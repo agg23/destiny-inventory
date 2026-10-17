@@ -6,31 +6,38 @@ import { quoteFilterString } from "app/search/query-parser";
 import { For, Show, type JSX } from "solid-js";
 
 import { useApp } from "../core/app/state.ts";
-import { comparable } from "../core/items/compare.ts";
+import { rivalFor } from "../core/items/compare.ts";
 import { menuFor, setMenuFor, setMenuOpen } from "../core/items/itemMenu.ts";
 import { clear } from "../core/items/preview.ts";
 import { requestTag } from "../core/items/tagConfirm.ts";
-import { commonTag, setOnlyTag, tagDefs, tagFor } from "../core/items/tags.ts";
+import {
+  setOnlyTag,
+  tagDefs,
+  tagFor,
+  tagSummary,
+} from "../core/items/tags.ts";
 import { guest } from "../core/profile/guest.ts";
 import {
+  bulkBlocked,
   defaultBulkTransfer,
   defaultEquip,
   defaultTransfer,
   equipTargets,
   movableTo,
+  otherStores,
   pullBlocked,
   storeLabel,
   transferBlocked,
   transferTargets,
 } from "../core/profile/moveTargets.ts";
-import { entryHref } from "../core/url.ts";
+import { itemEntryHref } from "../core/url.ts";
 import { cn } from "./lib/cn.ts";
 import { Check, ChevronRight } from "./lib/zaidan/icons.tsx";
+import { TagDot } from "./TagDot.tsx";
 
 interface Props {
   find: (index: string) => DimItem | undefined;
   onTag?: (item: DimItem, tagId: string | undefined) => void;
-  /** Right-clicking inside this acts on all of it */
   selection?: () => DimItem[];
   children: JSX.Element;
 }
@@ -48,7 +55,7 @@ const FRAME =
 
 const PANEL = `${FRAME} min-w-44`;
 
-// Narrow enough that the character list still fits beside the menu near a window edge
+// Fits beside the menu near a window edge
 const SUB_PANEL = `${FRAME} min-w-28`;
 
 const Row = (props: {
@@ -111,69 +118,60 @@ const SplitRow = (props: SplitProps) => (
   </div>
 );
 
-const TagChoices = (props: { closeOnSelect?: boolean }) => (
-  <>
-    <ContextMenu.RadioItem
-      class={cn(ROW, "z-context-menu-radio-item")}
-      value=""
-      closeOnSelect={!!props.closeOnSelect}
-    >
-      <span class="size-2 rounded-full border border-dashed border-input" />
-      <span class="min-w-0 flex-1">No tag</span>
-      <ContextMenu.ItemIndicator class="z-context-menu-item-indicator">
-        <Check />
-      </ContextMenu.ItemIndicator>
-    </ContextMenu.RadioItem>
-    <For each={tagDefs()}>
-      {(def) => (
-        <ContextMenu.RadioItem
-          class={cn(ROW, "z-context-menu-radio-item")}
-          value={def.id}
-          closeOnSelect={!!props.closeOnSelect}
-        >
-          <span
-            class="size-2 rounded-full"
-            style={{ "background-color": `var(--color-${def.color})` }}
-          />
-          <span class="min-w-0 flex-1">{def.label}</span>
-          <ContextMenu.ItemIndicator class="z-context-menu-item-indicator">
-            <Check />
-          </ContextMenu.ItemIndicator>
-        </ContextMenu.RadioItem>
-      )}
-    </For>
-  </>
+const TagChoice = (props: {
+  value: string;
+  label: string;
+  color?: string;
+  closeOnSelect?: boolean;
+}) => (
+  <ContextMenu.RadioItem
+    class={cn(ROW, "z-context-menu-radio-item")}
+    value={props.value}
+    closeOnSelect={!!props.closeOnSelect}
+  >
+    <TagDot color={props.color} />
+    <span class="min-w-0 flex-1">{props.label}</span>
+    <ContextMenu.ItemIndicator class="z-context-menu-item-indicator">
+      <Check />
+    </ContextMenu.ItemIndicator>
+  </ContextMenu.RadioItem>
 );
 
-const TagRows = (props: {
-  item: DimItem;
-  onTag?: (item: DimItem, tagId: string | undefined) => void;
-}) => (
+interface TagSubProps {
+  label: string;
+  value: string | undefined;
+  closeOnSelect?: boolean;
+  onChoose: (tagId: string | undefined) => void;
+}
+
+const TagSub = (props: TagSubProps) => (
   <ContextMenu.Sub gutter={6}>
     <ContextMenu.SubTrigger class={cn(ROW, "z-context-menu-sub-trigger")}>
       <span class="min-w-0 flex-1">Tag</span>
-      <span class="text-muted-foreground">
-        {tagFor(props.item.id)?.label ?? "No tag"}
-      </span>
+      <span class="text-muted-foreground">{props.label}</span>
       <ChevronRight class="text-muted-foreground" />
     </ContextMenu.SubTrigger>
     <ContextMenu.Portal>
       <ContextMenu.SubContent data-menu="item" class={SUB_PANEL}>
         <ContextMenu.RadioGroup
-          value={tagFor(props.item.id)?.id ?? ""}
-          onChange={(id) => {
-            const tagId = id === "" ? undefined : id;
-
-            if (props.onTag) {
-              props.onTag(props.item, tagId);
-
-              return;
-            }
-
-            setOnlyTag(props.item.id, props.item.hash, tagId);
-          }}
+          value={props.value}
+          onChange={(id) => props.onChoose(id === "" ? undefined : id)}
         >
-          <TagChoices />
+          <TagChoice
+            value=""
+            label="No tag"
+            closeOnSelect={props.closeOnSelect}
+          />
+          <For each={tagDefs()}>
+            {(def) => (
+              <TagChoice
+                value={def.id}
+                label={def.label}
+                color={def.color}
+                closeOnSelect={props.closeOnSelect}
+              />
+            )}
+          </For>
         </ContextMenu.RadioGroup>
       </ContextMenu.SubContent>
     </ContextMenu.Portal>
@@ -183,17 +181,10 @@ const TagRows = (props: {
 const SelectionRows = (props: { items: DimItem[] }) => {
   const app = useApp();
 
-  const shared = () => commonTag(props.items);
-  const current = () => {
-    const tag = shared();
-
-    return tag === "mixed" ? undefined : tag;
-  };
+  const summary = () => tagSummary(props.items);
   const reason = (target: DimStore) =>
     app.moving() ??
-    (movableTo(props.items, app.stores(), app.active(), target).length === 0
-      ? "Nothing to move"
-      : undefined);
+    bulkBlocked(props.items, app.stores(), app.active(), target);
   const moveTo = (target: DimStore) =>
     app.onMoveMany(
       movableTo(props.items, app.stores(), app.active(), target),
@@ -214,33 +205,18 @@ const SelectionRows = (props: { items: DimItem[] }) => {
               label={`Transfer to ${storeLabel(target())}`}
               reason={reason(target())}
               onChoose={() => moveTo(target())}
-              others={app.stores().filter((store) => store.id !== target().id)}
+              others={otherStores(app.stores(), target())}
               reasonFor={reason}
               onChooseOther={moveTo}
             />
           )}
         </Show>
-        <ContextMenu.Sub gutter={6}>
-          <ContextMenu.SubTrigger class={cn(ROW, "z-context-menu-sub-trigger")}>
-            <span class="min-w-0 flex-1">Tag</span>
-            <span class="text-muted-foreground">
-              {shared() === "mixed" ? "Mixed" : (current()?.label ?? "No tag")}
-            </span>
-            <ChevronRight class="text-muted-foreground" />
-          </ContextMenu.SubTrigger>
-          <ContextMenu.Portal>
-            <ContextMenu.SubContent data-menu="item" class={SUB_PANEL}>
-              <ContextMenu.RadioGroup
-                value={shared() === "mixed" ? undefined : (current()?.id ?? "")}
-                onChange={(id) =>
-                  requestTag(props.items, id === "" ? undefined : id)
-                }
-              >
-                <TagChoices closeOnSelect />
-              </ContextMenu.RadioGroup>
-            </ContextMenu.SubContent>
-          </ContextMenu.Portal>
-        </ContextMenu.Sub>
+        <TagSub
+          label={summary().label}
+          value={summary().mixed ? undefined : (summary().current?.id ?? "")}
+          closeOnSelect
+          onChoose={(tagId) => requestTag(props.items, tagId)}
+        />
       </Show>
       <ContextMenu.Separator class="z-context-menu-separator border-0" />
       <Row label="Clear selection" onChoose={app.onClearSelection} />
@@ -253,28 +229,19 @@ const Rows = (props: RowProps) => {
   const navigate = useNavigate();
   const pinned = () => app.pinned().some((one) => one.id === props.item.id);
 
-  const rival = () => {
-    const [reference] = app.pinned();
-
-    if (!reference || reference.id === props.item.id) {
-      return undefined;
-    }
-
-    return comparable(reference, props.item) ? reference : undefined;
-  };
+  const rival = () => rivalFor(app.pinned(), props.item);
 
   const equipOn = () => defaultEquip(props.item, app.stores(), app.active());
   const transferTo = () =>
     defaultTransfer(props.item, app.stores(), app.active());
 
   const otherEquips = (primary: DimStore) =>
-    equipTargets(props.item, app.stores(), app.active()).filter(
-      (store) => store.id !== primary.id,
-    );
+    otherStores(equipTargets(props.item, app.stores(), app.active()), primary);
 
   const otherTransfers = (primary: DimStore) =>
-    transferTargets(props.item, app.stores(), app.active()).filter(
-      (store) => store.id !== primary.id,
+    otherStores(
+      transferTargets(props.item, app.stores(), app.active()),
+      primary,
     );
 
   const equipReason = () => app.moving() ?? pullBlocked(props.item);
@@ -311,7 +278,19 @@ const Rows = (props: RowProps) => {
         </Show>
 
         <Show when={props.item.id !== "0"}>
-          <TagRows item={props.item} onTag={props.onTag} />
+          <TagSub
+            label={tagFor(props.item.id)?.label ?? "No tag"}
+            value={tagFor(props.item.id)?.id ?? ""}
+            onChoose={(tagId) => {
+              if (props.onTag) {
+                props.onTag(props.item, tagId);
+
+                return;
+              }
+
+              setOnlyTag(props.item.id, props.item.hash, tagId);
+            }}
+          />
         </Show>
 
         <Show when={equipOn() || transferTo() || props.item.id !== "0"}>
@@ -346,9 +325,7 @@ const Rows = (props: RowProps) => {
           label="Show in Collections"
           onChoose={() =>
             navigate(
-              entryHref(props.item.hash, {
-                kind: props.item.bucket.inArmor ? "armor" : "weapon",
-              }),
+              itemEntryHref(props.item),
             )
           }
         />

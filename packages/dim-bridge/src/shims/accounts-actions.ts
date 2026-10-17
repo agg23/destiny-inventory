@@ -8,8 +8,7 @@ export const error = createAction("accounts/ERROR")<Error>();
 export const loggedOut = createAction("accounts/LOG_OUT")();
 export const needsDeveloper = createAction("accounts/DEV_INFO_NEEDED")();
 
-// The real version inspects DIM's own token errors to decide whether to log the user out.
-// Ours owns its tokens elsewhere, so a failed move stays a failed move
+// Real version logs out on DIM token errors. Our tokens live elsewhere
 export const handleAuthErrors =
   (_e: unknown) =>
   async (): Promise<void> => {};

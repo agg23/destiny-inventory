@@ -9,6 +9,7 @@ import {
   AlertDialogTitle,
 } from "../../components/lib/zaidan/alert-dialog.tsx";
 import { Button } from "../../components/lib/zaidan/button.tsx";
+import { WarningBanner } from "../../components/WarningBanner.tsx";
 import { useApp } from "../../core/app/state.ts";
 import {
   advanceTrash,
@@ -19,7 +20,7 @@ import {
   trashStopping,
 } from "./trashRun.ts";
 
-/** Drives the trash run from any page, guards leaving it, and offers recovery */
+/** Drives the trash run from any page */
 export const TrashWatch = () => {
   const app = useApp();
 
@@ -75,17 +76,12 @@ export const TrashWatch = () => {
   return (
     <>
       <Show when={trashRun()?.interrupted}>
-        <div class="flex h-10 items-center gap-3 border-b border-warning/40 bg-warning/15 px-4 text-warning">
-          <span class="font-medium">Trash run interrupted</span>
-          <span class="mr-auto text-warning/70">{where()}</span>
-          <Button
-            size="sm"
-            variant="outline"
-            class="border-warning/40 text-warning hover:bg-warning/15 hover:text-warning"
-            onClick={() => void stopTrash()}
-          >
-            Restore inventory
-          </Button>
+        <WarningBanner
+          title="Trash run interrupted"
+          note={where()}
+          action="Restore inventory"
+          onAction={() => void stopTrash()}
+        >
           <Button
             size="sm"
             variant="ghost"
@@ -94,7 +90,7 @@ export const TrashWatch = () => {
           >
             Dismiss
           </Button>
-        </div>
+        </WarningBanner>
       </Show>
 
       <AlertDialog open={trashStopping()}>

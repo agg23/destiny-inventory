@@ -24,7 +24,7 @@ const memory = (): Store & { held: Record<string, string> } => {
 };
 
 describe("reset windows", () => {
-  // Adam's own reset, which bounds every bonus drop his profile reports
+  // Timestamp from Adam's profile
   it("anchors the week on Tuesday at 17:00 UTC", () => {
     expect(weekStart(at("2026-08-19T03:33:35Z"))).toBe(
       "2026-08-18T17:00:00.000Z",

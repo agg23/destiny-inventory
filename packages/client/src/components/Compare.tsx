@@ -1,5 +1,4 @@
 import type { DimItem, DimStat } from "app/inventory/item-types";
-import type { DimStore } from "app/inventory/store-types";
 import { createMemo, createSignal, For, Show } from "solid-js";
 
 import { recency } from "../core/items/arrivals.ts";
@@ -17,15 +16,10 @@ import { NoteEditor, SharedNote } from "./NoteEditor.tsx";
 
 interface Props {
   items: DimItem[];
-  stores: DimStore[];
-  active: DimStore | undefined;
-  onMove: (item: DimItem, target: DimStore, equip: boolean) => void;
-  onPrefer: (target: DimStore) => void;
   onUnpin?: (item: DimItem) => void;
   kept?: (item: DimItem) => boolean;
   onKeep?: (item: DimItem, keep: boolean) => void;
   minColumn?: string;
-  moving: string | undefined;
 }
 
 interface Row {
@@ -61,7 +55,6 @@ export const Compare = (props: Props) => {
 
   const compact = () => props.items.length > 1;
 
-  // Copies of the same weapon are otherwise indistinguishable in the heads
   const ages = (): (string | undefined)[] => {
     const [a, b] = props.items;
 
@@ -77,7 +70,7 @@ export const Compare = (props: Props) => {
       props.minColumn ?? "0"
     }, 1fr))`;
 
-  // Every section is placed by row, so the column has to be explicit too
+  // Row-placed sections need an explicit column
   const start = (column: number) =>
     compact() ? String(column + 2) : "1 / 3";
 
@@ -95,7 +88,6 @@ export const Compare = (props: Props) => {
                 style={{ "grid-column": start(column()), "grid-row": "1" }}
               >
                 <Show when={ages()[column()]}>
-                  {/* Lives in the panel's top padding, costing no height */}
                   {(age) => (
                     <span class="absolute bottom-full left-0 pb-0.5 text-xs text-muted-foreground">
                       {age()}
@@ -161,17 +153,7 @@ export const Compare = (props: Props) => {
                     against: column() > 0 ? row.values[0] : undefined,
                   })),
                 }}
-                lead={
-                  <Moves
-                    compact={compact()}
-                    item={item}
-                    stores={props.stores}
-                    active={props.active}
-                    onMove={(target, equip) => props.onMove(item, target, equip)}
-                    onPrefer={props.onPrefer}
-                    moving={props.moving}
-                  />
-                }
+                lead={<Moves compact={compact()} item={item} />}
                 trail={
                   <>
                     <Benefits item={item} />

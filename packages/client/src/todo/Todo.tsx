@@ -2,34 +2,23 @@ import { useNavigate } from "@solidjs/router";
 import type { DimItem } from "app/inventory/item-types";
 import { createMemo, createResource, For, Show } from "solid-js";
 
+import { useCollectionData } from "../collections/shared/collectionData.ts";
 import { CharacterPicker } from "../components/CharacterPicker.tsx";
-import {
-  HEADING,
-  HEADING_NOTE,
-  SECTION,
-  TABLE_FRAME,
-} from "../components/lib/text.ts";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableRow,
-} from "../components/lib/zaidan/table.tsx";
+import { Heading } from "../components/Heading.tsx";
+import { TableCell, TableRow } from "../components/lib/zaidan/table.tsx";
+import { NumCell } from "../components/NumCell.tsx";
 import { RAIL } from "../components/rail/Rail.tsx";
+import { TableSection } from "../components/TableSection.tsx";
 import { useApp } from "../core/app/state.ts";
 import { useClock } from "../core/clock.ts";
-import {
-  definedSession,
-  entryForHash,
-  primeCollections,
-} from "../core/collections/collections.ts";
-import { acquiredFor, isCollected } from "../core/collections/ownership.ts";
 import {
   builtTiles,
   vendorTiles,
   type VendorTile,
 } from "../core/profile/fakeItems.ts";
 import { railCollapsed } from "../core/rail.ts";
+import { plural } from "../core/text.ts";
+import { MINUTE } from "../core/time.ts";
 import {
   orderPayouts,
   seasonalChallenges,
@@ -53,20 +42,15 @@ import type {
   RankReset,
   VendorState,
 } from "../core/todo/vendorTypes.ts";
-import { entryHref } from "../core/url.ts";
+import { itemEntryHref } from "../core/url.ts";
 import { Challenges } from "./shared/Challenges.tsx";
+import { held } from "./shared/held.ts";
 import { ClaimedLog, OrderCard } from "./shared/Orders.tsx";
 import { deadlines, Resets, type Deadline } from "./shared/Resets.tsx";
-import { held, MINUTE } from "./shared/todoFormat.ts";
 import { IdleVendors, VendorSection } from "./shared/Vendors.tsx";
 
-const stocked = (vendors: VendorState[]): VendorState[] =>
-  vendors.filter(
-    (vendor) =>
-      vendor.slots.length > 0 ||
-      vendor.offers.length > 0 ||
-      vendor.rows.length > 0,
-  );
+const hasStock = (vendor: VendorState): boolean =>
+  vendor.slots.length > 0 || vendor.offers.length > 0 || vendor.rows.length > 0;
 
 export const Todo = () => {
   const app = useApp();
@@ -150,18 +134,12 @@ export const Todo = () => {
     held<VendorState>(),
   );
   const idle = createMemo(
-    () =>
-      stock().filter(
-        (vendor) =>
-          vendor.slots.length === 0 &&
-          vendor.offers.length === 0 &&
-          vendor.rows.length === 0,
-      ),
+    () => stock().filter((vendor) => !hasStock(vendor)),
     undefined,
     held<VendorState>(),
   );
 
-  // Keyed on the tiles themselves, so a rebuilt stock does not refetch the same items
+  // Keyed on tiles to avoid refetching on a rebuilt stock
   const slotted = createMemo(
     () =>
       stock().flatMap((vendor) => [
@@ -200,24 +178,7 @@ export const Todo = () => {
     held<Priority>(),
   );
 
-  const [collection] = createResource(
-    () => definedSession(app.loaded()?.session),
-    (session) =>
-      Promise.all([primeCollections(session), acquiredFor(session)])
-        .then(([index, acquired]) => ({ index, acquired }))
-        // Tiles just go without the unlocked marker
-        .catch(() => undefined),
-  );
-
-  const collected = (itemHash: number): boolean | undefined => {
-    const loaded = collection();
-    const entry =
-      loaded === undefined ? undefined : entryForHash(loaded.index, itemHash);
-
-    return loaded === undefined || entry === undefined
-      ? undefined
-      : isCollected(entry, loaded.acquired);
-  };
+  const { collected } = useCollectionData();
 
   const ranks = createMemo(
     () => rankResets(vendors()?.response),
@@ -225,10 +186,7 @@ export const Todo = () => {
     held<RankReset>(),
   );
 
-  const openEntry = (item: DimItem) =>
-    navigate(
-      entryHref(item.hash, { kind: item.bucket.inArmor ? "armor" : "weapon" }),
-    );
+  const openEntry = (item: DimItem) => navigate(itemEntryHref(item));
 
   return (
     <>
@@ -243,59 +201,33 @@ export const Todo = () => {
 
         <Resets resets={resets()} now={now()} />
 
-        <Show when={payouts().length > 0}>
-          <section class={SECTION}>
-            <h2 class={HEADING}>Order rewards waiting</h2>
-            <div class={TABLE_FRAME}>
-              <Table>
-                <TableBody>
-                  <For each={payouts()}>
-                    {(payout) => (
-                      <TableRow>
-                        <TableCell class="w-2/5">{payout.name}</TableCell>
-                        <TableCell class="text-right tabular-nums">
-                          {payout.waiting}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </For>
-                </TableBody>
-              </Table>
-            </div>
-          </section>
-        </Show>
+        <TableSection title="Order rewards waiting" each={payouts()}>
+          {(payout) => (
+            <TableRow>
+              <TableCell class="w-2/5">{payout.name}</TableCell>
+              <NumCell>{payout.waiting}</NumCell>
+            </TableRow>
+          )}
+        </TableSection>
 
-        <Show when={ranks().length > 0}>
-          <section class={SECTION}>
-            <h2 class={HEADING}>Rank resets</h2>
-            <div class={TABLE_FRAME}>
-              <Table>
-                <TableBody>
-                  <For each={ranks()}>
-                    {(rank) => (
-                      <TableRow>
-                        <TableCell class="w-2/5">{rank.name}</TableCell>
-                        <TableCell>
-                          <Show
-                            when={rank.rank >= rank.cap}
-                            fallback={`Rank ${rank.rank} of ${rank.cap}`}
-                          >
-                            <span class="text-warning">Ready to reset</span>
-                          </Show>
-                        </TableCell>
-                        <TableCell class="text-right tabular-nums text-muted-foreground">
-                          {rank.resets === 1
-                            ? "1 reset"
-                            : `${rank.resets} resets`}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </For>
-                </TableBody>
-              </Table>
-            </div>
-          </section>
-        </Show>
+        <TableSection title="Rank resets" each={ranks()}>
+          {(rank) => (
+            <TableRow>
+              <TableCell class="w-2/5">{rank.name}</TableCell>
+              <TableCell>
+                <Show
+                  when={rank.rank >= rank.cap}
+                  fallback={`Rank ${rank.rank} of ${rank.cap}`}
+                >
+                  <span class="text-warning">Ready to reset</span>
+                </Show>
+              </TableCell>
+              <NumCell class="text-muted-foreground">
+                {plural(rank.resets, "reset")}
+              </NumCell>
+            </TableRow>
+          )}
+        </TableSection>
 
         <For each={challenges()}>
           {(group) => (
@@ -303,38 +235,27 @@ export const Todo = () => {
           )}
         </For>
 
-        <Show when={priority().length > 0}>
-          <section class={SECTION}>
-            <h2 class={HEADING}>Priority stock</h2>
-            <div class={TABLE_FRAME}>
-              <Table>
-                <TableBody>
-                  <For each={priority()}>
-                    {(offer) => (
-                      <TableRow>
-                        <TableCell class="w-2/5">{offer.name}</TableCell>
-                        <TableCell class="text-muted-foreground">
-                          {offer.vendor}
-                        </TableCell>
-                        <TableCell class="text-right tabular-nums">
-                          <For each={offer.costs}>
-                            {(cost) => (
-                              <>
-                                {cost.quantity.toLocaleString()} {cost.name}
-                              </>
-                            )}
-                          </For>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </For>
-                </TableBody>
-              </Table>
-            </div>
-          </section>
-        </Show>
+        <TableSection title="Priority stock" each={priority()}>
+          {(offer) => (
+            <TableRow>
+              <TableCell class="w-2/5">{offer.name}</TableCell>
+              <TableCell class="text-muted-foreground">
+                {offer.vendor}
+              </TableCell>
+              <NumCell>
+                <For each={offer.costs}>
+                  {(cost) => (
+                    <>
+                      {cost.quantity.toLocaleString()} {cost.name}
+                    </>
+                  )}
+                </For>
+              </NumCell>
+            </TableRow>
+          )}
+        </TableSection>
 
-        <For each={stocked(stock())}>
+        <For each={stock().filter(hasStock)}>
           {(vendor) => (
             <VendorSection
               vendor={vendor}
@@ -347,9 +268,7 @@ export const Todo = () => {
           )}
         </For>
 
-        <Show when={idle().length > 0}>
-          <IdleVendors vendors={idle()} now={now()} />
-        </Show>
+        <IdleVendors vendors={idle()} now={now()} />
 
         <ClaimedLog log={log()} />
       </div>
@@ -357,12 +276,7 @@ export const Todo = () => {
       <Show when={!railCollapsed()}>
         <aside class={RAIL} data-rail>
           <div class="flex min-h-0 flex-col gap-2 overflow-y-auto p-4">
-            <h2 class={`${HEADING} flex items-baseline gap-2`}>
-              Active orders
-              <span class={HEADING_NOTE}>
-                {orders().length}
-              </span>
-            </h2>
+            <Heading note={orders().length}>Active orders</Heading>
             <Show
               when={orders().length > 0}
               fallback={<p class="text-muted-foreground">No orders held.</p>}

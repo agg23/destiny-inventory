@@ -3,8 +3,9 @@ import type {
   DestinyPostGameCarnageReportData,
   DestinyPostGameCarnageReportEntry,
 } from "bungie-api-ts/destiny2";
-import { createResource, createSignal, For, onCleanup, Show } from "solid-js";
+import { createResource, createSignal, For, Show } from "solid-js";
 
+import { BungieImage } from "../../components/BungieImage.tsx";
 import { ItemTile } from "../../components/ItemTile.tsx";
 import { TABLE_FRAME, TABLE_HEADER } from "../../components/lib/text.ts";
 import { Button } from "../../components/lib/zaidan/button.tsx";
@@ -16,23 +17,24 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/lib/zaidan/table.tsx";
-import { duration } from "../../core/activities/history.ts";
+import { NUMBER, NumCell } from "../../components/NumCell.tsx";
 import type { ActivityTables } from "../../core/activities/types.ts";
 import { accessToken } from "../../core/api/auth.ts";
-import { BUNGIE, fetchCarnageReport } from "../../core/api/bungie.ts";
+import { fetchCarnageReport } from "../../core/api/bungie.ts";
 import { useApp } from "../../core/app/state.ts";
-import { dismiss, preview } from "../../core/items/preview.ts";
+import { trackPreview } from "../../core/items/preview.ts";
 import { defs } from "../../core/profile/defs.ts";
 import { fakeItems } from "../../core/profile/fakeItems.ts";
 import type { Session } from "../../core/profile/loadTypes.ts";
 import { REPORTS } from "../../core/profile/store.ts";
+import { duration } from "../../core/time.ts";
 
 interface StoredReport {
   instanceId: string;
   report: DestinyPostGameCarnageReportData;
 }
 
-export interface ReportSource {
+interface ReportSource {
   instanceId: string;
   session: Session;
 }
@@ -158,9 +160,9 @@ const Weapons = (props: { entry: DestinyPostGameCarnageReportEntry }) => {
           <TableHeader class={TABLE_HEADER}>
             <TableRow>
               <TableHead>Weapon</TableHead>
-              <TableHead class="text-right tabular-nums">Kills</TableHead>
-              <TableHead class="text-right tabular-nums">Precision</TableHead>
-              <TableHead class="text-right tabular-nums">Accuracy</TableHead>
+              <TableHead class={NUMBER}>Kills</TableHead>
+              <TableHead class={NUMBER}>Precision</TableHead>
+              <TableHead class={NUMBER}>Accuracy</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -168,50 +170,22 @@ const Weapons = (props: { entry: DestinyPostGameCarnageReportEntry }) => {
               {(weapon) => {
                 const item = () => items()?.get(weapon.referenceId);
 
-                const track = (
-                  event: MouseEvent & { currentTarget: HTMLTableRowElement },
-                ) => {
-                  const found = item();
-
-                  if (found) {
-                    preview(found, event.currentTarget, {
-                      cursorX: event.clientX,
-                      rollWarning: true,
-                    });
-                  }
-                };
-
-                const leave = () => {
-                  const found = item();
-
-                  if (found) {
-                    dismiss(found);
-                  }
-                };
-
-                // Picking another player swaps these rows out from under the pointer
-                onCleanup(leave);
-
                 return (
-                  <TableRow
-                    onMouseEnter={track}
-                    onMouseMove={track}
-                    onMouseLeave={leave}
-                  >
+                  <TableRow {...trackPreview(item, { rollWarning: true })}>
                     <TableCell>
                       <WeaponName hash={weapon.referenceId} item={item()} />
                     </TableCell>
-                    <TableCell class="text-right tabular-nums">
+                    <NumCell>
                       {weapon.values.uniqueWeaponKills?.basic.value ?? 0}
-                    </TableCell>
-                    <TableCell class="text-right tabular-nums">
+                    </NumCell>
+                    <NumCell>
                       {weapon.values.uniqueWeaponPrecisionKills?.basic.value ??
                         0}
-                    </TableCell>
-                    <TableCell class="text-right tabular-nums">
+                    </NumCell>
+                    <NumCell>
                       {weapon.values.uniqueWeaponKillsPrecisionKills?.basic
                         .displayValue ?? "-"}
-                    </TableCell>
+                    </NumCell>
                   </TableRow>
                 );
               }}
@@ -222,15 +196,9 @@ const Weapons = (props: { entry: DestinyPostGameCarnageReportEntry }) => {
                   <TableCell class="text-muted-foreground">
                     {one.label}
                   </TableCell>
-                  <TableCell class="text-right tabular-nums">
-                    {one.value}
-                  </TableCell>
-                  <TableCell class="text-right text-muted-foreground tabular-nums">
-                    -
-                  </TableCell>
-                  <TableCell class="text-right text-muted-foreground tabular-nums">
-                    -
-                  </TableCell>
+                  <NumCell>{one.value}</NumCell>
+                  <NumCell class="text-muted-foreground">-</NumCell>
+                  <NumCell class="text-muted-foreground">-</NumCell>
                 </TableRow>
               )}
             </For>
@@ -302,13 +270,11 @@ export const Report = (props: {
           <TableHeader class={TABLE_HEADER}>
             <TableRow>
               <TableHead>Player</TableHead>
-              <TableHead class="text-right tabular-nums">
-                Kills + assists
-              </TableHead>
-              <TableHead class="text-right tabular-nums">Kills</TableHead>
-              <TableHead class="text-right tabular-nums">Deaths</TableHead>
-              <TableHead class="text-right tabular-nums">K/D</TableHead>
-              <TableHead class="text-right tabular-nums">Score</TableHead>
+              <TableHead class={NUMBER}>Kills + assists</TableHead>
+              <TableHead class={NUMBER}>Kills</TableHead>
+              <TableHead class={NUMBER}>Deaths</TableHead>
+              <TableHead class={NUMBER}>K/D</TableHead>
+              <TableHead class={NUMBER}>Score</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -325,15 +291,10 @@ export const Report = (props: {
                 >
                   <TableCell>
                     <span class="flex items-center gap-2">
-                      <Show when={entry.player.destinyUserInfo.iconPath}>
-                        {(icon) => (
-                          <img
-                            class="size-6 shrink-0"
-                            src={`${BUNGIE}${icon()}`}
-                            alt=""
-                          />
-                        )}
-                      </Show>
+                      <BungieImage
+                        path={entry.player.destinyUserInfo.iconPath}
+                        class="size-6 shrink-0"
+                      />
                       <span
                         classList={{
                           "text-cream": entry.characterId === props.characterId,
@@ -343,21 +304,13 @@ export const Report = (props: {
                       </span>
                     </span>
                   </TableCell>
-                  <TableCell class="text-right tabular-nums">
-                    {stat(entry, "opponentsDefeated")}
-                  </TableCell>
-                  <TableCell class="text-right tabular-nums">
-                    {stat(entry, "kills")}
-                  </TableCell>
-                  <TableCell class="text-right tabular-nums">
-                    {stat(entry, "deaths")}
-                  </TableCell>
-                  <TableCell class="text-right tabular-nums">
+                  <NumCell>{stat(entry, "opponentsDefeated")}</NumCell>
+                  <NumCell>{stat(entry, "kills")}</NumCell>
+                  <NumCell>{stat(entry, "deaths")}</NumCell>
+                  <NumCell>
                     {stat(entry, "killsDeathsRatio").toFixed(2)}
-                  </TableCell>
-                  <TableCell class="text-right tabular-nums">
-                    {stat(entry, "score").toLocaleString()}
-                  </TableCell>
+                  </NumCell>
+                  <NumCell>{stat(entry, "score").toLocaleString()}</NumCell>
                 </TableRow>
               )}
             </For>

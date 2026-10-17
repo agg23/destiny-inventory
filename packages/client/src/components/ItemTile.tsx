@@ -1,18 +1,23 @@
 import type { DimItem } from "app/inventory/item-types";
 
-import { dismiss, preview, type CardCost } from "../core/items/preview.ts";
+import type { Tier } from "@dvm/defs-core";
+
+import { menued } from "../core/items/itemMenu.ts";
 import {
-  assess,
-  setRatings,
-  type Mode,
-  type Tier,
-} from "../core/items/rolls.ts";
+  dismiss,
+  preview,
+  previewed,
+  type CardCost,
+} from "../core/items/preview.ts";
+import { assess, setRatings } from "../core/items/rolls.ts";
+import type { Mode } from "../core/items/rollTypes.ts";
 import { tagFor } from "../core/items/tags.ts";
 import { setTiers, Tile } from "./Tile.tsx";
 
 interface Props {
   item: DimItem;
   selected?: boolean;
+  highlight?: boolean;
   onSelect?: (item: DimItem, event: MouseEvent) => void;
   badges?: boolean;
   class?: string;
@@ -48,6 +53,10 @@ export const ItemTile = (props: Props) => (
     classes={[
       props.item.equipped ? "equipped" : "",
       props.selected ? "selected" : "",
+      props.highlight && previewed()?.item.index === props.item.index
+        ? "hovered"
+        : "",
+      props.highlight && menued(props.item) ? "menued" : "",
       props.class ?? "",
     ]}
     index={props.item.index}

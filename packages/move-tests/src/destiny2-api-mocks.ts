@@ -17,7 +17,7 @@ export interface Destiny2ApiMocks {
   resetMocks: () => void;
 }
 
-// The move logic awaits these and ignores the body; the reducer is what updates the model
+// Move logic ignores the body. The reducer updates the model
 const successResponse: ServerResponse<number> = {
   Response: 0,
   ErrorCode: PlatformErrorCodes.Success,
@@ -29,7 +29,7 @@ const successResponse: ServerResponse<number> = {
 
 const getCharactersResponse = { characters: { data: {} } } as unknown as DestinyProfileResponse;
 
-// Hoisted above the imports it replaces, so nothing has to be imported dynamically
+// vi.mock hoists above imports, unlike DIM's unstable_mockModule
 vi.mock("app/bungie-api/destiny2-api", () => ({
   transfer: vi.fn(() => Promise.resolve(successResponse)),
   equip: vi.fn(() => Promise.resolve(successResponse)),

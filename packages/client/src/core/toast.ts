@@ -2,7 +2,7 @@ import { createSignal } from "solid-js";
 
 const DURATION = 5_000;
 
-export interface Toast {
+interface Toast {
   id: number;
   message: string;
   kind: "info" | "danger";

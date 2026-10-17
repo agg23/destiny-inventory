@@ -32,14 +32,7 @@ export const Rail = () => {
             <Show
               when={app.selected().length === 0}
               fallback={
-                <SelectionPanel
-                  items={app.selected()}
-                  stores={app.stores()}
-                  active={app.active()}
-                  moving={app.moving()}
-                  onMoveMany={app.onMoveMany}
-                  onClear={app.onClearSelection}
-                />
+                <SelectionPanel />
               }
             >
               <Show
@@ -63,15 +56,7 @@ export const Rail = () => {
             </Show>
           }
         >
-          <Compare
-            items={app.pinned()}
-            stores={app.stores()}
-            active={app.active()}
-            onMove={app.onMove}
-            onPrefer={app.onCharacter}
-            onUnpin={app.onUnpin}
-            moving={app.moving()}
-          />
+          <Compare items={app.pinned()} onUnpin={app.onUnpin} />
         </Show>
       </aside>
     </Show>

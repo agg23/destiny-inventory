@@ -1,9 +1,9 @@
 import { createMemo, lazy } from "solid-js";
 
-import { duration, type HistoryRun } from "../../core/activities/history.ts";
+import type { HistoryRun } from "../../core/activities/history.ts";
+import { dateTime, duration, shortDay } from "../../core/time.ts";
 import type { ChartOption } from "./Chart.tsx";
 import { chartColors } from "./chartColors.ts";
-import { shortDay, stamp } from "./runFormat.ts";
 
 // echarts is a third of the bundle
 const Chart = lazy(() =>
@@ -77,7 +77,7 @@ export const RunGraph = (props: {
           const run = props.runs[(params as { dataIndex: number }).dataIndex];
 
           return run
-            ? `${stamp(run.startedAt)}<br/>${metric.format(metric.of(run))}`
+            ? `${dateTime(run.startedAt)}<br/>${metric.format(metric.of(run))}`
             : "";
         },
       },

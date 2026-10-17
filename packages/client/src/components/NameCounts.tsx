@@ -6,7 +6,7 @@ interface NameCount {
   count: number;
 }
 
-export const nameCounts = (items: DimItem[]): NameCount[] => {
+const nameCounts = (items: DimItem[]): NameCount[] => {
   const counts = new Map<string, number>();
 
   for (const item of items) {

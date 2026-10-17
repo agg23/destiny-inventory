@@ -1,6 +1,8 @@
-import { guest, guestParam } from "./profile/guest.ts";
+import type { DimItem } from "app/inventory/item-types";
 
-export interface Codec<T> {
+import { guest, guestParam, SEPARATOR } from "./profile/guest.ts";
+
+interface Codec<T> {
   read: (raw: string | undefined) => T;
   write: (value: T) => string | undefined;
 }
@@ -42,15 +44,12 @@ const count = (): Codec<number | undefined> => ({
   write: (value) => value?.toString(),
 });
 
-// URLSearchParams leaves only * - . _ unescaped
-const SEPARATOR = "_";
-
 const ids = (): Codec<string[]> => ({
   read: (raw) => (raw === undefined || raw === "" ? [] : raw.split(SEPARATOR)),
   write: (value) => (value.length === 0 ? undefined : value.join(SEPARATOR)),
 });
 
-export const HISTORY_TABS = ["recent", "series", "map"] as const;
+const HISTORY_TABS = ["recent", "series", "map"] as const;
 
 export type HistoryTab = (typeof HISTORY_TABS)[number];
 
@@ -74,7 +73,7 @@ export const KINDS = ["weapon", "armor"] as const;
 
 export type Kind = (typeof KINDS)[number];
 
-export const PARAMS = {
+const PARAMS = {
   q: filled(""),
   guest: text(),
   character: text(),
@@ -139,7 +138,10 @@ export const TABS = [
 
 export type Tab = (typeof TABS)[number];
 
-// A path drops every param it does not spell out, and leaving a guest has to be deliberate
+const withParam = (href: string, param: string): string =>
+  `${href}${href.includes("?") ? "&" : "?"}${param}`;
+
+// Links drop unlisted params; carry guest along
 const scoped = (href: string): string => {
   const who = guest();
 
@@ -147,7 +149,7 @@ const scoped = (href: string): string => {
     return href;
   }
 
-  return `${href}${href.includes("?") ? "&" : "?"}guest=${guestParam(who)}`;
+  return withParam(href, `guest=${guestParam(who)}`);
 };
 
 // Each tab starts with a clean filter
@@ -198,6 +200,9 @@ export const entryHref = (
   patch: Partial<Params> = {},
 ): string => collectionsHref(`/collections/${itemHash}`, patch);
 
+export const itemEntryHref = (item: DimItem): string =>
+  entryHref(item.hash, { kind: item.bucket.inArmor ? "armor" : "weapon" });
+
 /** light.gg resolves a bare item hash to its page */
 export const lightGgHref = (itemHash: number): string =>
   `https://www.light.gg/db/items/${itemHash}`;
@@ -216,8 +221,4 @@ export const runHref = (
   label: string,
   rung: string | undefined,
   instanceId: string,
-): string => {
-  const href = activityHref(label, rung);
-
-  return `${href}${href.includes("?") ? "&" : "?"}run=${instanceId}`;
-};
+): string => withParam(activityHref(label, rung), `run=${instanceId}`);

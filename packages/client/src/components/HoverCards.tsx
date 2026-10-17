@@ -2,7 +2,7 @@ import type { DimItem } from "app/inventory/item-types";
 import { Show } from "solid-js";
 
 import { catalystForItem } from "../core/collections/ownership.ts";
-import { comparable } from "../core/items/compare.ts";
+import { rivalFor } from "../core/items/compare.ts";
 import { previewedPerk } from "../core/items/perkPreview.ts";
 import { previewed } from "../core/items/preview.ts";
 import type { LoadResult } from "../core/profile/loadTypes.ts";
@@ -15,16 +15,7 @@ interface Props {
 }
 
 export const HoverCards = (props: Props) => {
-  const against = () => {
-    const [reference] = props.pinned;
-    const item = previewed()?.item;
-
-    if (!reference || !item || reference.id === item.id) {
-      return undefined;
-    }
-
-    return comparable(reference, item) ? reference : undefined;
-  };
+  const against = () => rivalFor(props.pinned, previewed()?.item);
 
   return (
     <>

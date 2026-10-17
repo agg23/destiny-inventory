@@ -1,15 +1,15 @@
 import type { DestinyPostGameCarnageReportData } from "bungie-api-ts/destiny2";
 import { For, Show } from "solid-js";
 
+import { Heading } from "../../components/Heading.tsx";
+import { Hero } from "../../components/Hero.tsx";
+import { Select } from "../../components/lib/Select.tsx";
 import {
   HEADING,
-  HEADING_NOTE,
-  HERO,
   SECTION,
   TABLE_FRAME,
   TABLE_HEADER,
 } from "../../components/lib/text.ts";
-import { NativeSelect } from "../../components/lib/zaidan/native-select.tsx";
 import {
   Table,
   TableBody,
@@ -18,14 +18,19 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/lib/zaidan/table.tsx";
-import { tileArt } from "../../core/activities/art.ts";
-import { duration, type HistoryRun } from "../../core/activities/history.ts";
+import { NUMBER, NumCell } from "../../components/NumCell.tsx";
+import type { HistoryRun } from "../../core/activities/history.ts";
 import type { ActivityTables } from "../../core/activities/types.ts";
+import { dateTime, duration } from "../../core/time.ts";
 import { Chevron, Result } from "./ActivityRow.tsx";
-import { ratio, rungColor, score, stamp } from "./runFormat.ts";
+import { ratio, rungColor, score } from "./runFormat.ts";
 import { METRICS, RunGraph, type Metric } from "./RunGraph.tsx";
 import { Report } from "./RunReport.tsx";
 import type { Best } from "./totals.ts";
+
+const METRIC_NAMES = Object.fromEntries(
+  METRICS.map((one) => [one.id, one.label]),
+);
 
 export const ActivityPage = (props: {
   label: string;
@@ -46,17 +51,18 @@ export const ActivityPage = (props: {
 }) => (
   <>
     <div class="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
-      <div
-        class={HERO}
-        style={{ "--art": tileArt(props.art, props.typeName) }}
+      <Hero
+        art={props.art}
+        typeName={props.typeName}
+        title={
+          <>
+            {props.label}
+            <Show when={props.difficulty}>
+              {(rung) => <span class={rungColor(rung())}>: {rung()}</span>}
+            </Show>
+          </>
+        }
       >
-        <h2 class="text-2xl leading-tight font-semibold">
-          {props.label}
-          <Show when={props.difficulty}>
-            {(rung) => <span class={rungColor(rung())}>: {rung()}</span>}
-          </Show>
-        </h2>
-        <span class="text-foreground/80">{props.typeName}</span>
         <span class="mt-2 flex flex-wrap justify-center gap-x-5 tabular-nums">
           <span>
             <b>{props.best.runs}</b>{" "}
@@ -79,24 +85,19 @@ export const ActivityPage = (props: {
             </span>
           </Show>
         </span>
-      </div>
+      </Hero>
 
       <Show when={props.oldestFirst.length > 1}>
         <div class="flex flex-col gap-3 p-4">
           <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
             <p class={`${HEADING} m-0 flex-1`}>Historical performance</p>
-            <label class="flex items-center gap-2 text-muted-foreground">
-              Comparing
-              <NativeSelect
-                class="text-foreground"
-                value={props.metric.id}
-                onChange={(event) => props.onMetric(event.currentTarget.value)}
-              >
-                <For each={METRICS}>
-                  {(one) => <option value={one.id}>{one.label}</option>}
-                </For>
-              </NativeSelect>
-            </label>
+            <Select
+              label="Comparing"
+              value={props.metric.id}
+              options={METRICS.map((one) => one.id)}
+              names={METRIC_NAMES}
+              onChange={props.onMetric}
+            />
           </div>
           <RunGraph
             runs={props.oldestFirst}
@@ -109,23 +110,18 @@ export const ActivityPage = (props: {
     </div>
 
     <section class={SECTION}>
-      <h2 class={`${HEADING} flex items-baseline gap-2`}>
-        Runs
-        <span class={HEADING_NOTE}>
-          Newest first · pick one for its full report
-        </span>
-      </h2>
+      <Heading note="Newest first · pick one for its full report">Runs</Heading>
       <div class={TABLE_FRAME}>
         <Table>
           <TableHeader class={TABLE_HEADER}>
             <TableRow>
               <TableHead>Started</TableHead>
-              <TableHead class="text-right tabular-nums">Duration</TableHead>
-              <TableHead class="text-right tabular-nums">Kills</TableHead>
-              <TableHead class="text-right tabular-nums">Assists</TableHead>
-              <TableHead class="text-right tabular-nums">Deaths</TableHead>
-              <TableHead class="text-right tabular-nums">K/D</TableHead>
-              <TableHead class="text-right tabular-nums">Score</TableHead>
+              <TableHead class={NUMBER}>Duration</TableHead>
+              <TableHead class={NUMBER}>Kills</TableHead>
+              <TableHead class={NUMBER}>Assists</TableHead>
+              <TableHead class={NUMBER}>Deaths</TableHead>
+              <TableHead class={NUMBER}>K/D</TableHead>
+              <TableHead class={NUMBER}>Score</TableHead>
               <TableHead>Result</TableHead>
               <TableHead class="w-8" />
             </TableRow>
@@ -144,26 +140,14 @@ export const ActivityPage = (props: {
                     onClick={() => props.onPick(run)}
                   >
                     <TableCell class="tabular-nums">
-                      {stamp(run.startedAt)}
+                      {dateTime(run.startedAt)}
                     </TableCell>
-                    <TableCell class="text-right tabular-nums">
-                      {duration(run.durationSeconds)}
-                    </TableCell>
-                    <TableCell class="text-right tabular-nums">
-                      {run.kills}
-                    </TableCell>
-                    <TableCell class="text-right tabular-nums">
-                      {run.assists}
-                    </TableCell>
-                    <TableCell class="text-right tabular-nums">
-                      {run.deaths}
-                    </TableCell>
-                    <TableCell class="text-right tabular-nums">
-                      {ratio(run)}
-                    </TableCell>
-                    <TableCell class="text-right tabular-nums">
-                      {score(run.score)}
-                    </TableCell>
+                    <NumCell>{duration(run.durationSeconds)}</NumCell>
+                    <NumCell>{run.kills}</NumCell>
+                    <NumCell>{run.assists}</NumCell>
+                    <NumCell>{run.deaths}</NumCell>
+                    <NumCell>{ratio(run)}</NumCell>
+                    <NumCell>{score(run.score)}</NumCell>
                     <Result completed={run.completed} />
                     <Chevron
                       open={props.opened?.instanceId === run.instanceId}

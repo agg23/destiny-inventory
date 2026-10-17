@@ -1,20 +1,16 @@
 import type { DimItem } from "app/inventory/item-types";
 import { plainString } from "app/search/text-utils";
+import { DestinyItemType } from "bungie-api-ts/destiny2";
 import { createSignal } from "solid-js";
 
 import type { SlimOrnament } from "@dvm/defs-core";
 
 import { fetchRecords } from "../api/artifacts.ts";
+import { cached } from "../api/cache.ts";
 import { loadConfig } from "../api/config.ts";
 import { defs } from "../profile/defs.ts";
 import type { Session } from "../profile/loadTypes.ts";
-import {
-  ARMOR,
-  armorKey,
-  buildCollections,
-  rarityOf,
-  WEAPON,
-} from "./build.ts";
+import { buildCollections, entryKey, rarityOf } from "./build.ts";
 import type { Collections, Cosmetic, Entry } from "./types.ts";
 import { primeWeaponPerks } from "./weaponPerks.ts";
 
@@ -37,20 +33,25 @@ export const entryForHash = (
   }
 
   // A cosmetic can share a name with a weapon
-  if (item.itemType !== ARMOR && item.itemType !== WEAPON) {
+  if (
+    item.itemType !== DestinyItemType.Armor &&
+    item.itemType !== DestinyItemType.Weapon
+  ) {
     return undefined;
   }
 
   return index.byKey.get(
-    item.itemType === ARMOR
-      ? armorKey(name, rarityOf(item), item.classType)
-      : `${name}|${rarityOf(item)}`,
+    entryKey(
+      name,
+      rarityOf(item),
+      item.itemType === DestinyItemType.Armor ? item.classType : undefined,
+    ),
   );
 };
 
 export const cosmeticEntry = (index: Collections, item: DimItem): Cosmetic => ({
   kind: "cosmetic",
-  key: `${item.name}|${item.rarity}`,
+  key: entryKey(item.name, item.rarity),
   name: item.name,
   rarity: item.rarity,
   newestItemHash: item.hash,
@@ -60,21 +61,15 @@ export const cosmeticEntry = (index: Collections, item: DimItem): Cosmetic => ({
   ),
 });
 
-let ornamentsPending: Promise<Map<number, number[]>> | undefined = undefined;
-
 /** Items an item-specific ornament applies to, read from the served index */
-export const ornamentTargets = (): Promise<Map<number, number[]>> => {
-  ornamentsPending ??= (async () => {
-    const { artifacts } = await loadConfig();
-    const rows = await fetchRecords<SlimOrnament>(artifacts, "OrnamentTarget");
+export const ornamentTargets = cached(async () => {
+  const { artifacts } = await loadConfig();
+  const rows = await fetchRecords<SlimOrnament>(artifacts, "OrnamentTarget");
 
-    return new Map(rows.map((row) => [row.hash, row.items]));
-  })();
+  return new Map(rows.map((row) => [row.hash, row.items]));
+});
 
-  return ornamentsPending;
-};
-
-/** The snapshot paint carries a session with no definitions behind it */
+/** Undefined for the snapshot paint's session, it has no definitions */
 export const definedSession = (
   session: Session | undefined,
 ): Session | undefined =>

@@ -1,18 +1,14 @@
 // Slim defs must produce identical DimItems, or the projection dropped a field
-
 import { getBuckets } from "app/destiny2/d2-buckets";
 import type { DimItem } from "app/inventory/item-types";
-import { makeItem } from "app/inventory/store/d2-item-factory";
-import type { DimStore } from "app/inventory/store-types";
 import type { DestinyProfileResponse } from "bungie-api-ts/destiny2";
 
-import { loadManifest, type RawTable, type TableName } from "@dvm/build";
+import { CACHE_ROOT, loadManifest, type RawTable, type TableName } from "@dvm/build";
 import { slimItem } from "@dvm/defs-core";
 import { buildDefinitions } from "@dvm/dim-bridge";
 
-import { CACHE_ROOT, collectItems, loadProfile } from "./fixture.ts";
-
-const VAULT_STORE = { id: "vault", name: "Vault" } as DimStore;
+import { loadProfile } from "./fixture.ts";
+import { buildItems } from "./items.ts";
 
 interface Summary {
   name: string;
@@ -37,19 +33,10 @@ const buildAll = (
   profile: DestinyProfileResponse,
 ): Map<string, Summary> => {
   const defs = buildDefinitions(tables);
-  const buckets = getBuckets(defs);
   const summaries = new Map<string, Summary>();
 
-  for (const raw of collectItems(profile)) {
-    const item = makeItem(
-      { defs, buckets, profileResponse: profile, customStats: [] },
-      raw,
-      VAULT_STORE,
-    );
-
-    if (item) {
-      summaries.set(item.id === "0" ? `${raw.itemHash}` : item.id, summarize(item));
-    }
+  for (const { raw, item } of buildItems(defs, getBuckets(defs), profile)) {
+    summaries.set(item.id === "0" ? `${raw.itemHash}` : item.id, summarize(item));
   }
 
   return summaries;

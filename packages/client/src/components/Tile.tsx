@@ -1,9 +1,11 @@
 import { For, Show } from "solid-js";
 
-import { BUNGIE } from "../core/api/bungie.ts";
-import type { AegisSetBonus, Mode, Tier } from "../core/items/rolls.ts";
+import type { AegisSetBonus, Tier } from "@dvm/defs-core";
+
+import type { Mode } from "../core/items/rollTypes.ts";
 import { defs } from "../core/profile/defs.ts";
 import { settings, shownModes } from "../core/settings.ts";
+import { BungieImage } from "./BungieImage.tsx";
 
 const STRONG = new Set<Tier>(["S", "A", "B"]);
 
@@ -19,14 +21,21 @@ const RatingRow = (props: { tiers: Tier[] | undefined }) => (
       <Show
         when={tiers().length > 1}
         fallback={
-          <span class={`item-tier tier-${tiers()[0]!.toLowerCase()}`}>
+          <span
+            class="item-tier"
+            style={{ "--tier": `var(--tier-${tiers()[0]!.toLowerCase()})` }}
+          >
             {tiers()[0]}
           </span>
         }
       >
         <span class="item-tier set-tier">
           <For each={tiers()}>
-            {(tier) => <span class={`tier-${tier.toLowerCase()}`}>{tier}</span>}
+            {(tier) => (
+              <span style={{ "--tier": `var(--tier-${tier.toLowerCase()})` }}>
+                {tier}
+              </span>
+            )}
           </For>
         </span>
       </Show>
@@ -65,19 +74,17 @@ export const TileRatings = (props: {
   );
 };
 
-export interface TileProps {
+interface TileProps {
   name: string;
   icon: string;
   overlay: string | undefined;
   rarity: string;
-  /** State classes such as equipped, selected, or owned */
   classes: string[];
   index?: string;
   gearTier: number;
   corner: number | undefined;
   cornerClass?: string;
   tagColor: string | undefined;
-  /** Element, breaker, and damage type icon paths */
   icons: (string | undefined)[];
   tiers: (mode: Mode) => Tier[] | undefined;
   catalyst?: { progress: number; complete: boolean };
@@ -108,29 +115,19 @@ const masterworkGlow = (rarity: string): string | undefined => {
 
 const Face = (props: TileProps) => (
   <>
-    <img src={`${BUNGIE}${props.icon}`} loading="lazy" alt="" />
-    <Show when={props.masterwork && masterworkGlow(props.rarity)}>
-      {(glow) => (
-        <img
-          class="masterwork-glow"
-          src={`${BUNGIE}${glow()}`}
-          loading="lazy"
-          alt=""
-        />
-      )}
-    </Show>
+    <BungieImage path={props.icon} lazy />
+    <BungieImage
+      path={props.masterwork && masterworkGlow(props.rarity)}
+      class="masterwork-glow"
+      lazy
+    />
     <span class="tile-edge" />
     <Show when={props.badges !== false}>
-      <Show when={settings().overlay && props.overlay}>
-        {(overlay) => (
-          <img
-            class="overlay"
-            src={`${BUNGIE}${overlay()}`}
-            loading="lazy"
-            alt=""
-          />
-        )}
-      </Show>
+      <BungieImage
+        path={settings().overlay && props.overlay}
+        class="overlay"
+        lazy
+      />
       <Show when={props.gearTier > 0}>
         <span class="gear-tier">{props.gearTier}</span>
       </Show>
@@ -151,11 +148,7 @@ const Face = (props: TileProps) => (
           )}
         </Show>
         <For each={props.icons}>
-          {(icon) => (
-            <Show when={icon}>
-              {(path) => <img src={`${BUNGIE}${path()}`} alt="" />}
-            </Show>
-          )}
+          {(icon) => <BungieImage path={icon} />}
         </For>
       </span>
       <TileRatings tiers={props.tiers} />

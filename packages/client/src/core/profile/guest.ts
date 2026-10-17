@@ -1,13 +1,14 @@
 import { createSignal } from "solid-js";
 
 import type { Membership } from "../api/bungie.ts";
+import { readStored, writeStored } from "../storage.ts";
 
 const KEY = "dvm.guests";
 
 const LIMIT = 8;
 
 // URLSearchParams leaves only * - . _ unescaped
-const SEPARATOR = "_";
+export const SEPARATOR = "_";
 
 export interface Guest {
   membershipType: number;
@@ -47,33 +48,23 @@ export const sameMembership = (
   one?.membershipId === two?.membershipId &&
   one?.membershipType === two?.membershipType;
 
-/** Bungie name with its four digit code, which is what people recognize */
+/** Bungie name with its four digit code */
 export const guestLabel = (who: Guest): string =>
   who.code === undefined
     ? who.name
     : `${who.name}#${who.code.toString().padStart(4, "0")}`;
 
 const read = (): Guest[] => {
-  const raw = localStorage.getItem(KEY);
+  const parsed = readStored(KEY);
 
-  if (raw === null) {
-    return [];
-  }
-
-  try {
-    const parsed: unknown = JSON.parse(raw);
-
-    return Array.isArray(parsed)
-      ? parsed.filter(
-          (entry): entry is Guest =>
-            typeof entry === "object" &&
-            entry !== null &&
-            typeof (entry as Guest).membershipId === "string",
-        )
-      : [];
-  } catch {
-    return [];
-  }
+  return Array.isArray(parsed)
+    ? parsed.filter(
+        (entry): entry is Guest =>
+          typeof entry === "object" &&
+          entry !== null &&
+          typeof (entry as Guest).membershipId === "string",
+      )
+    : [];
 };
 
 const write = (kept: Guest[]): Guest[] => {
@@ -82,7 +73,7 @@ const write = (kept: Guest[]): Guest[] => {
     ...kept.filter((entry) => !entry.pinned).slice(0, LIMIT),
   ];
 
-  localStorage.setItem(KEY, JSON.stringify(trimmed));
+  writeStored(KEY, trimmed);
 
   return trimmed;
 };

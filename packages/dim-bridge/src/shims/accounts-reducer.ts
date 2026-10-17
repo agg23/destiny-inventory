@@ -4,8 +4,7 @@ import { getType, type ActionType } from "typesafe-actions";
 
 import * as actions from "./accounts-actions.ts";
 
-// The real reducer seeds itself from DIM's auth tokens, its API key checks and localStorage.
-// Ours is told which account is current and holds nothing else
+// Real reducer seeds from DIM's auth tokens, API key checks and localStorage
 export interface AccountsState {
   readonly accounts: readonly DestinyAccount[];
   readonly currentAccountMembershipId: string | undefined;

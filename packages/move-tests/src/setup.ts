@@ -1,5 +1,4 @@
-// DIM reads the dev API key out of localStorage at module scope, so it has to exist before
-// anything under test is imported
+// DIM reads the dev API key from localStorage at import time
 const store = new Map<string, string>();
 
 globalThis.localStorage = {

@@ -2,6 +2,8 @@ import type { DimItem } from "app/inventory/item-types";
 import { useBeforeLeave } from "@solidjs/router";
 import { createEffect, createSignal, on, onCleanup, Show } from "solid-js";
 
+import { MAX_NOTE_LENGTH } from "@dvm/service";
+
 import { useApp } from "../core/app/state.ts";
 import {
   collections,
@@ -9,12 +11,7 @@ import {
   entryForHash,
   primeCollections,
 } from "../core/collections/collections.ts";
-import {
-  MAX_NOTE_LENGTH,
-  noteFor,
-  saveNote,
-  type NoteTarget,
-} from "../core/items/notes.ts";
+import { noteFor, saveNote, type NoteTarget } from "../core/items/notes.ts";
 import { readParam } from "../core/url.ts";
 import { LABEL, NOTE_TEXT } from "./lib/text.ts";
 import { Button } from "./lib/zaidan/button.tsx";
@@ -113,7 +110,6 @@ export const NoteEditor = (props: { target: NoteTarget }) => {
 
     setSaving(false);
 
-    // Moved on to another item while the save was in flight
     if (asked !== key()) {
       return;
     }

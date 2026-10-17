@@ -1,4 +1,3 @@
-// Bungie's names are written for a full-width screen
 const SHORT: Record<string, string> = {
   "Rounds Per Minute": "RPM",
   "Airborne Effectiveness": "Airborne",

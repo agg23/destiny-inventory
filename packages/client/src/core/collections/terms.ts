@@ -26,7 +26,7 @@ export const AMMO_NAMES = new Map<number, string>(
 
 const CATEGORY_KEYWORDS = new Set<string>(itemCategoryFilter.keywords);
 
-/** Whether a term is one the rail writes, so a rail click replaces it */
+/** Whether a rail click should replace this term */
 export const isRailTerm = (key: string | undefined, value: string): boolean =>
   key === "source" ||
   (key === "is" &&
@@ -92,7 +92,7 @@ export const withTerms = (
     ...added,
   ].join(" ");
 
-/** Replaces key's terms from values with value, leaving the rest of the query alone */
+/** Replaces key's terms from values with value */
 export const withTerm = (
   query: string,
   key: string,
@@ -105,7 +105,7 @@ export const withTerm = (
     value === undefined ? [] : [`${key}:${value}`],
   );
 
-/** Whether a group's terms are all in the query; a missing ammo term is fine when none is set */
+/** Whether a group's terms are all in the query, ammo optional when none is set */
 export const queryPicks = (query: string, group: Group): boolean => {
   const present = new Set(
     [...query.matchAll(TERM)].flatMap(([, negated, key, raw]) =>

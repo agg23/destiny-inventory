@@ -5,7 +5,6 @@ import { Checkbox as Box } from "./zaidan/checkbox.tsx";
 
 interface Props {
   checked: boolean;
-  indeterminate?: boolean;
   disabled?: boolean;
   class?: string;
   onChange: (checked: boolean) => void;
@@ -21,7 +20,6 @@ export const Checkbox = (props: Props) => (
   >
     <Box
       checked={props.checked}
-      indeterminate={props.indeterminate}
       disabled={props.disabled}
       onChange={props.onChange}
     />

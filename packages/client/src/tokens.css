@@ -52,7 +52,6 @@
   --d2-warning: #eade8b;
 }
 
-/* Every color resolves to a --d2-* token */
 :root {
   color-scheme: dark;
 
@@ -109,9 +108,9 @@
 
   --tile: 48px;
 
-  /* Three tiles, but the emblem reads at half of its 474 */
+  /* 237 is half the emblem's 474 width */
   --store-column: max(237px, calc(var(--tile) * 3 + var(--space-2) * 2));
-  /* Emblem art is 474x96, and the whole strip sets the banner height */
+  /* Emblem art is 474x96 */
   --banner: calc(var(--store-column) * 96 / 474);
 
   --icon-xs: 14px;
@@ -123,7 +122,7 @@
   /* Two clamped lines and a type row need 60 */
   --item-head: 64px;
   --compare-labels: 80px;
-  /* Reserved always, or the scrollbar feeds itself */
+  /* Always reserved to avoid a scrollbar resize loop */
   --scrollbar: 16px;
 
   --rail: 22rem;
@@ -160,10 +159,9 @@
   --color-stasis: color-mix(in srgb, var(--stasis), #fff 15%);
   --color-strand: var(--strand);
 
-  /* Text over game art */
   --text-shadow-art: 0 1px 2px #000;
 
-  /* Held back so a cached paint never flashes it */
+  /* Delay skips the flash on cached loads */
   --animate-delayed-in: fade-in 0.15s ease-out 0.4s forwards;
   --animate-toast-in: toast-in 0.2s ease-out;
 

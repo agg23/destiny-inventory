@@ -7,7 +7,7 @@ export const mb = (n: number): string => `${(n / 1_048_576).toFixed(2)} MB`;
 const contentHash = (body: Buffer): string =>
   createHash("sha256").update(body).digest("hex").slice(0, 16);
 
-// Static assets cap a single file, and the edge compresses on the way out
+// Static assets have a per-file size cap
 const CHUNK_BYTES = 15 * 1_048_576;
 
 const writeOne = async (
@@ -25,7 +25,7 @@ const writeOne = async (
   return { file, raw: raw.length };
 };
 
-// Ship plain: the edge re-compresses a body that already carries Content-Encoding
+// Uncompressed. The edge re-compresses bodies that already have Content-Encoding
 export const writeArtifact = async (
   dir: string,
   name: string,

@@ -1,4 +1,4 @@
-export interface Cached<T> {
+interface Cached<T> {
   (): Promise<T>;
   settled: () => T | undefined;
 }

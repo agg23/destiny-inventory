@@ -1,8 +1,10 @@
+import { HOUR } from "../../core/time.ts";
+
 // Bungie ships no live distortion state (BUNGIE-API.md §6)
 export interface Zone {
   name: string;
   short?: string;
-  // The reprised armor the zone drops, a DestinyEquipableItemSetDefinition hash
+  // DestinyEquipableItemSetDefinition hash
   set: number;
 }
 
@@ -15,8 +17,6 @@ export const ZONES: Zone[] = [
   { name: "Europa", set: 3090557911 },
   { name: "Nessus", set: 3120219904 },
 ];
-
-export const HOUR = 3_600_000;
 
 // Europa held this hour by in-game observation
 const ANCHOR = Date.UTC(2026, 6, 26, 13);

@@ -1,11 +1,11 @@
 import {
   createHandler,
+  loaderFrom,
   refresh,
-  type ArtifactIndex,
   type ArtifactLoader,
+  type Membership,
   type NoteKind,
   type NoteStore,
-  type Reference,
   type Store,
   type TagStore,
 } from "./core/index.ts";
@@ -32,15 +32,14 @@ interface Env {
   BUNGIE_CLIENT_SECRET: string;
   SESSION_SECRET: string;
   ALLOWED_ORIGIN?: string;
-  /** Bound only once a KV namespace exists, and the baseline is skipped until it does */
   BASELINE?: Store;
   TAGS: Database;
-  /** Any public profile. It is read at reset, when every account still has its full week */
+  // Any public profile
   BASELINE_MEMBERSHIP?: string;
 }
 
-// "3/4611686018468466126", which is the platform and the Destiny membership
-const reference = (env: Env): Reference | undefined => {
+// "3/4611686018468466126" - platform and Destiny membership id
+const reference = (env: Env): Membership | undefined => {
   const [type, id] = (env.BASELINE_MEMBERSHIP ?? "").split("/");
 
   return type && id
@@ -211,8 +210,7 @@ const noteStore = (db: Database): NoteStore => ({
   },
 });
 
-// Artifacts ship as static assets, so the isolate never holds a definition table. Only the
-// index is read here; the chunks are fetched by the client straight from the asset handler
+// Only the index is read here. The client fetches chunks straight from the asset handler
 const assetLoader = (env: Env, origin: string): ArtifactLoader => {
   const read = async (file: string): Promise<ArrayBuffer | undefined> => {
     const response = await env.ASSETS.fetch(
@@ -222,16 +220,7 @@ const assetLoader = (env: Env, origin: string): ArtifactLoader => {
     return response.ok ? await response.arrayBuffer() : undefined;
   };
 
-  return {
-    index: async () => {
-      const body = await read("index.json");
-
-      return body
-        ? (JSON.parse(new TextDecoder().decode(body)) as ArtifactIndex)
-        : undefined;
-    },
-    raw: read,
-  };
+  return loaderFrom(read);
 };
 
 export default {
@@ -241,8 +230,7 @@ export default {
     if (!url.pathname.startsWith("/api/")) {
       const asset = await env.ASSETS.fetch(request);
 
-      // Client routes such as /auth/callback have no asset of their own. Ask for the root
-      // rather than /index.html, which the asset handler 307s to / and drops the query
+      // Client routes like /auth/callback have no asset. /index.html 307s to / and drops the query
       if (
         asset.status === 404 ||
         asset.status === 307 ||
@@ -275,7 +263,7 @@ export default {
     return handler(inner);
   },
 
-  // Fires after each daily reset; a run inside an already-captured week is a no-op
+  // Runs after each daily reset. No-op once the week is captured
   scheduled: async (_event: unknown, env: Env): Promise<void> => {
     const held = baselineOf(env);
 

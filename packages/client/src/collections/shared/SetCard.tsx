@@ -1,7 +1,7 @@
 import { For, Show, type JSX } from "solid-js";
 
+import { BungieImage } from "../../components/BungieImage.tsx";
 import { LABEL, NOTE_TEXT } from "../../components/lib/text.ts";
-import { BUNGIE } from "../../core/api/bungie.ts";
 import { ARMOR_SLOTS, bySlot } from "../../core/collections/armorSets.ts";
 import type { Entry } from "../../core/collections/types.ts";
 import { noteFor } from "../../core/items/notes.ts";
@@ -67,11 +67,7 @@ export const SetCard = (props: {
             <For each={found().perks}>
               {(perk) => (
                 <li class="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-2">
-                  <Show when={perk.icon}>
-                    {(icon) => (
-                      <img class="size-5" src={`${BUNGIE}${icon()}`} alt="" />
-                    )}
-                  </Show>
+                  <BungieImage path={perk.icon} class="size-5" />
                   <div class="col-start-2">
                     <b class="block font-medium text-foreground">
                       {perk.requiredSetCount} piece · {perk.name}

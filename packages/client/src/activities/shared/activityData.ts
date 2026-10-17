@@ -1,13 +1,13 @@
 import type { DimItem } from "app/inventory/item-types";
-import { createMemo, createResource, createSignal } from "solid-js";
+import { createMemo, createResource } from "solid-js";
 
-import { holdAnchor, releaseAnchor } from "../../components/lib/anchor.ts";
 import { categorize, matching } from "../../core/activities/activities.ts";
 import {
   rewardsOf,
   type Values,
 } from "../../core/activities/activityFormat.ts";
-import { activityTables } from "../../core/activities/activityTables.ts";
+import { activityLookup } from "../../core/activities/activityLookup.ts";
+import { useActivityTables } from "../../core/activities/activityTables.ts";
 import {
   bestTiming,
   type ActivityTiming,
@@ -17,13 +17,13 @@ import { BONUS_DROP_ITEM } from "../../core/activities/rewards.ts";
 import type { Available, Loot, Realm } from "../../core/activities/types.ts";
 import { useApp } from "../../core/app/state.ts";
 import { useClock } from "../../core/clock.ts";
-import { HOVER_DELAY } from "../../core/items/preview.ts";
+import { createHoverCard, HOVER_DELAY } from "../../core/items/preview.ts";
 import { builtFakes, fakeItems } from "../../core/profile/fakeItems.ts";
 import { useUrl } from "../../core/router.ts";
+import { HOUR } from "../../core/time.ts";
 import { runHref } from "../../core/url.ts";
-import { activityLookup } from "../../history/shared/activityLookup.ts";
 import { baseline } from "./baseline.ts";
-import { HOUR, schedule } from "./distortion.ts";
+import { schedule } from "./distortion.ts";
 
 export interface Hovered {
   entry: Available;
@@ -33,13 +33,14 @@ export interface Hovered {
 export const createActivities = () => {
   const app = useApp();
   const url = useUrl();
-  const [tables] = createResource(activityTables, {
-    initialValue: activityTables.settled(),
-  });
+  const tables = useActivityTables();
   const [captured] = createResource(baseline, {
     initialValue: baseline.settled(),
   });
-  const [hovered, setHovered] = createSignal<Hovered | undefined>(undefined);
+  const card = createHoverCard<Hovered>({
+    delay: HOVER_DELAY,
+    reopen: (shown, next) => shown.entry.key === next.entry.key,
+  });
 
   const character = () => app.active()?.id;
 
@@ -47,39 +48,16 @@ export const createActivities = () => {
   const hour = createMemo(() => Math.floor(now() / HOUR));
   const turns = createMemo(() => schedule(hour() * HOUR));
 
-  let hoverTimer: number | undefined = undefined;
-
-  const hide = () => {
-    releaseAnchor();
-    setHovered(undefined);
-  };
-
   const onHover = (
     entry: Available,
     element: HTMLElement,
     cursorX: number | undefined = undefined,
   ) => {
-    const open = () => {
-      holdAnchor(element, hide);
-      setHovered({ entry, cursorX });
-    };
-
-    if (hovered()?.entry.key === entry.key) {
-      open();
-
-      return;
-    }
-
-    window.clearTimeout(hoverTimer);
-    hoverTimer = window.setTimeout(open, HOVER_DELAY);
+    card.open({ entry, cursorX }, element);
   };
 
   const onLeave = (entry: Available) => {
-    window.clearTimeout(hoverTimer);
-
-    if (hovered()?.entry.key === entry.key) {
-      hide();
-    }
+    card.dismiss((shown) => shown.entry.key === entry.key);
   };
 
   const all = (): Realm[] => {
@@ -154,14 +132,14 @@ export const createActivities = () => {
     hrefFor,
     timingFor,
     itemFor: (loot: Loot): DimItem | undefined => items()?.get(loot.hash),
-    hovered,
+    hovered: card.shown,
     onHover,
     onLeave,
     now,
     turns,
     pickRealm: (name: string) => {
       // The row unmounts without a mouseleave
-      hide();
+      card.clear();
       url.push({ realm: name });
     },
   };

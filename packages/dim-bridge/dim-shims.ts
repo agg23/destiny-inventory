@@ -1,7 +1,7 @@
 import type { Plugin } from "esbuild";
 import type { Plugin as VitePlugin } from "vite";
 
-// Whole-specifier match, so Vite's alias replaces the id
+// Vite's alias needs a whole-specifier match
 // Keep in sync with tsconfig.base.json
 export const SHIMS: { match: RegExp; shim: string }[] = [
   { match: /^(?:.*\/)?utils\/sentry$/, shim: "sentry.ts" },
@@ -18,8 +18,7 @@ export const SHIMS: { match: RegExp; shim: string }[] = [
   { match: /^@sentry\/(browser|react)$/, shim: "sentry-sdk.ts" },
 ];
 
-// Modules DIM imports relatively, where the specifier alone cannot identify the target:
-// `./selectors` means something different in every feature directory
+// Relative DIM imports. ./selectors differs per feature directory
 export const PATH_SHIMS: { vendorPath: string; shim: string }[] = [
   { vendorPath: "app/inventory/selectors.ts", shim: "inventory-selectors.ts" },
   { vendorPath: "app/loadout/selectors.ts", shim: "loadout-selectors.ts" },
@@ -29,6 +28,17 @@ export const PATH_SHIMS: { vendorPath: string; shim: string }[] = [
   { vendorPath: "app/accounts/actions.ts", shim: "accounts-actions.ts" },
   { vendorPath: "app/accounts/reducer.ts", shim: "accounts-reducer.ts" },
   { vendorPath: "app/search/filter-description.tsx", shim: "filter-description.ts" },
+];
+
+/** SHIMS plus DIM's app/, data/ and images/ aliases. repoRoot ends in a slash */
+export const dimAliases = (repoRoot: string): { find: RegExp; replacement: string }[] => [
+  ...SHIMS.map(({ match, shim }) => ({
+    find: match,
+    replacement: `${repoRoot}packages/dim-bridge/src/shims/${shim}`,
+  })),
+  { find: /^app\//, replacement: `${repoRoot}vendor/DIM/src/app/` },
+  { find: /^data\//, replacement: `${repoRoot}vendor/DIM/src/data/` },
+  { find: /^images\//, replacement: `${repoRoot}vendor/DIM/src/images/` },
 ];
 
 export const dimPathShimsPlugin = (shimDir: string): VitePlugin => ({

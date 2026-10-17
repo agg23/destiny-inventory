@@ -1,13 +1,12 @@
 import { Show, splitProps, type ComponentProps, type JSX } from "solid-js";
 
 import { cn } from "./cn.ts";
-import { Button } from "./zaidan/button.tsx";
+import { IconButton } from "./IconButton.tsx";
 import { X } from "./zaidan/icons.tsx";
 import { Input } from "./zaidan/input.tsx";
 
 type Props = ComponentProps<typeof Input> & {
   value: string;
-  /** Shown at the trailing edge, like a match count */
   trailing?: JSX.Element;
   wrapper?: string;
   onClear: () => void;
@@ -50,17 +49,15 @@ export const SearchField = (props: Props) => {
           when={local.value !== ""}
           fallback={<span class="size-6" aria-hidden="true" />}
         >
-          <Button
-            variant="ghost"
+          <IconButton
             size="icon-xs"
             class="pointer-events-auto text-muted-foreground"
-            title="Clear"
-            aria-label="Clear"
+            label="Clear"
             onMouseDown={(event: MouseEvent) => event.preventDefault()}
             onClick={local.onClear}
           >
             <X />
-          </Button>
+          </IconButton>
         </Show>
       </div>
 

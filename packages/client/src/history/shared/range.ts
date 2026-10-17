@@ -1,5 +1,4 @@
-import { DAY_MS } from "../../core/activities/history.ts";
-import { dateLabel, dayTitle } from "./runFormat.ts";
+import { dateLabel, DAY, dayTitle } from "../../core/time.ts";
 
 export interface Range {
   id: string;
@@ -35,7 +34,7 @@ export const pinnedSpan = (
     return undefined;
   }
 
-  const to = from + days * DAY_MS;
+  const to = from + days * DAY;
 
   if (days === 1) {
     return { from, to, label: dayTitle(day) };
@@ -59,7 +58,7 @@ export const spanOf = (
 
   const found = RANGES.find((one) => one.id === id) ?? RANGES[0];
   const from =
-    found?.days === undefined ? undefined : Date.now() - found.days * DAY_MS;
+    found?.days === undefined ? undefined : Date.now() - found.days * DAY;
 
   return {
     from,

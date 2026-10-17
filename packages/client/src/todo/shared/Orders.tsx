@@ -1,23 +1,16 @@
-import { For, Show } from "solid-js";
+import { Show } from "solid-js";
 
+import { BungieImage } from "../../components/BungieImage.tsx";
+import { Countdown } from "../../components/Countdown.tsx";
+import { cn } from "../../components/lib/cn.ts";
 import { Progress } from "../../components/lib/Progress.tsx";
-import {
-  CARD,
-  HEADING,
-  SECTION,
-  TABLE_FRAME,
-} from "../../components/lib/text.ts";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableRow,
-} from "../../components/lib/zaidan/table.tsx";
+import { CARD } from "../../components/lib/text.ts";
+import { TableCell, TableRow } from "../../components/lib/zaidan/table.tsx";
+import { NumCell } from "../../components/NumCell.tsx";
+import { TableSection } from "../../components/TableSection.tsx";
 import { readable } from "../../core/activities/activities.ts";
-import { BUNGIE } from "../../core/api/bungie.ts";
+import { fullDateTime, HOUR, shortDay } from "../../core/time.ts";
 import type { Claimed, Order } from "../../core/todo/orders.ts";
-import { remaining } from "../../core/todo/reset.ts";
-import { day, exact } from "./todoFormat.ts";
 
 // Only these two rarities get an accent stripe in game
 const ACCENTS: Record<string, string> = {
@@ -25,8 +18,6 @@ const ACCENTS: Record<string, string> = {
     "border-l-3 border-l-[color-mix(in_srgb,var(--legendary),#fff_20%)]",
   Exotic: "border-l-3 border-l-exotic",
 };
-
-const HOUR = 3_600_000;
 
 export const OrderCard = (props: {
   order: Order;
@@ -38,25 +29,25 @@ export const OrderCard = (props: {
     data-rarity={props.order.rarity}
   >
     <div class="flex items-center gap-2">
-      <img
+      <BungieImage
+        path={props.order.icon}
         class="size-(--icon-sm) shrink-0 object-contain"
-        src={`${BUNGIE}${props.order.icon}`}
-        alt=""
       />
       <span class="min-w-0 flex-1 font-medium">{props.order.name}</span>
       <Show
         when={props.order.expiresAt !== undefined}
         fallback={<span class="text-muted-foreground">No deadline</span>}
       >
-        <span
-          class="whitespace-nowrap tabular-nums"
-          classList={{
-            "text-warning": (props.order.expiresAt ?? 0) - props.now < HOUR,
-          }}
-          title={`Expires ${exact(props.order.expiresAt ?? 0)}`}
-        >
-          {remaining((props.order.expiresAt ?? 0) - props.now)}
-        </span>
+        <Countdown
+          at={props.order.expiresAt ?? 0}
+          now={props.now}
+          label="Expires"
+          left={false}
+          class={cn(
+            "whitespace-nowrap tabular-nums",
+            (props.order.expiresAt ?? 0) - props.now < HOUR && "text-warning",
+          )}
+        />
       </Show>
     </div>
     <div class="flex justify-between gap-2 text-xs">
@@ -85,38 +76,19 @@ export const OrderCard = (props: {
 );
 
 export const ClaimedLog = (props: { log: Claimed[] }) => (
-  <section class={SECTION}>
-    <h2 class={HEADING}>Completed orders</h2>
-    <Show
-      when={props.log.length > 0}
-      fallback={
-        <p class="text-muted-foreground">
-          Nothing claimed while the app was open
-        </p>
-      }
-    >
-      <div class={TABLE_FRAME}>
-        <Table>
-          <TableBody>
-            <For each={props.log}>
-              {(entry) => (
-                <TableRow>
-                  <TableCell class="w-2/5">{entry.name}</TableCell>
-                  <TableCell class="text-muted-foreground">
-                    {entry.family}
-                  </TableCell>
-                  <TableCell
-                    class="text-right tabular-nums"
-                    title={`Claimed ${exact(entry.claimedAt)}`}
-                  >
-                    {day(entry.claimedAt)}
-                  </TableCell>
-                </TableRow>
-              )}
-            </For>
-          </TableBody>
-        </Table>
-      </div>
-    </Show>
-  </section>
+  <TableSection
+    title="Completed orders"
+    each={props.log}
+    empty="Nothing claimed while the app was open"
+  >
+    {(entry) => (
+      <TableRow>
+        <TableCell class="w-2/5">{entry.name}</TableCell>
+        <TableCell class="text-muted-foreground">{entry.family}</TableCell>
+        <NumCell title={`Claimed ${fullDateTime(entry.claimedAt)}`}>
+          {shortDay(entry.claimedAt)}
+        </NumCell>
+      </TableRow>
+    )}
+  </TableSection>
 );

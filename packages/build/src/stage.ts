@@ -1,8 +1,8 @@
 import { cp, mkdir, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 
-const REPO_ROOT = new URL("../../../", import.meta.url).pathname;
-const ARTIFACT_ROOT = join(REPO_ROOT, "artifacts");
+import { ARTIFACT_ROOT, REPO_ROOT } from "./paths.ts";
+
 const DIST = join(REPO_ROOT, "packages", "client", "dist", "artifacts");
 
 const main = async () => {

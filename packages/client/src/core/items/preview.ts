@@ -1,21 +1,17 @@
 import type { DimItem } from "app/inventory/item-types";
-import { createSignal } from "solid-js";
+import { createSignal, onCleanup } from "solid-js";
 
-import { holdAnchor, releaseAnchor } from "../../components/lib/anchor.ts";
+import { holdAnchor, releaseAnchor } from "../anchor.ts";
 import type { ModeVerdict } from "./arrivals.ts";
 
 export const HOVER_DELAY = 50;
 
-export interface Previewed {
+interface Previewed {
   item: DimItem;
   cursorX: number | undefined;
-  /** The roll verdict, when the card came from the arrivals rail */
   verdict: ModeVerdict | undefined;
-  /** Warns that a definition item may not match the roll that was used */
   rollWarning: boolean;
-  /** Short status lines, like collection state on a collections card */
   notes: string[];
-  /** Vendor price, for stock shown as tiles */
   cost: CardCost | undefined;
 }
 
@@ -24,11 +20,62 @@ export interface CardCost {
   quantity: number;
 }
 
-const [shown, setShown] = createSignal<Previewed | undefined>(undefined);
+/** Anchored hover card state; no delay opens at once */
+export const createHoverCard = <T>(options: {
+  delay?: number;
+  reopen?: (shown: T, next: T) => boolean;
+  anchor?: string;
+}) => {
+  const [shown, setShown] = createSignal<T | undefined>(undefined);
 
-let timer: number | undefined = undefined;
+  let timer: number | undefined = undefined;
 
-export const previewed = shown;
+  const clear = () => {
+    window.clearTimeout(timer);
+    releaseAnchor(options.anchor);
+    setShown(undefined);
+  };
+
+  const open = (value: T, element: HTMLElement) => {
+    const show = () => {
+      holdAnchor(element, clear, options.anchor);
+      setShown(() => value);
+    };
+    const current = shown();
+
+    if (
+      options.delay === undefined ||
+      (current !== undefined && !!options.reopen?.(current, value))
+    ) {
+      show();
+
+      return;
+    }
+
+    window.clearTimeout(timer);
+    timer = window.setTimeout(show, options.delay);
+  };
+
+  const dismiss = (owns: (shown: T) => boolean) => {
+    window.clearTimeout(timer);
+
+    const current = shown();
+
+    if (current !== undefined && owns(current)) {
+      releaseAnchor(options.anchor);
+      setShown(undefined);
+    }
+  };
+
+  return { shown, open, clear, dismiss };
+};
+
+const card = createHoverCard<Previewed>({
+  delay: HOVER_DELAY,
+  reopen: (shown, next) => shown.item.index === next.item.index,
+});
+
+export const previewed = card.shown;
 
 /** Opens the item card once the hover delay passes, or moves the open one */
 export const preview = (
@@ -36,42 +83,65 @@ export const preview = (
   element: HTMLElement,
   options: Partial<Omit<Previewed, "item">> = {},
 ) => {
-  const open = () => {
-    holdAnchor(element, clear);
-    setShown({
+  card.open(
+    {
       item,
       cursorX: options.cursorX,
       verdict: options.verdict,
       rollWarning: options.rollWarning ?? false,
       notes: options.notes ?? [],
       cost: options.cost,
-    });
-  };
-
-  if (shown()?.item.index === item.index) {
-    open();
-
-    return;
-  }
-
-  window.clearTimeout(timer);
-  timer = window.setTimeout(open, HOVER_DELAY);
+    },
+    element,
+  );
 };
 
-/** Closes the card whatever it holds, for a source that left without a mouseleave */
-export const clear = () => {
-  window.clearTimeout(timer);
-  releaseAnchor();
-  setShown(undefined);
-};
+/** Closes the card regardless of which item holds it */
+export const clear = card.clear;
 
 /** Closes the card if this item still owns it */
 export const dismiss = (item: DimItem) => {
-  window.clearTimeout(timer);
-
   // A fake item shares its id with every other roll of the same hash
-  if (shown()?.item.index === item.index) {
-    releaseAnchor();
-    setShown(undefined);
-  }
+  card.dismiss((shown) => shown.item.index === item.index);
+};
+
+/** Hover handlers that open the item card at the cursor */
+export const trackPreview = (
+  item: () => DimItem | undefined,
+  options: {
+    rollWarning?: boolean;
+    stopPropagation?: boolean;
+    onShow?: () => void;
+  } = {},
+) => {
+  const track = (event: MouseEvent & { currentTarget: HTMLElement }) => {
+    if (options.stopPropagation) {
+      event.stopPropagation();
+    }
+
+    const found = item();
+
+    if (!found) {
+      return;
+    }
+
+    options.onShow?.();
+    preview(found, event.currentTarget, {
+      cursorX: event.clientX,
+      rollWarning: options.rollWarning,
+    });
+  };
+
+  const leave = () => {
+    const found = item();
+
+    if (found) {
+      dismiss(found);
+    }
+  };
+
+  // Rows can unmount from under the pointer without a mouseleave
+  onCleanup(leave);
+
+  return { onMouseEnter: track, onMouseMove: track, onMouseLeave: leave };
 };

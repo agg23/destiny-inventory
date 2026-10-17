@@ -19,7 +19,7 @@ export const createSelection = (
   const [picked, setPicked] = createSignal<ReadonlySet<string>>(new Set());
   const [anchor, setAnchor] = createSignal<string | undefined>(undefined);
 
-  // Resolved against every item, not the feed - tagging hides rows and the selection stands
+  // Against every item - tagging hides feed rows
   const items = createMemo(() => {
     const held = picked();
 

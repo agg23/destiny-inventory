@@ -1,5 +1,4 @@
 import type { DimItem } from "app/inventory/item-types";
-import { autocompleteTermSuggestions } from "app/search/autocomplete";
 import type {
   ItemFilterDefinition,
   ItemSearchConfig,
@@ -25,28 +24,34 @@ import {
 import { matchText, plainString, startWordRegexp } from "app/search/text-utils";
 import D2Sources from "data/d2/source-info-v2";
 
-import { collections } from "../../core/collections/collections.ts";
+import { catalystState } from "../items/perks.ts";
+import { defs } from "../profile/defs.ts";
+import { makeComplete } from "../search/complete.ts";
+import {
+  autocompleteRows,
+  topCompletion,
+  type SearchEngine,
+  type Suggestion,
+} from "../search/search.ts";
+import type { Kind } from "../url.ts";
+import { collections } from "./collections.ts";
 import {
   CATALYSTS,
   OTHER,
   STATUSES,
   withClass,
-} from "../../core/collections/terms.ts";
+} from "./terms.ts";
 import type {
   ArmorSet,
   Collections,
   Entry,
   EntryFacts,
   Weapon,
-} from "../../core/collections/types.ts";
+} from "./types.ts";
 import {
   weaponPerks,
   type PerkText,
-} from "../../core/collections/weaponPerks.ts";
-import { defs } from "../../core/profile/defs.ts";
-import { makeComplete } from "../../core/search/complete.ts";
-import type { SearchEngine, Suggestion } from "../../core/search/search.ts";
-import type { Kind } from "../../core/url.ts";
+} from "./weaponPerks.ts";
 
 interface Context {
   facts: EntryFacts;
@@ -242,17 +247,10 @@ const entryFilters: ItemFilterDefinition[] = [
     filter: (args) => (item) => {
       const catalyst = factsOf(args).catalyst(entryOf(item));
 
-      if (!catalyst) {
-        return false;
-      }
-
-      const state = catalyst.complete
-        ? "complete"
-        : catalyst.unlocked
-          ? "obtained"
-          : "missing";
-
-      return state === args.filterValue;
+      return (
+        catalystState(catalyst, catalyst?.objectives ?? []) ===
+        args.filterValue
+      );
     },
   },
 ];
@@ -334,33 +332,15 @@ const suggest = (kind: Kind, query: string, caret: number): Suggestion[] => {
 
   const { config, complete } = prepare(index, kind);
 
-  return autocompleteTermSuggestions(query, caret, complete, config).flatMap(
-    (item) =>
-      item.highlightRange === undefined
-        ? []
-        : [
-            {
-              query: item.query.fullText,
-              help: item.query.helpText,
-              range: item.highlightRange.range,
-            },
-          ],
-  );
+  return autocompleteRows(query, caret, complete, config);
 };
 
 const completion = (
   kind: Kind,
   query: string,
   caret: number,
-): string | undefined => {
-  if (query === "" || valid(query)) {
-    return undefined;
-  }
-
-  const [first] = suggest(kind, query, caret);
-
-  return first?.query.startsWith(query) ? first.query : undefined;
-};
+): string | undefined =>
+  topCompletion(query, valid, () => suggest(kind, query, caret));
 
 const engine = (kind: Kind, recents: string): SearchEngine => ({
   suggest: (query, caret) => suggest(kind, query, caret),
@@ -374,7 +354,7 @@ export const SEARCHES: Record<Kind, SearchEngine> = {
   armor: engine("armor", "dvm.armorSearches"),
 };
 
-/** Compile a query into a predicate over one kind's entries. An unfinished term is completed */
+/** Compiles a query into a predicate over one kind's entries, completing an unfinished term */
 export const collectionFilter = (
   index: Collections,
   kind: Kind,

@@ -4,7 +4,7 @@ import { fetchActivityHistory, type Membership } from "../api/bungie.ts";
 import { PROGRESS, RUNS, type DefStore } from "../profile/store.ts";
 import { value, type HistoryRun } from "./history.ts";
 
-export interface CharacterProgress {
+interface CharacterProgress {
   characterId: string;
   complete: boolean;
   syncedAt: number;
@@ -30,8 +30,7 @@ export const project = (
   difficultyTier: undefined,
 });
 
-/** Pages a character's history until known() hits or the pages run out */
-export const walkHistory = async (
+const walkHistory = async (
   membership: Membership,
   characterId: string,
   accessToken: string,
@@ -114,7 +113,7 @@ export const syncHistory = async (
   }
 };
 
-/** Most recent page per character, held in memory for a profile that is not ours */
+/** Most recent page per character, in memory only, for a guest profile */
 export const guestHistory = async (
   membership: Membership,
   characterIds: string[],
@@ -133,16 +132,12 @@ export const guestHistory = async (
   }
 };
 
-// Standing in for a tier Bungie declines to name, so we ask for it only once
+// PGCR had no tier, avoids asking again
 export const NO_TIER = -1;
 
 const TIER_BATCH = 8;
 
-/**
- * Fills in the rung of a Portal run, which serves every difficulty from one
- * activity hash and so names none of them. Bounded to the runs tiered() claims,
- * since a report costs a request each.
- */
+/** Fills in Portal run tiers from the PGCR, only for runs tiered() accepts */
 export const syncTiers = async (
   store: DefStore,
   runs: HistoryRun[],
@@ -164,7 +159,7 @@ export const syncTiers = async (
             difficultyTier: (await fetchTier(run.instanceId)) ?? NO_TIER,
           };
         } catch {
-          // One unreachable report should not sink the batch; the next sync retries it
+          // Next sync retries it
           return undefined;
         }
       }),

@@ -1,12 +1,12 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-
 import type { DestinyItemComponent, DestinyProfileResponse } from "bungie-api-ts/destiny2";
 
-export const REPO_ROOT = new URL("../../../", import.meta.url).pathname;
-export const CACHE_ROOT = join(REPO_ROOT, ".cache", "manifest");
-export const PROFILE_FIXTURE = join(REPO_ROOT, ".cache", "profile.json");
+import { DATA_ROOT } from "@dvm/build";
+
+export const PROFILE_FIXTURE = join(DATA_ROOT, "profile.json");
+export const TOKENS = join(DATA_ROOT, "tokens.json");
 
 export const loadProfile = async (): Promise<DestinyProfileResponse | undefined> => {
   if (!existsSync(PROFILE_FIXTURE)) {

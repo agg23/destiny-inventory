@@ -1,16 +1,9 @@
-import { Show } from "solid-js";
+import { Show, type JSX } from "solid-js";
 
 import { TableCell } from "../../components/lib/zaidan/table.tsx";
+import type { PlateProps } from "../../core/activities/activityLookup.ts";
 import { tileArt } from "../../core/activities/art.ts";
 import { rungColor } from "./runFormat.ts";
-
-export interface PlateProps {
-  name: string;
-  art: string | undefined;
-  typeName: string | undefined;
-  difficulty: string | undefined;
-  note: string | undefined;
-}
 
 export const Difficulty = (props: { name: string | undefined }) => (
   <Show when={props.name}>
@@ -18,21 +11,40 @@ export const Difficulty = (props: { name: string | undefined }) => (
   </Show>
 );
 
-export const Plate = (props: PlateProps) => (
+interface Props extends Pick<PlateProps, "name" | "art" | "typeName"> {
+  difficulty?: string;
+  note?: string;
+  badge?: () => JSX.Element;
+  subline?: JSX.Element;
+}
+
+export const Plate = (props: Props) => (
   <div class="flex min-w-0 items-center gap-3">
     <span
       class="h-8 w-14 shrink-0 rounded-sm bg-cover bg-center"
       style={{ "background-image": tileArt(props.art, props.typeName) }}
     />
     <div class="flex min-w-0 flex-col">
-      <span class="truncate text-foreground">{props.name}</span>
-      <span class="flex items-baseline gap-1.5 overflow-hidden text-xs text-muted-foreground">
-        <Difficulty name={props.difficulty} />
-        <Show when={props.difficulty && props.note}>
-          <span>·</span>
-        </Show>
-        <span class="truncate">{props.note}</span>
-      </span>
+      <Show
+        when={props.badge}
+        fallback={<span class="truncate text-foreground">{props.name}</span>}
+      >
+        {(badge) => (
+          <span class="flex min-w-0 items-center gap-2">
+            <span class="truncate text-foreground">{props.name}</span>
+            {badge()()}
+          </span>
+        )}
+      </Show>
+      {props.subline ?? (
+        <span class="flex items-baseline gap-1.5 overflow-hidden text-xs text-muted-foreground">
+          <Difficulty name={props.difficulty} />
+          <Show when={props.difficulty && props.note}>
+            <span>·</span>
+          </Show>
+          <span class="truncate">{props.note}</span>
+        </span>
+      )}
     </div>
   </div>
 );

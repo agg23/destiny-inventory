@@ -10,23 +10,7 @@ export const Vault = () => {
   return (
     <>
       <Show when={app.loaded()}>
-        {(loaded) => (
-          <Inventory
-            stores={app.stores()}
-            buckets={loaded().buckets}
-            matched={app.matched()}
-            active={app.active()}
-            selected={app.selected()}
-            isSelected={app.isSelected}
-            onSelectStore={app.onCharacter}
-            onSelect={app.onPin}
-            onToggle={app.onToggle}
-            onExtend={app.onExtend}
-            onSelectMany={app.onSelectMany}
-            onCollect={app.onCollect}
-            moving={app.moving()}
-          />
-        )}
+        <Inventory />
       </Show>
 
       <Rail />

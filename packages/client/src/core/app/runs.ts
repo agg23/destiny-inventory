@@ -38,6 +38,8 @@ export const createRuns = (
     return [...byId.values()];
   };
 
+  const addRuns = (fresh: HistoryRun[]) => setRuns((was) => absorb(was, fresh));
+
   const syncRuns = async (session: LoadResult["session"]) => {
     runsAt = Date.now();
     setSyncing(true);
@@ -54,12 +56,7 @@ export const createRuns = (
       }
 
       if (session.guest) {
-        await guestHistory(
-          session.membership,
-          characterIds(),
-          token,
-          (fresh) => setRuns((was) => absorb(was, fresh)),
-        );
+        await guestHistory(session.membership, characterIds(), token, addRuns);
 
         return;
       }
@@ -69,7 +66,7 @@ export const createRuns = (
         session.membership,
         characterIds(),
         token,
-        (fresh) => setRuns((was) => absorb(was, fresh)),
+        addRuns,
       );
 
       const tables = await activityTables();
@@ -81,7 +78,7 @@ export const createRuns = (
           tables.activities[run.referenceId]?.difficultyHash !== undefined,
         async (instanceId) =>
           (await fetchCarnageReport(instanceId, token)).activityDifficultyTier,
-        (fresh) => setRuns((was) => absorb(was, fresh)),
+        addRuns,
       );
     } catch (e: unknown) {
       setSyncError(messageOf(e));

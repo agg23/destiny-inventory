@@ -1,7 +1,7 @@
 import { useLocation, useNavigate } from "@solidjs/router";
 import { Show } from "solid-js";
 
-import { SEARCHES } from "../../collections/shared/collectionSearch.ts";
+import { SEARCHES } from "../../core/collections/collectionSearch.ts";
 import type { ArmorSet, Entry } from "../../core/collections/types.ts";
 import type { LoadResult } from "../../core/profile/loadTypes.ts";
 import { vaultable } from "../../core/profile/moveTargets.ts";
@@ -11,6 +11,7 @@ import {
   collectionsHref,
   entryHref,
   type Kind,
+  type Params,
   type Tab,
 } from "../../core/url.ts";
 import { SearchField } from "../lib/SearchField.tsx";
@@ -73,6 +74,13 @@ export const HeaderSearch = (props: Props) => {
     );
   };
 
+  const openEntry = (entry: Entry | ArmorSet, patch: Partial<Params>) =>
+    entry.kind === "set"
+      ? props.onSet(entry)
+      : navigate(
+          entryHref(entry.newestItemHash, { kind: entry.kind, ...patch }),
+        );
+
   return (
       <Show
         when={props.filtersItems}
@@ -99,16 +107,11 @@ export const HeaderSearch = (props: Props) => {
               onQuery={props.onQuery}
               entries={props.entries}
               onEntry={(entry) =>
-                entry.kind === "set"
-                  ? props.onSet(entry)
-                  : navigate(
-                      entryHref(entry.newestItemHash, {
-                        kind: entry.kind,
-                        by: props.url.get("by"),
-                        layout: props.url.get("layout"),
-                        q: props.query,
-                      }),
-                    )
+                openEntry(entry, {
+                  by: props.url.get("by"),
+                  layout: props.url.get("layout"),
+                  q: props.query,
+                })
               }
               onSubmit={(query) => {
                 if (location.pathname.startsWith("/collections/")) {
@@ -137,13 +140,7 @@ export const HeaderSearch = (props: Props) => {
           onQuery={props.onQuery}
           onPreview={props.onPreview}
           entries={props.entries}
-          onEntry={(entry) =>
-            entry.kind === "set"
-              ? props.onSet(entry)
-              : navigate(
-                  entryHref(entry.newestItemHash, { kind: entry.kind }),
-                )
-          }
+          onEntry={(entry) => openEntry(entry, {})}
           onFocus={props.onFocus}
         />
       </Show>

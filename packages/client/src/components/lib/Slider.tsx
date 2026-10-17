@@ -1,7 +1,7 @@
 import { Show } from "solid-js";
 
+import { IconButton } from "./IconButton.tsx";
 import { RevertGlyph } from "./RevertGlyph.tsx";
-import { Button } from "./zaidan/button.tsx";
 import { Slider as Track } from "./zaidan/slider.tsx";
 
 interface Props {
@@ -9,7 +9,6 @@ interface Props {
   value: number;
   min: number;
   max: number;
-  step?: number;
   format?: (value: number) => string;
   modified?: boolean;
   onReset?: () => void;
@@ -24,17 +23,15 @@ export const Slider = (props: Props) => (
         {props.format ? props.format(props.value) : props.value}
       </span>
       <Show when={props.onReset}>
-        <Button
-          variant="ghost"
+        <IconButton
           size="icon-xs"
           class="text-muted-foreground"
           disabled={!props.modified}
-          title={`Reset ${props.label.toLowerCase()} to default`}
-          aria-label={`Reset ${props.label.toLowerCase()} to default`}
+          label={`Reset ${props.label.toLowerCase()} to default`}
           onClick={() => props.onReset?.()}
         >
           <RevertGlyph />
-        </Button>
+        </IconButton>
       </Show>
     </div>
     <Track
@@ -42,7 +39,7 @@ export const Slider = (props: Props) => (
       value={[props.value]}
       minValue={props.min}
       maxValue={props.max}
-      step={props.step ?? 1}
+      step={1}
       onChange={([next]: number[]) => props.onChange(next ?? props.value)}
     />
   </div>

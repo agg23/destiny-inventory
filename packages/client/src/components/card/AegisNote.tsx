@@ -3,17 +3,18 @@ import crucibleGlyph from "destiny-icons/factions/faction_crucible.svg?inline";
 import vanguardGlyph from "destiny-icons/factions/faction_vanguard.svg?inline";
 import { createMemo, For, Show } from "solid-js";
 
+import { assess } from "../../core/items/rolls.ts";
 import {
-  assess,
   MODE_NAMES,
   type Assessment,
   type Mode,
   type SlotVerdict,
-} from "../../core/items/rolls.ts";
+} from "../../core/items/rollTypes.ts";
 import { shownModes } from "../../core/settings.ts";
-import { sentence } from "../lib/text.ts";
+import { sentence } from "../../core/text.ts";
+import { Glyph, STROKE } from "../lib/Glyph.tsx";
 
-// Aegis ranks every weapon it covers, so a base is worth building on only near the top
+// Aegis rates every weapon it covers, not just good ones
 const RECOMMENDED_TIERS = new Set(["S", "A", "B"]);
 
 const recommendedBase = (tier: string | undefined): boolean =>
@@ -56,30 +57,25 @@ export const OptionMark = (props: {
   </Show>
 );
 
-// Baseline aligning an svg sits its box on the baseline, not its ink
+// An svg baseline-aligns its box, not its ink
 const MARK = "size-[1em] flex-none translate-y-[0.167em]";
 
 const AegisMark = (props: { matched: boolean }) => (
-  <svg class={MARK} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+  <Glyph class={MARK}>
     <Show
       when={props.matched}
-      fallback={
-        <path
-          d="M5 5l14 14M19 5L5 19"
-          stroke="currentColor"
-          stroke-width="1.75"
-        />
-      }
+      fallback={<path d="M5 5l14 14M19 5L5 19" {...STROKE} />}
     >
-      <path d="M4 13l5 7L20 4" stroke="currentColor" stroke-width="1.75" />
+      <path d="M4 13l5 7L20 4" {...STROKE} />
     </Show>
-  </svg>
+  </Glyph>
 );
 
 /** A sheet's letter grade, on its tier color */
 export const RollTier = (props: { tier: string }) => (
   <span
-    class={`tier-${props.tier.toLowerCase()} flex-none bg-(--tier) px-1.5 text-xs font-bold text-black`}
+    class="flex-none bg-(--tier) px-1.5 text-xs font-bold text-black"
+    style={{ "--tier": `var(--tier-${props.tier.toLowerCase()})` }}
   >
     {props.tier}
   </span>
@@ -171,7 +167,7 @@ const mergeRows = (judged: Judged[]): MergedRow[] => {
   });
 };
 
-/** Each sheet's standing on the weapon, this roll's perk columns, and the tier they come to */
+/** Each sheet's tier for the weapon, its perk columns, and the roll's tier */
 export const AegisNote = (props: { item: DimItem }) => {
   const judged = createMemo((): Judged[] =>
     shownModes().flatMap((mode) => {

@@ -1,15 +1,44 @@
+import type { D2ManifestDefinitions } from "app/destiny2/d2-definitions";
 import type { DimItem } from "app/inventory/item-types";
-import { makeFakeItem } from "app/inventory/store/d2-item-factory";
+import {
+  makeFakeItem,
+  type ItemCreationContext,
+} from "app/inventory/store/d2-item-factory";
 import type { DestinyProfileResponse } from "bungie-api-ts/destiny2";
 
-import { vendorPlugHashes } from "../todo/vendorFetch.ts";
 import type { VendorComponents } from "../todo/vendorTypes.ts";
 import { defs } from "./defs.ts";
 import { materializeItems } from "./load.ts";
 import type { LoadResult } from "./loadTypes.ts";
+import { componentPlugHashes } from "./profileReads.ts";
 
 // An uninstanced item reads nothing off the profile
 const NO_PROFILE = {} as DestinyProfileResponse;
+
+const makeFake = (
+  loaded: LoadResult,
+  table: D2ManifestDefinitions,
+  hash: number,
+  itemComponents?: ItemCreationContext["itemComponents"],
+  itemInstanceId?: string,
+): DimItem | undefined => {
+  // The factory reads the bucket unchecked
+  if (table.InventoryItem.getOptional(hash)?.inventory === undefined) {
+    return undefined;
+  }
+
+  return makeFakeItem(
+    {
+      defs: table,
+      buckets: loaded.buckets,
+      profileResponse: NO_PROFILE,
+      customStats: [],
+      itemComponents,
+    },
+    hash,
+    { itemInstanceId },
+  );
+};
 
 const FAKES = new Map<number, DimItem>();
 
@@ -46,20 +75,8 @@ export const fakeItems = async (
     return found;
   }
 
-  const context = {
-    defs: table,
-    buckets: loaded.buckets,
-    profileResponse: NO_PROFILE,
-    customStats: [],
-  };
-
   for (const hash of missing) {
-    // The factory reads the bucket unchecked, and a profile-level item has none
-    if (table.InventoryItem.getOptional(hash)?.inventory === undefined) {
-      continue;
-    }
-
-    const item = makeFakeItem(context, hash);
+    const item = makeFake(loaded, table, hash);
 
     if (!item) {
       continue;
@@ -67,7 +84,7 @@ export const fakeItems = async (
 
     found.set(hash, item);
 
-    // Core defs carry no sockets, so these get rebuilt once detail lands
+    // Core defs carry no sockets
     if (loaded.tier === "detail") {
       FAKES.set(hash, item);
     }
@@ -98,7 +115,7 @@ export const vendorTiles = async (
 ): Promise<Map<string, DimItem>> => {
   await materializeItems(loaded.session, [
     ...wanted.map((tile) => tile.itemHash),
-    ...vendorPlugHashes(components),
+    ...Object.values(components).flatMap(componentPlugHashes),
   ]);
 
   const table = defs();
@@ -109,23 +126,13 @@ export const vendorTiles = async (
   }
 
   for (const tile of wanted) {
-    if (
-      table.InventoryItem.getOptional(tile.itemHash)?.inventory === undefined
-    ) {
-      continue;
-    }
-
-    const item = makeFakeItem(
-      {
-        defs: table,
-        buckets: loaded.buckets,
-        profileResponse: NO_PROFILE,
-        customStats: [],
-        itemComponents: components[tile.vendor],
-      },
+    const item = makeFake(
+      loaded,
+      table,
       tile.itemHash,
-      // The vendor's components are keyed by sale index, which the factory reads as the id
-      { itemInstanceId: String(tile.vendorItemIndex) },
+      components[tile.vendor],
+      // Vendor components are keyed by sale index
+      String(tile.vendorItemIndex),
     );
 
     if (item) {

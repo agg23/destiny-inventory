@@ -5,9 +5,9 @@ import ammoSpecial from "destiny-icons/general/ammo-special.svg?inline";
 import { A } from "@solidjs/router";
 import { Show } from "solid-js";
 
-import { BUNGIE } from "../../core/api/bungie.ts";
 import type { CardCost } from "../../core/items/preview.ts";
-import { entryHref, lightGgHref } from "../../core/url.ts";
+import { itemEntryHref, lightGgHref } from "../../core/url.ts";
+import { BungieImage } from "../BungieImage.tsx";
 import { CollectionsGlyph } from "../lib/CollectionsGlyph.tsx";
 import { ExternalGlyph } from "../lib/ExternalGlyph.tsx";
 import { TagControl } from "./TagControl.tsx";
@@ -42,10 +42,9 @@ export const ItemHead = (props: {
     >
       <div class="flex h-full items-stretch gap-2">
         <Show when={props.compact}>
-          <img
+          <BungieImage
+            path={props.item.icon}
             class="aspect-square h-full shrink-0"
-            src={`${BUNGIE}${props.item.icon}`}
-            alt=""
           />
         </Show>
         <div
@@ -88,7 +87,7 @@ export const ItemHead = (props: {
   </>
 );
 
-// DestinyAmmunitionType Primary, Special and Heavy
+// DestinyAmmunitionType
 const AMMO: Record<number, { url: string; name: string }> = {
   1: { url: ammoPrimary, name: "Primary" },
   2: { url: ammoSpecial, name: "Special" },
@@ -98,9 +97,7 @@ const AMMO: Record<number, { url: string; name: string }> = {
 const ItemLinks = (props: { item: DimItem }) => (
   <span class="item-links">
     <A
-      href={entryHref(props.item.hash, {
-        kind: props.item.bucket.inArmor ? "armor" : "weapon",
-      })}
+      href={itemEntryHref(props.item)}
       title="Show in Collections"
       aria-label="Show in Collections"
     >
@@ -118,7 +115,7 @@ const ItemLinks = (props: { item: DimItem }) => (
   </span>
 );
 
-export const ItemPower = (props: {
+const ItemPower = (props: {
   item: DimItem;
   taggable?: boolean;
   links?: boolean;
@@ -158,34 +155,20 @@ export const ItemPower = (props: {
               />
             )}
           </Show>
-          <Show when={!armor() && props.item.element?.displayProperties.icon}>
-            {(icon) => (
-              <img
-                class="element-icon"
-                src={`${BUNGIE}${icon()}`}
-                alt=""
-                title={props.item.element?.displayProperties.name}
-              />
-            )}
-          </Show>
-          <Show when={props.item.breakerType?.displayProperties.icon}>
-            {(icon) => (
-              <img
-                class="breaker-icon"
-                src={`${BUNGIE}${icon()}`}
-                alt=""
-                title={props.item.breakerType?.displayProperties.name}
-              />
-            )}
-          </Show>
+          <BungieImage
+            path={!armor() && props.item.element?.displayProperties.icon}
+            class="element-icon"
+            title={props.item.element?.displayProperties.name}
+          />
+          <BungieImage
+            path={props.item.breakerType?.displayProperties.icon}
+            class="breaker-icon"
+            title={props.item.breakerType?.displayProperties.name}
+          />
           <Show when={props.cost}>
             {(cost) => (
               <span class="power-type">
-                <Show when={cost().icon}>
-                  {(icon) => (
-                    <img class="cost-icon" src={`${BUNGIE}${icon()}`} alt="" />
-                  )}
-                </Show>
+                <BungieImage path={cost().icon} class="cost-icon" />
                 {cost().quantity.toLocaleString()}
               </span>
             )}

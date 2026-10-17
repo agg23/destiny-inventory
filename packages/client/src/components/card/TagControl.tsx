@@ -2,24 +2,19 @@ import type { DimItem } from "app/inventory/item-types";
 import { For } from "solid-js";
 
 import { requestTag } from "../../core/items/tagConfirm.ts";
-import { commonTag, tagDefs } from "../../core/items/tags.ts";
+import { tagDefs, tagSummary } from "../../core/items/tags.ts";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../lib/zaidan/dropdown-menu.tsx";
+import { TagDot } from "../TagDot.tsx";
 
 /** The tag dropdown, setting one tag across every item it is given */
 export const TagControl = (props: { items: DimItem[] }) => {
-  const shared = () => commonTag(props.items);
-  const current = () => {
-    const tag = shared();
-
-    return tag === "mixed" ? undefined : tag;
-  };
-  const label = () =>
-    shared() === "mixed" ? "Mixed" : (current()?.label ?? "No tag");
+  const summary = () => tagSummary(props.items);
+  const current = () => summary().current;
   const tint = () => `var(--${current()?.color ?? "line-bright"})`;
 
   const apply = (tagId: string | undefined) => requestTag(props.items, tagId);
@@ -30,16 +25,16 @@ export const TagControl = (props: { items: DimItem[] }) => {
         class="tag-control"
         classList={{ tagged: !!current() }}
         style={{ "--tag": tint() }}
-        aria-label={current() ? `Tag: ${current()!.label}` : label()}
-        title={label()}
+        aria-label={current() ? `Tag: ${current()!.label}` : summary().label}
+        title={summary().label}
       >
-        {label()}
+        {summary().label}
       </DropdownMenuTrigger>
       <DropdownMenuContent data-menu="tag" class="min-w-32">
         <DropdownMenuItem
           onSelect={() => apply(undefined)}
         >
-          <span class="size-2 rounded-full border border-dashed border-input" />
+          <TagDot />
           No tag
         </DropdownMenuItem>
         <For each={tagDefs()}>
@@ -47,10 +42,7 @@ export const TagControl = (props: { items: DimItem[] }) => {
             <DropdownMenuItem
               onSelect={() => apply(def.id)}
             >
-              <span
-                class="size-2 rounded-full"
-                style={{ "background-color": `var(--color-${def.color})` }}
-              />
+              <TagDot color={def.color} />
               {def.label}
             </DropdownMenuItem>
           )}

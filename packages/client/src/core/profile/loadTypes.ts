@@ -8,8 +8,9 @@ import type {
   DestinyRecordComponent,
 } from "bungie-api-ts/destiny2";
 
+import type { ArtifactIndex } from "@dvm/service";
+
 import type { Membership } from "../api/bungie.ts";
-import type { ArtifactIndex } from "../api/config.ts";
 import type { Guest } from "./guest.ts";
 import type { DefStore } from "./store.ts";
 import type { Failure } from "./stores.ts";
@@ -49,13 +50,6 @@ export type CharacterRecords = Record<
 
 export type OrderRewards = Record<string, Record<number, number>>;
 
-export class NotSignedIn extends Error {
-  constructor() {
-    super("Not signed in");
-    this.name = "NotSignedIn";
-  }
-}
-
 export interface Session {
   store: DefStore;
   index: ArtifactIndex;
@@ -69,11 +63,10 @@ export interface Session {
   builtFrom: number;
   /** Profile serialized without the fields that change on every mint */
   contents: string;
-  /** Set only while another account's profile is on screen */
   guest: Guest | undefined;
 }
 
-export type RefreshStatus = "updated" | "unchanged" | "manifest-changed";
+type RefreshStatus = "updated" | "unchanged" | "manifest-changed";
 
 export interface RefreshOutcome {
   status: RefreshStatus;

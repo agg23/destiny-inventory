@@ -1,4 +1,4 @@
-export interface ChartColors {
+interface ChartColors {
   text: string;
   dim: string;
   line: string;
@@ -9,7 +9,7 @@ export interface ChartColors {
 
 let resolved: ChartColors | undefined = undefined;
 
-/** Canvas cannot read a custom property, so the tokens are resolved once up front */
+/** Theme tokens resolved once - canvas can't read custom properties */
 export const chartColors = (): ChartColors => {
   if (!resolved) {
     const style = getComputedStyle(document.documentElement);

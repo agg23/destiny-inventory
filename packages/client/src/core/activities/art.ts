@@ -1,3 +1,5 @@
+import { groupBy } from "es-toolkit";
+
 import type { SlimActivity } from "@dvm/defs-core";
 
 import { BUNGIE } from "../api/bungie.ts";
@@ -11,20 +13,6 @@ interface ArtIndex {
 
 const ART_INDEX = new WeakMap<ActivityTables, ArtIndex>();
 
-const push = (
-  into: Map<string, SlimActivity[]>,
-  key: string,
-  one: SlimActivity,
-) => {
-  const found = into.get(key);
-
-  if (found) {
-    found.push(one);
-  } else {
-    into.set(key, [one]);
-  }
-};
-
 const artIndex = (tables: ActivityTables): ArtIndex => {
   const held = ART_INDEX.get(tables);
 
@@ -32,30 +20,33 @@ const artIndex = (tables: ActivityTables): ArtIndex => {
     return held;
   }
 
-  const built: ArtIndex = { exact: new Map(), named: new Map() };
-
-  for (const definition of Object.values(tables.activities)) {
-    if (!definition.pgcrImage) {
-      continue;
-    }
-
-    push(built.exact, identity(definition), definition);
-    push(built.named, definition.name.replace(VARIANT, ""), definition);
-  }
+  const arted = Object.values(tables.activities).filter(
+    (definition) => definition.pgcrImage,
+  );
+  const built: ArtIndex = {
+    exact: new Map(
+      Object.entries(groupBy(arted, (definition) => identity(definition))),
+    ),
+    named: new Map(
+      Object.entries(
+        groupBy(arted, (definition) => definition.name.replace(VARIANT, "")),
+      ),
+    ),
+  };
 
   ART_INDEX.set(tables, built);
 
   return built;
 };
 
-// "Master Conquest: Derealize" is the same mission as "Derealize", one prefix deeper
+// "Master Conquest: Derealize" is "Derealize"
 const tail = (name: string): string => {
   const parts = name.split(": ");
 
   return parts[parts.length - 1]!;
 };
 
-/** Resolves art for one activity, reaching for twins Bungie gave art the profile never lists */
+/** Falls back to art from same-named activities the profile doesn't list */
 export const activityArt = (
   definition: SlimActivity,
   tables: ActivityTables,
@@ -89,7 +80,7 @@ export const backdrop = (
     group.map(({ definition }) => definition),
   );
 
-// 55 Portal activities carry no art anywhere in the manifest, so the tile falls back to a wash
+// 55 Portal activities have no art anywhere in the manifest
 const WASH: Record<string, string> = {
   "The Crucible": "#7a2320, #31161a",
   "Trials of Osiris": "#8a6a1f, #2b2418",
@@ -111,7 +102,7 @@ const WASH: Record<string, string> = {
 
 const NEUTRAL_WASH = "#3a3d42, #1e2024";
 
-/** A background-image value for an activity tile, either its art or a wash keyed to its type */
+/** A background-image value, the art or a gradient for the activity type */
 export const tileArt = (
   image: string | undefined,
   typeName: string | undefined,

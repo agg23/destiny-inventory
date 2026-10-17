@@ -58,3 +58,11 @@ export {
   type SlimSkull,
   type SlimTier,
 } from "./activities.ts";
+export {
+  TIERS,
+  type AegisData,
+  type AegisPerk,
+  type AegisRoll,
+  type AegisSetBonus,
+  type Tier,
+} from "./rolls.ts";

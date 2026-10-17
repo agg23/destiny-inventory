@@ -9,8 +9,7 @@ import { Readable } from "node:stream";
 
 import {
   createHandler,
-  type ArtifactIndex,
-  type ArtifactLoader,
+  loaderFrom,
   type ItemTag,
   type Note,
   type NoteStore,
@@ -41,43 +40,32 @@ const read = async (file: string): Promise<ArrayBuffer | undefined> => {
   }
 };
 
-const diskLoader = (): ArtifactLoader => ({
-  index: async () => {
-    const body = await read("index.json");
-
-    return body
-      ? (JSON.parse(new TextDecoder().decode(body)) as ArtifactIndex)
-      : undefined;
-  },
-  raw: (file) => read(file),
-});
-
 const detach = (body: Buffer): ArrayBuffer =>
   body.buffer.slice(
     body.byteOffset,
     body.byteOffset + body.byteLength,
   ) as ArrayBuffer;
 
+const bucket = <T>(
+  held: Map<string, Map<string, T>>,
+  membershipId: string,
+): Map<string, T> => {
+  const existing = held.get(membershipId);
+
+  if (existing) {
+    return existing;
+  }
+
+  const fresh = new Map<string, T>();
+  held.set(membershipId, fresh);
+
+  return fresh;
+};
+
 // Dev only, non-persistent. Production is D1 in the Workers adapter
 const memoryTags = (): TagStore => {
   const defs = new Map<string, Map<string, TagDef>>();
   const items = new Map<string, Map<string, ItemTag>>();
-
-  const bucket = <T>(
-    held: Map<string, Map<string, T>>,
-    membershipId: string,
-  ): Map<string, T> => {
-    const existing = held.get(membershipId);
-
-    if (existing) {
-      return existing;
-    }
-
-    const fresh = new Map<string, T>();
-    held.set(membershipId, fresh);
-
-    return fresh;
-  };
 
   return {
     read: async (membershipId, since) => ({
@@ -107,27 +95,14 @@ const memoryTags = (): TagStore => {
 const memoryNotes = (): NoteStore => {
   const notes = new Map<string, Map<string, Note>>();
 
-  const bucket = (membershipId: string): Map<string, Note> => {
-    const existing = notes.get(membershipId);
-
-    if (existing) {
-      return existing;
-    }
-
-    const fresh = new Map<string, Note>();
-    notes.set(membershipId, fresh);
-
-    return fresh;
-  };
-
   return {
     read: async (membershipId, since) =>
-      [...bucket(membershipId).values()].filter(
+      [...bucket(notes, membershipId).values()].filter(
         (note) => note.updatedAt > since,
       ),
 
     write: async (membershipId, change, now) => {
-      bucket(membershipId).set(`${change.kind}/${change.targetId}`, {
+      bucket(notes, membershipId).set(`${change.kind}/${change.targetId}`, {
         ...change,
         updatedAt: now,
       });
@@ -164,7 +139,7 @@ const handler = createHandler({
   sessionSecret: process.env.SESSION_SECRET ?? "dev",
   allowedOrigin: process.env.ALLOWED_ORIGIN ?? "*",
   authOrigin: process.env.AUTH_ORIGIN ?? "",
-  loader: diskLoader(),
+  loader: loaderFrom(read),
   tags: memoryTags(),
   notes: memoryNotes(),
 });

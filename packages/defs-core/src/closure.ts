@@ -87,7 +87,6 @@ export interface Dangling {
   hash: number;
 }
 
-// Must pass before anything renders
 export const validate = (
   owned: Iterable<number>,
   tables: Tables,

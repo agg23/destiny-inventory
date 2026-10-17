@@ -36,7 +36,7 @@ const decode = (text: string): Uint8Array<ArrayBuffer> => {
   return bytes;
 };
 
-/** Signed proof of which Bungie membership signed in, safe to hand to the browser */
+/** HMAC-signed membership token, safe to send to the browser */
 export const mintSession = async (
   secret: string,
   membershipId: string,

@@ -1,36 +1,31 @@
-export interface ArtifactIndex {
-  manifestVersion: string;
-  files: Record<string, string[]>;
-}
+import type { ArtifactIndex } from "@dvm/service";
 
-export interface ClientConfig {
+import { cached } from "./cache.ts";
+
+interface ClientConfig {
   apiKey: string;
   clientId: string;
   authOrigin?: string;
   artifacts: ArtifactIndex;
 }
 
-let pending: Promise<ClientConfig> | undefined = undefined;
+// Fetched to change credentials without a rebuild
+export const loadConfig = cached(async (): Promise<ClientConfig> => {
+  const response = await fetch("/api/config");
 
-// Served, so credentials change without a rebuild
-export const loadConfig = (): Promise<ClientConfig> => {
-  pending ??= fetch("/api/config").then(async (response) => {
-    if (!response.ok) {
-      throw new Error(`Config failed: ${response.status}`);
-    }
+  if (!response.ok) {
+    throw new Error(`Config failed: ${response.status}`);
+  }
 
-    const config = (await response.json()) as ClientConfig;
+  const config = (await response.json()) as ClientConfig;
 
-    if (!config.apiKey) {
-      throw new Error("Service has no Bungie API key configured");
-    }
+  if (!config.apiKey) {
+    throw new Error("Service has no Bungie API key configured");
+  }
 
-    if (!config.artifacts) {
-      throw new Error("Service has no artifacts built");
-    }
+  if (!config.artifacts) {
+    throw new Error("Service has no artifacts built");
+  }
 
-    return config;
-  });
-
-  return pending;
-};
+  return config;
+});

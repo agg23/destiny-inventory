@@ -1,5 +1,4 @@
-// The real module carries hotkeys and icons for the tag UI, which drags the icon set in.
-// The move layer only reads the orderings, and their exact order decides what gets displaced
+// Real module pulls in the icon set. Order here decides what gets displaced
 export type TagValue = "favorite" | "keep" | "junk" | "infuse" | "archive";
 
 export type TagCommand = TagValue | "clear";

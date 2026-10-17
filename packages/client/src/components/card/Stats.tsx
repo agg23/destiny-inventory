@@ -1,24 +1,31 @@
 import type { DimItem, DimStat } from "app/inventory/item-types";
-import { createMemo, For, Show } from "solid-js";
+import { createMemo, For, Show, type JSX } from "solid-js";
 
 import { delta, TOTAL, type Delta } from "../../core/items/compare.ts";
 import type { StatChange } from "../../core/items/perks.ts";
 import { shortStat } from "../../core/items/statNames.ts";
 
-export const StatDelta = (props: { delta: Delta | undefined }) => (
+const Signed = (props: {
+  value: number;
+  better: boolean;
+  children?: JSX.Element;
+}) => (
+  <span
+    class="text-xs whitespace-nowrap tabular-nums"
+    classList={{
+      "text-good": props.better,
+      "text-destructive": !props.better,
+    }}
+  >
+    {props.value > 0 ? "+" : "−"}
+    {Math.abs(props.value)}
+    {props.children}
+  </span>
+);
+
+const StatDelta = (props: { delta: Delta | undefined }) => (
   <Show when={props.delta}>
-    {(change) => (
-      <span
-        class="text-xs whitespace-nowrap tabular-nums"
-        classList={{
-          "text-good": change().better,
-          "text-destructive": !change().better,
-        }}
-      >
-        {change().value > 0 ? "+" : "−"}
-        {Math.abs(change().value)}
-      </span>
-    )}
+    {(change) => <Signed value={change().value} better={change().better} />}
   </Show>
 );
 
@@ -81,7 +88,7 @@ export const StatBar = (props: {
   );
 };
 
-export const Bar = (props: {
+const Bar = (props: {
   stat: DimStat;
   against?: DimStat;
   comparing?: boolean;
@@ -148,16 +155,10 @@ export const Changes = (props: { stats: StatChange[] }) => (
     <div class="flex flex-wrap gap-x-2 gap-y-0.5 pt-0.5">
       <For each={props.stats}>
         {(stat) => (
-          <span
-            class="text-xs whitespace-nowrap tabular-nums"
-            classList={{
-              "text-good": stat.better,
-              "text-destructive": !stat.better,
-            }}
-          >
-            {stat.value > 0 ? "+" : "−"}
-            {Math.abs(stat.value)} {stat.name}
-          </span>
+          <Signed value={stat.value} better={stat.better}>
+            {" "}
+            {stat.name}
+          </Signed>
         )}
       </For>
     </div>

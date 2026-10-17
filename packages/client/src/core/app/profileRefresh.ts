@@ -7,15 +7,17 @@ import {
 } from "solid-js";
 
 import type { Membership } from "../api/bungie.ts";
+import { definedSession } from "../collections/collections.ts";
 import { observe, type Active } from "../profile/active.ts";
 import { load } from "../profile/load.ts";
 import type { LoadResult, RefreshOutcome } from "../profile/loadTypes.ts";
 import { startAutoRefresh } from "../profile/refresh.ts";
 import { refreshProfile } from "../profile/refreshProfile.ts";
+import { MINUTE } from "../time.ts";
 import type { Tab } from "../url.ts";
 
 // Keeps the last-run column from drifting while History is closed
-const OFFSCREEN_RUNS = 2 * 60_000;
+const OFFSCREEN_RUNS = 2 * MINUTE;
 
 interface Sources {
   current: () => LoadResult | undefined;
@@ -42,7 +44,7 @@ export const createProfileRefresh = (sources: Sources) => {
   const retryLoad = async (loaded: LoadResult): Promise<RefreshOutcome> => {
     const failure: { error?: unknown } = {};
 
-    // A failed primed load hands the snapshot back instead of throwing
+    // A failed primed load returns the snapshot without throwing
     const result = await load(
       sources.setUpgraded,
       (e) => {
@@ -82,10 +84,9 @@ export const createProfileRefresh = (sources: Sources) => {
 
     try {
       // Only the snapshot is on screen after a failed live load
-      const outcome =
-        loaded.session.support.size === 0
-          ? await retryLoad(loaded)
-          : await refreshProfile(loaded);
+      const outcome = definedSession(loaded.session)
+        ? await refreshProfile(loaded)
+        : await retryLoad(loaded);
 
       setFailingSince(undefined);
       sources.setActive((was) => observe(was, outcome.playing));

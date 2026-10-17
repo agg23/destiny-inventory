@@ -19,33 +19,25 @@ import {
   TOTAL_ROW,
 } from "./Stats.tsx";
 
-/** One stat's place in the shared grid, worked out across every item on screen */
-export interface StatPlace {
+interface StatPlace {
   hash: number;
   total: boolean;
   best: number | undefined;
   against: DimStat | undefined;
 }
 
-/** Where an item sits when the details are laid out as a grid instead of a column */
-export interface DetailPlace {
-  /** Sections span the label column when nothing is being compared against */
+interface DetailPlace {
   column: string;
-  /** Stat cells always sit in the item's own column, beside the shared labels */
   statColumn: string;
   comparing: boolean;
   stats: StatPlace[];
 }
 
-// The grid keeps a row per section so columns line up, and the stats claim one row each
 const LEAD_ROW = 2;
 const SUMMARY_ROW = 3;
 const STATS_ROW = 4;
 
-/**
- * Everything shown about one item below its header. Given a place it writes itself into the
- * surrounding grid, and without one it runs top to bottom
- */
+/** An item's details below its header. Writes into the parent grid when given a place */
 export const ItemDetails = (props: {
   item: DimItem;
   against?: DimItem;
@@ -55,10 +47,8 @@ export const ItemDetails = (props: {
   lead?: JSX.Element;
   trail?: JSX.Element;
   hideRollWarning?: boolean;
-  /** The account's catalyst triumph, for catalyst state and progress */
   catalyst?: Catalyst;
 }) => {
-  // An uninstanced item carries no roll
   const uninstanced = () => props.item.id === "0";
   const perksRow = () => STATS_ROW + (props.place?.stats.length ?? 0);
   const own = (hash: number) =>
@@ -70,16 +60,16 @@ export const ItemDetails = (props: {
     "grid-row": String(row),
   });
 
+  const rollWarning = () => uninstanced() && !props.hideRollWarning;
+
   const warning = (
-    <Show when={uninstanced() && !props.hideRollWarning}>
-      <p class="text-xs text-warning">
-        <b class="font-medium">Generic roll</b>
-        <span class="block">
-          Stats and perks come from the definition. The weapon that was used may
-          have rolled differently.
-        </span>
-      </p>
-    </Show>
+    <p class="text-xs text-warning">
+      <b class="font-medium">Generic roll</b>
+      <span class="block">
+        Stats and perks come from the definition. The weapon that was used may
+        have rolled differently.
+      </span>
+    </p>
   );
 
   const perks = (
@@ -99,7 +89,7 @@ export const ItemDetails = (props: {
           <div class="tooltip-body">
             <AegisNote item={props.item} />
           </div>
-          <Show when={uninstanced() && !props.hideRollWarning}>
+          <Show when={rollWarning()}>
             <div class="tooltip-body">{warning}</div>
           </Show>
           <div class="tooltip-body">
@@ -130,7 +120,7 @@ export const ItemDetails = (props: {
           </Show>
           <div class="min-w-0 self-start" style={cell(SUMMARY_ROW)}>
             <AegisNote item={props.item} />
-            {warning}
+            <Show when={rollWarning()}>{warning}</Show>
             <div class="mt-3 first:mt-0">
               <Masterwork item={props.item} />
               <Archetype item={props.item} />

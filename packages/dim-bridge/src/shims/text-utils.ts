@@ -4,13 +4,12 @@ import { plainString as normalize } from "../../../../vendor/DIM/src/app/search/
 
 export * from "../../../../vendor/DIM/src/app/search/text-utils.ts";
 
-// Searching runs this over every item's strings on each keystroke, and NFD normalization
-// is the bulk of the filter's time
+// NFD normalization is the bulk of search time per keystroke
 const normalized = new Map<string, Map<string, string>>();
 
 let recording: string[] | undefined = undefined;
 
-/** Every string a run of DIM's filters normalizes, so a caller can index them instead of rewalking */
+/** Collects every string DIM's filters normalize during run */
 export const recordStrings = (run: () => void): string[] => {
   const held = recording;
 

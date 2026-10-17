@@ -1,23 +1,13 @@
-// Manual. The redirect URL may be https, and a self-signed cert to catch one code isn't
-// worth it. Phase 2 does this properly
-
+// Manual code paste. Not worth a self-signed cert for the https redirect
 import { createInterface } from "node:readline/promises";
 import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+
+import { DATA_ROOT } from "@dvm/build";
+import { exchangeCode } from "@dvm/service";
+
+import { TOKENS } from "./fixture.ts";
 
 const AUTHORIZE = "https://www.bungie.net/en/OAuth/Authorize";
-const TOKEN = "https://www.bungie.net/Platform/App/OAuth/Token/";
-
-const REPO_ROOT = new URL("../../../", import.meta.url).pathname;
-const TOKENS = join(REPO_ROOT, ".cache", "tokens.json");
-
-interface TokenResponse {
-  access_token: string;
-  expires_in: number;
-  refresh_token?: string;
-  refresh_expires_in?: number;
-  membership_id: string;
-}
 
 const requireEnv = (name: string): string => {
   const value = process.env[name];
@@ -57,34 +47,6 @@ const extractCode = (pasted: string): string => {
   return code;
 };
 
-// Basic auth, and a bare OAuth body rather than Bungie's envelope
-const exchange = async (
-  code: string,
-  clientId: string,
-  clientSecret: string,
-  apiKey: string,
-): Promise<TokenResponse> => {
-  const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
-
-  const response = await fetch(TOKEN, {
-    method: "POST",
-    headers: {
-      "X-API-Key": apiKey,
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${credentials}`,
-    },
-    body: new URLSearchParams({ grant_type: "authorization_code", code }),
-  });
-
-  const body = await response.json();
-
-  if (!response.ok) {
-    throw new Error(`Token exchange failed: ${response.status} ${JSON.stringify(body)}`);
-  }
-
-  return body as TokenResponse;
-};
-
 const main = async () => {
   const apiKey = requireEnv("BUNGIE_API_KEY");
   const clientId = requireEnv("BUNGIE_CLIENT_ID");
@@ -99,9 +61,9 @@ const main = async () => {
   const pasted = await rl.question("Redirected URL: ");
   rl.close();
 
-  const tokens = await exchange(extractCode(pasted), clientId, clientSecret, apiKey);
+  const tokens = await exchangeCode({ apiKey, clientId, clientSecret }, extractCode(pasted));
 
-  await mkdir(join(REPO_ROOT, ".cache"), { recursive: true });
+  await mkdir(DATA_ROOT, { recursive: true });
   await writeFile(TOKENS, JSON.stringify(tokens, undefined, 2), "utf8");
 
   const hours = Math.round(tokens.expires_in / 3600);

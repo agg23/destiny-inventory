@@ -2,8 +2,7 @@ import { canonicalFilterFormats } from "app/search/filter-types";
 import type { ItemSearchConfig } from "app/search/items/item-filter-types";
 import { plainString } from "app/search/text-utils";
 
-/** Completions ranked before the list is cut, enough to fill the menu */
-export const ROWS = 16;
+const ROWS = 16;
 
 const MATH_TAIL = /[\d<>=]$/;
 
@@ -113,7 +112,7 @@ const before = (one: Match, other: Match, typedLength: number): number => {
   return 0;
 };
 
-/** DIM's filter completion, ranked identically but stopping once the visible rows are filled */
+/** DIM's filter completion with identical ranking, stopping once the visible rows fill */
 export const makeComplete = (
   config: ItemSearchConfig,
 ): ((typed: string) => string[]) => {
@@ -224,7 +223,7 @@ export const makeComplete = (
 
     const multiquery = multiqueryTerms[possibleKeyword];
 
-    // DIM gates this on a name list too, but dupe is its only multiquery filter and is on it
+    // DIM also gates on a name list; dupe is its only multiquery filter and is on it
     if (multiquery) {
       const existing = new Set(
         (typedSegments[1] || "")

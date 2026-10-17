@@ -7,6 +7,7 @@ import type {
 import type { SlimVendorItem } from "@dvm/defs-core";
 
 import type { CardCost } from "../items/preview.ts";
+import type { VendorTile } from "../profile/fakeItems.ts";
 
 export type Mode = "visit" | "offers" | "claims" | "rotation";
 
@@ -44,24 +45,18 @@ export interface Offer {
   pursuit: PursuitState | undefined;
 }
 
-export type PursuitState =
+type PursuitState =
   | { kind: "held"; progress: string; expiresAt: number | undefined }
   | { kind: "completed" };
-
-export interface SlotItem {
-  vendor: number;
-  itemHash: number;
-  vendorItemIndex: number;
-}
 
 export interface Slot {
   name: string;
   remaining: number;
   allowed: number;
-  items: SlotItem[];
+  items: VendorTile[];
 }
 
-export interface RotationItem extends SlotItem {
+export interface RotationItem extends VendorTile {
   cost: CardCost;
   reasons: string[];
   purchased: boolean;

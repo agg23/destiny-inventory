@@ -1,6 +1,11 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import type {
+  DestinyInventoryItemDefinition,
+  DestinySocketTypeDefinition,
+} from "bungie-api-ts/destiny2";
+
 import {
   coreItem,
   detailItem,
@@ -25,22 +30,13 @@ import {
   type SlimVendorItem,
   type Tables,
 } from "@dvm/defs-core";
-import type {
-  DestinyActivityDefinition,
-  DestinyInventoryItemDefinition,
-  DestinyObjectiveDefinition,
-  DestinySocketTypeDefinition,
-  DestinyVendorDefinition,
-} from "bungie-api-ts/destiny2";
 
 import { mb, writeArtifact } from "./artifactFiles.ts";
-import { loadManifest, type RawTable } from "./manifest.ts";
+import { loadManifest, table, type RawTable } from "./manifest.ts";
+import { ARTIFACT_ROOT, CACHE_ROOT, DATA_ROOT } from "./paths.ts";
 
-const REPO_ROOT = new URL("../../../", import.meta.url).pathname;
-const CACHE_ROOT = join(REPO_ROOT, ".cache", "manifest");
-const ARTIFACT_ROOT = join(REPO_ROOT, "artifacts");
-const AEGIS_DATA = join(REPO_ROOT, ".cache", "aegis.json");
-const PVP_DATA = join(REPO_ROOT, ".cache", "pvp.json");
+const AEGIS_DATA = join(DATA_ROOT, "aegis.json");
+const PVP_DATA = join(DATA_ROOT, "pvp.json");
 
 const ITEMS = "DestinyInventoryItemDefinition";
 const PLUG_SETS = "DestinyPlugSetDefinition";
@@ -64,7 +60,6 @@ const ORNAMENT = 21;
 // TierType.Exotic
 const EXOTIC = 6;
 
-// Activity content and collectibles ship for a few fields each, so they are projected on the way out
 const SLIM: Record<string, (record: never) => { hash: number }> = {
   DestinyActivityDefinition: slimActivity,
   DestinyActivityDifficultyTierCollectionDefinition: slimDifficulty,
@@ -79,13 +74,13 @@ const SLIM: Record<string, (record: never) => { hash: number }> = {
   DestinyVendorDefinition: slimVendor,
 };
 
-const project = (table: string, contents: RawTable): RawTable => {
-  // A PGCR names skulls by an identifier nested two levels inside the collections
-  if (table === SKULLS) {
+const project = (tableName: string, contents: RawTable): RawTable => {
+  // PGCRs name skulls by an identifier nested inside the collections
+  if (tableName === SKULLS) {
     return skullTable(contents) as RawTable;
   }
 
-  const slim = SLIM[table];
+  const slim = SLIM[tableName];
 
   if (!slim) {
     return contents;
@@ -103,7 +98,7 @@ const project = (table: string, contents: RawTable): RawTable => {
 // Year one exotics leave their second catalyst out of the socket
 const addCatalysts = (
   tables: Tables,
-  socketTypes: Record<string, DestinySocketTypeDefinition>,
+  socketTypes: Record<number, DestinySocketTypeDefinition>,
 ): number => {
   const items = Object.values(tables.items) as DestinyInventoryItemDefinition[];
   const byCategory = new Map<string, DestinyInventoryItemDefinition[]>();
@@ -188,17 +183,11 @@ const main = async () => {
   await mkdir(dir, { recursive: true });
 
   const tables: Tables = {
-    items: manifest.tables.get(ITEMS) as Tables["items"],
-    plugSets: manifest.tables.get(PLUG_SETS) as Tables["plugSets"],
+    items: table(manifest, ITEMS)!,
+    plugSets: table(manifest, PLUG_SETS)!,
   };
 
-  const catalysts = addCatalysts(
-    tables,
-    (manifest.tables.get(SOCKET_TYPES) ?? {}) as Record<
-      string,
-      DestinySocketTypeDefinition
-    >,
-  );
+  const catalysts = addCatalysts(tables, table(manifest, SOCKET_TYPES) ?? {});
 
   const all = Object.values(tables.items) as DestinyInventoryItemDefinition[];
   const shipped = all.filter(isShipped);
@@ -236,7 +225,7 @@ const main = async () => {
     .map((hash) => tables.plugSets[hash])
     .filter(Boolean);
 
-  // Profiles reference these, and the client must tell a withheld definition from a missing one
+  // Lets the client tell withheld defs from missing ones
   const hidden = all
     .filter((item) => !shippedHashes.has(item.hash))
     .map((item) => item.hash);
@@ -257,16 +246,11 @@ const main = async () => {
     return result;
   };
 
-  // Activity loot items would otherwise be withheld along with the rest of the dummies
+  // Activity loot items are dummies too
   const rewardHashes = new Set<number>();
   const challengeHashes = new Set<number>();
 
-  for (const activity of Object.values(
-    (manifest.tables.get(ACTIVITIES) ?? {}) as Record<
-      string,
-      DestinyActivityDefinition
-    >,
-  )) {
+  for (const activity of Object.values(table(manifest, ACTIVITIES) ?? {})) {
     for (const reward of activity.rewards ?? []) {
       for (const item of reward.rewardItems ?? []) {
         rewardHashes.add(item.itemHash);
@@ -278,7 +262,7 @@ const main = async () => {
     }
   }
 
-  // Pursuit rewards are the same kind of dummy, reached through the item's own value block
+  // Pursuit rewards are dummies too, found via item.value
   for (const item of shipped) {
     for (const reward of item.value?.itemValue ?? []) {
       if (reward.itemHash) {
@@ -287,12 +271,10 @@ const main = async () => {
     }
   }
 
-  // Vendor stock is dummy items, named only through the vendor's own item list
+  // Vendor stock is dummies. Only the vendor's item list references them
   const vendorHashes = new Set<number>();
 
-  for (const vendor of Object.values(
-    (manifest.tables.get(VENDORS) ?? {}) as Record<string, DestinyVendorDefinition>,
-  )) {
+  for (const vendor of Object.values(table(manifest, VENDORS) ?? {})) {
     for (const entry of vendor.itemList ?? []) {
       vendorHashes.add(entry.itemHash);
 
@@ -382,10 +364,7 @@ const main = async () => {
     return item ? [slimReward(item)] : [];
   });
 
-  const objectives = (manifest.tables.get(OBJECTIVES) ?? {}) as Record<
-    string,
-    DestinyObjectiveDefinition
-  >;
+  const objectives = table(manifest, OBJECTIVES) ?? {};
 
   const challenges = [...challengeHashes].flatMap((hash) => {
     const objective = objectives[hash];
@@ -415,13 +394,13 @@ const main = async () => {
     console.log("  no pvp.json, skipping pvprolls");
   }
 
-  for (const [table, contents] of manifest.tables) {
-    if (table === ITEMS || table === PLUG_SETS) {
+  for (const [tableName, contents] of manifest.tables) {
+    if (tableName === ITEMS || tableName === PLUG_SETS) {
       continue;
     }
 
-    const name = table.replace(/^Destiny|Definition$/g, "");
-    await emit(name, project(table, contents));
+    const name = tableName.replace(/^Destiny|Definition$/g, "");
+    await emit(name, project(tableName, contents));
   }
 
   await writeFile(

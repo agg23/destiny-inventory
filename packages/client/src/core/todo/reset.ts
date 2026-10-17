@@ -1,8 +1,6 @@
-export const DAY = 86_400_000;
+import { DAY, WEEK } from "../time.ts";
 
-export const WEEK = 7 * DAY;
-
-// Epoch is a Thursday, so every offset below is measured from Thursday 00:00 UTC
+// Epoch is a Thursday, offsets are from Thursday 00:00 UTC
 const DAILY = 61_200_000;
 
 const WEEKLY = 493_200_000;
@@ -23,8 +21,7 @@ export const nextDailyReset = (now: number): number => nextAt(DAY, DAILY, now);
 export const nextWeeklyReset = (now: number): number =>
   nextAt(WEEK, WEEKLY, now);
 
-// Xur alone refreshes at 09:00 UTC, confirmed against his live nextRefreshDate
-/** Epoch ms of the next Friday 09:00 UTC weekend reset, when Xur arrives */
+/** Epoch ms of Xur's next Friday 09:00 UTC arrival, per his live nextRefreshDate */
 export const nextWeekendReset = (now: number): number =>
   nextAt(WEEK, WEEKEND, now);
 

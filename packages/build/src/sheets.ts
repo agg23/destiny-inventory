@@ -61,7 +61,7 @@ export const fetchTabs = async (sheet: string): Promise<Tab[]> => {
   for (const [, name = "", gid = ""] of html.matchAll(
     /items\.push\(\{name: "((?:[^"\\]|\\.)*)".*?gid: "([0-9]+)"/g,
   )) {
-    // The bootstrap is JS, which escapes "&" as \x26
+    // The JS bootstrap escapes "&" as \x26
     const unescaped = name.replace(/\\x([0-9a-f]{2})/gi, (_, hex: string) =>
       String.fromCharCode(parseInt(hex, 16)),
     );
@@ -78,7 +78,7 @@ export const fetchTabs = async (sheet: string): Promise<Tab[]> => {
   return tabs;
 };
 
-export const headerRow = (rows: string[][], label: string): number => {
+const headerRow = (rows: string[][], label: string): number => {
   for (let index = 0; index < Math.min(rows.length, 8); index += 1) {
     if (rows[index]?.includes(label)) {
       return index;
@@ -86,4 +86,23 @@ export const headerRow = (rows: string[][], label: string): number => {
   }
 
   return -1;
+};
+
+/** A tab's rows below its header, with a lookup of a row's cell by header label */
+export const readTab = async (sheet: string, tab: Tab, header: string) => {
+  const rows = parseRows(await fetchText(sheetUrl(sheet, tab.gid)));
+  const at = headerRow(rows, header);
+
+  if (at < 0) {
+    throw new Error(`Tab ${tab.name} has no header row`);
+  }
+
+  const columns = rows[at]!;
+  const column = (row: string[], label: string): string | undefined => {
+    const index = columns.indexOf(label);
+
+    return index < 0 ? undefined : row[index];
+  };
+
+  return { rows: rows.slice(at + 1), column };
 };

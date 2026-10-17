@@ -30,7 +30,7 @@ export interface SlimActivity {
   placeHash: number | undefined;
   modeType: number | undefined;
   difficultyHash: number | undefined;
-  // Kept as two lists because the profile returns the failures as indices into each of them
+  // Profile failure indices point into each list
   leaderRequirements: string[];
   fireteamRequirements: string[];
 }
@@ -116,7 +116,7 @@ const PLACEHOLDERS = ["placeholder", "template_strike"];
 const art = (image: string | undefined): string | undefined =>
   image && !PLACEHOLDERS.some((one) => image.includes(one)) ? image : undefined;
 
-// Empty labels stay in place so the profile's failure indices still line up
+// Keep empty labels to preserve failure indices
 const labels = (found: { displayString: string }[] | undefined): string[] =>
   (found ?? []).map((label) => label.displayString);
 
@@ -145,7 +145,7 @@ export const slimActivity = (
   ),
 });
 
-// DestinyActivityDifficultyTierType.Training, the tutorial ladder rather than a choice
+// DestinyActivityDifficultyTierType.Training
 const TRAINING = 1;
 
 export const slimDifficulty = (
@@ -170,9 +170,7 @@ export const slimDifficulty = (
     })),
 });
 
-/**
- * Ordered difficulty tiers in the Bungie API
- */
+// Ordered easiest to hardest
 const LADDER: { name: string; pattern: RegExp }[] = [
   // Anchored, or "Standard Matchmaking" reads as a rung
   { name: "Standard", pattern: /\bstandard$/i },
@@ -263,7 +261,7 @@ interface SelectableSkullCollection {
   }[];
 }
 
-/** Flattens the collections into one table keyed the way a PGCR reports skulls */
+/** Skulls keyed by skullIdentifierHash, as PGCRs report them */
 export const skullTable = (
   collections: Record<string, unknown>,
 ): Record<number, SlimSkull> => {
@@ -299,7 +297,6 @@ export const slimActivityType = (
   icon: named(type.displayProperties),
 });
 
-// Only the tree shape and labels survive; the rest serves an in-game browser we are not rebuilding
 export const slimGraphNode = (
   node: DestinyFireteamFinderActivityGraphDefinition,
 ): SlimGraphNode => ({
@@ -309,7 +306,6 @@ export const slimGraphNode = (
   children: node.children ?? [],
 });
 
-// Sets exist here only to say which Portal node an activity hangs under
 export const slimActivitySet = (
   set: DestinyFireteamFinderActivitySetDefinition,
 ): SlimActivitySet => ({
@@ -318,7 +314,7 @@ export const slimActivitySet = (
   activityGraphHashes: set.activityGraphHashes ?? [],
 });
 
-// Activities are missing one or the other often enough to want both zoom levels
+// Activities often lack one or the other
 export const slimPlace = (
   place: DestinyDestinationDefinition | DestinyPlaceDefinition,
 ): SlimPlace => ({
@@ -326,7 +322,7 @@ export const slimPlace = (
   name: place.displayProperties.name,
 });
 
-// "Gear Tier 3", or "Gear Tier 1-5" on the engrams that roll a spread
+// "Gear Tier 3", or "Gear Tier 1-5" on spread engrams
 const GEAR_TIER = /^Gear Tier (\d+)(?:-(\d+))?$/;
 
 const gearTier = (label: string | undefined): GearTier | undefined => {
@@ -356,7 +352,7 @@ export interface SlimVendor {
   itemSorts: number[];
 }
 
-/** Enough of a vendor to name it and read its refusal reasons; stock is live-only */
+/** Vendor name and failure strings. Stock is live-only */
 export const slimVendor = (item: DestinyVendorDefinition): SlimVendor => ({
   hash: item.hash,
   displayProperties: {
@@ -387,10 +383,10 @@ export const slimReward = (
   gearTier: gearTier(item.itemTypeDisplayName),
 });
 
-// The playlist challenges open with their own progress, which the count on the card repeats
+// Playlist challenge descriptions start with their own "(n/m)" progress
 const COUNTED = /^\(\d+\/\d+\)\s*/;
 
-// Only a third of objectives are named, and progressDescription degenerates to "Activities"
+// Only a third of objectives are named. progressDescription is often just "Activities"
 export const slimChallenge = (
   objective: DestinyObjectiveDefinition,
 ): SlimChallenge => ({

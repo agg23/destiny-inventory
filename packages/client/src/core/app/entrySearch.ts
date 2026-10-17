@@ -2,11 +2,6 @@ import type { DimStore } from "app/inventory/store-types";
 import type { Navigator } from "@solidjs/router";
 import { createSignal } from "solid-js";
 
-import {
-  collectionFilter,
-  queryName,
-  setQuery,
-} from "../../collections/shared/collectionSearch.ts";
 import { bySlot, setsOf } from "../collections/armorSets.ts";
 import {
   collections,
@@ -15,10 +10,15 @@ import {
   rankByName,
 } from "../collections/collections.ts";
 import {
+  collectionFilter,
+  queryName,
+  setQuery,
+} from "../collections/collectionSearch.ts";
+import {
   acquiredFor,
-  catalystFor,
   copiesByKey,
-  ownershipOf,
+  entryFacts,
+  lastPlayedClass,
 } from "../collections/ownership.ts";
 import type { ArmorSet, Entry, EntryFacts } from "../collections/types.ts";
 import { messageOf } from "../error.ts";
@@ -63,19 +63,18 @@ export const createEntrySearch = (
 
     const copies = copiesByKey(stores());
     const records = current()?.records ?? {};
-    const lastPlayedClass =
-      stores().find((store) => store.current)?.classType ?? 0;
-    const facts: EntryFacts = {
-      ownership: (entry) =>
-        ownershipOf(entry, copies.get(entry.key), weaponsAcquired()),
-      catalyst: (entry) => catalystFor(entry, records),
-    };
+    const playedClass = lastPlayedClass(stores());
+    const facts: EntryFacts = entryFacts(
+      () => copies,
+      weaponsAcquired,
+      () => records,
+    );
     const weaponTest = collectionFilter(built, "weapon", query, facts);
     const armorTest = collectionFilter(built, "armor", query, facts);
     const armor = built.armor.filter(armorTest);
     const playedSets = new Set(
       armor.flatMap((piece) =>
-        piece.classType === lastPlayedClass && piece.setName !== undefined
+        piece.classType === playedClass && piece.setName !== undefined
           ? [piece.setName]
           : [],
       ),
@@ -83,7 +82,7 @@ export const createEntrySearch = (
 
     const others = armor.filter(
       (piece) =>
-        piece.classType !== lastPlayedClass &&
+        piece.classType !== playedClass &&
         (piece.setName === undefined || !playedSets.has(piece.setName)),
     );
 
@@ -91,7 +90,7 @@ export const createEntrySearch = (
       ...rankByName<Entry>(
         [
           ...built.weapons.filter(weaponTest),
-          ...armor.filter((piece) => piece.classType === lastPlayedClass),
+          ...armor.filter((piece) => piece.classType === playedClass),
         ],
         name,
       ),

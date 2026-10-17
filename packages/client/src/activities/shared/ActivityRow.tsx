@@ -1,7 +1,8 @@
 import type { DimItem } from "app/inventory/item-types";
 import { A, useNavigate } from "@solidjs/router";
-import { For, onCleanup, Show } from "solid-js";
+import { For, Show } from "solid-js";
 
+import { BungieImage } from "../../components/BungieImage.tsx";
 import { MapGlyph } from "../../components/lib/MapGlyph.tsx";
 import { SPENT } from "../../components/lib/text.ts";
 import { Badge } from "../../components/lib/zaidan/badge.tsx";
@@ -14,13 +15,12 @@ import {
   subline,
   topTier,
 } from "../../core/activities/activityFormat.ts";
-import { tileArt } from "../../core/activities/art.ts";
 import { guideNamed } from "../../core/activities/guides.ts";
-import { ago, duration } from "../../core/activities/history.ts";
 import type { Available, Loot } from "../../core/activities/types.ts";
-import { BUNGIE } from "../../core/api/bungie.ts";
-import { dismiss, preview } from "../../core/items/preview.ts";
+import { trackPreview } from "../../core/items/preview.ts";
+import { ago, duration } from "../../core/time.ts";
 import { guideHref } from "../../core/url.ts";
+import { Plate } from "../../history/shared/ActivityRow.tsx";
 import type { Data } from "./activityData.ts";
 
 // Nothing in the payload says this
@@ -29,18 +29,11 @@ const BASE_DROPS = 1;
 const GLYPH = "shrink-0 object-contain";
 
 export const Icon = (props: { icon: string | undefined; class: string }) => (
-  <Show
-    when={props.icon}
+  <BungieImage
+    path={props.icon}
+    class={`${GLYPH} ${props.class}`}
     fallback={<span class={`${GLYPH} bg-muted ${props.class}`} />}
-  >
-    {(icon) => (
-      <img
-        class={`${GLYPH} ${props.class}`}
-        src={`${BUNGIE}${icon()}`}
-        alt=""
-      />
-    )}
-  </Show>
+  />
 );
 
 const ChallengeMark = () => (
@@ -63,34 +56,20 @@ interface NamedProps {
 }
 
 const Named = (props: NamedProps) => {
-  // Or the row under it re-anchors the activity panel onto this chip
-  const track = (event: MouseEvent & { currentTarget: HTMLElement }) => {
-    event.stopPropagation();
-
-    if (!props.item) {
-      return;
-    }
-
-    props.onHide();
-    preview(props.item, event.currentTarget, { cursorX: event.clientX });
-  };
-
-  const leave = () => {
-    if (props.item) {
-      dismiss(props.item);
-    }
-  };
-
-  onCleanup(leave);
+  const tracked = trackPreview(() => props.item, {
+    // Or the row under it re-anchors the activity panel onto this chip
+    stopPropagation: true,
+    onShow: () => props.onHide(),
+  });
 
   return (
     <span
       class="flex max-w-44 min-w-0 items-center gap-1.5"
       classList={{ [SPENT]: props.spent }}
       title={props.loot.name}
-      onMouseEnter={track}
-      onMouseMove={track}
-      onMouseLeave={leave}
+      onMouseEnter={tracked.onMouseEnter}
+      onMouseMove={tracked.onMouseMove}
+      onMouseLeave={tracked.onMouseLeave}
     >
       <Icon
         icon={props.loot.icon}
@@ -111,15 +90,14 @@ export const Row = (props: { data: Data; entry: Available }) => {
   const guide = () => guideNamed(props.entry.name);
   const timing = () => props.data.timingFor(props.entry);
 
+  const hover = (event: MouseEvent & { currentTarget: HTMLElement }) =>
+    props.data.onHover(props.entry, event.currentTarget, event.clientX);
+
   return (
     <TableRow
       classList={{ "cursor-pointer": !!guide() }}
-      onMouseEnter={(e) =>
-        props.data.onHover(props.entry, e.currentTarget, e.clientX)
-      }
-      onMouseMove={(e) =>
-        props.data.onHover(props.entry, e.currentTarget, e.clientX)
-      }
+      onMouseEnter={hover}
+      onMouseMove={hover}
       onMouseLeave={() => props.data.onLeave(props.entry)}
       onClick={(event) => {
         const found = guide();
@@ -134,41 +112,34 @@ export const Row = (props: { data: Data; entry: Available }) => {
       }}
     >
       <TableCell>
-        <div class="flex min-w-0 items-center gap-3">
-          <span
-            class="h-8 w-14 shrink-0 rounded-sm bg-cover bg-center"
-            style={{
-              "background-image": tileArt(
-                props.entry.pgcrImage,
-                props.entry.typeName,
-              ),
-            }}
-          />
-          <div class="flex min-w-0 flex-col">
-            <span class="flex min-w-0 items-center gap-2">
-              <span class="truncate text-foreground">{props.entry.name}</span>
-              <Show when={guide()}>
-                {(found) => (
-                  <Badge
-                    as={A}
-                    variant="outline"
-                    href={guideHref(found().name)}
-                    state={{ inApp: true }}
-                    onClick={() => props.data.onLeave(props.entry)}
-                  >
-                    <span class="inline-block size-[1em]">
-                      <MapGlyph />
-                    </span>
-                    Guide
-                  </Badge>
-                )}
-              </Show>
-            </span>
+        <Plate
+          name={props.entry.name}
+          art={props.entry.pgcrImage}
+          typeName={props.entry.typeName}
+          badge={() => (
+            <Show when={guide()}>
+              {(found) => (
+                <Badge
+                  as={A}
+                  variant="outline"
+                  href={guideHref(found().name)}
+                  state={{ inApp: true }}
+                  onClick={() => props.data.onLeave(props.entry)}
+                >
+                  <span class="inline-block size-[1em]">
+                    <MapGlyph />
+                  </span>
+                  Guide
+                </Badge>
+              )}
+            </Show>
+          )}
+          subline={
             <span class="truncate text-xs text-muted-foreground">
               {subline(props.entry)}
             </span>
-          </div>
-        </div>
+          }
+        />
       </TableCell>
       <TableCell>
         <Show when={rung(props.entry)} fallback={<Dash />}>

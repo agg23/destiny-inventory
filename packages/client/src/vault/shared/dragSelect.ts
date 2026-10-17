@@ -21,16 +21,14 @@ interface Placed {
   bottom: number;
 }
 
-export interface DragSelect {
-  /** Item indexes under the rectangle, while dragging */
+interface DragSelect {
   dragged: () => ReadonlySet<string> | undefined;
   additive: () => boolean;
-  /** The rectangle in viewport coordinates */
   box: () => Box | undefined;
   onPointerDown: (event: PointerEvent) => void;
 }
 
-/** Rectangle selection over the `[data-item-index]` tiles inside a container */
+/** Rectangle selection over the [data-item-index] tiles in a container */
 export const createDragSelect = (
   container: () => HTMLElement | undefined,
   onCommit: (indexes: string[], additive: boolean) => void,

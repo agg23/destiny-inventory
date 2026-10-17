@@ -1,3 +1,6 @@
+import type { DestinyActivity } from "bungie-api-ts/destiny2";
+import { groupBy, sumBy } from "es-toolkit";
+
 import type {
   SlimActivity,
   SlimGraphNode,
@@ -5,8 +8,8 @@ import type {
   SlimTier,
 } from "@dvm/defs-core";
 import { DIFFICULTIES } from "@dvm/defs-core";
-import type { DestinyActivity } from "bungie-api-ts/destiny2";
 
+import { VARIABLE } from "../text.ts";
 import {
   baseName,
   identity,
@@ -28,9 +31,7 @@ import type {
 } from "./types.ts";
 
 const OTHER = 0;
-const OTHER_NAME = "Elsewhere";
 
-// Raids and Dungeons each ship twice
 const CAMPAIGN = 230724421;
 const FIRETEAM_OPS = 4038998327;
 const PINNACLE_OPS = 2042336100;
@@ -38,6 +39,7 @@ const SOLO_OPS = 1204273545;
 const ARENA_OPS = 2699534027;
 const CRUCIBLE_OPS = 1246572235;
 const GAMBIT_OPS = 3034241322;
+// Bungie ships Raids and Dungeons twice
 const RAIDS = 1851422462;
 const RAIDS_ALT = 3797775812;
 const DUNGEONS = 837763036;
@@ -47,7 +49,7 @@ const WORLD = 3803311165;
 
 const STRIKES_OTHER = -1;
 
-export const RAIDS_AND_DUNGEONS = "Raids and Dungeons";
+const RAIDS_AND_DUNGEONS = "Raids and Dungeons";
 
 const NAMES = new Map([[STRIKES_OTHER, "Strikes (Other)"]]);
 
@@ -93,6 +95,11 @@ const DROPPED_TYPES = new Set([1838596016, 1686739444, 1299744814, 2694988718]);
 const STRIKE_TYPES = new Set([3547475498, 4110605575]);
 
 const BY_TYPE = new Map([[RAID_TYPE, RAIDS]]);
+
+interface DefinedEntry {
+  entry: DestinyActivity;
+  definition: SlimActivity;
+}
 
 interface Tree {
   byActivity: Map<number, number>;
@@ -191,12 +198,10 @@ const rank = (a: Available, b: Available): number => {
 export const barred = (tier: SlimTier, power: number | undefined): boolean =>
   tier.power !== undefined && (power === undefined || power < tier.power);
 
-const VARIABLE = /\{var:(\d+)\}/g;
-
-// "[Arc] Arc damage": the icon token is droppable
+// Icon tokens, as in "[Arc] Arc damage"
 const SYMBOL = /\[[^\]]+\]\s*/g;
 
-// Bungie ships the numbers in the profile, not the string
+// Bungie ships the {var:} values in the profile
 export const readable = (
   text: string,
   values: Record<number, number>,
@@ -205,7 +210,6 @@ export const readable = (
     .replace(VARIABLE, (whole, hash) => String(values[Number(hash)] ?? whole))
     .replace(SYMBOL, "");
 
-// Profile returns indices of the failed labels
 const refused = (entry: DestinyActivity, definition: SlimActivity): string[] =>
   [
     ...(entry.leaderRequirementFailureIndices ?? []).map(
@@ -217,7 +221,7 @@ const refused = (entry: DestinyActivity, definition: SlimActivity): string[] =>
   ].flatMap((label) => (label ? [label] : []));
 
 const fold = (
-  group: { entry: DestinyActivity; definition: SlimActivity }[],
+  group: DefinedEntry[],
   key: string,
   tables: ActivityTables,
   recall: Recall,
@@ -344,7 +348,6 @@ const fold = (
   return {
     key,
     hash: first.entry.activityHash,
-    // Shared: "The Coil: Matchmade" and "The Coil: Customize"
     name: baseName(first.definition),
     description: first.definition.description,
     pgcrImage: backdrop(group, tables),
@@ -403,7 +406,7 @@ const section = (
     return claimed;
   }
 
-  // "Fireteam Ops (Epic)" and "Solo Ops" name themselves
+  // "Fireteam Ops (Epic)" and "Solo Ops" start with the node name
   const named = tree.tops.find((node) => definition.name.startsWith(node.name));
 
   if (named) {
@@ -460,18 +463,29 @@ const home = (
   );
 };
 
+const categoryTotals = (
+  entries: Available[],
+): Pick<Category, "bonusDrops" | "bonus"> => ({
+  bonusDrops: sumBy(entries, (one) => one.bonusDrops),
+  bonus: entries.filter((one) => one.bonus.length > 0).length,
+});
+
+const realmTotals = (
+  categories: Category[],
+): Pick<Realm, "bonusDrops" | "bonus"> => ({
+  bonusDrops: sumBy(categories, (one) => one.bonusDrops),
+  bonus: sumBy(categories, (one) => one.bonus),
+});
+
 export const categorize = (
   entries: DestinyActivity[],
   tables: ActivityTables,
   recall: Recall = () => undefined,
 ): Realm[] => {
   const tree = roots(tables);
-  const groups = new Map<
-    string,
-    { entry: DestinyActivity; definition: SlimActivity }[]
-  >();
+  const groups = new Map<string, DefinedEntry[]>();
 
-  const kept: { entry: DestinyActivity; definition: SlimActivity }[] = [];
+  const kept: DefinedEntry[] = [];
 
   for (const entry of entries) {
     const definition = tables.activities[entry.activityHash];
@@ -487,12 +501,12 @@ export const categorize = (
     kept.push({ entry, definition });
   }
 
-  const offers = (one: (typeof kept)[number]): boolean =>
+  const offers = (one: DefinedEntry): boolean =>
     reward(one.entry, BONUS_DROP) > 0 ||
     Boolean(focusOf(one.entry, tables)) ||
     loot(one.entry, tables).length > 0;
 
-  const gate = (one: (typeof kept)[number]): string =>
+  const gate = (one: DefinedEntry): string =>
     offers(one)
       ? flag(one.entry) || recall(one.entry.activityHash)?.flag || ""
       : "";
@@ -512,10 +526,7 @@ export const categorize = (
     groups.set(key, [...(groups.get(key) ?? []), one]);
   }
 
-  const buckets = new Map<
-    number,
-    { entry: DestinyActivity; definition: SlimActivity }[][]
-  >();
+  const buckets = new Map<number, DefinedEntry[][]>();
 
   for (const group of groups.values()) {
     const root = home(group, tree, tables);
@@ -535,11 +546,10 @@ export const categorize = (
 
       return {
         hash,
-        name: NAMES.get(hash) || node?.name || OTHER_NAME,
+        name: NAMES.get(hash) || node?.name || ELSEWHERE,
         icon: node?.icon,
         entries,
-        bonusDrops: entries.reduce((total, one) => total + one.bonusDrops, 0),
-        bonus: entries.filter((one) => one.bonus.length > 0).length,
+        ...categoryTotals(entries),
       };
     })
     .sort(
@@ -553,32 +563,21 @@ export const categorize = (
 };
 
 const gather = (categories: Category[]): Realm[] => {
-  const held = new Map<string, Category[]>();
-
-  for (const category of categories) {
-    const name = REALM_OF.get(category.hash) ?? ELSEWHERE;
-    const bucket = held.get(name) ?? [];
-    held.set(name, bucket);
-    bucket.push(category);
-  }
+  const held = groupBy(
+    categories,
+    (category) => REALM_OF.get(category.hash) ?? ELSEWHERE,
+  );
 
   const order = [...REALMS.map((realm) => realm.name), ELSEWHERE];
 
   return order.flatMap((name) => {
-    const found = held.get(name);
+    const found = held[name];
 
     if (!found) {
       return [];
     }
 
-    return [
-      {
-        name,
-        categories: found,
-        bonusDrops: found.reduce((total, one) => total + one.bonusDrops, 0),
-        bonus: found.reduce((total, one) => total + one.bonus, 0),
-      },
-    ];
+    return [{ name, categories: found, ...realmTotals(found) }];
   });
 };
 
@@ -604,9 +603,6 @@ export const seen = (
   return rows;
 };
 
-export const totalDrops = (realms: Realm[]): number =>
-  realms.reduce((total, realm) => total + realm.bonusDrops, 0);
-
 export const matching = (realms: Realm[], query: string): Realm[] => {
   const needle = query.trim().toLowerCase();
 
@@ -631,30 +627,13 @@ export const matching = (realms: Realm[], query: string): Realm[] => {
         return [];
       }
 
-      return [
-        {
-          ...category,
-          entries,
-          bonusDrops: entries.reduce((total, one) => total + one.bonusDrops, 0),
-          bonus: entries.filter((one) => one.bonus.length > 0).length,
-        },
-      ];
+      return [{ ...category, entries, ...categoryTotals(entries) }];
     });
 
     if (categories.length === 0) {
       return [];
     }
 
-    return [
-      {
-        ...realm,
-        categories,
-        bonusDrops: categories.reduce(
-          (total, one) => total + one.bonusDrops,
-          0,
-        ),
-        bonus: categories.reduce((total, one) => total + one.bonus, 0),
-      },
-    ];
+    return [{ ...realm, categories, ...realmTotals(categories) }];
   });
 };

@@ -15,7 +15,7 @@ const track = (event: MouseEvent) => {
   pointerY = event.clientY;
 };
 
-// Firefox withholds mouseleave until a scroll settles, so re-test the pointer here
+// Firefox delays mouseleave until scrolling settles
 const recheck = () => {
   const under = document.elementFromPoint(pointerX, pointerY);
 

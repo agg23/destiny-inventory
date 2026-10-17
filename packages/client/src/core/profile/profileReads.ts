@@ -1,7 +1,12 @@
-import type { DestinyProfileResponse } from "bungie-api-ts/destiny2";
+import type {
+  DestinyItemComponentSetOfint64,
+  DestinyProfileResponse,
+} from "bungie-api-ts/destiny2";
 
+import { MINUTE } from "../time.ts";
 import type {
   CharacterRecords,
+  LoadResult,
   OrderRewards,
   Session,
   StringVariables,
@@ -79,7 +84,7 @@ export const isStale = (session: Session, minted: number): boolean =>
 export const ageOf = (minted: number): string =>
   `${((Date.now() - minted) / 1000).toFixed(1)}s`;
 
-const LIVE_WINDOW = 10 * 60_000;
+const LIVE_WINDOW = 10 * MINUTE;
 
 // currentActivityHash sits stale after a logout
 export const playingNow = (profile: DestinyProfileResponse): string | undefined => {
@@ -109,13 +114,15 @@ export const profileItems = (profile: DestinyProfileResponse) => [
   ),
 ];
 
-// Crafted and enhanced perks sit outside the plug set
-export const liveReferences = (profile: DestinyProfileResponse): number[] => {
+/** Every plug an item component set names, socketed or reusable */
+export const componentPlugHashes = (
+  set:
+    | Pick<DestinyItemComponentSetOfint64, "sockets" | "reusablePlugs">
+    | undefined,
+): number[] => {
   const hashes: number[] = [];
 
-  for (const item of Object.values(
-    profile.itemComponents?.sockets?.data ?? {},
-  )) {
+  for (const item of Object.values(set?.sockets?.data ?? {})) {
     for (const socket of item.sockets) {
       if (socket.plugHash !== undefined) {
         hashes.push(socket.plugHash);
@@ -123,9 +130,7 @@ export const liveReferences = (profile: DestinyProfileResponse): number[] => {
     }
   }
 
-  for (const item of Object.values(
-    profile.itemComponents?.reusablePlugs?.data ?? {},
-  )) {
+  for (const item of Object.values(set?.reusablePlugs?.data ?? {})) {
     for (const plugs of Object.values(item.plugs)) {
       for (const plug of plugs) {
         hashes.push(plug.plugItemHash);
@@ -133,6 +138,12 @@ export const liveReferences = (profile: DestinyProfileResponse): number[] => {
     }
   }
 
+  return hashes;
+};
+
+// Crafted and enhanced perks sit outside the plug set
+export const liveReferences = (profile: DestinyProfileResponse): number[] => {
+  const hashes = componentPlugHashes(profile.itemComponents);
   const plugSets = [
     ...Object.values(profile.characterPlugSets?.data ?? {}),
     profile.profilePlugSets?.data,
@@ -148,3 +159,18 @@ export const liveReferences = (profile: DestinyProfileResponse): number[] => {
 
   return hashes;
 };
+
+export type LiveFields = Pick<
+  LoadResult,
+  "source" | "playing" | "activities" | "variables" | "records" | "orderRewards"
+>;
+
+/** The LoadResult fields read straight off a live profile */
+export const liveFields = (profile: DestinyProfileResponse): LiveFields => ({
+  source: "live",
+  playing: playingNow(profile),
+  activities: profile.characterActivities?.data ?? {},
+  variables: stringVariables(profile),
+  records: characterRecords(profile),
+  orderRewards: orderRewards(profile),
+});

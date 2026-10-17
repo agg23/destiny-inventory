@@ -2,11 +2,18 @@ import { useNavigate } from "@solidjs/router";
 import { BucketHashes } from "data/d2/generated-enums";
 import { createMemo, For, Show } from "solid-js";
 
+import { Heading } from "../components/Heading.tsx";
+import { cn } from "../components/lib/cn.ts";
 import { Loading } from "../components/lib/Loading.tsx";
-import { HEADING, HEADING_NOTE } from "../components/lib/text.ts";
+import { HEADING } from "../components/lib/text.ts";
 import { useApp } from "../core/app/state.ts";
 import { armorOrder } from "../core/collections/armorSets.ts";
 import { rankByName } from "../core/collections/collections.ts";
+import {
+  collectionFilter,
+  isSearch,
+  queryName,
+} from "../core/collections/collectionSearch.ts";
 import { isCollected } from "../core/collections/ownership.ts";
 import {
   CLASSES,
@@ -25,11 +32,6 @@ import { useUrl } from "../core/router.ts";
 import { entryHref } from "../core/url.ts";
 import { ArmorBlock } from "./shared/ArmorBlock.tsx";
 import { useCollectionData } from "./shared/collectionData.ts";
-import {
-  collectionFilter,
-  isSearch,
-  queryName,
-} from "./shared/collectionSearch.ts";
 import { CollectionTabs } from "./shared/CollectionTabs.tsx";
 import { CollectionTile } from "./shared/CollectionTile.tsx";
 import { EntryList } from "./shared/EntryList.tsx";
@@ -90,7 +92,7 @@ export const Collections = () => {
       : () => false;
   });
 
-  // Rail counts leave out the rail's own terms, like the dropdowns do
+  // Rail counts leave out the rail's own terms
   const railTest = createMemo(() => {
     const built = data.index();
     const others = withTerms(classScoped(app.query()), railTerm, []);
@@ -290,15 +292,13 @@ export const Collections = () => {
 
                   return (
                     <>
-                      <h3
-                        class={`${HEADING} mb-1.5 flex items-baseline gap-2`}
-                        classList={{ "mt-6": index() > 0 }}
+                      <Heading
+                        as="h3"
+                        class={cn("mb-1.5", index() > 0 && "mt-6")}
+                        note={tally(held())}
                       >
                         {blockLabel(group)}
-                        <span class={HEADING_NOTE}>
-                          {tally(held())}
-                        </span>
-                      </h3>
+                      </Heading>
                       <Show
                         when={url.get("layout") === "list"}
                         fallback={

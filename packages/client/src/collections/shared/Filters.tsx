@@ -1,6 +1,11 @@
 import { Show } from "solid-js";
 
 import { PickOne } from "../../components/lib/PickOne.tsx";
+import { Select } from "../../components/lib/Select.tsx";
+import {
+  CATALYST_LABELS,
+  STATUS_LABELS,
+} from "../../core/collections/labels.ts";
 import {
   CATALYSTS,
   CLASSES,
@@ -10,7 +15,6 @@ import {
   type ClassName,
 } from "../../core/collections/terms.ts";
 import { LAYOUTS, type Kind, type Layout } from "../../core/url.ts";
-import { Choice } from "./Choice.tsx";
 
 const LAYOUT_LABELS: Record<Layout, string> = {
   grid: "Grid",
@@ -25,25 +29,13 @@ const RARITY_LABELS: Record<(typeof RARITIES)[number], string> = {
   exotic: "Exotic",
 };
 
-const STATUS_LABELS: Record<(typeof STATUSES)[number], string> = {
-  owned: "Owned",
-  unlocked: "Unlocked",
-  neverseen: "Never seen",
-};
-
-const CATALYST_LABELS: Record<(typeof CATALYSTS)[number], string> = {
-  missing: "Missing",
-  obtained: "Obtained",
-  complete: "Complete",
-};
-
 export const CLASS_LABELS: Record<ClassName, string> = {
   titan: "Titan",
   hunter: "Hunter",
   warlock: "Warlock",
 };
 
-/** The toolbar dropdowns, each reading and writing its term in the query */
+/** Toolbar dropdowns bound to their query terms */
 export const Filters = (props: {
   kind: Kind;
   query: string;
@@ -58,36 +50,38 @@ export const Filters = (props: {
 }) => (
   <>
     <Show when={props.kind === "armor"}>
-      <Choice
+      <Select
         label="Class"
         options={CLASSES}
-        labels={CLASS_LABELS}
+        names={CLASS_LABELS}
         value={props.className}
-        all={false}
-        onChoose={(value) => props.onTerm("is", CLASSES, value)}
+        onChange={(value) => props.onTerm("is", CLASSES, value)}
       />
     </Show>
-    <Choice
+    <Select
       label="Rarity"
       options={RARITIES}
-      labels={RARITY_LABELS}
+      names={RARITY_LABELS}
       value={termValue(props.query, "is", RARITIES)}
-      onChoose={(value) => props.onTerm("is", RARITIES, value)}
+      all
+      onChange={(value) => props.onTerm("is", RARITIES, value)}
     />
-    <Choice
+    <Select
       label="Status"
       options={STATUSES}
-      labels={STATUS_LABELS}
+      names={STATUS_LABELS}
       value={termValue(props.query, "status", STATUSES)}
-      onChoose={(value) => props.onTerm("status", STATUSES, value)}
+      all
+      onChange={(value) => props.onTerm("status", STATUSES, value)}
     />
     <Show when={props.kind === "weapon"}>
-      <Choice
+      <Select
         label="Catalyst"
         options={CATALYSTS}
-        labels={CATALYST_LABELS}
+        names={CATALYST_LABELS}
         value={termValue(props.query, "catalyst", CATALYSTS)}
-        onChoose={(value) => props.onTerm("catalyst", CATALYSTS, value)}
+        all
+        onChange={(value) => props.onTerm("catalyst", CATALYSTS, value)}
       />
     </Show>
     <PickOne

@@ -1,31 +1,18 @@
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
-
-import { accessToken } from "../api/auth.ts";
-import { fetchCollectibles } from "../api/bungie.ts";
 import {
-  NotSignedIn,
-  type CharacterRecords,
-  type Session,
-} from "../profile/loadTypes.ts";
-import { armorKey, CATALYST_RECORDS } from "./build.ts";
+  DestinyCollectibleState,
+  DestinyRecordState,
+} from "bungie-api-ts/destiny2";
+
+import { requireToken } from "../api/auth.ts";
+import { fetchCollectibles } from "../api/bungie.ts";
+import type { CharacterRecords, Session } from "../profile/loadTypes.ts";
+import { CATALYST_RECORDS, entryKey } from "./build.ts";
 import type { Catalyst, Cosmetic, Entry, Ownership } from "./types.ts";
 
-// DestinyCollectibleState
-const NOT_ACQUIRED = 1;
-
-// DestinyRecordState
-const RECORD_REDEEMED = 1;
-const OBJECTIVE_NOT_COMPLETED = 4;
-const OBSCURED = 8;
-
 const fetchAcquired = async (session: Session): Promise<Set<number>> => {
-  const token = await accessToken();
-
-  if (!token) {
-    throw new NotSignedIn();
-  }
-
+  const token = await requireToken();
   const profile = await fetchCollectibles(session.membership, token);
   const acquired = new Set<number>();
   const states = [
@@ -37,7 +24,7 @@ const fetchAcquired = async (session: Session): Promise<Set<number>> => {
 
   for (const collectibles of states) {
     for (const [hash, component] of Object.entries(collectibles)) {
-      if ((component.state & NOT_ACQUIRED) === 0) {
+      if ((component.state & DestinyCollectibleState.NotAcquired) === 0) {
         acquired.add(Number(hash));
       }
     }
@@ -80,15 +67,17 @@ export const sourceLabel = (sourceString: string): string =>
 export const isCollected = (entry: Entry, acquired: Set<number>): boolean =>
   entry.collectibleHashes.some((hash) => acquired.has(hash));
 
-/** Held weapons and armor keyed like Entry.key, since reissues get new hashes */
+/** Held weapons and armor keyed like Entry.key, reissues get new hashes */
 export const copiesByKey = (stores: DimStore[]): Map<string, DimItem[]> => {
   const copies = new Map<string, DimItem[]>();
 
   for (const store of stores) {
     for (const item of store.items) {
-      const key = item.bucket.inArmor
-        ? armorKey(item.name, item.rarity, item.classType)
-        : `${item.name}|${item.rarity}`;
+      const key = entryKey(
+        item.name,
+        item.rarity,
+        item.bucket.inArmor ? item.classType : undefined,
+      );
       const held = copies.get(key);
 
       if (held) {
@@ -137,8 +126,8 @@ const catalystRecord = (
 
   const objectives = record.objectives ?? [];
   const complete =
-    (record.state & OBJECTIVE_NOT_COMPLETED) === 0 ||
-    (record.state & RECORD_REDEEMED) !== 0;
+    (record.state & DestinyRecordState.ObjectiveNotCompleted) === 0 ||
+    (record.state & DestinyRecordState.RecordRedeemed) !== 0;
   const fractions = objectives.map((objective) =>
     Math.min(
       1,
@@ -147,7 +136,7 @@ const catalystRecord = (
   );
 
   return {
-    unlocked: (record.state & OBSCURED) === 0,
+    unlocked: (record.state & DestinyRecordState.Obscured) === 0,
     complete,
     progress: complete
       ? 1
@@ -171,3 +160,19 @@ export const catalystForItem = (
   itemHash: number,
   records: CharacterRecords,
 ): Catalyst | undefined => catalystRecord(CATALYST_RECORDS[itemHash], records);
+
+/** Ownership and catalyst lookups, reading the accessors on each call */
+export const entryFacts = (
+  copies: () => Map<string, DimItem[]>,
+  acquired: () => Set<number> | undefined,
+  records: () => CharacterRecords,
+) => ({
+  ownership: (entry: Entry): Ownership | undefined =>
+    ownershipOf(entry, copies().get(entry.key), acquired()),
+  catalyst: (entry: Entry | Cosmetic): Catalyst | undefined =>
+    catalystFor(entry, records()),
+});
+
+/** Class of the current character, or Titan with none */
+export const lastPlayedClass = (stores: DimStore[]): number =>
+  stores.find((store) => store.current)?.classType ?? 0;

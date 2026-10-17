@@ -6,8 +6,6 @@ import { ItemTile } from "../../components/ItemTile.tsx";
 import { HEADING, LABEL, TILE_GRID } from "../../components/lib/text.ts";
 import { Button } from "../../components/lib/zaidan/button.tsx";
 import { useApp } from "../../core/app/state.ts";
-import { menued } from "../../core/items/itemMenu.ts";
-import { previewed } from "../../core/items/preview.ts";
 import { CATEGORIES } from "./triage.ts";
 import type { Selection } from "./triageSelection.ts";
 
@@ -70,19 +68,10 @@ export const TriageFeed = (props: Props) => {
     return groups;
   });
 
-  // Shift ranges follow what the eye sees, not the sort
+  // Shift ranges use display order
   const ordered = createMemo(() =>
     grouped().flatMap((group) => group.slots.flatMap((slot) => slot.items)),
   );
-
-  const tileState = (item: DimItem): string =>
-    [
-      previewed()?.item.index === item.index ? "hovered" : "",
-      menued(item) ? "menued" : "",
-      app.pinned().some((one) => one.id === item.id) ? "pinned" : "",
-    ]
-      .filter((part) => part.length > 0)
-      .join(" ");
 
   return (
     <ItemMenu
@@ -128,7 +117,12 @@ export const TriageFeed = (props: Props) => {
                             <ItemTile
                               item={item}
                               selected={props.selection.picked().has(item.id)}
-                              class={tileState(item)}
+                              highlight
+                              class={
+                                app.pinned().some((one) => one.id === item.id)
+                                  ? "pinned"
+                                  : undefined
+                              }
                               onSelect={(one, event) =>
                                 props.selection.onTile(one, event, ordered())
                               }

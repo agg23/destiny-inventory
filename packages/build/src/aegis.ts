@@ -1,12 +1,15 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { DestinyInventoryItemDefinition } from "bungie-api-ts/destiny2";
 
-import type {
-  DestinyEquipableItemSetDefinition,
-  DestinyInventoryItemDefinition,
-  DestinyPlugSetDefinition,
-  DestinySandboxPerkDefinition,
-} from "bungie-api-ts/destiny2";
+import {
+  TIERS,
+  type AegisData,
+  type AegisPerk,
+  type AegisRoll,
+  type AegisSetBonus,
+  type Tier,
+} from "@dvm/defs-core";
 
 import {
   cleanName,
@@ -17,25 +20,11 @@ import {
   weaponKey,
   type Pool,
 } from "./aegisNames.ts";
-import { loadManifest } from "./manifest.ts";
-import {
-  fetchTabs,
-  fetchText,
-  headerRow,
-  indexUrl,
-  parseRows,
-  sheetUrl,
-} from "./sheets.ts";
-
-const REPO_ROOT = new URL("../../../", import.meta.url).pathname;
-const CACHE_ROOT = join(REPO_ROOT, ".cache", "manifest");
-const DATA_ROOT = join(REPO_ROOT, ".cache");
+import { loadManifest, table } from "./manifest.ts";
+import { CACHE_ROOT, DATA_ROOT } from "./paths.ts";
+import { fetchTabs, indexUrl, readTab, type Tab } from "./sheets.ts";
 
 const WEAPON_CATEGORY = 1;
-
-const TIERS = ["S", "A", "B", "C", "D", "E", "F"] as const;
-
-export type Tier = (typeof TIERS)[number];
 
 interface RollTab {
   category?: string;
@@ -85,7 +74,7 @@ const AEGIS: SheetSource = {
     ...Object.fromEntries(AEGIS_ROLL_TABS.map((name) => [name, { rank: "#" }])),
     "Exotic Weapons": {},
   },
-  // Rank tabs grade a perk or origin trait on its own, apart from any weapon
+  // Rank tabs grade perks and origin traits standalone
   rankTabs: {
     Perks: { rank: "#" },
     "Origin Traits": { rank: "Rank", tier: "Tier" },
@@ -113,56 +102,6 @@ const PVP: SheetSource = {
 
 const SET_BONUS_TAB = "Set Bonuses";
 
-export interface AegisRoll {
-  name: string;
-  category: string;
-  tier: Tier | undefined;
-  /** Position within its category, best first */
-  rank: number | undefined;
-  /** How many weapons the category ranks, so a rank reads as "3 of 62" */
-  ranked: number;
-  hashes: number[];
-  /** Plug hashes per perk column, already covering enhanced variants */
-  slots: number[][];
-  notes: string | undefined;
-  season: string | undefined;
-}
-
-export interface AegisPerk {
-  name: string;
-  hashes: number[];
-  kind: "perk" | "origin";
-  /** Position across every perk of its kind, best first. Only the top ones are ranked */
-  rank: number | undefined;
-  tier: Tier | undefined;
-  tags: string | undefined;
-  effect: string | undefined;
-}
-
-export interface AegisSetBonus {
-  name: string;
-  /** The DestinySandboxPerkDefinition the set definition points at */
-  hash: number;
-  set: string;
-  pieces: number;
-  /** Position across every set bonus of either size, best first */
-  rank: number | undefined;
-  tier: Tier | undefined;
-  tags: string | undefined;
-  trigger: string | undefined;
-  effect: string | undefined;
-  notes: string | undefined;
-}
-
-/** One sheet in the Aegis layout. The PvP sheet is modeled on it */
-export interface AegisData {
-  source: string;
-  captured: string;
-  rolls: AegisRoll[];
-  perks: AegisPerk[];
-  setBonuses: AegisSetBonus[];
-}
-
 const numberOf = (raw: string | undefined): number | undefined => {
   const value = Number((raw ?? "").trim());
 
@@ -183,21 +122,40 @@ interface Lookups {
   bonusPerks: Map<string, { hash: number; pieces: number; set: string }[]>;
 }
 
-const importSheet = async (
+const addHashes = (
+  map: Map<string, Set<number>>,
+  key: string,
+  hashes: Iterable<number>,
+) => {
+  const existing = map.get(key);
+
+  if (existing) {
+    for (const hash of hashes) {
+      existing.add(hash);
+    }
+  } else {
+    map.set(key, new Set(hashes));
+  }
+};
+
+const listMisses = (label: string, entries: string[]) => {
+  if (entries.length === 0) {
+    return;
+  }
+
+  console.log(`\n${label} (${entries.length}):`);
+
+  for (const entry of entries) {
+    console.log(`  ${entry}`);
+  }
+};
+
+const readRolls = async (
   source: SheetSource,
+  tabs: Tab[],
   lookups: Lookups,
-): Promise<AegisData> => {
-  const { byName, cachedPool, bonusPerks } = lookups;
-
-  console.log(`\nReading ${source.label} sheet`);
-
-  const discovered = await fetchTabs(source.sheet);
-  const tabs = discovered.filter((tab) => source.rollTabs[tab.name]);
-  const rankTabs = discovered.filter((tab) => source.rankTabs[tab.name]);
-  const setTabs = discovered.filter((tab) => tab.name === SET_BONUS_TAB);
-
-  console.log(`  ${tabs.length} tabs`);
-
+) => {
+  const { byName, cachedPool } = lookups;
   const rolls: AegisRoll[] = [];
   const unresolvedNames: string[] = [];
   const unresolvedPerks: string[] = [];
@@ -207,24 +165,12 @@ const importSheet = async (
 
   for (const tab of tabs) {
     const spec = source.rollTabs[tab.name]!;
-    const rows = parseRows(await fetchText(sheetUrl(source.sheet, tab.gid)));
-    const header = headerRow(rows, "Name");
-
-    if (header < 0) {
-      throw new Error(`Tab ${tab.name} has no header row`);
-    }
-
-    const columns = rows[header]!;
-    const column = (row: string[], label: string): string | undefined => {
-      const index = columns.indexOf(label);
-
-      return index < 0 ? undefined : row[index];
-    };
+    const { rows, column } = await readTab(source.sheet, tab, "Name");
 
     let kept = 0;
     let untrusted = 0;
 
-    for (const row of rows.slice(header + 1)) {
+    for (const row of rows) {
       const [firstLine = "", ...qualifiers] = (column(row, "Name") ?? "")
         .split("\n")
         .map((line) => line.trim());
@@ -282,25 +228,8 @@ const importSheet = async (
 
       for (const item of candidates) {
         for (const [perk, hashes] of cachedPool(item).names) {
-          const existing = union.get(perk);
-
-          if (existing) {
-            for (const hash of hashes) {
-              existing.add(hash);
-            }
-          } else {
-            union.set(perk, new Set(hashes));
-          }
-
-          const global = everyPlug.get(perk);
-
-          if (global) {
-            for (const hash of hashes) {
-              global.add(hash);
-            }
-          } else {
-            everyPlug.set(perk, new Set(hashes));
-          }
+          addHashes(union, perk, hashes);
+          addHashes(everyPlug, perk, hashes);
         }
       }
 
@@ -361,28 +290,31 @@ const importSheet = async (
     entry.ranked = perCategory.get(entry.category)!;
   }
 
+  return {
+    rolls,
+    everyPlug,
+    perkRefs,
+    narrowed,
+    unresolvedNames,
+    unresolvedPerks,
+  };
+};
+
+const readRankedPerks = async (
+  source: SheetSource,
+  tabs: Tab[],
+  everyPlug: Map<string, Set<number>>,
+) => {
   const perks: AegisPerk[] = [];
   const unresolvedRanked: string[] = [];
 
-  for (const tab of rankTabs) {
+  for (const tab of tabs) {
     const spec = source.rankTabs[tab.name]!;
-    const rows = parseRows(await fetchText(sheetUrl(source.sheet, tab.gid)));
-    const header = headerRow(rows, "Name");
-
-    if (header < 0) {
-      throw new Error(`Tab ${tab.name} has no header row`);
-    }
-
-    const columns = rows[header]!;
-    const column = (row: string[], label: string): string | undefined => {
-      const index = columns.indexOf(label);
-
-      return index < 0 ? undefined : row[index];
-    };
+    const { rows, column } = await readTab(source.sheet, tab, "Name");
 
     let kept = 0;
 
-    for (const row of rows.slice(header + 1)) {
+    for (const row of rows) {
       const name = cleanName(column(row, "Name") ?? "");
 
       if (!name) {
@@ -413,25 +345,21 @@ const importSheet = async (
     console.log(`  ${tab.name.padEnd(17)} ${String(kept).padStart(4)} ranked`);
   }
 
+  return { perks, unresolvedRanked };
+};
+
+const readSetBonuses = async (
+  source: SheetSource,
+  tabs: Tab[],
+  bonusPerks: Lookups["bonusPerks"],
+) => {
   const setBonuses: AegisSetBonus[] = [];
   const unresolvedBonuses: string[] = [];
 
-  for (const tab of setTabs) {
-    const rows = parseRows(await fetchText(sheetUrl(source.sheet, tab.gid)));
-    const header = headerRow(rows, "Bonus");
+  for (const tab of tabs) {
+    const { rows, column } = await readTab(source.sheet, tab, "Bonus");
 
-    if (header < 0) {
-      throw new Error(`Tab ${tab.name} has no header row`);
-    }
-
-    const columns = rows[header]!;
-    const column = (row: string[], label: string): string | undefined => {
-      const index = columns.indexOf(label);
-
-      return index < 0 ? undefined : row[index];
-    };
-
-    for (const row of rows.slice(header + 1)) {
+    for (const row of rows) {
       const name = cleanName(column(row, "Bonus") ?? "");
 
       if (!name) {
@@ -467,6 +395,43 @@ const importSheet = async (
       )} bonuses`,
     );
   }
+
+  return { setBonuses, unresolvedBonuses };
+};
+
+const importSheet = async (
+  source: SheetSource,
+  lookups: Lookups,
+): Promise<AegisData> => {
+  console.log(`\nReading ${source.label} sheet`);
+
+  const discovered = await fetchTabs(source.sheet);
+  const tabs = discovered.filter((tab) => source.rollTabs[tab.name]);
+  const rankTabs = discovered.filter((tab) => source.rankTabs[tab.name]);
+  const setTabs = discovered.filter((tab) => tab.name === SET_BONUS_TAB);
+
+  console.log(`  ${tabs.length} tabs`);
+
+  const {
+    rolls,
+    everyPlug,
+    perkRefs,
+    narrowed,
+    unresolvedNames,
+    unresolvedPerks,
+  } = await readRolls(source, tabs, lookups);
+
+  const { perks, unresolvedRanked } = await readRankedPerks(
+    source,
+    rankTabs,
+    everyPlug,
+  );
+
+  const { setBonuses, unresolvedBonuses } = await readSetBonuses(
+    source,
+    setTabs,
+    lookups.bonusPerks,
+  );
 
   const claims = new Map<number, AegisRoll[]>();
 
@@ -506,23 +471,10 @@ const importSheet = async (
     `${perks.length} perks and origin traits, ${ranked} of them ranked`,
   );
 
-  console.log(`${setBonuses.length} of ${bonusPerks.size} set bonuses rated`);
+  console.log(`${setBonuses.length} of ${lookups.bonusPerks.size} set bonuses rated`);
 
-  if (unresolvedBonuses.length > 0) {
-    console.log(`\nUnresolved set bonuses (${unresolvedBonuses.length}):`);
-
-    for (const entry of unresolvedBonuses) {
-      console.log(`  ${entry}`);
-    }
-  }
-
-  if (unresolvedRanked.length > 0) {
-    console.log(`\nUnresolved perk names (${unresolvedRanked.length}):`);
-
-    for (const entry of unresolvedRanked) {
-      console.log(`  ${entry}`);
-    }
-  }
+  listMisses("Unresolved set bonuses", unresolvedBonuses);
+  listMisses("Unresolved perk names", unresolvedRanked);
 
   if (contested.length > 0) {
     const names = new Set(
@@ -540,21 +492,8 @@ const importSheet = async (
     }
   }
 
-  if (unresolvedNames.length > 0) {
-    console.log(`\nUnresolved names (${unresolvedNames.length}):`);
-
-    for (const entry of unresolvedNames) {
-      console.log(`  ${entry}`);
-    }
-  }
-
-  if (unresolvedPerks.length > 0) {
-    console.log(`\nUnresolved perks (${unresolvedPerks.length}):`);
-
-    for (const entry of unresolvedPerks) {
-      console.log(`  ${entry}`);
-    }
-  }
+  listMisses("Unresolved names", unresolvedNames);
+  listMisses("Unresolved perks", unresolvedPerks);
 
   return {
     source: indexUrl(source.sheet),
@@ -568,18 +507,10 @@ const importSheet = async (
 const main = async () => {
   const manifest = await loadManifest(CACHE_ROOT);
 
-  const items = manifest.tables.get(
-    "DestinyInventoryItemDefinition",
-  ) as unknown as Record<string, DestinyInventoryItemDefinition>;
-  const plugSets = manifest.tables.get(
-    "DestinyPlugSetDefinition",
-  ) as unknown as Record<string, DestinyPlugSetDefinition>;
-  const itemSets = manifest.tables.get(
-    "DestinyEquipableItemSetDefinition",
-  ) as unknown as Record<string, DestinyEquipableItemSetDefinition>;
-  const sandboxPerks = manifest.tables.get(
-    "DestinySandboxPerkDefinition",
-  ) as unknown as Record<string, DestinySandboxPerkDefinition>;
+  const items = table(manifest, "DestinyInventoryItemDefinition")!;
+  const plugSets = table(manifest, "DestinyPlugSetDefinition")!;
+  const itemSets = table(manifest, "DestinyEquipableItemSetDefinition")!;
+  const sandboxPerks = table(manifest, "DestinySandboxPerkDefinition")!;
 
   const byName = new Map<string, DestinyInventoryItemDefinition[]>();
 

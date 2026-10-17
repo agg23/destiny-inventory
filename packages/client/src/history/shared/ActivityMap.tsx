@@ -3,11 +3,10 @@ import { createMemo, For } from "solid-js";
 import {
   localDay,
   playedSeconds,
-  span,
   type HistoryRun,
 } from "../../core/activities/history.ts";
-import { DAY_MS } from "../../core/activities/history.ts";
-import { dayTitle, plural } from "./runFormat.ts";
+import { plural } from "../../core/text.ts";
+import { DAY, dayTitle, span } from "../../core/time.ts";
 
 const HOUR_SECONDS = 3600;
 const YEAR_WEEKS = 53;
@@ -70,7 +69,7 @@ const buildYears = (byDay: Map<string, HistoryRun[]>) => {
     const start = new Date(year, 0, 1).getTime();
     const column = Math.min(
       YEAR_WEEKS - 1,
-      Math.floor((at.getTime() - start) / DAY_MS / 7),
+      Math.floor((at.getTime() - start) / DAY / 7),
     );
     const key = `${year}:${column}`;
     const held = weeks.get(key);
@@ -85,7 +84,7 @@ const buildYears = (byDay: Map<string, HistoryRun[]>) => {
     weeks.set(key, {
       year,
       column,
-      startedAt: start + column * 7 * DAY_MS,
+      startedAt: start + column * 7 * DAY,
       seconds: playedSeconds(runs),
       runs: runs.length,
     });
@@ -118,7 +117,7 @@ export const ActivityMap = (props: {
       return false;
     }
 
-    const ends = week.startedAt + 7 * DAY_MS;
+    const ends = week.startedAt + 7 * DAY;
 
     return (
       (props.from === undefined || ends > props.from) &&

@@ -13,7 +13,7 @@ import { neverCanceled } from "app/utils/cancel";
 
 import { configureBungieApi } from "@dvm/dim-bridge";
 
-import { accessToken } from "../api/auth.ts";
+import { requireToken } from "../api/auth.ts";
 import type { Membership } from "../api/bungie.ts";
 import { loadConfig } from "../api/config.ts";
 
@@ -36,18 +36,7 @@ export const seedInventory = async (
 ): Promise<void> => {
   const { apiKey } = await loadConfig();
 
-  configureBungieApi({
-    apiKey,
-    token: async () => {
-      const token = await accessToken();
-
-      if (!token) {
-        throw new Error("Not signed in");
-      }
-
-      return token;
-    },
-  });
+  configureBungieApi({ apiKey, token: requireToken });
 
   const account = toAccount(membership);
 

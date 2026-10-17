@@ -1,13 +1,11 @@
 import { brotliCompressSync } from "node:zlib";
-import { join } from "node:path";
-
-import { resolveClosure, slimItem, type Tables } from "@dvm/defs-core";
 import type { DestinyInventoryItemDefinition } from "bungie-api-ts/destiny2";
 
-import { loadManifest } from "./manifest.ts";
+import { resolveClosure, slimItem, type Tables } from "@dvm/defs-core";
 
-const REPO_ROOT = new URL("../../../", import.meta.url).pathname;
-const CACHE_ROOT = join(REPO_ROOT, ".cache", "manifest");
+import { mb } from "./artifactFiles.ts";
+import { loadManifest, table } from "./manifest.ts";
+import { CACHE_ROOT } from "./paths.ts";
 
 const LEGENDARY = 5;
 const WEAPON = 3;
@@ -16,9 +14,6 @@ const SAMPLE_SIZE = 300;
 
 const bytes = (value: unknown): number => JSON.stringify(value).length;
 
-const mb = (n: number): string => `${(n / 1_048_576).toFixed(2)} MB`;
-
-// Randomized perk columns
 const isRolledLegendaryWeapon = (
   item: DestinyInventoryItemDefinition,
 ): boolean =>
@@ -32,12 +27,8 @@ const main = async () => {
   const manifest = await loadManifest(CACHE_ROOT);
 
   const tables: Tables = {
-    items: manifest.tables.get(
-      "DestinyInventoryItemDefinition",
-    ) as Tables["items"],
-    plugSets: manifest.tables.get(
-      "DestinyPlugSetDefinition",
-    ) as Tables["plugSets"],
+    items: table(manifest, "DestinyInventoryItemDefinition")!,
+    plugSets: table(manifest, "DestinyPlugSetDefinition")!,
   };
 
   const candidates = Object.values(tables.items)
@@ -125,7 +116,7 @@ const main = async () => {
     `Union item defs: ${union.items.size}, plug sets: ${union.plugSets.size}`,
   );
 
-  // Armor pulls the universal mod pools, weapons alone understate this badly
+  // Armor pulls in the universal mod pools
   const vaultCandidates = Object.values(tables.items)
     .filter(
       (item) =>

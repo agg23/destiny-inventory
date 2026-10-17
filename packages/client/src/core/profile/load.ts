@@ -1,36 +1,30 @@
 import type { DestinyProfileResponse } from "bungie-api-ts/destiny2";
+import { keyBy } from "es-toolkit";
 
 import { materializeClosure } from "@dvm/defs-core";
+import type { ArtifactIndex } from "@dvm/service";
 
 import { fetchRecords, fetchTable, hasArtifact } from "../api/artifacts.ts";
-import { accessToken } from "../api/auth.ts";
+import { requireToken } from "../api/auth.ts";
 import {
   cachedMembership,
   fetchProfile,
   storedMembership,
   type Membership,
 } from "../api/bungie.ts";
-import { loadConfig, type ArtifactIndex } from "../api/config.ts";
-import { loadRolls } from "../items/rolls.ts";
-import {
-  NotSignedIn,
-  type ItemDef,
-  type LoadResult,
-  type PlugSetDef,
-  type Session,
-} from "./loadTypes.ts";
+import { loadConfig } from "../api/config.ts";
+import { loadRolls } from "../items/rollSheets.ts";
+import type { ItemDef, LoadResult, PlugSetDef, Session } from "./loadTypes.ts";
 import { seedInventory } from "./moves.ts";
 import {
-  characterRecords,
   contentsOf,
   isStale,
+  liveFields,
   liveReferences,
   mintedAt,
-  orderRewards,
-  playingNow,
   profileItems,
   sameContents,
-  stringVariables,
+  type LiveFields,
 } from "./profileReads.ts";
 import { bootFromSnapshot, saveSnapshot } from "./snapshot.ts";
 import {
@@ -41,7 +35,7 @@ import {
   PROFILE,
   type DefStore,
 } from "./store.ts";
-import { buildStoresFrom, storeItems } from "./stores.ts";
+import { buildStoresFrom, fromBuilt } from "./stores.ts";
 
 const SUPPORT = [
   "InventoryBucket",
@@ -77,22 +71,10 @@ const SUPPORT = [
 
 export const CURRENT = "current";
 
-// Bumped whenever the shipped def shape changes, so cached records get refetched
+// Bump when the shipped def shape changes
 const SHAPE = 8;
 
 export const stamp = (version: string): string => `${version}/${SHAPE}`;
-
-const byHash = <T extends { hash: number }>(
-  records: T[],
-): Record<number, T> => {
-  const table: Record<number, T> = {};
-
-  for (const record of records) {
-    table[record.hash] = record;
-  }
-
-  return table;
-};
 
 const fetchSupport = async (index: ArtifactIndex) => {
   const tables = new Map<string, Record<string, unknown>>();
@@ -111,7 +93,19 @@ const fetchSupport = async (index: ArtifactIndex) => {
   return tables;
 };
 
-/** Reads items from tier 1 and tier 2, which are separate stores */
+const mergeDetail = (items: Record<number, ItemDef>, detail: ItemDef[]) => {
+  for (const record of detail) {
+    const existing = items[record.hash];
+
+    if (existing) {
+      Object.assign(existing, record);
+    } else {
+      items[record.hash] = record;
+    }
+  }
+};
+
+/** Reads items from both the tier 1 and tier 2 stores */
 export const readMerged = async (
   store: DefStore,
   hashes: number[],
@@ -121,23 +115,14 @@ export const readMerged = async (
     store.getMany<ItemDef>(DETAIL, hashes),
   ]);
 
-  const merged = new Map<number, ItemDef>();
+  const merged = keyBy(
+    core.map((record) => ({ ...record })),
+    (record) => record.hash,
+  );
 
-  for (const record of core) {
-    merged.set(record.hash, { ...record });
-  }
+  mergeDetail(merged, detail);
 
-  for (const record of detail) {
-    const existing = merged.get(record.hash);
-
-    if (existing) {
-      Object.assign(existing, record);
-    } else {
-      merged.set(record.hash, record);
-    }
-  }
-
-  return [...merged.values()];
+  return Object.values(merged);
 };
 
 export const load = async (
@@ -178,24 +163,12 @@ export const load = async (
 
       const held = membership;
 
-      live = (async () => {
-        const token = await accessToken();
-
-        if (!token) {
-          throw new NotSignedIn();
-        }
-
-        return fetchProfile(held, token);
-      })();
+      live = requireToken().then((token) => fetchProfile(held, token));
 
       // Handled by revive after the cached build
       live.catch(() => undefined);
     } else {
-      const token = await accessToken();
-
-      if (!token) {
-        throw new NotSignedIn();
-      }
+      const token = await requireToken();
 
       membership = await cachedMembership(token);
       profile = await fetchProfile(membership, token);
@@ -213,7 +186,7 @@ export const load = async (
 
     if (fresh) {
       core = await fetchRecords<ItemDef>(index, "core");
-      items = byHash(core);
+      items = keyBy(core, (record) => record.hash);
     } else {
       const closure = await materializeClosure(owned, {
         items: (hashes) => readMerged(store, hashes),
@@ -251,25 +224,14 @@ export const load = async (
     };
 
     const result: LoadResult = {
-      stores: built.stores,
-      buckets: built.buckets,
-      items: storeItems(built.stores),
+      ...fromBuilt(built, {
+        owned: owned.size,
+        defs: Object.keys(items).length,
+      }),
+      ...liveFields(profile),
       manifestVersion: index.manifestVersion,
       tier: fresh ? "core" : "detail",
       source: cached ? "cache" : "live",
-      playing: playingNow(profile),
-      activities: profile.characterActivities?.data ?? {},
-      variables: stringVariables(profile),
-      records: characterRecords(profile),
-      orderRewards: orderRewards(profile),
-      counts: {
-        owned: owned.size,
-        defs: Object.keys(items).length,
-        skipped: built.skipped.reduce((total, group) => total + group.count, 0),
-        hidden: built.hidden,
-      },
-      skipped: built.skipped,
-      degraded: built.degraded,
       session,
     };
 
@@ -297,7 +259,7 @@ export const load = async (
     return result;
   };
 
-  // The primed snapshot is already on screen, so a live failure must not blank it
+  // Don't blank the primed snapshot on a live failure
   if (primed) {
     try {
       return await finish(false);
@@ -323,7 +285,59 @@ export const load = async (
   return finish(true);
 };
 
-// Swaps the cached paint for the live profile once Bungie answers
+type Rebuilt =
+  | { kind: "stale" }
+  | { kind: "same" }
+  | { kind: "rebuilt"; result: LoadResult };
+
+/** Rebuilds the stores from a newer profile that changed an item */
+export const rebuildProfile = async (
+  first: LoadResult,
+  profile: DestinyProfileResponse,
+  fields: LiveFields,
+): Promise<Rebuilt> => {
+  const session = first.session;
+  const minted = mintedAt(profile);
+
+  if (isStale(session, minted)) {
+    return { kind: "stale" };
+  }
+
+  const contents = contentsOf(profile);
+
+  if (sameContents(session, contents)) {
+    session.minted = minted;
+
+    return { kind: "same" };
+  }
+
+  await materializeNew(session, profile);
+
+  if (isStale(session, minted)) {
+    return { kind: "stale" };
+  }
+
+  void session.store.putOne(PROFILE, CURRENT, profile);
+
+  const built = buildStoresFrom(
+    session.support,
+    session.items,
+    session.plugSets,
+    profile,
+    session.hidden,
+  );
+
+  session.minted = minted;
+  session.builtFrom = minted;
+  session.contents = contents;
+  await seedInventory(built.stores, session.membership);
+
+  return {
+    kind: "rebuilt",
+    result: { ...first, ...fromBuilt(built, first.counts), ...fields },
+  };
+};
+
 const revive = async (
   first: LoadResult,
   live: Promise<DestinyProfileResponse>,
@@ -332,78 +346,35 @@ const revive = async (
 ) => {
   try {
     const profile = await live;
-    const session = first.session;
-    const minted = mintedAt(profile);
+    const fields = liveFields(profile);
 
     const kept: LoadResult = {
       ...first,
-      source: "live",
-      playing: playingNow(profile),
+      ...fields,
       activities: profile.characterActivities?.data ?? first.activities,
-      records: characterRecords(profile),
-      orderRewards: orderRewards(profile),
+      variables: first.variables,
     };
 
-    if (isStale(session, minted)) {
+    const rebuilt = await rebuildProfile(first, profile, fields);
+
+    if (rebuilt.kind === "stale") {
       onUpgrade(kept);
 
       return;
     }
 
-    const contents = contentsOf(profile);
-
-    if (sameContents(session, contents)) {
-      session.minted = minted;
-      onUpgrade({ ...kept, variables: stringVariables(profile) });
+    if (rebuilt.kind === "same") {
+      onUpgrade({ ...kept, variables: fields.variables });
 
       return;
     }
 
-    await materializeNew(session, profile);
-
-    if (isStale(session, minted)) {
-      onUpgrade(kept);
-
-      return;
-    }
-
-    void session.store.putOne(PROFILE, CURRENT, profile);
-
-    const built = buildStoresFrom(
-      session.support,
-      session.items,
-      session.plugSets,
-      profile,
-      session.hidden,
+    onUpgrade(rebuilt.result);
+    saveSnapshot(
+      first.session.store,
+      rebuilt.result,
+      stamp(first.manifestVersion),
     );
-
-    session.minted = minted;
-    session.builtFrom = minted;
-    session.contents = contents;
-    await seedInventory(built.stores, session.membership);
-
-    const next: LoadResult = {
-      ...first,
-      stores: built.stores,
-      buckets: built.buckets,
-      items: storeItems(built.stores),
-      source: "live",
-      playing: playingNow(profile),
-      activities: profile.characterActivities?.data ?? {},
-      variables: stringVariables(profile),
-      records: characterRecords(profile),
-      orderRewards: orderRewards(profile),
-      counts: {
-        ...first.counts,
-        skipped: built.skipped.reduce((total, group) => total + group.count, 0),
-        hidden: built.hidden,
-      },
-      skipped: built.skipped,
-      degraded: built.degraded,
-    };
-
-    onUpgrade(next);
-    saveSnapshot(session.store, next, stamp(first.manifestVersion));
   } catch (e: unknown) {
     onLiveError?.(e);
   }
@@ -440,17 +411,9 @@ const populate = async ({
     fetchRecords<PlugSetDef>(index, "plugsets"),
   ]);
 
-  for (const record of detail) {
-    const existing = items[record.hash];
+  mergeDetail(items, detail);
 
-    if (existing) {
-      Object.assign(existing, record);
-    } else {
-      items[record.hash] = record;
-    }
-  }
-
-  const plugSets = byHash(plugsets);
+  const plugSets = keyBy(plugsets, (record) => record.hash);
   const built = buildStoresFrom(support, items, plugSets, profile, hidden);
 
   await seedInventory(built.stores, membership);
@@ -459,18 +422,8 @@ const populate = async ({
 
   const upgraded: LoadResult = {
     ...first,
-    stores: built.stores,
-    buckets: built.buckets,
-    items: storeItems(built.stores),
+    ...fromBuilt(built, { ...first.counts, defs: Object.keys(items).length }),
     tier: "detail",
-    counts: {
-      ...first.counts,
-      defs: Object.keys(items).length,
-      skipped: built.skipped.reduce((total, group) => total + group.count, 0),
-      hidden: built.hidden,
-    },
-    skipped: built.skipped,
-    degraded: built.degraded,
   };
 
   onUpgrade(upgraded);
@@ -482,7 +435,7 @@ const populate = async ({
   await store.setManifestVersion(stamp(index.manifestVersion));
 };
 
-/** Pulls definitions the load-time closure never reached, such as a weapon nobody owns */
+/** Pulls definitions the load-time closure never reached */
 export const materializeItems = async (
   session: Session,
   hashes: Iterable<number>,

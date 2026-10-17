@@ -6,7 +6,7 @@ const [collapsed, setCollapsed] = createSignal(
   localStorage.getItem(KEY) === "collapsed",
 );
 
-/** True while the side panel is collapsed, so it floats instead of taking space */
+/** True while the side panel is collapsed and floating */
 export const railCollapsed = collapsed;
 
 export const collapseRail = (next: boolean) => {

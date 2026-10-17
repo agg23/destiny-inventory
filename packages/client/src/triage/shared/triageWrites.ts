@@ -2,18 +2,19 @@ import type { DimItem } from "app/inventory/item-types";
 import { createSignal } from "solid-js";
 
 import {
-  restoreTags,
   setOnlyTagMany,
   snapshotTags,
+  tagTarget,
+  writeTags,
   type TagSnapshot,
 } from "../../core/items/tags.ts";
 
-export interface Write {
+interface Write {
   targets: DimItem[];
   tagId: string | undefined;
 }
 
-export interface Pending {
+interface Pending {
   label: string;
   note: string | undefined;
   writes: Write[];
@@ -34,10 +35,7 @@ export interface Writes {
   undo: () => void;
 }
 
-const entriesOf = (targets: DimItem[]) =>
-  targets.map((item) => ({ instanceId: item.id, itemHash: item.hash }));
-
-/** Tag writes, the confirm they wait behind, and the one level of undo behind them */
+/** Tag writes with their confirm and one level of undo */
 export const createWrites = (): Writes => {
   const [pending, setPending] = createSignal<Pending | undefined>(undefined);
   const [undone, setUndone] = createSignal<Undone | undefined>(undefined);
@@ -45,11 +43,13 @@ export const createWrites = (): Writes => {
   const apply = (writes: Write[], label: string) => {
     setUndone({
       label,
-      snapshot: snapshotTags(writes.flatMap((one) => entriesOf(one.targets))),
+      snapshot: snapshotTags(
+        writes.flatMap((one) => one.targets.map(tagTarget)),
+      ),
     });
 
     for (const one of writes) {
-      setOnlyTagMany(entriesOf(one.targets), one.tagId);
+      setOnlyTagMany(one.targets.map(tagTarget), one.tagId);
     }
   };
 
@@ -71,7 +71,7 @@ export const createWrites = (): Writes => {
       return;
     }
 
-    restoreTags(held.snapshot);
+    writeTags(held.snapshot);
     setUndone(undefined);
   };
 

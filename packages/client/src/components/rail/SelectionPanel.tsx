@@ -1,62 +1,58 @@
-import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { Show } from "solid-js";
 
+import { useApp } from "../../core/app/state.ts";
 import { guest } from "../../core/profile/guest.ts";
 import {
+  bulkBlocked,
   defaultBulkTransfer,
   movableTo,
+  otherStores,
   storeLabel,
 } from "../../core/profile/moveTargets.ts";
-import { plural } from "../../history/shared/runFormat.ts";
+import { plural } from "../../core/text.ts";
 import { TagControl } from "../card/TagControl.tsx";
+import { IconButton } from "../lib/IconButton.tsx";
 import { SplitButton } from "../lib/SplitButton.tsx";
 import { HEADING, LABEL } from "../lib/text.ts";
-import { Button } from "../lib/zaidan/button.tsx";
 import { X } from "../lib/zaidan/icons.tsx";
 import { NameCounts } from "../NameCounts.tsx";
 
-interface Props {
-  items: DimItem[];
-  stores: DimStore[];
-  active: DimStore | undefined;
-  moving: string | undefined;
-  onMoveMany: (items: DimItem[], target: DimStore) => void;
-  onClear: () => void;
-}
-
 /** The rail for a selection that Compare cannot show */
-export const SelectionPanel = (props: Props) => {
-  const movable = (target: DimStore) =>
-    movableTo(props.items, props.stores, props.active, target);
+export const SelectionPanel = () => {
+  const app = useApp();
+
+  const moveTo = (target: DimStore) =>
+    app.onMoveMany(
+      movableTo(app.selected(), app.stores(), app.active(), target),
+      target,
+    );
 
   const reason = (target: DimStore) =>
-    movable(target).length === 0 ? "Nothing to move" : undefined;
+    bulkBlocked(app.selected(), app.stores(), app.active(), target);
 
   const transferTo = () =>
-    defaultBulkTransfer(props.items, props.stores, props.active);
+    defaultBulkTransfer(app.selected(), app.stores(), app.active());
 
   return (
     <div class="flex min-h-0 flex-col gap-4 p-4">
       <div class="flex items-center gap-2">
         <h2 class={`${HEADING} mr-auto`}>
-          {plural(props.items.length, "item")}
+          {plural(app.selected().length, "item")}
         </h2>
-        <Button
+        <IconButton
           type="button"
-          variant="ghost"
           size="icon-xs"
-          aria-label="Clear selection"
-          title="Clear selection"
-          onClick={props.onClear}
+          label="Clear selection"
+          onClick={app.onClearSelection}
         >
           <X />
-        </Button>
+        </IconButton>
       </div>
 
       <div class="flex items-center gap-2">
         <span class={`${LABEL} mr-auto`}>Tag</span>
-        <TagControl items={props.items} />
+        <TagControl items={app.selected()} />
       </div>
 
       <Show when={!guest() && transferTo()}>
@@ -66,19 +62,17 @@ export const SelectionPanel = (props: Props) => {
               block
               size="sm"
               label={`Transfer to ${storeLabel(target())}`}
-              disabled={!!props.moving || !!reason(target())}
+              disabled={!!app.moving() || !!reason(target())}
               title={reason(target())}
-              onPrimary={() => props.onMoveMany(movable(target()), target())}
-              choices={props.stores
-                .filter((store) => store.id !== target().id)
-                .map((store) => ({
-                  id: store.id,
-                  label: storeLabel(store),
-                  reason: reason(store),
-                  onChoose: () => props.onMoveMany(movable(store), store),
-                }))}
+              onPrimary={() => moveTo(target())}
+              choices={otherStores(app.stores(), target()).map((store) => ({
+                id: store.id,
+                label: storeLabel(store),
+                reason: reason(store),
+                onChoose: () => moveTo(store),
+              }))}
             />
-            <Show when={props.moving}>
+            <Show when={app.moving()}>
               {(status) => (
                 <p class="text-xs text-muted-foreground">{status()}</p>
               )}
@@ -88,7 +82,7 @@ export const SelectionPanel = (props: Props) => {
       </Show>
 
       <NameCounts
-        items={props.items}
+        items={app.selected()}
         class="-mx-4 min-h-0 overflow-y-auto border-t px-4 pt-3"
       />
     </div>

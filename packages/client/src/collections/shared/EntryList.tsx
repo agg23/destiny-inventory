@@ -1,5 +1,6 @@
 import { For, Show } from "solid-js";
 
+import { BungieImage } from "../../components/BungieImage.tsx";
 import { TABLE_FRAME, TABLE_HEADER } from "../../components/lib/text.ts";
 import {
   Table,
@@ -10,9 +11,13 @@ import {
   TableRow,
 } from "../../components/lib/zaidan/table.tsx";
 import { TileRatings } from "../../components/Tile.tsx";
-import { BUNGIE } from "../../core/api/bungie.ts";
+import {
+  CATALYST_LABELS,
+  STATUS_LABELS,
+} from "../../core/collections/labels.ts";
 import { sourceLabel } from "../../core/collections/ownership.ts";
 import type { Entry } from "../../core/collections/types.ts";
+import { catalystState } from "../../core/items/perks.ts";
 import type { Kind } from "../../core/url.ts";
 import {
   entryNotes,
@@ -22,35 +27,26 @@ import {
 import { damageIcon, entryTiers } from "./CollectionTile.tsx";
 
 const ownershipText = (data: CollectionData, entry: Entry): string => {
+  const ownership = data.ownership(entry);
   const copies = data.copiesOf(entry).length;
 
-  switch (data.ownership(entry)) {
-    case "owned":
-      return copies > 1 ? `Owned ×${copies}` : "Owned";
-    case "unlocked":
-      return "Unlocked";
-    case "neverseen":
-      return "Never seen";
-    default:
-      return "";
+  if (ownership === undefined) {
+    return "";
   }
+
+  return ownership === "owned" && copies > 1
+    ? `Owned ×${copies}`
+    : STATUS_LABELS[ownership];
 };
 
 const catalystText = (data: CollectionData, entry: Entry): string => {
   const catalyst = data.catalyst(entry);
+  const state = catalystState(catalyst, catalyst?.objectives ?? []);
 
-  if (!catalyst) {
-    return "";
-  }
-
-  if (catalyst.complete) {
-    return "Complete";
-  }
-
-  return catalyst.unlocked ? "Obtained" : "Missing";
+  return state === undefined ? "" : CATALYST_LABELS[state];
 };
 
-/** The list view's table, with set columns for armor and catalyst columns for weapons */
+/** The list view's table */
 export const EntryList = (props: {
   kind: Kind;
   entries: Entry[];
@@ -102,11 +98,10 @@ export const EntryList = (props: {
                   }
                   onMouseLeave={() => hover.leave()}
                 >
-                  <img
+                  <BungieImage
+                    path={entry.icon}
                     class="size-8 max-w-none"
-                    src={`${BUNGIE}${entry.icon}`}
-                    loading="lazy"
-                    alt=""
+                    lazy
                   />
                 </TableCell>
                 <TableCell class={`text-${entry.rarity.toLowerCase()}`}>
@@ -114,11 +109,7 @@ export const EntryList = (props: {
                 </TableCell>
                 <TableCell>
                   <span class="inline-flex items-center gap-1.5">
-                    <Show when={damageIcon(entry)}>
-                      {(icon) => (
-                        <img class="size-4" src={`${BUNGIE}${icon()}`} alt="" />
-                      )}
-                    </Show>
+                    <BungieImage path={damageIcon(entry)} class="size-4" />
                     {entry.typeName}
                   </span>
                 </TableCell>

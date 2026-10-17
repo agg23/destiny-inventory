@@ -1,10 +1,9 @@
 import { activityName, type SlimActivity } from "@dvm/defs-core";
 
-import { activityArt } from "../../core/activities/art.ts";
-import type { ActivityRow, HistoryRun } from "../../core/activities/history.ts";
-import { NO_TIER } from "../../core/activities/historySync.ts";
-import type { ActivityTables } from "../../core/activities/types.ts";
-import type { PlateProps } from "./ActivityRow.tsx";
+import { activityArt } from "./art.ts";
+import type { ActivityRow, HistoryRun } from "./history.ts";
+import { NO_TIER } from "./historySync.ts";
+import type { ActivityTables } from "./types.ts";
 
 const tierName = (
   tables: ActivityTables | undefined,
@@ -16,6 +15,14 @@ const tierName = (
     : tables?.difficulties[activity?.difficultyHash ?? 0]?.tiers.find(
         (tier) => tier.index === picked,
       )?.name;
+
+export interface PlateProps {
+  name: string;
+  art: string | undefined;
+  typeName: string | undefined;
+  difficulty: string | undefined;
+  note: string | undefined;
+}
 
 export interface ActivityLookup {
   activityOf: (run: HistoryRun) => SlimActivity | undefined;

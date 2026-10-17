@@ -9,7 +9,7 @@ import {
   verdictOf,
   type Contender,
 } from "./arrivals.ts";
-import type { Assessment, Mode } from "./rolls.ts";
+import type { Assessment, Mode } from "./rollTypes.ts";
 
 const item = (id: string, power = 0, bucket = 1, equipment = true) =>
   ({ id, power, bucket: { hash: bucket }, equipment }) as DimItem;
@@ -27,7 +27,6 @@ describe("arrivals", () => {
     ]);
   });
 
-  // Instance ids outgrow any digit count
   it("orders long ids above short ones", () => {
     const stores = [store([item("9999"), item("10000")])];
 

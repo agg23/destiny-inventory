@@ -1,6 +1,6 @@
 export type BungieImagePath = string;
 
-// The real module is a React component; only the path helper is reachable from the store factory
+// Real module is a React component. Store factory only needs the path helper
 export const bungieNetPath = (src: BungieImagePath): string => {
   if (!src) {
     return "";

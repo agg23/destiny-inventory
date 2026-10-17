@@ -2,6 +2,7 @@ import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { Show } from "solid-js";
 
+import { useApp } from "../../core/app/state.ts";
 import { guest } from "../../core/profile/guest.ts";
 import {
   defaultEquip,
@@ -14,34 +15,26 @@ import {
 } from "../../core/profile/moveTargets.ts";
 import { SplitButton, type Choice } from "../lib/SplitButton.tsx";
 
-export interface MoveProps {
-  item: DimItem;
-  stores: DimStore[];
-  active: DimStore | undefined;
-  onMove: (target: DimStore, equip: boolean) => void;
-  onPrefer: (target: DimStore) => void;
-  moving: string | undefined;
-  compact?: boolean;
-}
+export const Moves = (props: { item: DimItem; compact?: boolean }) => {
+  const app = useApp();
 
-export const Moves = (props: MoveProps) => {
   const transfers = () =>
-    transferTargets(props.item, props.stores, props.active);
-  const equips = () => equipTargets(props.item, props.stores, props.active);
+    transferTargets(props.item, app.stores(), app.active());
+  const equips = () => equipTargets(props.item, app.stores(), app.active());
 
   const transferTo = () =>
-    defaultTransfer(props.item, props.stores, props.active);
-  const equipOn = () => defaultEquip(props.item, props.stores, props.active);
+    defaultTransfer(props.item, app.stores(), app.active());
+  const equipOn = () => defaultEquip(props.item, app.stores(), app.active());
 
   const blocked = (target: DimStore) =>
-    transferBlocked(props.item, props.stores, target);
+    transferBlocked(props.item, app.stores(), target);
 
   const act = (target: DimStore, equip: boolean, manual: boolean) => {
     if (manual && !target.isVault) {
-      props.onPrefer(target);
+      app.onCharacter(target);
     }
 
-    props.onMove(target, equip);
+    app.onMove(props.item, target, equip);
   };
 
   const choices = (targets: DimStore[], equip: boolean): Choice[] =>
@@ -65,7 +58,7 @@ export const Moves = (props: MoveProps) => {
                   ? "Transfer"
                   : `Transfer to ${storeLabel(target())}`
               }
-              disabled={!!props.moving || !!blocked(target())}
+              disabled={!!app.moving() || !!blocked(target())}
               title={blocked(target())}
               onPrimary={() => act(target(), false, false)}
               choices={choices(transfers(), false)}
@@ -80,14 +73,14 @@ export const Moves = (props: MoveProps) => {
               label={
                 props.compact ? "Equip" : `Equip on ${storeLabel(target())}`
               }
-              disabled={!!props.moving || !!pullBlocked(props.item)}
+              disabled={!!app.moving() || !!pullBlocked(props.item)}
               title={pullBlocked(props.item)}
               onPrimary={() => act(target(), true, false)}
               choices={choices(equips(), true)}
             />
           )}
         </Show>
-        <Show when={props.moving}>
+        <Show when={app.moving()}>
           {(status) => <p class="text-xs text-muted-foreground">{status()}</p>}
         </Show>
       </div>

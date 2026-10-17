@@ -1,10 +1,12 @@
 import { useNavigate, useParams } from "@solidjs/router";
-import { createMemo, createResource, Show } from "solid-js";
+import { createMemo, Show } from "solid-js";
 
+import { BackButton } from "../components/BackButton.tsx";
 import { PickOne } from "../components/lib/PickOne.tsx";
 import { CARD } from "../components/lib/text.ts";
 import { Button } from "../components/lib/zaidan/button.tsx";
-import { activityTables } from "../core/activities/activityTables.ts";
+import { activityLookup } from "../core/activities/activityLookup.ts";
+import { useActivityTables } from "../core/activities/activityTables.ts";
 import { activityArt } from "../core/activities/art.ts";
 import {
   localDay,
@@ -21,7 +23,6 @@ import {
   tabHref,
   type HistoryTab,
 } from "../core/url.ts";
-import { activityLookup } from "./shared/activityLookup.ts";
 import { ActivityMap, type Week } from "./shared/ActivityMap.tsx";
 import { ActivityPage } from "./shared/ActivityPage.tsx";
 import { ActivitySeries } from "./shared/ActivitySeries.tsx";
@@ -46,9 +47,7 @@ export const History = () => {
   const url = useUrl();
   const route = useParams<{ label?: string }>();
   const navigate = useNavigate();
-  const [tables] = createResource(activityTables, {
-    initialValue: activityTables.settled(),
-  });
+  const tables = useActivityTables();
   const tab = () => url.get("view");
   const expanded = () => url.get("open");
   const range = () => url.get("range");
@@ -203,9 +202,7 @@ export const History = () => {
   return (
     <div class="flex flex-col gap-3 p-4">
       <Show when={page()}>
-        <Button size="sm" variant="ghost" class="self-start" onClick={leave}>
-          &larr; All history
-        </Button>
+        <BackButton onClick={leave}>All history</BackButton>
       </Show>
 
       <Show when={page() === undefined}>

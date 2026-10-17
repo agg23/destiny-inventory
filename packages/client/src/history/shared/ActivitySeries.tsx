@@ -1,8 +1,7 @@
 import { For, Show } from "solid-js";
 
+import { Heading } from "../../components/Heading.tsx";
 import {
-  HEADING,
-  HEADING_NOTE,
   SECTION,
   TABLE_FRAME,
   TABLE_HEADER,
@@ -16,19 +15,17 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/lib/zaidan/table.tsx";
-import {
-  ago,
-  duration,
-  span,
-  type ActivityRow,
-  type BucketGroup,
+import { NUMBER, NumCell } from "../../components/NumCell.tsx";
+import type { PlateProps } from "../../core/activities/activityLookup.ts";
+import type {
+  ActivityRow,
+  BucketGroup,
 } from "../../core/activities/history.ts";
-import { Chevron, Plate, type PlateProps } from "./ActivityRow.tsx";
+import { ago, duration, span } from "../../core/time.ts";
+import { Chevron, Plate } from "./ActivityRow.tsx";
 import { score } from "./runFormat.ts";
 
 const SERIES_ROWS = 10;
-
-const NUMBER = "text-right tabular-nums";
 
 export const ActivitySeries = (props: {
   groups: BucketGroup[];
@@ -47,13 +44,11 @@ export const ActivitySeries = (props: {
       <For each={props.groups}>
         {(group) => (
           <section class={SECTION}>
-            <h2 class={`${HEADING} flex items-baseline gap-2`}>
+            <Heading
+              note={`${group.runs} entered · ${group.cleared} cleared · ${group.deathless} deathless · ${span(group.playedSeconds)}`}
+            >
               {group.bucket.name}
-              <span class={HEADING_NOTE}>
-                {group.runs} entered · {group.cleared} cleared ·{" "}
-                {group.deathless} deathless · {span(group.playedSeconds)}
-              </span>
-            </h2>
+            </Heading>
             <div class={TABLE_FRAME}>
               <Table class="table-fixed">
                 <TableHeader class={TABLE_HEADER}>
@@ -77,19 +72,15 @@ export const ActivitySeries = (props: {
                         <TableCell>
                           <Plate {...props.plateOf(row)} />
                         </TableCell>
-                        <TableCell class={NUMBER}>{row.runs}</TableCell>
-                        <TableCell class={NUMBER}>{row.cleared}</TableCell>
-                        <TableCell class={NUMBER}>
+                        <NumCell>{row.runs}</NumCell>
+                        <NumCell>{row.cleared}</NumCell>
+                        <NumCell>
                           {row.fastestSeconds === undefined
                             ? "-"
                             : duration(row.fastestSeconds)}
-                        </TableCell>
-                        <TableCell class={NUMBER}>
-                          {score(row.bestScore)}
-                        </TableCell>
-                        <TableCell class={NUMBER}>
-                          {ago(row.lastRunAt)}
-                        </TableCell>
+                        </NumCell>
+                        <NumCell>{score(row.bestScore)}</NumCell>
+                        <NumCell>{ago(row.lastRunAt)}</NumCell>
                         <Chevron />
                       </TableRow>
                     )}

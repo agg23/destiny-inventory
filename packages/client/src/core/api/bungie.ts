@@ -1,13 +1,14 @@
 import type {
   DestinyActivityHistoryResults,
-  DestinyAggregateActivityResults,
   DestinyHistoricalStatsPeriodGroup,
   DestinyPostGameCarnageReportData,
   DestinyProfileResponse,
   DestinyVendorResponse,
   DestinyVendorsResponse,
+  ServerResponse,
 } from "bungie-api-ts/destiny2";
 
+import { readStored, writeStored } from "../storage.ts";
 import { loadConfig } from "./config.ts";
 
 export const BUNGIE = "https://www.bungie.net";
@@ -32,27 +33,19 @@ export interface Membership {
   membershipId: string;
 }
 
-interface Envelope<T> {
-  Response: T;
-  ErrorCode: number;
-  ErrorStatus: string;
-  Message: string;
-}
-
-const call = async <T>(
-  path: string,
-  accessToken: string,
-  host = PLATFORM,
-  cache: RequestCache = "default",
+const send = async <T>(
+  url: string,
+  headers: Record<string, string>,
+  init: RequestInit,
 ): Promise<T> => {
   const { apiKey } = await loadConfig();
 
-  const response = await fetch(`${host}${path}`, {
-    cache,
-    headers: { "X-API-Key": apiKey, Authorization: `Bearer ${accessToken}` },
+  const response = await fetch(url, {
+    ...init,
+    headers: { "X-API-Key": apiKey, ...headers },
   });
 
-  const body = (await response.json()) as Envelope<T>;
+  const body = (await response.json()) as ServerResponse<T>;
 
   if (body.ErrorCode !== 1) {
     throw new Error(`Bungie ${body.ErrorStatus}: ${body.Message}`);
@@ -61,25 +54,19 @@ const call = async <T>(
   return body.Response;
 };
 
-const post = async <T>(path: string, body: unknown): Promise<T> => {
-  const { apiKey } = await loadConfig();
+const call = <T>(
+  path: string,
+  accessToken: string,
+  host = PLATFORM,
+  cache: RequestCache = "default",
+): Promise<T> =>
+  send<T>(
+    `${host}${path}`,
+    { Authorization: `Bearer ${accessToken}` },
+    { cache },
+  );
 
-  const response = await fetch(`${PLATFORM}${path}`, {
-    method: "POST",
-    headers: { "X-API-Key": apiKey, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
-  const envelope = (await response.json()) as Envelope<T>;
-
-  if (envelope.ErrorCode !== 1) {
-    throw new Error(`Bungie ${envelope.ErrorStatus}: ${envelope.Message}`);
-  }
-
-  return envelope.Response;
-};
-
-export interface UserMemberships {
+interface UserMemberships {
   destinyMemberships: Membership[];
   primaryMembershipId?: string;
 }
@@ -100,16 +87,17 @@ export interface Player {
   membership: Membership;
 }
 
-// Cross save leaves one account holding the characters, and the others empty
+// Cross save puts every character on one account
 const played = (memberships: CrossSaved[]): Membership | undefined =>
   memberships.find((one) => one.crossSaveOverride === one.membershipType) ??
   memberships[0];
 
-/** Bungie name prefix search, which answers with at most 20 players */
+/** Bungie name prefix search, capped at 20 players */
 export const searchPlayers = async (prefix: string): Promise<Player[]> => {
-  const response = await post<{ searchResults: SearchResult[] }>(
-    "/User/Search/GlobalName/0/",
-    { displayNamePrefix: prefix },
+  const response = await send<{ searchResults: SearchResult[] }>(
+    `${PLATFORM}/User/Search/GlobalName/0/`,
+    { "Content-Type": "application/json" },
+    { method: "POST", body: JSON.stringify({ displayNamePrefix: prefix }) },
   );
 
   return response.searchResults.flatMap((result) => {
@@ -132,7 +120,7 @@ export const currentMemberships = (
 ): Promise<UserMemberships> =>
   call<UserMemberships>("/User/GetMembershipsForCurrentUser/", accessToken);
 
-export const pickMembership = (memberships: UserMemberships): Membership => {
+const pickMembership = (memberships: UserMemberships): Membership => {
   const { destinyMemberships, primaryMembershipId } = memberships;
 
   const primary = primaryMembershipId
@@ -151,11 +139,8 @@ export const pickMembership = (memberships: UserMemberships): Membership => {
 const MEMBERSHIP = "dvm.membership";
 
 /** Membership from the last sign-in, without a network round trip */
-export const storedMembership = (): Membership | undefined => {
-  const held = localStorage.getItem(MEMBERSHIP);
-
-  return held ? (JSON.parse(held) as Membership) : undefined;
-};
+export const storedMembership = (): Membership | undefined =>
+  readStored(MEMBERSHIP) as Membership | undefined;
 
 /** Stored membership, or the account's primary one fetched and stored */
 export const cachedMembership = async (token: string): Promise<Membership> => {
@@ -166,10 +151,13 @@ export const cachedMembership = async (token: string): Promise<Membership> => {
   }
 
   const membership = pickMembership(await currentMemberships(token));
-  localStorage.setItem(MEMBERSHIP, JSON.stringify(membership));
+  writeStored(MEMBERSHIP, membership);
 
   return membership;
 };
+
+const profilePath = (membership: Membership): string =>
+  `/Destiny2/${membership.membershipType}/Profile/${membership.membershipId}`;
 
 export const fetchProfile = (
   membership: Membership,
@@ -178,16 +166,14 @@ export const fetchProfile = (
   call<DestinyProfileResponse>(
     // Bungie will serve a cached snapshot with the same exact URL for up to a minute
     // Add a dummy date query arg to bust the cache
-    `/Destiny2/${membership.membershipType}/Profile/${
-      membership.membershipId
-    }/?components=${COMPONENTS.join(",")}&_=${Date.now()}`,
+    `${profilePath(membership)}/?components=${COMPONENTS.join(",")}&_=${Date.now()}`,
     accessToken,
     PLATFORM,
     // Force the newest possible response
     "reload",
   );
 
-// Fetched apart from the profile, it is large and only Collections reads it
+// Not in the profile call - large and only Collections reads it
 const COLLECTIBLES = 800;
 
 export const fetchCollectibles = (
@@ -195,9 +181,7 @@ export const fetchCollectibles = (
   accessToken: string,
 ): Promise<DestinyProfileResponse> =>
   call<DestinyProfileResponse>(
-    `/Destiny2/${membership.membershipType}/Profile/${
-      membership.membershipId
-    }/?components=${COLLECTIBLES}`,
+    `${profilePath(membership)}/?components=${COLLECTIBLES}`,
     accessToken,
   );
 
@@ -209,18 +193,13 @@ export const fetchVendors = (
   accessToken: string,
 ): Promise<DestinyVendorsResponse> =>
   call<DestinyVendorsResponse>(
-    `/Destiny2/${membership.membershipType}/Profile/${
-      membership.membershipId
-    }/Character/${characterId}/Vendors/?components=${VENDOR_COMPONENTS.join(
-      ",",
-    )}&_=${Date.now()}`,
+    `${profilePath(membership)}/Character/${characterId}/Vendors/?components=${VENDOR_COMPONENTS.join(",")}&_=${Date.now()}`,
     accessToken,
     PLATFORM,
     "reload",
   );
 
-// GetVendors answers with an empty itemComponents however they are asked for, so a
-// sale item's roll has to come from the single-vendor endpoint
+// GetVendors always returns empty itemComponents
 const VENDOR_ITEM_COMPONENTS = [300, 301, 304, 305, 308, 310, 402];
 
 export const fetchVendor = (
@@ -230,11 +209,7 @@ export const fetchVendor = (
   accessToken: string,
 ): Promise<DestinyVendorResponse> =>
   call<DestinyVendorResponse>(
-    `/Destiny2/${membership.membershipType}/Profile/${
-      membership.membershipId
-    }/Character/${characterId}/Vendors/${vendorHash}/?components=${VENDOR_ITEM_COMPONENTS.join(
-      ",",
-    )}`,
+    `${profilePath(membership)}/Character/${characterId}/Vendors/${vendorHash}/?components=${VENDOR_ITEM_COMPONENTS.join(",")}`,
     accessToken,
     PLATFORM,
     "reload",
@@ -264,16 +239,6 @@ export const fetchActivityHistory = async (
   // Bungie omits the array entirely once the pages run out
   return results.activities ?? [];
 };
-
-export const fetchAggregateActivityStats = (
-  membership: Membership,
-  characterId: string,
-  accessToken: string,
-): Promise<DestinyAggregateActivityResults> =>
-  call<DestinyAggregateActivityResults>(
-    `${character(membership, characterId)}/Stats/AggregateActivityStats/`,
-    accessToken,
-  );
 
 export const fetchCarnageReport = (
   instanceId: string,

@@ -15,7 +15,6 @@ export interface Materialized {
   plugSets: Record<number, DestinyPlugSetDefinition>;
 }
 
-// Pulls only the closure the profile reaches, so heap tracks the vault rather than the game
 /** Walks the def closure from owned, skipping anything already in known */
 export const materializeClosure = async (
   owned: Iterable<number>,

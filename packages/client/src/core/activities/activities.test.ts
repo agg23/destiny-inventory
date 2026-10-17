@@ -1,13 +1,13 @@
-import type { SlimActivity } from "@dvm/defs-core";
 import type { DestinyActivity } from "bungie-api-ts/destiny2";
 import { describe, expect, it } from "vitest";
+
+import type { SlimActivity } from "@dvm/defs-core";
 
 import {
   barred,
   categorize,
   matching,
   readable,
-  totalDrops,
 } from "./activities.ts";
 import type { ActivityTables, Category, Realm } from "./types.ts";
 
@@ -185,7 +185,7 @@ const focus = (hash = 8000, itemHash = 603) => [
   },
 ];
 
-// Bungie ships these with a zero quantity, which says nothing about the tier
+// Bungie ships these with quantity 0
 const tiers = (...itemHashes: number[]) => [
   {
     rewardItems: itemHashes.map((itemHash) => ({
@@ -367,7 +367,6 @@ describe("realms", () => {
   });
 });
 
-// Same unlock hashes means one reward, two doors
 describe("folding variants onto a shared drop flag", () => {
   const coil = () => [
     entry({
@@ -962,10 +961,6 @@ describe("matching", () => {
     expect(found(realms(), "champion")[0]?.name).toBe("Raids");
   });
 
-  it("recounts the engrams of what survived the filter", () => {
-    expect(totalDrops(matching(realms(), "coil"))).toBe(3);
-  });
-
   it("drops a category with no hits rather than leaving it empty", () => {
     expect(matching(realms(), "nothing here")).toEqual([]);
   });
@@ -1196,7 +1191,7 @@ describe("readable", () => {
   });
 });
 
-// A dungeon ships one activity per difficulty, and its doors carry different gear tiers
+// Bungie ships a dungeon once per difficulty
 describe("gear tiers", () => {
   const ruin = (standard: number[], master: number[]) => [
     entry({ activityHash: 40, visibleRewards: tiers(...standard) as never }),

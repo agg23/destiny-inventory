@@ -1,4 +1,4 @@
-import type { ArtifactIndex } from "./config.ts";
+import type { ArtifactIndex } from "@dvm/service";
 
 const BASE = "/artifacts";
 

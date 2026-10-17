@@ -12,6 +12,7 @@ import {
   TILE_MIN,
 } from "../core/settings.ts";
 import { CogGlyph } from "./lib/CogGlyph.tsx";
+import { IconButton } from "./lib/IconButton.tsx";
 import { Select } from "./lib/Select.tsx";
 import { Slider } from "./lib/Slider.tsx";
 import { Toggle } from "./lib/Toggle.tsx";
@@ -38,7 +39,7 @@ export const Settings = () => {
     setOpen(false);
   };
 
-  // Dismissing by clicking away keeps the draft; only Cancel and Escape drop it
+  // Click-away keeps the draft
   const onOpenChange = (next: boolean) => {
     if (next) {
       previewSettings(savedSettings());
@@ -58,12 +59,10 @@ export const Settings = () => {
       placement="bottom-end"
     >
       <PopoverTrigger
-        as={Button}
-        variant="ghost"
+        as={IconButton}
         size="icon-sm"
         class="text-muted-foreground"
-        title="Settings"
-        aria-label="Settings"
+        label="Settings"
       >
         <CogGlyph />
       </PopoverTrigger>

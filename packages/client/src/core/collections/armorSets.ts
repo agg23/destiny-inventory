@@ -43,7 +43,7 @@ export const setless = (entries: Entry[]): Entry[] =>
     (entry) => entry.kind === "armor" && entry.setKey === undefined,
   );
 
-/** Exotics by slot, then each set in slot order, for the list view */
+/** Exotics by slot, then each set in slot order */
 export const armorOrder = (entries: Entry[]): Entry[] => [
   ...bySlot(setless(entries)),
   ...[...setsOf(entries).values()].flatMap(bySlot),

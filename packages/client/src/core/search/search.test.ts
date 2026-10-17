@@ -1,4 +1,3 @@
-import { buildDefinitions } from "@dvm/dim-bridge";
 import type { D2ManifestDefinitions } from "app/destiny2/d2-definitions";
 import { getBuckets } from "app/destiny2/d2-buckets";
 import type { DimItem } from "app/inventory/item-types";
@@ -6,6 +5,8 @@ import type { DimStore } from "app/inventory/store-types";
 import { buildStores } from "app/inventory/store/d2-store-factory";
 import { getTestDefinitions, getTestProfile } from "testing/test-utils.ts";
 import { beforeAll, describe, expect, it } from "vitest";
+
+import { buildDefinitions } from "@dvm/dim-bridge";
 
 import { setOnlyTag } from "../items/tags.ts";
 import { completion, itemFilter, suggest, valid } from "./search.ts";
@@ -45,12 +46,11 @@ describe("itemFilter", () => {
     ).toBe(true);
   });
 
-  // Bare text reads as keyword:, which covers perks and descriptions too
+  // Bare text is DIM's keyword: filter
   it("matches more than names on bare text", () => {
     expect(found("hunger").length).toBeGreaterThan(found("name:hunger").length);
   });
 
-  // Bare text runs off a prebuilt index, which has to reach as far as DIM's own walk
   it("reaches perk names on bare text", () => {
     const [perked] = items.flatMap((item) =>
       (item.sockets?.allSockets ?? []).flatMap((socket) => {
@@ -134,8 +134,7 @@ describe("itemFilter", () => {
     expect(results.every((item) => item.owner === vault.id)).toBe(true);
   });
 
-  // The shipped manifest holds only the closure the profile reaches, and quest rewards are
-  // outside it. A lookup miss used to throw straight out of the freeform filters
+  // Shipped manifest only holds the profile's closure; quest rewards fall outside it
   it("survives a manifest missing the hashes a filter reaches for", () => {
     const owned = new Set(items.map((item) => item.hash));
     const all = defs.InventoryItem.getAll();
@@ -160,7 +159,6 @@ describe("itemFilter", () => {
     );
   });
 
-  // The DIM Sync filter sets are left out, so their keywords cannot be honored
   it("matches nothing for a filter we do not carry", () => {
     expect(found("tag:junk").length).toBe(0);
   });
@@ -175,12 +173,10 @@ describe("itemFilter", () => {
     );
   });
 
-  // is:dupe stands on its own, so it must not be read as is:dupelower
   it("leaves a query that is already valid alone", () => {
     expect(found("is:dupe").length).not.toBe(found("is:dupelower").length);
   });
 
-  // A typo has no completion, and honoring the terms around it would widen the search
   it("matches nothing when a term cannot be completed", () => {
     expect(found("is:arc is:handcannond").length).toBe(0);
     expect(found("is:weapon tag:ju").length).toBe(0);

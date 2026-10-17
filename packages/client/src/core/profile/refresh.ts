@@ -6,7 +6,7 @@ interface Options {
   busy: () => boolean;
 }
 
-export interface AutoRefresh {
+interface AutoRefresh {
   stop: () => void;
   now: () => void;
 }

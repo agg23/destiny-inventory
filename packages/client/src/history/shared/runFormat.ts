@@ -2,43 +2,11 @@ import { DIFFICULTIES } from "@dvm/defs-core";
 
 import type { HistoryRun } from "../../core/activities/history.ts";
 
-export const stamp = (at: number): string =>
-  new Date(at).toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-
 export const ratio = (run: HistoryRun): string =>
   (run.deaths > 0 ? run.kills / run.deaths : run.kills).toFixed(2);
 
-export const plural = (count: number, noun: string): string =>
-  `${count} ${noun}${count === 1 ? "" : "s"}`;
-
 export const score = (value: number): string =>
   value > 0 ? value.toLocaleString() : "-";
-
-export const shortDay = (at: number): string =>
-  new Date(at).toLocaleDateString([], { month: "short", day: "numeric" });
-
-export const clock = (at: number): string =>
-  new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-
-export const dateLabel = (at: number): string =>
-  new Date(at).toLocaleDateString([], {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-
-export const dayTitle = (day: string): string =>
-  new Date(`${day}T12:00:00`).toLocaleDateString([], {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 
 const HERO_RANK = DIFFICULTIES.indexOf("Hero");
 const LEGEND_RANK = DIFFICULTIES.indexOf("Legend");

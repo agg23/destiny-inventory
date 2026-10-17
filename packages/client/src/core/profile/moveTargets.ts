@@ -3,15 +3,13 @@ import type { DimStore } from "app/inventory/store-types";
 import {
   amountOfItem,
   getCurrentStore,
+  getVault,
   potentialSpaceLeftForItem,
 } from "app/inventory/stores-helpers";
 import { isClassCompatible, itemCanBeEquippedBy } from "app/utils/item-utils";
 import { BucketHashes } from "data/d2/generated-enums";
 
 import { unmovable } from "../items/compare.ts";
-
-// BucketHashes.LostItems, inlined
-export const LOST_ITEMS = 215593132;
 
 const VAULTABLE_BUCKETS = new Set<number>([
   BucketHashes.KineticWeapons,
@@ -35,7 +33,7 @@ export const storeLabel = (store: DimStore): string =>
   store.isVault ? "Vault" : store.className;
 
 const inPostmaster = (item: DimItem): boolean =>
-  item.location.hash === LOST_ITEMS;
+  item.location.hash === BucketHashes.LostItems;
 
 const noRoom = (
   item: DimItem,
@@ -147,7 +145,7 @@ export const defaultTransfer = (
   }
 
   if (!home?.isVault) {
-    return stores.find((store) => store.isVault);
+    return getVault(stores);
   }
 
   const characters = holders(item, stores, active).filter(
@@ -208,13 +206,30 @@ export const movableTo = (
       ) && !transferBlocked(item, stores, target),
   );
 
+/** Why none of a selection can go to the target */
+export const bulkBlocked = (
+  items: DimItem[],
+  stores: DimStore[],
+  active: DimStore | undefined,
+  target: DimStore,
+): string | undefined =>
+  movableTo(items, stores, active, target).length === 0
+    ? "Nothing to move"
+    : undefined;
+
+/** The stores besides the primary target, for a split button's menu */
+export const otherStores = (
+  stores: DimStore[],
+  primary: DimStore,
+): DimStore[] => stores.filter((store) => store.id !== primary.id);
+
 /** The vault, unless the whole selection is already there */
 export const defaultBulkTransfer = (
   items: DimItem[],
   stores: DimStore[],
   active: DimStore | undefined,
 ): DimStore | undefined => {
-  const vault = stores.find((store) => store.isVault);
+  const vault = getVault(stores);
 
   if (items.some((item) => item.owner !== vault?.id)) {
     return vault;

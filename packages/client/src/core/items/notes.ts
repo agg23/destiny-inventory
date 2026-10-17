@@ -3,13 +3,12 @@ import { createSignal } from "solid-js";
 import type { Note, NoteKind } from "@dvm/service";
 
 import { callService } from "../api/auth.ts";
+import { readStored, writeStored } from "../storage.ts";
+import { mergeNewer } from "./sync.ts";
 
 const KEY = "dvm.notes";
 
 const ENDPOINT = "/api/notes";
-
-// Matches the service's cap
-export const MAX_NOTE_LENGTH = 2_000;
 
 interface Held {
   notes: Note[];
@@ -28,22 +27,16 @@ const noteKey = (kind: NoteKind, targetId: string): string =>
   `${kind}/${targetId}`;
 
 const restore = (): Held => {
-  const raw = localStorage.getItem(KEY);
+  const parsed = readStored(KEY) as Partial<Held> | undefined;
 
-  if (raw === null) {
+  if (!parsed) {
     return EMPTY;
   }
 
-  try {
-    const parsed = JSON.parse(raw) as Partial<Held>;
-
-    return {
-      notes: Array.isArray(parsed.notes) ? parsed.notes : [],
-      since: typeof parsed.since === "number" ? parsed.since : 0,
-    };
-  } catch {
-    return EMPTY;
-  }
+  return {
+    notes: Array.isArray(parsed.notes) ? parsed.notes : [],
+    since: typeof parsed.since === "number" ? parsed.since : 0,
+  };
 };
 
 let held: Held = restore();
@@ -65,28 +58,14 @@ const publish = () =>
 
 const save = () => {
   try {
-    localStorage.setItem(KEY, JSON.stringify(held));
+    writeStored(KEY, held);
   } catch {
-    // Quota or private mode, and the server still holds it
+    // Quota or private mode, server still has it
   }
 };
 
-const merge = (incoming: Note[]): Note[] => {
-  const map = new Map(
-    held.notes.map((note) => [noteKey(note.kind, note.targetId), note]),
-  );
-
-  for (const note of incoming) {
-    const key = noteKey(note.kind, note.targetId);
-    const existing = map.get(key);
-
-    if (!existing || note.updatedAt >= existing.updatedAt) {
-      map.set(key, note);
-    }
-  }
-
-  return [...map.values()];
-};
+const merge = (incoming: Note[]): Note[] =>
+  mergeNewer(held.notes, incoming, (note) => noteKey(note.kind, note.targetId));
 
 /** Pulls everything newer than the last sync, removals included */
 export const syncNotes = async (): Promise<void> => {

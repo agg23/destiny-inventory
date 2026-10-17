@@ -1,15 +1,11 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
 
+import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { ItemTile } from "../../components/ItemTile.tsx";
 import { Objective } from "../../components/lib/Progress.tsx";
 import { HEADING, TILE_GRID } from "../../components/lib/text.ts";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../components/lib/zaidan/alert-dialog.tsx";
@@ -17,19 +13,21 @@ import { Button } from "../../components/lib/zaidan/button.tsx";
 import { NameCounts } from "../../components/NameCounts.tsx";
 import { useApp } from "../../core/app/state.ts";
 import { guest } from "../../core/profile/guest.ts";
+import { plural } from "../../core/text.ts";
 import { showToast } from "../../core/toast.ts";
-import { plural } from "../../history/shared/runFormat.ts";
+import {
+  planTrash,
+  trashFor,
+  trashQueue,
+  type TrashPhase,
+} from "./trashPlan.ts";
 import {
   nextTrash,
-  planTrash,
   startTrash,
   stopTrash,
-  trashFor,
   trashPaused,
-  trashQueue,
   trashRun,
   trashStopping,
-  type TrashPhase,
 } from "./trashRun.ts";
 import { CATEGORIES } from "./triage.ts";
 
@@ -160,56 +158,42 @@ export const TriageTrash = (props: { dry: boolean }) => {
 
   return (
     <>
-      <AlertDialog
-        open={plan() !== undefined}
-        onOpenChange={(open) => {
-          if (!open) {
-            setConfirming(undefined);
-          }
-        }}
+      <ConfirmDialog
+        value={plan()}
+        onClose={() => setConfirming(undefined)}
+        action="Start"
+        disabled={plan()?.blocked !== undefined}
+        onAction={onStart}
       >
-        <Show when={plan()}>
-          {(held) => (
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  Trash {plural(held().trash.length, "item")}?
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {[
-                    app.loaded()?.buckets.byHash[confirming()!]?.name,
-                    app.active()?.className,
-                    props.dry ? "Dry run" : "",
-                  ]
-                    .filter((part) => part)
-                    .join(" · ")}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <div class="flex flex-col gap-1.5 text-sm">
-                <span class="text-muted-foreground">To dismantle</span>
-                <NameCounts
-                  items={held().trash}
-                  class="max-h-40 overflow-y-auto"
-                />
-              </div>
-              <Show when={held().blocked}>
-                {(reason) => <p class="text-sm text-destructive">{reason()}</p>}
-              </Show>
-              <AlertDialogFooter>
-                <AlertDialogCancel aria-label="Cancel">
-                  Cancel
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  disabled={held().blocked !== undefined}
-                  onClick={onStart}
-                >
-                  Start
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          )}
-        </Show>
-      </AlertDialog>
+        {(held) => (
+          <>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Trash {plural(held().trash.length, "item")}?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {[
+                  app.loaded()?.buckets.byHash[confirming()!]?.name,
+                  app.active()?.className,
+                  props.dry ? "Dry run" : "",
+                ]
+                  .filter((part) => part)
+                  .join(" · ")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div class="flex flex-col gap-1.5 text-sm">
+              <span class="text-muted-foreground">To dismantle</span>
+              <NameCounts
+                items={held().trash}
+                class="max-h-40 overflow-y-auto"
+              />
+            </div>
+            <Show when={held().blocked}>
+              {(reason) => <p class="text-sm text-destructive">{reason()}</p>}
+            </Show>
+          </>
+        )}
+      </ConfirmDialog>
 
       <Show
         when={live()}

@@ -3,18 +3,12 @@ import {
   type DestinyProfileResponse,
 } from "bungie-api-ts/destiny2";
 
-import { accessToken } from "../api/auth.ts";
+import { requireToken } from "../api/auth.ts";
 import { fetchProfile, type Membership } from "../api/bungie.ts";
 import { materializeNew } from "./load.ts";
-import { NotSignedIn, type LoadResult, type Session } from "./loadTypes.ts";
-import {
-  characterRecords,
-  mintedAt,
-  orderRewards,
-  playingNow,
-  stringVariables,
-} from "./profileReads.ts";
-import { buildStoresFrom, storeItems } from "./stores.ts";
+import type { LoadResult, Session } from "./loadTypes.ts";
+import { liveFields, mintedAt } from "./profileReads.ts";
+import { buildStoresFrom, fromBuilt } from "./stores.ts";
 
 // The store factory bails on a profile with no inventory components
 const withoutInventories = (
@@ -61,17 +55,12 @@ const guestOf = (membership: Membership, profile: DestinyProfileResponse) => {
   };
 };
 
-/** Another account's profile built against the loaded definitions, and cached nowhere */
+/** Another account's profile built on the loaded definitions - never cached */
 export const loadGuest = async (
   owner: LoadResult,
   membership: Membership,
 ): Promise<LoadResult> => {
-  const token = await accessToken();
-
-  if (!token) {
-    throw new NotSignedIn();
-  }
-
+  const token = await requireToken();
   const profile = withoutInventories(await fetchProfile(membership, token));
 
   const session: Session = {
@@ -95,22 +84,8 @@ export const loadGuest = async (
 
   return {
     ...owner,
-    stores: built.stores,
-    buckets: built.buckets,
-    items: storeItems(built.stores),
-    source: "live",
-    playing: playingNow(profile),
-    activities: profile.characterActivities?.data ?? {},
-    variables: stringVariables(profile),
-    records: characterRecords(profile),
-    orderRewards: orderRewards(profile),
-    counts: {
-      ...owner.counts,
-      skipped: built.skipped.reduce((total, group) => total + group.count, 0),
-      hidden: built.hidden,
-    },
-    skipped: built.skipped,
-    degraded: built.degraded,
+    ...fromBuilt(built, owner.counts),
+    ...liveFields(profile),
     session,
   };
 };

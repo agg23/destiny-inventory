@@ -14,7 +14,6 @@ import type {
   SlimTier,
 } from "@dvm/defs-core";
 
-
 export interface ActivityTables {
   activities: Record<number, SlimActivity>;
   modifiers: Record<number, SlimModifier>;
@@ -30,7 +29,7 @@ export interface ActivityTables {
   modes: Record<number, SlimMode>;
 }
 
-// Bungie's quantity is a flag, not a tally
+// Bungie's quantity is a flag
 export interface Loot {
   hash: number;
   name: string;

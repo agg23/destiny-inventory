@@ -1,3 +1,5 @@
+import { sumBy } from "es-toolkit";
+
 import {
   playedSeconds,
   type HistoryRun,
@@ -13,8 +15,8 @@ export interface Totals {
 export const totalsOf = (runs: HistoryRun[]): Totals => ({
   runs: runs.length,
   seconds: playedSeconds(runs),
-  kills: runs.reduce((total, one) => total + one.kills, 0),
-  deaths: runs.reduce((total, one) => total + one.deaths, 0),
+  kills: sumBy(runs, (one) => one.kills),
+  deaths: sumBy(runs, (one) => one.deaths),
 });
 
 export interface Best {

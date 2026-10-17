@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { AllDestinyManifestComponents } from "bungie-api-ts/destiny2";
 
 const MANIFEST_INDEX = "https://www.bungie.net/Platform/Destiny2/Manifest/";
 const BUNGIE_ROOT = "https://www.bungie.net";
@@ -60,6 +61,13 @@ export interface Manifest {
   version: string;
   tables: Map<TableName, RawTable>;
 }
+
+/** A manifest table typed by name, undefined when this manifest lacks it */
+export const table = <Name extends TableName>(
+  manifest: Manifest,
+  name: Name,
+): AllDestinyManifestComponents[Name] | undefined =>
+  manifest.tables.get(name) as AllDestinyManifestComponents[Name] | undefined;
 
 interface ManifestIndexResponse {
   Response: {

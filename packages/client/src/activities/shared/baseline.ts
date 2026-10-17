@@ -1,13 +1,13 @@
 import type { Baseline as Captured, Reward } from "@dvm/service";
 
 import { activityTables } from "../../core/activities/activityTables.ts";
+import { BONUS_DROP, FOCUS, toLoot } from "../../core/activities/rewards.ts";
 import type { Recalled } from "../../core/activities/types.ts";
 import { cached } from "../../core/api/cache.ts";
 
 // A live profile deletes a taken reward outright
 const ENDPOINT = "/api/baseline";
 
-// The service answers { rows: {} } when nothing is captured
 type Served = Partial<Captured>;
 
 export interface Baseline {
@@ -15,9 +15,6 @@ export interface Baseline {
   capturedAt: string | undefined;
   rows: Record<number, Recalled>;
 }
-
-const BONUS_DROP = "extra_engram";
-const FOCUS = "daily_grind_guaranteed";
 
 interface Names {
   (itemHash: number): { name: string; icon: string | undefined } | undefined;
@@ -41,22 +38,12 @@ const recall = (rewards: Reward[], named: Names): Recalled => {
     }
 
     if (reward.style === FOCUS) {
-      focus ??= {
-        hash: reward.itemHash,
-        name: found.name,
-        icon: found.icon,
-        quantity: reward.quantity,
-      };
+      focus ??= toLoot(reward.itemHash, found, reward.quantity);
       continue;
     }
 
     if (!reward.style && reward.quantity > 0) {
-      bonus.push({
-        hash: reward.itemHash,
-        name: found.name,
-        icon: found.icon,
-        quantity: reward.quantity,
-      });
+      bonus.push(toLoot(reward.itemHash, found, reward.quantity));
     }
   }
 

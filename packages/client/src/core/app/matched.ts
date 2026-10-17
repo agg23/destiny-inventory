@@ -6,13 +6,13 @@ import { defs } from "../profile/defs.ts";
 import { vaultable } from "../profile/moveTargets.ts";
 import { itemFilter, primeSearch } from "../search/search.ts";
 
-/** The filtered items grouped the way the grid draws them, with the total across every store */
+/** Filtered items grouped as the grid draws them, plus the total */
 export interface Matched {
   byStore: Map<string, Map<number, DimItem[]>>;
   total: number;
 }
 
-// Most keystrokes narrow a query without changing what it matches. Don't do extra work
+// Most keystrokes don't change what matches
 const sameMatched = (was: Matched, next: Matched): boolean => {
   if (was.total !== next.total || was.byStore.size !== next.byStore.size) {
     return false;

@@ -1,3 +1,6 @@
+import { keyBy } from "es-toolkit";
+import { createResource } from "solid-js";
+
 import type {
   SlimActivity,
   SlimActivitySet,
@@ -19,17 +22,6 @@ import type { ActivityTables } from "./types.ts";
 
 type Table<T> = Record<number, T>;
 
-const byHash = <T extends { hash: number }>(records: T[]): Table<T> => {
-  const table: Table<T> = {};
-
-  for (const record of records) {
-    table[record.hash] = record;
-  }
-
-  return table;
-};
-
-// A quarter of a megabyte
 export const activityTables = cached(async (): Promise<ActivityTables> => {
   const { artifacts } = await loadConfig();
 
@@ -75,10 +67,16 @@ export const activityTables = cached(async (): Promise<ActivityTables> => {
     sets,
     destinations,
     places,
-    rewards: byHash(rewards),
-    challenges: byHash(challenges),
+    rewards: keyBy(rewards, (reward) => reward.hash),
+    challenges: keyBy(challenges, (challenge) => challenge.hash),
     difficulties,
     skulls,
     modes,
   };
 });
+
+/** The tables as a resource, starting from any already fetched */
+export const useActivityTables = () =>
+  createResource(activityTables, {
+    initialValue: activityTables.settled(),
+  })[0];

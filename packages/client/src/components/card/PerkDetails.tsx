@@ -2,7 +2,7 @@ import type { DimItem } from "app/inventory/item-types";
 import type { DestinyObjectiveProgress } from "bungie-api-ts/destiny2";
 import { createMemo, For, Show } from "solid-js";
 
-import { BUNGIE } from "../../core/api/bungie.ts";
+import { CATALYST_LABELS } from "../../core/collections/labels.ts";
 import type { Catalyst } from "../../core/collections/types.ts";
 import {
   archetype,
@@ -10,61 +10,18 @@ import {
   catalysts,
   intrinsics,
   setBonus,
-  type CatalystState,
 } from "../../core/items/perks.ts";
-import {
-  MODE_NAMES,
-  setBonusFor,
-  setBonusesRanked,
-} from "../../core/items/rolls.ts";
+import { setBonusFor, setBonusesRanked } from "../../core/items/rolls.ts";
+import { MODE_NAMES } from "../../core/items/rollTypes.ts";
 import { defs } from "../../core/profile/defs.ts";
 import { shownModes } from "../../core/settings.ts";
+import { sentence } from "../../core/text.ts";
 import { Objective } from "../lib/Progress.tsx";
-import { LABEL, sentence } from "../lib/text.ts";
+import { LABEL } from "../lib/text.ts";
 import { Badge } from "../lib/zaidan/badge.tsx";
 import { RollTier } from "./AegisNote.tsx";
-import { Changes } from "./Stats.tsx";
-
-const perkIconClass = (enhanced?: boolean, square?: boolean): string =>
-  square
-    ? "size-8 flex-none"
-    : `size-8 flex-none rounded-full border bg-foreground/8 ${
-        enhanced ? "border-light" : "border-foreground/50"
-      }`;
-
-export const PerkIcon = (props: {
-  icon: string | undefined;
-  enhanced?: boolean;
-  square?: boolean;
-}) => (
-  <Show
-    when={props.icon}
-    fallback={<span class={perkIconClass(props.enhanced, props.square)} />}
-  >
-    {(icon) => (
-      <img
-        class={perkIconClass(props.enhanced, props.square)}
-        src={`${BUNGIE}${icon()}`}
-        alt=""
-        loading="lazy"
-      />
-    )}
-  </Show>
-);
-
-/** An icon beside a perk's name and description */
-export const PERK = "flex items-start gap-3 py-1.5";
-
-export const PERK_NAME = "block font-medium text-foreground";
-
-/** A perk name followed by badges */
-export const PERK_TITLE =
-  "flex flex-wrap items-center gap-1.5 font-medium text-foreground";
-
-export const PERK_TEXT = "block text-xs whitespace-pre-wrap text-muted-foreground";
-
-/** Light gold, for Enhanced and other game-marked states */
-export const GOLD_BADGE = "border-light/40 text-light";
+import { GOLD_BADGE, GoldBadge } from "./GoldBadge.tsx";
+import { PERK, PERK_NAME, PERK_TEXT, PerkIcon, PerkRow } from "./PerkRow.tsx";
 
 export const Archetype = (props: { item: DimItem }) => {
   const found = createMemo(() => archetype(props.item));
@@ -87,27 +44,16 @@ export const Intrinsics = (props: { item: DimItem }) => {
   return (
     <For each={list()}>
       {(intrinsic) => (
-        <div class={PERK}>
-          <PerkIcon icon={intrinsic.icon} square />
-          <div class="min-w-0">
-            <b class={PERK_NAME}>{intrinsic.name}</b>
-            <Changes stats={intrinsic.stats} />
-            <Show when={intrinsic.description}>
-              <span class={PERK_TEXT}>
-                {intrinsic.description}
-              </span>
-            </Show>
-          </div>
-        </div>
+        <PerkRow
+          icon={intrinsic.icon}
+          square
+          name={intrinsic.name}
+          stats={intrinsic.stats}
+          description={intrinsic.description}
+        />
       )}
     </For>
   );
-};
-
-const STATE_LABELS: Record<CatalystState, string> = {
-  missing: "Missing",
-  obtained: "Obtained",
-  complete: "Complete",
 };
 
 const Objectives = (props: { objectives: DestinyObjectiveProgress[] }) => (
@@ -140,10 +86,12 @@ export const Catalysts = (props: { item: DimItem; account?: Catalyst }) => {
         </h4>
         <For each={list()}>
           {(catalyst) => (
-            <div class={PERK}>
-              <PerkIcon icon={catalyst.icon} square />
-              <div class="min-w-0">
-                <b class={PERK_TITLE}>
+            <PerkRow
+              icon={catalyst.icon}
+              square
+              badged
+              name={
+                <>
                   {catalyst.name}
                   <Show when={catalyst.state}>
                     {(state) => (
@@ -155,37 +103,36 @@ export const Catalysts = (props: { item: DimItem; account?: Catalyst }) => {
                             : GOLD_BADGE
                         }
                       >
-                        {STATE_LABELS[state()]}
+                        {CATALYST_LABELS[state()]}
                       </Badge>
                     )}
                   </Show>
                   <Show when={catalyst.inserted}>
-                    <Badge variant="outline" class={GOLD_BADGE}>
-                      Inserted
-                    </Badge>
+                    <GoldBadge>Inserted</GoldBadge>
                   </Show>
-                </b>
-                <Changes stats={catalyst.stats} />
-                <For each={catalyst.lines}>
-                  {(line) => (
-                    <span class={PERK_TEXT}>
-                      <Show when={line.name}>
-                        {(name) => <span class="text-light">{name()}: </span>}
-                      </Show>
-                      {line.description}
-                    </span>
-                  )}
-                </For>
-                <Show
-                  when={
-                    catalyst.state === "obtained" &&
-                    catalyst.objectives.length > 0
-                  }
-                >
-                  <Objectives objectives={catalyst.objectives} />
-                </Show>
-              </div>
-            </div>
+                </>
+              }
+              stats={catalyst.stats}
+            >
+              <For each={catalyst.lines}>
+                {(line) => (
+                  <span class={PERK_TEXT}>
+                    <Show when={line.name}>
+                      {(name) => <span class="text-light">{name()}: </span>}
+                    </Show>
+                    {line.description}
+                  </span>
+                )}
+              </For>
+              <Show
+                when={
+                  catalyst.state === "obtained" &&
+                  catalyst.objectives.length > 0
+                }
+              >
+                <Objectives objectives={catalyst.objectives} />
+              </Show>
+            </PerkRow>
           )}
         </For>
       </div>
@@ -248,48 +195,49 @@ export const SetBonus = (props: { item: DimItem }) => {
                 });
 
               return (
-                <div class={PERK}>
-                  <PerkIcon icon={perk.icon} />
-                  <div class="min-w-0">
-                    <b class={PERK_NAME}>
+                <PerkRow
+                  icon={perk.icon}
+                  name={
+                    <>
                       {perk.requiredSetCount} piece · {perk.name}
-                    </b>
-                    <span class={PERK_TEXT}>{perk.description}</span>
-                    <Show when={rated().length > 0}>
-                      <div class="mt-1.5 flex flex-col gap-1.5 border-t pt-1.5 text-xs">
-                        <For each={rated()}>
-                          {(entry) => (
-                            <div>
-                              <span class="flex items-baseline gap-2">
-                                <Show when={entry.rating.tier}>
-                                  {(tier) => <RollTier tier={tier()} />}
-                                </Show>
-                                <span class="text-muted-foreground">
-                                  {MODE_NAMES[entry.mode]}
-                                </span>
-                                <Show when={entry.rating.rank}>
-                                  {(rank) => (
-                                    <span class="text-muted-foreground">
-                                      #{rank()} of{" "}
-                                      {setBonusesRanked(entry.mode)}
-                                    </span>
-                                  )}
-                                </Show>
+                    </>
+                  }
+                >
+                  <span class={PERK_TEXT}>{perk.description}</span>
+                  <Show when={rated().length > 0}>
+                    <div class="mt-1.5 flex flex-col gap-1.5 border-t pt-1.5 text-xs">
+                      <For each={rated()}>
+                        {(entry) => (
+                          <div>
+                            <span class="flex items-baseline gap-2">
+                              <Show when={entry.rating.tier}>
+                                {(tier) => <RollTier tier={tier()} />}
+                              </Show>
+                              <span class="text-muted-foreground">
+                                {MODE_NAMES[entry.mode]}
                               </span>
-                              <Show when={entry.rating.notes}>
-                                {(notes) => (
-                                  <span class="block text-muted-foreground">
-                                    {sentence(notes())}
+                              <Show when={entry.rating.rank}>
+                                {(rank) => (
+                                  <span class="text-muted-foreground">
+                                    #{rank()} of{" "}
+                                    {setBonusesRanked(entry.mode)}
                                   </span>
                                 )}
                               </Show>
-                            </div>
-                          )}
-                        </For>
-                      </div>
-                    </Show>
-                  </div>
-                </div>
+                            </span>
+                            <Show when={entry.rating.notes}>
+                              {(notes) => (
+                                <span class="block text-muted-foreground">
+                                  {sentence(notes())}
+                                </span>
+                              )}
+                            </Show>
+                          </div>
+                        )}
+                      </For>
+                    </div>
+                  </Show>
+                </PerkRow>
               );
             }}
           </For>
@@ -306,37 +254,25 @@ export const Benefits = (props: { item: DimItem }) => {
     <Show when={list().length > 0}>
       <For each={list()}>
         {(benefit) => (
-          <div class={PERK}>
-            <PerkIcon
-              icon={benefit.icon}
-              enhanced={benefit.enhanced}
-              square={benefit.intrinsic}
-            />
-            <div class="min-w-0">
-              <b
-                class={PERK_TITLE}
-                classList={{ "text-light!": benefit.enhanced }}
-              >
+          <PerkRow
+            icon={benefit.icon}
+            enhanced={benefit.enhanced}
+            square={benefit.intrinsic}
+            badged
+            name={
+              <>
                 {benefit.name}
                 <Show when={benefit.enhanced}>
-                  <Badge variant="outline" class={GOLD_BADGE}>
-                    Enhanced
-                  </Badge>
+                  <GoldBadge>Enhanced</GoldBadge>
                 </Show>
                 <Show when={benefit.intrinsic}>
-                  <Badge variant="outline" class={GOLD_BADGE}>
-                    Intrinsic
-                  </Badge>
+                  <GoldBadge>Intrinsic</GoldBadge>
                 </Show>
-              </b>
-              <Changes stats={benefit.stats} />
-              <Show when={benefit.description}>
-                <span class={PERK_TEXT}>
-                  {benefit.description}
-                </span>
-              </Show>
-            </div>
-          </div>
+              </>
+            }
+            stats={benefit.stats}
+            description={benefit.description}
+          />
         )}
       </For>
     </Show>

@@ -1,19 +1,19 @@
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
+import { minBy } from "es-toolkit";
 
-import {
-  assess,
-  MODE_NAMES,
-  versionsOf,
-  type Assessment,
-  type Mode,
-} from "./rolls.ts";
+import { assess, versionsOf } from "./rolls.ts";
+import { MODE_NAMES, type Assessment, type Mode } from "./rollTypes.ts";
 
 const PADDING = 20;
 const SHOWN = 10;
 
-/** Sort key for when an item was acquired; instance ids ascend but outgrow any digit count */
+/** Acquisition order sort key; instance ids ascend but vary in digit count */
 export const recency = (item: DimItem): string => item.id.padStart(PADDING, "0");
+
+/** Sort comparator, most recently acquired first */
+export const newestFirst = (a: DimItem, b: DimItem): number =>
+  recency(a) < recency(b) ? 1 : -1;
 
 // Stacks all share the id "0"
 const dropped = (item: DimItem) => item.id !== "0" && item.equipment;
@@ -22,21 +22,19 @@ export const acquired = (stores: DimStore[]): DimItem[] =>
   stores
     .flatMap((store) => store.items)
     .filter(dropped)
-    .sort((a, b) => (recency(a) < recency(b) ? 1 : -1))
+    .sort(newestFirst)
     .slice(0, SHOWN);
 
-export type VerdictKind = "only" | "better" | "equal" | "worse" | "mixed";
+type VerdictKind = "only" | "better" | "equal" | "worse" | "mixed";
 
 export interface Verdict {
   kind: VerdictKind;
   rival: DimItem | undefined;
-  /** Perks this roll hits that the rival misses */
   gains: string[];
-  /** Perks the rival hits that this roll misses */
   losses: string[];
 }
 
-/** The best verdict across both sheets, and the modes it holds in */
+/** Best verdict across the shown sheets, plus the modes that gave it */
 export interface ModeVerdict extends Verdict {
   modes: Mode[];
   /** Every shown sheet rated the roll and they all agree */
@@ -75,7 +73,6 @@ const rolledNames = (read: Assessment, slots: Set<number>): string[] =>
     slots.has(slot.slot) && slot.rolled ? [slot.rolled.name] : [],
   );
 
-/** How this roll stands against the other copies held, judged on Aegis's rated columns */
 export const verdictOf = (mine: Assessment, rivals: Contender[]): Verdict => {
   const held = hitSlots(mine);
 
@@ -120,10 +117,8 @@ export const verdictOf = (mine: Assessment, rivals: Contender[]): Verdict => {
   return { kind: "mixed", rival: mixed.item, ...against(mixed) };
 };
 
-// A roll only has to be good in one mode to keep
 const STANDING: VerdictKind[] = ["only", "better", "mixed", "equal", "worse"];
 
-/** Picks the strongest of each shown mode's verdict, the main mode first on a tie */
 export const combineVerdicts = (
   verdicts: Partial<Record<Mode, Verdict>>,
   shown: Mode[],
@@ -138,15 +133,8 @@ export const combineVerdicts = (
     return undefined;
   }
 
-  let best = rated[0]!;
-
-  for (const entry of rated) {
-    if (
-      STANDING.indexOf(entry.verdict.kind) < STANDING.indexOf(best.verdict.kind)
-    ) {
-      best = entry;
-    }
-  }
+  // Won't be undefined, rated is not empty
+  const best = minBy(rated, (entry) => STANDING.indexOf(entry.verdict.kind))!;
 
   const modes = rated
     .filter((entry) => entry.verdict.kind === best.verdict.kind)
@@ -191,7 +179,7 @@ const verdictIn = (
   return verdictOf(read, rivals);
 };
 
-/** Which mode a verdict speaks for, or undefined when both sheets agree */
+/** Mode names behind a verdict, undefined when the sheets agree */
 export const verdictMode = (verdict: ModeVerdict): string | undefined => {
   if (verdict.kind === "only" || verdict.unanimous) {
     return undefined;
@@ -200,7 +188,7 @@ export const verdictMode = (verdict: ModeVerdict): string | undefined => {
   return verdict.modes.map((mode) => MODE_NAMES[mode]).join(" and ");
 };
 
-/** No verdict without a real roll, a sheet rating, and rated columns to judge */
+/** Verdict across the shown modes, undefined without real sockets or a rating */
 export const verdictFor = (
   item: DimItem,
   stores: DimStore[],

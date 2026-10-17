@@ -7,7 +7,6 @@ import {
   type JSX,
 } from "solid-js";
 
-import { BUNGIE } from "../core/api/bungie.ts";
 import type { ArmorSet, Entry } from "../core/collections/types.ts";
 import type { SearchEngine } from "../core/search/search.ts";
 import {
@@ -15,6 +14,7 @@ import {
   recentSearches,
   rememberSearch,
 } from "../core/search/searches.ts";
+import { BungieImage } from "./BungieImage.tsx";
 import { SearchField } from "./lib/SearchField.tsx";
 import { LABEL } from "./lib/text.ts";
 import { Button } from "./lib/zaidan/button.tsx";
@@ -49,6 +49,28 @@ const RECENTS = 3;
 const ENTRIES = 3;
 
 const ROW = "flex cursor-pointer gap-2 rounded-md px-2 py-1.5";
+
+interface OptionProps {
+  class: string;
+  highlighted: boolean;
+  onHighlight: () => void;
+  onChoose: () => void;
+  children: JSX.Element;
+}
+
+const Option = (props: OptionProps) => (
+  <li
+    role="option"
+    aria-selected={props.highlighted}
+    class={`${ROW} ${props.class}`}
+    classList={{ "bg-accent": props.highlighted }}
+    onMouseDown={(event) => event.preventDefault()}
+    onMouseEnter={() => props.onHighlight()}
+    onClick={() => props.onChoose()}
+  >
+    {props.children}
+  </li>
+);
 
 export const SearchBar = (props: Props) => {
   const [open, setOpen] = createSignal(false);
@@ -119,10 +141,8 @@ export const SearchBar = (props: Props) => {
     props.onEntry?.(entry);
   };
 
-  // Arrow keys walk the list without touching the query, so the grid follows the highlight
   createEffect(() => props.onPreview?.(highlighted()?.query));
 
-  // Only trails the caret, so an edit in the middle of a query gets no ghost
   const suggested = createMemo(() => {
     if (!focused() || caret() !== props.query.length) {
       return "";
@@ -133,8 +153,6 @@ export const SearchBar = (props: Props) => {
     return full === undefined ? "" : full.slice(props.query.length);
   });
 
-  // A walked row shows in the box without being committed, so dropping the highlight puts the
-  // default completion back
   const ghost = createMemo(() => {
     const row = highlighted()?.query;
 
@@ -149,7 +167,6 @@ export const SearchBar = (props: Props) => {
     return row.startsWith(props.query) ? row.slice(props.query.length) : "";
   });
 
-  // What a commit takes: the row being walked, or else the default completion
   const chosen = (): string | undefined => {
     const row = highlighted();
 
@@ -171,7 +188,7 @@ export const SearchBar = (props: Props) => {
     field?.focus();
   };
 
-  // A typo is not worth offering back, so only a query that parses is kept
+  // Don't remember typos
   const commit = (query: string) => {
     if (props.engine.valid(query)) {
       setRemembered(rememberSearch(query, props.engine.recents));
@@ -185,7 +202,7 @@ export const SearchBar = (props: Props) => {
       return;
     }
 
-    // Nothing highlighted is -1, so the cycle runs over one extra slot
+    // Cycles through -1 for no highlight
     setHighlight((was) => ((was + by + count + 2) % (count + 1)) - 1);
   };
 
@@ -252,7 +269,7 @@ export const SearchBar = (props: Props) => {
       return;
     }
 
-    // A search input clears itself on Escape, which is only wanted once the list is gone
+    // A search input clears itself on Escape
     if (event.key === "Escape") {
       if (open()) {
         event.preventDefault();
@@ -277,7 +294,6 @@ export const SearchBar = (props: Props) => {
     props.onQuery(value);
   };
 
-  // Leaving the field settles the search on whatever the ghost was offering
   const onBlur = () => {
     const completed = props.query + suggested();
 
@@ -348,14 +364,11 @@ export const SearchBar = (props: Props) => {
         >
           <For each={rows()}>
             {(row, index) => (
-              <li
-                role="option"
-                aria-selected={highlight() === index()}
-                class={`${ROW} items-baseline`}
-                classList={{ "bg-accent": highlight() === index() }}
-                onMouseDown={(event) => event.preventDefault()}
-                onMouseEnter={() => setHighlight(index())}
-                onClick={() => apply(row.query)}
+              <Option
+                class="items-baseline"
+                highlighted={highlight() === index()}
+                onHighlight={() => setHighlight(index())}
+                onChoose={() => apply(row.query)}
               >
                 <span class="shrink-0">
                   {parts(row)[0]}
@@ -386,7 +399,7 @@ export const SearchBar = (props: Props) => {
                     <X />
                   </Button>
                 </Show>
-              </li>
+              </Option>
             )}
           </For>
 
@@ -399,18 +412,13 @@ export const SearchBar = (props: Props) => {
             </li>
             <For each={entryRows()}>
               {(entry, index) => (
-                <li
-                  role="option"
-                  aria-selected={highlight() === rows().length + index()}
-                  class={`${ROW} items-center`}
-                  classList={{
-                    "bg-accent": highlight() === rows().length + index(),
-                  }}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onMouseEnter={() => setHighlight(rows().length + index())}
-                  onClick={() => openEntry(entry)}
+                <Option
+                  class="items-center"
+                  highlighted={highlight() === rows().length + index()}
+                  onHighlight={() => setHighlight(rows().length + index())}
+                  onChoose={() => openEntry(entry)}
                 >
-                  <img class="size-6" src={`${BUNGIE}${entry.icon}`} alt="" />
+                  <BungieImage path={entry.icon} class="size-6" />
                   <span class="flex items-baseline gap-1">
                     <span
                       class={`shrink-0 text-${entry.rarity.toLowerCase()}`}
@@ -423,7 +431,7 @@ export const SearchBar = (props: Props) => {
                         : `${entry.rarity} ${entry.typeName}`}
                     </span>
                   </span>
-                </li>
+                </Option>
               )}
             </For>
           </Show>

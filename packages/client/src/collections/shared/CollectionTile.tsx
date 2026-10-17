@@ -1,15 +1,13 @@
+import type { Tier } from "@dvm/defs-core";
+
 import { setTiers, Tile } from "../../components/Tile.tsx";
 import type {
   Catalyst,
   Entry,
   Ownership,
 } from "../../core/collections/types.ts";
-import {
-  ratingFor,
-  setBonusFor,
-  type Mode,
-  type Tier,
-} from "../../core/items/rolls.ts";
+import { ratingFor, setBonusFor } from "../../core/items/rolls.ts";
+import type { Mode } from "../../core/items/rollTypes.ts";
 import { defs } from "../../core/profile/defs.ts";
 import { entryNotes, useEntryPreview } from "./collectionData.ts";
 
@@ -27,7 +25,7 @@ export const damageIcon = (entry: Entry): string | undefined =>
     : defs()?.DamageType.getOptional(entry.damageTypeHash)?.displayProperties
         .icon;
 
-/** A weapon's tier from the first version the sheet rates, or an armor set's two bonus tiers */
+/** Weapon tier from the first rated version, or an armor set's two bonus tiers */
 export const entryTiers = (entry: Entry, mode: Mode): Tier[] | undefined => {
   if (entry.kind === "weapon") {
     for (const hash of entry.itemHashes) {

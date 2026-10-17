@@ -2,8 +2,7 @@ import type { FilterDescriptionInfo } from "app/search/filter-types";
 
 import { Filter } from "../../../../vendor/DIM/src/locale/en.json";
 
-// The real module renders a React fragment alongside this, and our i18next shim answers with the
-// key it was handed, so filter help would read "Filter.Dupe". DIM's own catalogue is right here
+// Our i18next shim returns the bare key ("Filter.Dupe"). Read DIM's catalog directly
 const CATALOG: unknown = Filter;
 
 const read = (key: string): string | undefined => {
@@ -20,14 +19,14 @@ const read = (key: string): string | undefined => {
   return typeof node === "string" ? node : undefined;
 };
 
-// Catalogue entries reference each other as $t(Filter.Foo)
+// Catalog entries reference each other as $t(Filter.Foo)
 const lookup = (key: string): string | undefined =>
   read(key)?.replaceAll(
     /\$t\(([^)]+)\)/g,
     (whole, nested: string) => read(nested) ?? whole,
   );
 
-// Our own filters carry their help text literally, with no catalogue entry to find
+// Our own filters pass literal help text
 const literal = (key: string): string | undefined =>
   key.startsWith("Filter.") ? undefined : key;
 

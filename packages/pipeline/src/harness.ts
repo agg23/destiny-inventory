@@ -1,15 +1,11 @@
 import { getBuckets } from "app/destiny2/d2-buckets";
 import type { DimItem } from "app/inventory/item-types";
-import { makeItem } from "app/inventory/store/d2-item-factory";
-import type { DimStore } from "app/inventory/store-types";
 
-import { loadManifest } from "@dvm/build";
+import { CACHE_ROOT, loadManifest } from "@dvm/build";
 import { buildDefinitions } from "@dvm/dim-bridge";
 
-import { CACHE_ROOT, collectItems, loadProfile, PROFILE_FIXTURE } from "./fixture.ts";
-
-// makeItem skips itemComponents when the owner is undefined
-const VAULT_STORE = { id: "vault", name: "Vault" } as DimStore;
+import { collectItems, loadProfile, PROFILE_FIXTURE } from "./fixture.ts";
+import { buildItems } from "./items.ts";
 
 const describe = (item: DimItem): string => {
   const power = item.power ? `${item.power} power` : "no power";
@@ -55,24 +51,10 @@ const main = async () => {
   const rawItems = collectItems(profile);
   console.log(`Profile items: ${rawItems.length}`);
 
-  const built: DimItem[] = [];
   const failures: { hash: number; error: string }[] = [];
-
-  for (const raw of rawItems) {
-    try {
-      const item = makeItem(
-        { defs, buckets, profileResponse: profile, customStats: [] },
-        raw,
-        VAULT_STORE,
-      );
-
-      if (item) {
-        built.push(item);
-      }
-    } catch (e) {
-      failures.push({ hash: raw.itemHash, error: e instanceof Error ? e.message : String(e) });
-    }
-  }
+  const built = buildItems(defs, buckets, profile, (raw, e) => {
+    failures.push({ hash: raw.itemHash, error: e instanceof Error ? e.message : String(e) });
+  }).map(({ item }) => item);
 
   const withStats = built.filter((item) => (item.stats?.length ?? 0) > 0);
   const withSockets = built.filter((item) => item.sockets !== undefined);

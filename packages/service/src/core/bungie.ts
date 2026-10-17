@@ -1,8 +1,11 @@
-import type { DestinyProfileResponse } from "bungie-api-ts/destiny2";
+import type {
+  DestinyProfileResponse,
+  ServerResponse,
+} from "bungie-api-ts/destiny2";
 
-const PLATFORM = "https://www.bungie.net/Platform";
+export const PLATFORM = "https://www.bungie.net/Platform";
 
-// 102 and 201 need OAuth, the rest come back for any profile its owner hasn't hidden
+// 102 and 201 need OAuth. The rest work for any non-private profile
 const COMPONENTS = [
   102, 103, 200, 201, 205, 300, 302, 304, 305, 306, 307, 308, 309, 310,
 ];
@@ -12,13 +15,6 @@ const ALL_PLATFORMS = -1;
 export interface Membership {
   membershipType: number;
   membershipId: string;
-}
-
-interface BungieEnvelope<T> {
-  Response: T;
-  ErrorCode: number;
-  ErrorStatus: string;
-  Message: string;
 }
 
 const call = async <T>(
@@ -35,7 +31,7 @@ const call = async <T>(
     },
   });
 
-  const body = (await response.json()) as BungieEnvelope<T>;
+  const body = (await response.json()) as ServerResponse<T>;
 
   if (body.ErrorCode !== 1) {
     throw new Error(`Bungie ${body.ErrorStatus} on ${path}: ${body.Message}`);

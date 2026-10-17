@@ -10,7 +10,7 @@ import {
   type Guest,
 } from "../core/profile/guest.ts";
 import { GuestGlyph } from "./lib/GuestGlyph.tsx";
-import { Button } from "./lib/zaidan/button.tsx";
+import { IconButton } from "./lib/IconButton.tsx";
 import { X } from "./lib/zaidan/icons.tsx";
 import { Input } from "./lib/zaidan/input.tsx";
 import {
@@ -96,12 +96,10 @@ export const GuestPicker = (props: { onChoose: (who: Guest) => void }) => {
       placement="bottom-end"
     >
       <PopoverTrigger
-        as={Button}
-        variant="ghost"
+        as={IconButton}
         size="icon-sm"
         class="text-muted-foreground"
-        title="View another Guardian"
-        aria-label="View another Guardian"
+        label="View another Guardian"
       >
         <GuestGlyph />
       </PopoverTrigger>
@@ -137,28 +135,24 @@ export const GuestPicker = (props: { onChoose: (who: Guest) => void }) => {
                       >
                         <span class="truncate">{guestLabel(who)}</span>
                       </button>
-                      <Button
-                        variant="ghost"
+                      <IconButton
                         size="icon-sm"
                         class="text-muted-foreground"
-                        title={who.pinned ? "Unpin" : "Pin"}
-                        aria-label={who.pinned ? "Unpin" : "Pin"}
+                        label={who.pinned ? "Unpin" : "Pin"}
                         onClick={() =>
                           setRemembered(pinGuest(who, !who.pinned))
                         }
                       >
                         {who.pinned ? "★" : "☆"}
-                      </Button>
-                      <Button
-                        variant="ghost"
+                      </IconButton>
+                      <IconButton
                         size="icon-sm"
                         class="text-muted-foreground"
-                        title="Remove"
-                        aria-label="Remove"
+                        label="Remove"
                         onClick={() => setRemembered(forgetGuest(who))}
                       >
                         <X />
-                      </Button>
+                      </IconButton>
                     </div>
                   )}
                 </For>

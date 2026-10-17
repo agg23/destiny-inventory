@@ -13,7 +13,7 @@ const STRANGE_COIN = 800069450;
 // Each character only sees its own class's ornament here
 export const ARMOR_ORNAMENTS = 2031393824;
 
-// Tess's weekly stock lives in these nameless sub-vendors, not on her
+// Tess's weekly stock is in these nameless sub-vendors
 const BRIGHT_DUST_ROWS = [
   [2168194999, ARMOR_ORNAMENTS, 3118972542, 4020265966, 3702989297, 1105106638],
   [2184482416, 1446296883, 2041776156, 213864513],
@@ -61,5 +61,5 @@ export const WATCHED: Watch[] = [
   },
 ];
 
-// Worth surfacing wherever it turns up, however rarely a vendor stocks it
+// Rare stock, surfaced from any vendor
 export const PRIORITY = [2001857187, 2228452164];

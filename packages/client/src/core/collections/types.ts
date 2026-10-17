@@ -3,6 +3,7 @@ import type { DestinyObjectiveProgress } from "bungie-api-ts/destiny2";
 import type { SlimCollectible } from "@dvm/defs-core";
 
 import type { Grouping } from "../url.ts";
+import type { STATUSES } from "./terms.ts";
 
 interface Collected {
   key: string;
@@ -33,24 +34,27 @@ export interface Weapon extends Collected {
 export interface Armor extends Collected {
   kind: "armor";
   classType: number;
-  /** Keyed by class and Bungie's set node name, undefined for exotics */
+  /** Class plus Bungie's set node name, undefined for exotics */
   setKey: string | undefined;
   setName: string | undefined;
-  /** The set bonus, from an Edge of Fate reissue when the collectible predates it */
+  /** From an Edge of Fate reissue when the collectible predates set bonuses */
   itemSetHash: number | undefined;
 }
 
 export type Entry = Weapon | Armor;
 
-/** Any other item, which gets a collection page but no place in the index */
-export interface Cosmetic {
+/** Any other item, has a collection page but isn't in the index */
+export interface Cosmetic
+  extends Pick<
+    Collected,
+    | "key"
+    | "name"
+    | "rarity"
+    | "newestItemHash"
+    | "itemHashes"
+    | "collectibleHashes"
+  > {
   kind: "cosmetic";
-  key: string;
-  name: string;
-  rarity: string;
-  newestItemHash: number;
-  itemHashes: number[];
-  collectibleHashes: number[];
 }
 
 export interface ArmorSet {
@@ -61,7 +65,7 @@ export interface ArmorSet {
   classType: number;
 }
 
-export type Ownership = "owned" | "unlocked" | "neverseen";
+export type Ownership = (typeof STATUSES)[number];
 
 export interface Catalyst {
   unlocked: boolean;
@@ -73,7 +77,6 @@ export interface Catalyst {
 export interface Group {
   key: string;
   label: string;
-  /** The query terms that pick this group, like is:autorifle is:primary */
   terms: string[];
   entries: Entry[];
 }

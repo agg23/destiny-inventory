@@ -1,4 +1,5 @@
 import type { DestinyHistoricalStatsPeriodGroup } from "bungie-api-ts/destiny2";
+import { groupBy, sumBy } from "es-toolkit";
 
 export interface HistoryRun {
   instanceId: string;
@@ -14,99 +15,14 @@ export interface HistoryRun {
   deaths: number;
   assists: number;
   score: number;
-  // Only a report knows, and only for a Portal run, so it arrives after the run does
+  // Only in the PGCR, and only for Portal runs
   difficultyTier: number | undefined;
 }
 
-export const value = (row: DestinyHistoricalStatsPeriodGroup, key: string): number =>
-  row.values[key]?.basic.value ?? 0;
-
-// Dead: no callers yet
-export interface ActivitySummary {
-  referenceId: number;
-  runs: number;
-  completions: number;
-  lastRunAt: number;
-  fastestSeconds: number | undefined;
-  averageSeconds: number | undefined;
-  deaths: number;
-}
-
-export const summarize = (runs: HistoryRun[]): ActivitySummary[] => {
-  const grouped = new Map<number, HistoryRun[]>();
-
-  for (const run of runs) {
-    const held = grouped.get(run.referenceId);
-
-    if (held) {
-      held.push(run);
-
-      continue;
-    }
-
-    grouped.set(run.referenceId, [run]);
-  }
-
-  const summaries: ActivitySummary[] = [];
-
-  for (const [referenceId, group] of grouped) {
-    const times = group
-      .filter((run) => run.completed)
-      .map((run) => run.durationSeconds);
-
-    summaries.push({
-      referenceId,
-      runs: group.length,
-      completions: times.length,
-      lastRunAt: Math.max(...group.map((run) => run.startedAt)),
-      fastestSeconds: times.length > 0 ? Math.min(...times) : undefined,
-      averageSeconds:
-        times.length > 0
-          ? times.reduce((total, one) => total + one, 0) / times.length
-          : undefined,
-      deaths: group.reduce((total, run) => total + run.deaths, 0),
-    });
-  }
-
-  return summaries.sort((a, b) => b.lastRunAt - a.lastRunAt);
-};
-
-const SESSION_GAP_MS = 30 * 60 * 1000;
-
-// Dead: no callers yet
-export interface PlaySession {
-  startedAt: number;
-  endedAt: number;
-  playedSeconds: number;
-  runs: HistoryRun[];
-}
-
-export const sessions = (runs: HistoryRun[]): PlaySession[] => {
-  const ordered = [...runs].sort((a, b) => a.startedAt - b.startedAt);
-  const found: PlaySession[] = [];
-
-  for (const run of ordered) {
-    const ends = run.startedAt + run.durationSeconds * 1000;
-    const open = found[found.length - 1];
-
-    if (open && run.startedAt - open.endedAt <= SESSION_GAP_MS) {
-      open.endedAt = Math.max(open.endedAt, ends);
-      open.playedSeconds += run.playedSeconds;
-      open.runs.push(run);
-
-      continue;
-    }
-
-    found.push({
-      startedAt: run.startedAt,
-      endedAt: ends,
-      playedSeconds: run.playedSeconds,
-      runs: [run],
-    });
-  }
-
-  return found.reverse();
-};
+export const value = (
+  row: DestinyHistoricalStatsPeriodGroup,
+  key: string,
+): number => row.values[key]?.basic.value ?? 0;
 
 export const localDay = (at: number): string => {
   const date = new Date(at);
@@ -116,27 +32,11 @@ export const localDay = (at: number): string => {
   return `${date.getFullYear()}-${month}-${day}`;
 };
 
-export const runsByDay = (runs: HistoryRun[]): Map<string, HistoryRun[]> => {
-  const days = new Map<string, HistoryRun[]>();
-
-  for (const run of runs) {
-    const day = localDay(run.startedAt);
-    const held = days.get(day);
-
-    if (held) {
-      held.push(run);
-
-      continue;
-    }
-
-    days.set(day, [run]);
-  }
-
-  return days;
-};
+export const runsByDay = (runs: HistoryRun[]): Map<string, HistoryRun[]> =>
+  new Map(Object.entries(groupBy(runs, (run) => localDay(run.startedAt))));
 
 export const playedSeconds = (runs: HistoryRun[]): number =>
-  runs.reduce((total, run) => total + run.playedSeconds, 0);
+  sumBy(runs, (run) => run.playedSeconds);
 
 export interface ActivityTiming {
   lastRun: HistoryRun;
@@ -144,37 +44,52 @@ export interface ActivityTiming {
   runs: number;
 }
 
-/** Keyed under both hashes, since a playlist run reports them differently */
+const fastest = (
+  one: number | undefined,
+  other: number | undefined,
+): number | undefined => {
+  if (one === undefined) {
+    return other;
+  }
+
+  if (other === undefined) {
+    return one;
+  }
+
+  return Math.min(one, other);
+};
+
+const mergeTiming = (into: ActivityTiming, from: ActivityTiming) => {
+  into.runs += from.runs;
+
+  if (from.lastRun.startedAt > into.lastRun.startedAt) {
+    into.lastRun = from.lastRun;
+  }
+
+  into.fastestSeconds = fastest(into.fastestSeconds, from.fastestSeconds);
+};
+
+/** Keyed under both hashes, they differ for playlist runs */
 export const timingsByHash = (
   runs: HistoryRun[],
 ): Map<number, ActivityTiming> => {
   const timings = new Map<number, ActivityTiming>();
 
   const fold = (hash: number, run: HistoryRun) => {
+    const timing: ActivityTiming = {
+      lastRun: run,
+      fastestSeconds: run.completed ? run.durationSeconds : undefined,
+      runs: 1,
+    };
     const held = timings.get(hash);
 
     if (!held) {
-      timings.set(hash, {
-        lastRun: run,
-        fastestSeconds: run.completed ? run.durationSeconds : undefined,
-        runs: 1,
-      });
+      timings.set(hash, timing);
 
       return;
     }
 
-    held.runs += 1;
-
-    if (run.startedAt > held.lastRun.startedAt) {
-      held.lastRun = run;
-    }
-
-    if (run.completed) {
-      held.fastestSeconds =
-        held.fastestSeconds === undefined
-          ? run.durationSeconds
-          : Math.min(held.fastestSeconds, run.durationSeconds);
-    }
+    mergeTiming(held, timing);
   };
 
   for (const run of runs) {
@@ -208,18 +123,7 @@ export const bestTiming = (
       continue;
     }
 
-    merged.runs += found.runs;
-
-    if (found.lastRun.startedAt > merged.lastRun.startedAt) {
-      merged.lastRun = found.lastRun;
-    }
-
-    if (found.fastestSeconds !== undefined) {
-      merged.fastestSeconds =
-        merged.fastestSeconds === undefined
-          ? found.fastestSeconds
-          : Math.min(merged.fastestSeconds, found.fastestSeconds);
-    }
+    mergeTiming(merged, found);
   }
 
   return merged;
@@ -227,7 +131,6 @@ export const bestTiming = (
 
 export interface ActivityRow {
   label: string;
-  // The newest hash wearing this label, for the art and the definition
   referenceId: number;
   difficulty: string | undefined;
   runs: number;
@@ -245,13 +148,7 @@ export interface Bucket {
   modes: number[];
 }
 
-/**
- * Fixed buckets in priority order, each naming only the modes it owns outright.
- * Everything below one of these reaches it by walking parent modes, so Trials
- * lands in Trials while Control and Rumble fall through to Crucible. Every
- * flavor of nightfall parents to Strikes, and its rung shows as a difficulty.
- */
-export const BUCKETS: Bucket[] = [
+const BUCKETS: Bucket[] = [
   { id: "raid", name: "Raids", modes: [4] },
   { id: "dungeon", name: "Dungeons", modes: [82] },
   { id: "strike", name: "Strikes", modes: [3, 18] },
@@ -276,9 +173,8 @@ export interface BucketGroup {
   rows: ActivityRow[];
 }
 
-export interface BucketLookup {
+interface BucketLookup {
   modesOf: (referenceId: number) => number[];
-  // Nearest first, not including the mode itself
   ancestors: (mode: number) => number[];
   rungOf: (run: HistoryRun) => string | undefined;
   labelOf: (run: HistoryRun) => string;
@@ -287,7 +183,6 @@ export interface BucketLookup {
 const owner = (mode: number): Bucket | undefined =>
   BUCKETS.find((bucket) => bucket.modes.includes(mode));
 
-/** Walks each reported mode, then its parents, and takes the first bucket that claims one */
 export const bucketOf = (
   modeTypes: number[],
   lookup: Pick<BucketLookup, "ancestors">,
@@ -325,10 +220,7 @@ const fold = (row: ActivityRow, run: HistoryRun) => {
     row.deathless += 1;
   }
 
-  row.fastestSeconds =
-    row.fastestSeconds === undefined
-      ? run.durationSeconds
-      : Math.min(row.fastestSeconds, run.durationSeconds);
+  row.fastestSeconds = fastest(row.fastestSeconds, run.durationSeconds);
 };
 
 export const byBucket = (
@@ -339,17 +231,14 @@ export const byBucket = (
 
   for (const run of runs) {
     const reported = lookup.modesOf(run.referenceId);
-    // 325 activities ship no modes, so the run's own mode is the only clue
+    // 325 activities ship no modes
     const bucket = bucketOf(
       reported.length > 0 ? reported : [run.mode],
       lookup,
     );
     const difficulty = lookup.rungOf(run);
     const label = lookup.labelOf(run);
-    /**
-     * A Portal hash serves every rung and Bungie reissues a hash per season, so
-     * the label and the rung together name the thing you actually did.
-     */
+    // Portal hashes serve every rung, and Bungie reissues hashes per season
     const key = `${label}\u0000${difficulty ?? ""}`;
     const rows = buckets.get(bucket.id) ?? new Map<string, ActivityRow>();
     const row = rows.get(key) ?? {
@@ -384,66 +273,14 @@ export const byBucket = (
     return [
       {
         bucket,
-        runs: all.reduce((total, row) => total + row.runs, 0),
-        cleared: all.reduce((total, row) => total + row.cleared, 0),
-        deathless: all.reduce((total, row) => total + row.deathless, 0),
+        runs: sumBy(all, (row) => row.runs),
+        cleared: sumBy(all, (row) => row.cleared),
+        deathless: sumBy(all, (row) => row.deathless),
         bestScore: Math.max(...all.map((row) => row.bestScore), 0),
-        playedSeconds: all.reduce((total, row) => total + row.playedSeconds, 0),
+        playedSeconds: sumBy(all, (row) => row.playedSeconds),
         rows: all,
       },
     ];
   });
 };
 
-export const DAY_MS = 24 * 60 * 60 * 1000;
-
-export const span = (seconds: number): string => {
-  const minutes = Math.round(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-
-  return hours > 0 ? `${hours}h ${minutes % 60}m` : `${minutes}m`;
-};
-
-const pad = (value: number): string => String(value).padStart(2, "0");
-
-/** Clock time for one run, which can outlast an hour on a raid */
-export const duration = (seconds: number): string => {
-  const total = Math.max(0, Math.round(seconds));
-  const minutes = Math.floor(total / 60);
-  const hours = Math.floor(minutes / 60);
-
-  return hours > 0
-    ? `${hours}:${pad(minutes % 60)}:${pad(total % 60)}`
-    : `${minutes}:${pad(total % 60)}`;
-};
-
-export const ago = (at: number): string => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const then = new Date(at);
-  then.setHours(0, 0, 0, 0);
-  // DST makes a calendar day 23 or 25 hours
-  const days = Math.round((today.getTime() - then.getTime()) / DAY_MS);
-
-  if (days <= 0) {
-    return "today";
-  }
-
-  if (days === 1) {
-    return "yesterday";
-  }
-
-  if (days < 60) {
-    return `${days} days ago`;
-  }
-
-  if (days < 365) {
-    const months = Math.floor(days / 30);
-
-    return months === 1 ? "a month ago" : `${months} months ago`;
-  }
-
-  const years = Math.floor(days / 365);
-
-  return years === 1 ? "a year ago" : `${years} years ago`;
-};

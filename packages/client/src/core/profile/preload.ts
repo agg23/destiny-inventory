@@ -40,7 +40,7 @@ export const plugIcons = (items: DimItem[]): string[] =>
     }
   });
 
-// Decoding is the browser's problem; this wants the bytes local
+// Only warms the HTTP cache, no decode
 export const warmIcons = (urls: string[]): (() => void) => {
   let next = 0;
   let stopped = false;

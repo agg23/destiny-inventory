@@ -26,8 +26,7 @@ interface Credentials {
 
 let credentials: Credentials | undefined = undefined;
 
-// The real module reads DIM's account state and its own auth stack. Ours is handed the pieces
-// so the bridge never has to know how the client stores a token
+// Real module reads DIM's account state and auth stack
 export const configureBungieApi = (next: Credentials): void => {
   credentials = next;
 };
@@ -96,7 +95,7 @@ export const equip = (account: Account, item: DimItem): Promise<ServerResponse<n
   });
 };
 
-// Exotics sort last, matching DIM: equipping them first can reject the rest of the batch
+// Exotics last like DIM. Equipping one first can reject the rest of the batch
 export const equipItems = async (
   account: Account,
   store: DimStore,

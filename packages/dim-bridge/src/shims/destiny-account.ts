@@ -1,6 +1,6 @@
 import type { BungieMembershipType } from "bungie-api-ts/user";
 
-// Only the type is reachable from the move layer; the real module pulls the icon set in
+// Real module pulls in the icon set. Move layer only needs the type
 export interface DestinyAccount {
   readonly displayName: string;
   readonly originalPlatformType: BungieMembershipType;

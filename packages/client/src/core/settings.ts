@@ -1,6 +1,7 @@
 import { createSignal } from "solid-js";
 
-import type { Mode } from "./items/rolls.ts";
+import type { Mode } from "./items/rollTypes.ts";
+import { readStored, writeStored } from "./storage.ts";
 
 const KEY = "dvm.settings";
 
@@ -15,7 +16,7 @@ export const RATING_DISPLAYS = [
   "none",
 ] as const;
 
-export type RatingDisplay = (typeof RATING_DISPLAYS)[number];
+type RatingDisplay = (typeof RATING_DISPLAYS)[number];
 
 export const RATING_DISPLAY_NAMES: Record<RatingDisplay, string> = {
   "pve-pvp": "PvE, PvP",
@@ -64,32 +65,22 @@ const clamp = (next: Settings): Settings => ({
 });
 
 const read = (): Settings => {
-  const raw = localStorage.getItem(KEY);
+  const parsed = readStored(KEY);
 
-  if (raw === null) {
+  if (typeof parsed !== "object" || parsed === null) {
     return DEFAULTS;
   }
 
-  try {
-    const parsed: unknown = JSON.parse(raw);
+  const { tile, overlay, ratings, sort } = parsed as Partial<Settings>;
 
-    if (typeof parsed !== "object" || parsed === null) {
-      return DEFAULTS;
-    }
-
-    const { tile, overlay, ratings, sort } = parsed as Partial<Settings>;
-
-    return clamp({
-      tile: typeof tile === "number" ? tile : DEFAULTS.tile,
-      overlay: typeof overlay === "boolean" ? overlay : DEFAULTS.overlay,
-      ratings: RATING_DISPLAYS.some((display) => display === ratings)
-        ? ratings!
-        : DEFAULTS.ratings,
-      sort: VAULT_SORTS.some((one) => one === sort) ? sort! : DEFAULTS.sort,
-    });
-  } catch {
-    return DEFAULTS;
-  }
+  return clamp({
+    tile: typeof tile === "number" ? tile : DEFAULTS.tile,
+    overlay: typeof overlay === "boolean" ? overlay : DEFAULTS.overlay,
+    ratings: RATING_DISPLAYS.some((display) => display === ratings)
+      ? ratings!
+      : DEFAULTS.ratings,
+    sort: VAULT_SORTS.some((one) => one === sort) ? sort! : DEFAULTS.sort,
+  });
 };
 
 const [saved, setSaved] = createSignal<Settings>(read());
@@ -108,9 +99,9 @@ export const applySettings = (next: Settings) => {
 
   setSaved(clean);
   setDraft(undefined);
-  localStorage.setItem(KEY, JSON.stringify(clean));
+  writeStored(KEY, clean);
 };
 
-/** The modes shown on tiles, cards, and verdicts, main mode first. The second only shows on a tile at B or better */
+/** Shown rating modes, main first; tiles show the second only at B or better */
 export const shownModes = (): Mode[] =>
   RATING_DISPLAY_MODES[settings().ratings];

@@ -1,6 +1,5 @@
-// The unmutated week only exists just after reset; this captures it then and serves it all week
-
-const PLATFORM = "https://www.bungie.net/Platform";
+// Unspent weekly state only exists just after reset
+import { PLATFORM, type Membership } from "./bungie.ts";
 
 // Destiny turns its week over on Tuesday at 17:00 UTC and its day at 17:00 every day
 const RESET_DAY = 2;
@@ -26,11 +25,6 @@ export interface Store {
   put: (key: string, value: string) => Promise<void>;
 }
 
-export interface Reference {
-  membershipType: number;
-  membershipId: string;
-}
-
 const anchor = (now: Date): number =>
   Date.UTC(
     now.getUTCFullYear(),
@@ -39,7 +33,7 @@ const anchor = (now: Date): number =>
     RESET_HOUR,
   );
 
-// Before the hour, today's reset has not happened yet, so the window is the previous one
+// Before 17:00 the window is the previous one
 const back = (candidate: number, now: Date, span: number): string =>
   new Date(
     candidate > now.getTime() ? candidate - span : candidate,
@@ -75,7 +69,7 @@ interface Live {
   ErrorCode?: number;
 }
 
-// Merged across characters so a class-specific focus does not depend on capture order
+// Merge across characters. Class-specific focuses differ per character
 const collapse = (
   characters: Record<string, { availableActivities: LiveActivity[] }>,
 ): Record<number, Reward[]> => {
@@ -97,7 +91,7 @@ const collapse = (
 
       const held = rows[activity.activityHash];
 
-      // The fullest payload wins, since a capture can race a character who already played
+      // Fullest wins. A character may have already played
       if (!held || rewards.length > held.length) {
         rows[activity.activityHash] = rewards;
       }
@@ -109,7 +103,7 @@ const collapse = (
 
 export const capture = async (
   apiKey: string,
-  reference: Reference,
+  reference: Membership,
   now: Date,
 ): Promise<Baseline> => {
   const response = await fetch(
@@ -139,19 +133,18 @@ export const readBaseline = async (
   const raw = await store.get(KEY);
   const held = raw ? (JSON.parse(raw) as Baseline) : undefined;
 
-  // A capture from a spent week describes a week that is over
   return held?.week === weekStart(now) ? held : undefined;
 };
 
 export const refresh = async (
   store: Store,
   apiKey: string,
-  reference: Reference,
+  reference: Membership,
   now: Date,
 ): Promise<Baseline> => {
   const held = await readBaseline(store, now);
 
-  // The weekly counters are what a tile reports, so a daily run only fills a gap
+  // Daily runs only fill a missing week
   if (held) {
     return held;
   }

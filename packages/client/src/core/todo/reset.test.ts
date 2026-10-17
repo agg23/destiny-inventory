@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import { DAY, WEEK } from "../time.ts";
 import {
-  DAY,
   nextDailyReset,
   nextWeeklyReset,
   nextWeekendReset,
   remaining,
-  WEEK,
   xurPresent,
 } from "./reset.ts";
 

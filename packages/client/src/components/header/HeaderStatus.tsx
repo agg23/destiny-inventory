@@ -1,6 +1,6 @@
-import { Show } from "solid-js";
+import { For, Show } from "solid-js";
 
-import { timeWithSeconds } from "../../core/clock.ts";
+import { timeWithSeconds } from "../../core/time.ts";
 
 interface Props {
   failingSince: number | undefined;
@@ -29,21 +29,18 @@ export const HeaderStatus = (props: Props) => (
         )}
       </Show>
 
-      <Show when={props.syncError}>
+      <For
+        each={[
+          ...(props.syncError ? [props.syncError] : []),
+          ...(props.guestError ? [props.guestError.message] : []),
+        ]}
+      >
         {(message) => (
-          <span class="truncate text-destructive" title={message()}>
-            {message()}
+          <span class="truncate text-destructive" title={message}>
+            {message}
           </span>
         )}
-      </Show>
-
-      <Show when={props.guestError}>
-        {(e) => (
-          <span class="truncate text-destructive" title={e().message}>
-            {e().message}
-          </span>
-        )}
-      </Show>
+      </For>
     </span>
   </Show>
 );

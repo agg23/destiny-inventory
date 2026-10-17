@@ -14,6 +14,7 @@ export interface Tokens {
   membership_id: string;
 }
 
+// Basic auth. Response is a bare OAuth body, not Bungie's envelope
 const post = async (
   config: OAuthConfig,
   body: URLSearchParams,
@@ -31,7 +32,9 @@ const post = async (
   });
 
   if (!response.ok) {
-    throw new Error(`Token endpoint returned ${response.status}`);
+    throw new Error(
+      `Token endpoint returned ${response.status} ${await response.text()}`,
+    );
   }
 
   return (await response.json()) as Tokens;

@@ -3,8 +3,7 @@ import type { InventoryState } from "app/inventory/reducer";
 import type { ThunkAction, ThunkDispatch } from "redux-thunk";
 import type { UnknownAction } from "redux";
 
-// DIM's root state has thirteen slices. The move layer reads two, so the rest would be dead
-// weight that drags in dim-api, manifest, wishlists and settings behind it
+// Move layer reads 2 of DIM's 13 slices. The rest drag in dim-api, manifest, wishlists and settings
 export interface RootState {
   accounts: AccountsState;
   inventory: InventoryState;
