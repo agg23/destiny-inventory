@@ -20,6 +20,7 @@ import { PageNav } from "./components/header/PageNav.tsx";
 import { HoverCards } from "./components/HoverCards.tsx";
 import { Loading } from "./components/lib/Loading.tsx";
 import { useNoteLeaveGuard } from "./components/NoteEditor.tsx";
+import { Rail } from "./components/rail/Rail.tsx";
 import { SignIn } from "./components/SignIn.tsx";
 import { TagConfirm } from "./components/TagConfirm.tsx";
 import { Toasts } from "./components/Toasts.tsx";
@@ -29,6 +30,7 @@ import { createEntrySearch } from "./core/app/entrySearch.ts";
 import { createIconWarmup } from "./core/app/iconWarmup.ts";
 import { createItemMoves } from "./core/app/itemMoves.ts";
 import { createMatched } from "./core/app/matched.ts";
+import { previewPlaying } from "./core/app/preview.ts";
 import { createProfileRefresh } from "./core/app/profileRefresh.ts";
 import { createQuery } from "./core/app/query.ts";
 import { createRuns } from "./core/app/runs.ts";
@@ -45,6 +47,7 @@ import { activeStore } from "./core/profile/active.ts";
 import { defs } from "./core/profile/defs.ts";
 import type { LoadResult } from "./core/profile/loadTypes.ts";
 import { subscribeStores } from "./core/profile/moves.ts";
+import { railRoomy } from "./core/rail.ts";
 import { useUrl } from "./core/router.ts";
 import { itemSearch } from "./core/search/search.ts";
 import { settings } from "./core/settings.ts";
@@ -160,7 +163,9 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     loaded: session.current,
     stores,
     active: () => activeStore(active(), stores()),
-    playing: () => active().playing,
+    playing: () =>
+      active().playing ??
+      (previewPlaying() ? activeStore(active(), stores())?.id : undefined),
     matched,
     shown,
     query: query.typed,
@@ -170,6 +175,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     awaitingPins: selection.awaitingPins,
     feed: () => acquired(stores()),
     moving: moves.moving,
+    refreshing: () => refresh.refreshing() || session.awaitingLive(),
     runs: runs.runs,
     syncing: runs.syncing,
     syncError: runs.syncError,
@@ -191,6 +197,9 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     onCharacter: (store) => url.push({ character: store.id }),
     onQuery: query.onQuery,
   };
+
+  const globalRail = () =>
+    !RAILED.includes(tab()) && !!state.playing() && railRoomy();
 
   return (
     <main on:click={{ handleEvent: selection.onBackground, capture: true }}>
@@ -237,7 +246,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
                 session.awaitingLive()
               }
               refreshedAt={refresh.refreshedAt()}
-              railed={RAILED.includes(tab())}
+              railed={RAILED.includes(tab()) || globalRail()}
               onRefresh={() =>
                 void refresh
                   .refreshAll()
@@ -260,6 +269,9 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
           <AppContext.Provider value={state}>
             <TrashWatch />
             {props.children}
+            <Show when={globalRail()}>
+              <Rail />
+            </Show>
           </AppContext.Provider>
         </div>
 

@@ -20,6 +20,7 @@ export interface AppState {
   awaitingPins: () => boolean;
   feed: () => DimItem[];
   moving: () => string | undefined;
+  refreshing: () => boolean;
   runs: () => HistoryRun[];
   syncing: () => boolean;
   syncError: () => string | undefined;

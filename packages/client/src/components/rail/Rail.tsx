@@ -5,8 +5,8 @@ import { railCollapsed } from "../../core/rail.ts";
 import { Compare } from "../Compare.tsx";
 import { ItemMenu } from "../ItemMenu.tsx";
 import { Arrivals } from "./Arrivals.tsx";
-import { CurrentActivity } from "./CurrentActivity.tsx";
 import { SelectionPanel } from "./SelectionPanel.tsx";
+import { Status } from "./Status.tsx";
 
 /** The panel docked at the right edge, under the header */
 export const RAIL =
@@ -39,7 +39,7 @@ export const Rail = () => {
                 when={!app.awaitingPins()}
                 fallback={<p class="p-4 text-muted-foreground">Loading</p>}
               >
-                <CurrentActivity />
+                <Status />
                 <ItemMenu
                   find={(index) =>
                     app.feed().find((one) => one.index === index)

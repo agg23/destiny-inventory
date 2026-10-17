@@ -44,7 +44,7 @@ import type {
 } from "../core/todo/vendorTypes.ts";
 import { itemEntryHref } from "../core/url.ts";
 import { Challenges } from "./shared/Challenges.tsx";
-import { held } from "./shared/held.ts";
+import { held } from "../core/held.ts";
 import { ClaimedLog, OrderCard } from "./shared/Orders.tsx";
 import { deadlines, Resets, type Deadline } from "./shared/Resets.tsx";
 import { IdleVendors, VendorSection } from "./shared/Vendors.tsx";
