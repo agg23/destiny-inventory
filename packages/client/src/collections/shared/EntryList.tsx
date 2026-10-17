@@ -14,7 +14,11 @@ import { BUNGIE } from "../../core/api/bungie.ts";
 import { sourceLabel } from "../../core/collections/ownership.ts";
 import type { Entry } from "../../core/collections/types.ts";
 import type { Kind } from "../../core/url.ts";
-import type { CollectionData } from "./collectionData.ts";
+import {
+  entryNotes,
+  useEntryPreview,
+  type CollectionData,
+} from "./collectionData.ts";
 import { damageIcon, entryTiers } from "./CollectionTile.tsx";
 
 const ownershipText = (data: CollectionData, entry: Entry): string => {
@@ -52,89 +56,100 @@ export const EntryList = (props: {
   entries: Entry[];
   data: CollectionData;
   onOpen: (entry: Entry) => void;
-  onEnter: (entry: Entry, element: HTMLElement) => void;
-  onLeave: () => void;
-}) => (
-  <div class={TABLE_FRAME}>
-    <Table class="collections-table">
-      <TableHeader class={TABLE_HEADER}>
-        <TableRow>
-          <TableHead class="w-12" />
-          <TableHead>Name</TableHead>
-          <TableHead>Type</TableHead>
-          <Show when={props.kind === "armor"}>
-            <TableHead>Set</TableHead>
-          </Show>
-          <TableHead>Source</TableHead>
-          <TableHead>Status</TableHead>
-          <Show when={props.kind === "weapon"}>
-            <TableHead>Catalyst</TableHead>
-            <TableHead>Aegis</TableHead>
-          </Show>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        <For each={props.entries}>
-          {(entry) => (
-            <TableRow
-              class="cursor-pointer"
-              classList={{
-                "opacity-50": props.data.ownership(entry) === "neverseen",
-              }}
-              onClick={() => props.onOpen(entry)}
-            >
-              <TableCell
-                class="py-1"
-                onMouseEnter={(e) => props.onEnter(entry, e.currentTarget)}
-                onMouseLeave={() => props.onLeave()}
-              >
-                <img
-                  class="size-8 max-w-none"
-                  src={`${BUNGIE}${entry.icon}`}
-                  loading="lazy"
-                  alt=""
-                />
-              </TableCell>
-              <TableCell class={`text-${entry.rarity.toLowerCase()}`}>
-                {entry.name}
-              </TableCell>
-              <TableCell>
-                <span class="inline-flex items-center gap-1.5">
-                  <Show when={damageIcon(entry)}>
-                    {(icon) => (
-                      <img class="size-4" src={`${BUNGIE}${icon()}`} alt="" />
-                    )}
-                  </Show>
-                  {entry.typeName}
-                </span>
-              </TableCell>
-              <Show when={props.kind === "armor"}>
-                <TableCell class="whitespace-normal text-muted-foreground">
-                  {entry.kind === "armor" ? (entry.setName ?? "") : ""}
-                </TableCell>
-              </Show>
-              <TableCell class="whitespace-normal text-muted-foreground">
-                {sourceLabel(entry.sources[0] ?? "")}
-              </TableCell>
-              <TableCell
+}) => {
+  const hover = useEntryPreview();
+
+  return (
+    <div class={TABLE_FRAME}>
+      <Table class="collections-table">
+        <TableHeader class={TABLE_HEADER}>
+          <TableRow>
+            <TableHead class="w-12" />
+            <TableHead>Name</TableHead>
+            <TableHead>Type</TableHead>
+            <Show when={props.kind === "armor"}>
+              <TableHead>Set</TableHead>
+            </Show>
+            <TableHead>Source</TableHead>
+            <TableHead>Status</TableHead>
+            <Show when={props.kind === "weapon"}>
+              <TableHead>Catalyst</TableHead>
+              <TableHead>Aegis</TableHead>
+            </Show>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <For each={props.entries}>
+            {(entry) => (
+              <TableRow
+                class="cursor-pointer"
                 classList={{
-                  "text-cream": props.data.ownership(entry) === "owned",
-                  "text-muted-foreground":
-                    props.data.ownership(entry) === "neverseen",
+                  "opacity-50": props.data.ownership(entry) === "neverseen",
                 }}
+                onClick={() => props.onOpen(entry)}
               >
-                {ownershipText(props.data, entry)}
-              </TableCell>
-              <Show when={props.kind === "weapon"}>
-                <TableCell>{catalystText(props.data, entry)}</TableCell>
-                <TableCell>
-                  <TileRatings tiers={(mode) => entryTiers(entry, mode)} />
+                <TableCell
+                  class="py-1"
+                  onMouseEnter={(e) =>
+                    hover.enter(
+                      entry,
+                      e.currentTarget,
+                      entryNotes(
+                        props.data.ownership(entry),
+                        props.data.copiesOf(entry).length,
+                      ),
+                    )
+                  }
+                  onMouseLeave={() => hover.leave()}
+                >
+                  <img
+                    class="size-8 max-w-none"
+                    src={`${BUNGIE}${entry.icon}`}
+                    loading="lazy"
+                    alt=""
+                  />
                 </TableCell>
-              </Show>
-            </TableRow>
-          )}
-        </For>
-      </TableBody>
-    </Table>
-  </div>
-);
+                <TableCell class={`text-${entry.rarity.toLowerCase()}`}>
+                  {entry.name}
+                </TableCell>
+                <TableCell>
+                  <span class="inline-flex items-center gap-1.5">
+                    <Show when={damageIcon(entry)}>
+                      {(icon) => (
+                        <img class="size-4" src={`${BUNGIE}${icon()}`} alt="" />
+                      )}
+                    </Show>
+                    {entry.typeName}
+                  </span>
+                </TableCell>
+                <Show when={props.kind === "armor"}>
+                  <TableCell class="whitespace-normal text-muted-foreground">
+                    {entry.kind === "armor" ? (entry.setName ?? "") : ""}
+                  </TableCell>
+                </Show>
+                <TableCell class="whitespace-normal text-muted-foreground">
+                  {sourceLabel(entry.sources[0] ?? "")}
+                </TableCell>
+                <TableCell
+                  classList={{
+                    "text-cream": props.data.ownership(entry) === "owned",
+                    "text-muted-foreground":
+                      props.data.ownership(entry) === "neverseen",
+                  }}
+                >
+                  {ownershipText(props.data, entry)}
+                </TableCell>
+                <Show when={props.kind === "weapon"}>
+                  <TableCell>{catalystText(props.data, entry)}</TableCell>
+                  <TableCell>
+                    <TileRatings tiers={(mode) => entryTiers(entry, mode)} />
+                  </TableCell>
+                </Show>
+              </TableRow>
+            )}
+          </For>
+        </TableBody>
+      </Table>
+    </div>
+  );
+};

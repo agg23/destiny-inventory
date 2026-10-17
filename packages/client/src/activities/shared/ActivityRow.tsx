@@ -72,7 +72,7 @@ const Named = (props: NamedProps) => {
     }
 
     props.onHide();
-    preview(props.item, event.currentTarget, event.clientX);
+    preview(props.item, event.currentTarget, { cursorX: event.clientX });
   };
 
   const leave = () => {

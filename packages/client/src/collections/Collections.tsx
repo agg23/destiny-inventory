@@ -24,7 +24,7 @@ import type { Entry, Group } from "../core/collections/types.ts";
 import { useUrl } from "../core/router.ts";
 import { entryHref } from "../core/url.ts";
 import { ArmorBlock } from "./shared/ArmorBlock.tsx";
-import { useCollectionData, useEntryPreview } from "./shared/collectionData.ts";
+import { useCollectionData } from "./shared/collectionData.ts";
 import {
   collectionFilter,
   isSearch,
@@ -48,7 +48,6 @@ export const Collections = () => {
   const url = useUrl();
   const navigate = useNavigate();
   const data = useCollectionData();
-  const hover = useEntryPreview(data);
 
   const kind = () => url.get("kind");
   const grouping = () => url.get("by");
@@ -222,8 +221,6 @@ export const Collections = () => {
       copies={data.copiesOf(entry).length}
       catalyst={data.catalyst(entry)}
       onOpen={() => open(entry)}
-      onEnter={(element) => hover.enter(entry, element)}
-      onLeave={hover.leave}
     />
   );
 
@@ -330,8 +327,6 @@ export const Collections = () => {
                           }
                           data={data}
                           onOpen={open}
-                          onEnter={hover.enter}
-                          onLeave={hover.leave}
                         />
                       </Show>
                     </>

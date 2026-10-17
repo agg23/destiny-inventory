@@ -259,7 +259,7 @@
   }
 
   /* A nested tile is decoration; the row around it owns the hover */
-  span.item-tile {
+  .item-tile.nested {
     pointer-events: none;
   }
 

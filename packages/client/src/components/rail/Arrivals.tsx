@@ -11,7 +11,7 @@ import { menued } from "../../core/items/itemMenu.ts";
 import { dismiss, preview } from "../../core/items/preview.ts";
 import { shownModes } from "../../core/settings.ts";
 import { typeName } from "../card/ItemHead.tsx";
-import { ItemIcon } from "../ItemIcon.tsx";
+import { ItemTile } from "../ItemTile.tsx";
 import { HEADING, ROW } from "../lib/text.ts";
 import { VersionGlyph } from "../lib/VersionGlyph.tsx";
 
@@ -91,16 +91,13 @@ export const Arrivals = (props: Props) => (
                   }
                 }}
                 onMouseEnter={(event) =>
-                  preview(
-                    item,
-                    event.currentTarget,
-                    undefined,
-                    verdictFor(item, props.stores, shownModes()),
-                  )
+                  preview(item, event.currentTarget, {
+                    verdict: verdictFor(item, props.stores, shownModes()),
+                  })
                 }
                 onMouseLeave={() => dismiss(item)}
               >
-                <ItemIcon item={item} />
+                <ItemTile item={item} class="nested" />
                 <span class="min-w-0 flex-1">
                   <span class="block truncate">{item.name}</span>
                   <span class="block truncate text-xs text-muted-foreground">

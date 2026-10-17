@@ -59,10 +59,11 @@ export const useCollectionData = () => {
 
 export type CollectionData = ReturnType<typeof useCollectionData>;
 
-const cardNotes = (data: CollectionData, entry: Entry): string[] => {
+export const entryNotes = (
+  ownership: Ownership | undefined,
+  copies: number,
+): string[] => {
   const notes: string[] = [];
-  const ownership = data.ownership(entry);
-  const copies = data.copiesOf(entry).length;
 
   if (ownership === "neverseen") {
     notes.push("Never seen");
@@ -78,13 +79,13 @@ const cardNotes = (data: CollectionData, entry: Entry): string[] => {
 };
 
 /** Builds the definition item on first hover, then opens the card if still hovered */
-export const useEntryPreview = (data: CollectionData) => {
+export const useEntryPreview = () => {
   const app = useApp();
 
   let hovered: number | undefined = undefined;
   let shown: DimItem | undefined = undefined;
 
-  const enter = (entry: Entry, element: HTMLElement) => {
+  const enter = (entry: Entry, element: HTMLElement, notes: string[]) => {
     const loaded = app.loaded();
 
     if (!loaded) {
@@ -98,14 +99,7 @@ export const useEntryPreview = (data: CollectionData) => {
 
       if (item && hovered === entry.newestItemHash) {
         shown = item;
-        preview(
-          item,
-          element,
-          undefined,
-          undefined,
-          false,
-          cardNotes(data, entry),
-        );
+        preview(item, element, { notes });
       }
     });
   };

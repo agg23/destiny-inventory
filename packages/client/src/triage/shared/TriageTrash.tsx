@@ -1,6 +1,6 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
 
-import { ItemIcon } from "../../components/ItemIcon.tsx";
+import { ItemTile } from "../../components/ItemTile.tsx";
 import { Objective } from "../../components/lib/Progress.tsx";
 import { HEADING, TILE_GRID } from "../../components/lib/text.ts";
 import {
@@ -282,7 +282,7 @@ export const TriageTrash = (props: { dry: boolean }) => {
             />
 
             <div class={TILE_GRID}>
-              <For each={fed()}>{(item) => <ItemIcon item={item} />}</For>
+              <For each={fed()}>{(item) => <ItemTile item={item} />}</For>
             </div>
           </div>
         )}

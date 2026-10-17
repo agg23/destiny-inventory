@@ -11,6 +11,7 @@ import {
   type Tier,
 } from "../../core/items/rolls.ts";
 import { defs } from "../../core/profile/defs.ts";
+import { entryNotes, useEntryPreview } from "./collectionData.ts";
 
 interface Props {
   entry: Entry;
@@ -18,8 +19,6 @@ interface Props {
   copies: number;
   catalyst: Catalyst | undefined;
   onOpen: () => void;
-  onEnter: (element: HTMLElement) => void;
-  onLeave: () => void;
 }
 
 export const damageIcon = (entry: Entry): string | undefined =>
@@ -57,22 +56,32 @@ export const entryTiers = (entry: Entry, mode: Mode): Tier[] | undefined => {
   return setTiers(bonuses);
 };
 
-export const CollectionTile = (props: Props) => (
-  <Tile
-    name={props.entry.name}
-    icon={props.entry.icon}
-    overlay={props.entry.watermark}
-    rarity={props.entry.rarity}
-    classes={[props.ownership ?? ""]}
-    gearTier={0}
-    corner={props.copies > 0 ? props.copies : undefined}
-    cornerClass="owned-count"
-    tagColor={undefined}
-    icons={[damageIcon(props.entry)]}
-    tiers={(mode) => entryTiers(props.entry, mode)}
-    catalyst={props.catalyst?.unlocked ? props.catalyst : undefined}
-    onClick={() => props.onOpen()}
-    onEnter={props.onEnter}
-    onLeave={props.onLeave}
-  />
-);
+export const CollectionTile = (props: Props) => {
+  const hover = useEntryPreview();
+
+  return (
+    <Tile
+      name={props.entry.name}
+      icon={props.entry.icon}
+      overlay={props.entry.watermark}
+      rarity={props.entry.rarity}
+      classes={[props.ownership ?? ""]}
+      gearTier={0}
+      corner={props.copies > 0 ? props.copies : undefined}
+      cornerClass="owned-count"
+      tagColor={undefined}
+      icons={[damageIcon(props.entry)]}
+      tiers={(mode) => entryTiers(props.entry, mode)}
+      catalyst={props.catalyst?.unlocked ? props.catalyst : undefined}
+      onClick={() => props.onOpen()}
+      onEnter={(element) =>
+        hover.enter(
+          props.entry,
+          element,
+          entryNotes(props.ownership, props.copies),
+        )
+      }
+      onLeave={hover.leave}
+    />
+  );
+};

@@ -5,7 +5,7 @@ import type {
 } from "bungie-api-ts/destiny2";
 import { createResource, createSignal, For, onCleanup, Show } from "solid-js";
 
-import { ItemIcon } from "../../components/ItemIcon.tsx";
+import { ItemTile } from "../../components/ItemTile.tsx";
 import { TABLE_FRAME, TABLE_HEADER } from "../../components/lib/text.ts";
 import { Button } from "../../components/lib/zaidan/button.tsx";
 import {
@@ -90,7 +90,7 @@ const WeaponName = (props: { hash: number; item: DimItem | undefined }) => (
   >
     {(item) => (
       <span class="inline-flex items-center gap-2">
-        <ItemIcon item={item()} class="size-8" badges={false} />
+        <ItemTile item={item()} class="nested size-8" badges={false} />
         {item().name}
       </span>
     )}
@@ -174,13 +174,10 @@ const Weapons = (props: { entry: DestinyPostGameCarnageReportEntry }) => {
                   const found = item();
 
                   if (found) {
-                    preview(
-                      found,
-                      event.currentTarget,
-                      event.clientX,
-                      undefined,
-                      true,
-                    );
+                    preview(found, event.currentTarget, {
+                      cursorX: event.clientX,
+                      rollWarning: true,
+                    });
                   }
                 };
 

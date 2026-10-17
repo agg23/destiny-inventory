@@ -1,8 +1,8 @@
 import type { DimItem } from "app/inventory/item-types";
 import { createMemo, For, Show } from "solid-js";
 
-import { ItemIcon } from "../../components/ItemIcon.tsx";
 import { ItemMenu } from "../../components/ItemMenu.tsx";
+import { ItemTile } from "../../components/ItemTile.tsx";
 import { HEADING, LABEL, TILE_GRID } from "../../components/lib/text.ts";
 import { Button } from "../../components/lib/zaidan/button.tsx";
 import { useApp } from "../../core/app/state.ts";
@@ -125,7 +125,7 @@ export const TriageFeed = (props: Props) => {
                       <div class={`triage-grid ${TILE_GRID}`}>
                         <For each={slot.items}>
                           {(item) => (
-                            <ItemIcon
+                            <ItemTile
                               item={item}
                               selected={props.selection.picked().has(item.id)}
                               class={tileState(item)}

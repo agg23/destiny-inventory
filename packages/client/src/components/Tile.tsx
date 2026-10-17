@@ -182,6 +182,8 @@ export const Tile = (props: TileProps) => (
         class={tileClass(props)}
         aria-label={props.name}
         data-item-index={props.index}
+        onMouseEnter={(e) => props.onEnter?.(e.currentTarget)}
+        onMouseLeave={() => props.onLeave?.()}
       >
         <Face {...props} />
       </span>

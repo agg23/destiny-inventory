@@ -39,7 +39,7 @@ const itemTiers = (item: DimItem, mode: Mode): Tier[] | undefined => {
   return setTiers(setRatings(item, mode));
 };
 
-export const ItemIcon = (props: Props) => (
+export const ItemTile = (props: Props) => (
   <Tile
     name={props.item.name}
     icon={props.item.icon}
@@ -67,15 +67,7 @@ export const ItemIcon = (props: Props) => (
         : undefined
     }
     onEnter={(element) =>
-      preview(
-        props.item,
-        element,
-        undefined,
-        undefined,
-        false,
-        props.notes,
-        props.cost,
-      )
+      preview(props.item, element, { notes: props.notes, cost: props.cost })
     }
     onLeave={() => dismiss(props.item)}
   />

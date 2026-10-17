@@ -1,7 +1,7 @@
 import type { DimItem } from "app/inventory/item-types";
 import { For, Match, Show, Switch } from "solid-js";
 
-import { ItemIcon } from "../../components/ItemIcon.tsx";
+import { ItemTile } from "../../components/ItemTile.tsx";
 import {
   HEADING,
   HEADING_NOTE,
@@ -112,7 +112,7 @@ const SlotTiles = (props: {
           <Show
             when={props.items.get(tileKey(one.vendor, one.vendorItemIndex))}
           >
-            {(item) => <ItemIcon item={item()} onSelect={props.onSelect} />}
+            {(item) => <ItemTile item={item()} onSelect={props.onSelect} />}
           </Show>
         )}
       </For>
@@ -189,7 +189,7 @@ export const VendorSection = (props: {
                     )}
                   >
                     {(item) => (
-                      <ItemIcon
+                      <ItemTile
                         item={item()}
                         class={one.purchased ? "opacity-40" : undefined}
                         notes={[

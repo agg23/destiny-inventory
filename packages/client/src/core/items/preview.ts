@@ -34,15 +34,18 @@ export const previewed = shown;
 export const preview = (
   item: DimItem,
   element: HTMLElement,
-  cursorX: number | undefined = undefined,
-  verdict: ModeVerdict | undefined = undefined,
-  rollWarning: boolean = false,
-  notes: string[] = [],
-  cost: CardCost | undefined = undefined,
+  options: Partial<Omit<Previewed, "item">> = {},
 ) => {
   const open = () => {
     holdAnchor(element, clear);
-    setShown({ item, cursorX, verdict, rollWarning, notes, cost });
+    setShown({
+      item,
+      cursorX: options.cursorX,
+      verdict: options.verdict,
+      rollWarning: options.rollWarning ?? false,
+      notes: options.notes ?? [],
+      cost: options.cost,
+    });
   };
 
   if (shown()?.item.index === item.index) {

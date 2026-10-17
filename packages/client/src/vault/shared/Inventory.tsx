@@ -9,8 +9,8 @@ import { BucketHashes } from "data/d2/generated-enums";
 import { createMemo, For, Index, onCleanup, Show } from "solid-js";
 
 import { CharacterPicker } from "../../components/CharacterPicker.tsx";
-import { ItemIcon } from "../../components/ItemIcon.tsx";
 import { ItemMenu } from "../../components/ItemMenu.tsx";
+import { ItemTile } from "../../components/ItemTile.tsx";
 import { HEADING, LABEL } from "../../components/lib/text.ts";
 import { Button } from "../../components/lib/zaidan/button.tsx";
 import type { Matched } from "../../core/app/matched.ts";
@@ -278,7 +278,7 @@ export const Inventory = (props: Props) => {
   };
 
   const tile = (item: DimItem, order: () => DimItem[]) => (
-    <ItemIcon
+    <ItemTile
       item={item}
       selected={tileSelected(item)}
       class={tileState(item)}

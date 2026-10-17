@@ -5,7 +5,7 @@ import { createMemo, createResource, For, Show } from "solid-js";
 
 import { ItemDetails } from "../components/card/ItemDetails.tsx";
 import { ItemHead, typeName } from "../components/card/ItemHead.tsx";
-import { ItemIcon } from "../components/ItemIcon.tsx";
+import { ItemTile } from "../components/ItemTile.tsx";
 import { Loading } from "../components/lib/Loading.tsx";
 import { HEADING } from "../components/lib/text.ts";
 import { Button } from "../components/lib/zaidan/button.tsx";
@@ -65,7 +65,7 @@ const Copies = (props: { entry: Entry | Cosmetic; copies: DimItem[] }) => {
           <For each={props.copies}>
             {(copy) => (
               <div class="flex flex-col gap-1">
-                <ItemIcon
+                <ItemTile
                   item={copy}
                   onSelect={() =>
                     navigate(vaultHref(vaultQuery(props.entry), copy.id))
@@ -275,10 +275,10 @@ export const EntryPage = () => {
                           <li class="flex items-center gap-2">
                             <Show
                               when={item()}
-                              fallback={<span class="item-tile small" />}
+                              fallback={<span class="item-tile small nested" />}
                             >
                               {(version) => (
-                                <ItemIcon item={version()} badges={false} />
+                                <ItemTile item={version()} badges={false} />
                               )}
                             </Show>
                             <div>
@@ -315,7 +315,7 @@ export const EntryPage = () => {
                           kind: fits().bucket.inArmor ? "armor" : "weapon",
                         })}
                       >
-                        <ItemIcon item={fits()} badges={false} />
+                        <ItemTile item={fits()} badges={false} />
                         <div>
                           <div>{fits().name}</div>
                           <div class="text-xs text-muted-foreground">
