@@ -23,14 +23,14 @@ interface Props {
 
 const RivalNote = (props: { verdict: ModeVerdict }) => (
   <Show when={props.verdict.gains.length + props.verdict.losses.length > 0}>
-    <div class="tooltip-body flex flex-col gap-1.5">
+    <div class="tooltip-body flex flex-col gap-1.5 text-xs">
       <b class="font-medium text-foreground">
         Compared to the best instance
         <Show when={verdictMode(props.verdict)}>
           {(mode) => <> in {mode()}</>}
         </Show>
       </b>
-      <ul class="flex flex-col gap-1.5 text-xs">
+      <ul class="flex flex-col gap-1.5">
         <Show when={props.verdict.gains.length > 0}>
           <li class={VERDICT_ROW}>
             <span class="text-good">Has</span>

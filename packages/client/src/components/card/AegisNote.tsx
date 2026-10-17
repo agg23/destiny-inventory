@@ -187,7 +187,7 @@ export const AegisNote = (props: { item: DimItem }) => {
 
   return (
     <Show when={judged().length > 0}>
-      <div class="flex flex-col gap-2">
+      <div class="flex flex-col gap-2 text-xs">
         <For each={judged()}>
           {(entry) => (
             <p class="flex items-baseline gap-2">
@@ -195,7 +195,7 @@ export const AegisNote = (props: { item: DimItem }) => {
                 {(tier) => <RollTier tier={tier()} />}
               </Show>
               <span>
-                <span class="mr-1.5 text-xs text-muted-foreground">
+                <span class="mr-1.5 text-muted-foreground">
                   {MODE_NAMES[entry.mode]}
                 </span>
                 <b class="font-medium text-foreground">
@@ -214,7 +214,7 @@ export const AegisNote = (props: { item: DimItem }) => {
                 </Show>
                 <Show when={entry.read.rating.notes}>
                   {(notes) => (
-                    <span class="block text-xs text-muted-foreground">
+                    <span class="block text-muted-foreground">
                       {sentence(notes())}
                     </span>
                   )}
@@ -225,7 +225,7 @@ export const AegisNote = (props: { item: DimItem }) => {
         </For>
 
         <Show when={rows().length > 0}>
-          <ul class="flex flex-col gap-1.5 text-xs">
+          <ul class="flex flex-col gap-1.5">
             <For each={rows()}>
               {(row) => (
                 <li class={VERDICT_ROW}>
@@ -291,7 +291,7 @@ export const AegisNote = (props: { item: DimItem }) => {
           </ul>
 
           <Show when={!uninstanced() && scored().length > 0}>
-            <p class={`${VERDICT_ROW} border-t pt-1.5 text-xs`}>
+            <p class={`${VERDICT_ROW} border-t pt-1.5`}>
               <span class="text-muted-foreground">Overall</span>
               <span class="flex flex-wrap gap-x-4">
                 <For each={scored()}>
