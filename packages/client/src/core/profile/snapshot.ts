@@ -1,0 +1,209 @@
+import type { InventoryBuckets } from "app/inventory/inventory-buckets";
+import type { DimStore } from "app/inventory/store-types";
+
+import { storedMembership, type Membership } from "../api/bungie.ts";
+import type { ArtifactIndex } from "../api/config.ts";
+import {
+  loadRolls,
+  primeRolls,
+  readCachedRolls,
+  type CachedSheets,
+} from "../items/rolls.ts";
+import type {
+  CharacterActivities,
+  CharacterRecords,
+  OrderRewards,
+  LoadResult,
+  StringVariables,
+} from "./load.ts";
+import { seedInventory } from "./moves.ts";
+import { openStore, PROFILE, type DefStore } from "./store.ts";
+import { storeItems, type Failure } from "./stores.ts";
+
+const PRIME_CAP = 400;
+
+// Filled by the inline script in index.html
+interface Prefetched {
+  snapshot: Snapshot | undefined;
+  stored: string | undefined;
+  rolls: CachedSheets;
+}
+
+declare global {
+  interface Window {
+    __snapshot?: Promise<Prefetched | undefined>;
+  }
+}
+
+const BUILT = "built";
+
+// Built stores saved whole, so the next boot paints without building anything
+interface Snapshot {
+  stamp: string;
+  index: ArtifactIndex;
+  minted: number;
+  tier: "core" | "detail";
+  stores: DimStore[];
+  buckets: Omit<InventoryBuckets, "setHasUnknown">;
+  counts: LoadResult["counts"];
+  skipped: Failure[];
+  degraded: Failure[];
+  playing: string | undefined;
+  activities: CharacterActivities;
+  variables: StringVariables;
+  records: CharacterRecords;
+  orderRewards: OrderRewards;
+}
+
+const hydrate = (
+  store: DefStore,
+  snapshot: Snapshot | undefined,
+  stored: string | undefined,
+  rolls: CachedSheets,
+  membership: Membership,
+): LoadResult | undefined => {
+  if (!snapshot?.index || stored === undefined || snapshot.stamp !== stored) {
+    return undefined;
+  }
+
+  // Matching cached sheets are in the first render; otherwise they render when fetched
+  primeRolls(rolls, snapshot.index);
+  loadRolls(snapshot.index, store).catch((e: unknown) => {
+    console.warn("Rolls failed", e);
+  });
+
+  seedInventory(snapshot.stores, membership).catch((e: unknown) => {
+    console.warn("Seed failed", e);
+  });
+
+  return fromSnapshot(snapshot, store, membership);
+};
+
+/**
+ * Snapshot read for before the first render, so the data is there when the app mounts.
+ * Prefers the read the inline script started at HTML parse; capped so a slow database
+ * delays startup by at most PRIME_CAP
+ */
+export const primeBoot = async (): Promise<LoadResult | undefined> => {
+  const membership = storedMembership();
+
+  if (!membership) {
+    return undefined;
+  }
+
+  const read = (async () => {
+    const storePromise = openStore();
+    const early = await window.__snapshot;
+    const store = await storePromise;
+
+    if (early !== undefined) {
+      return hydrate(
+        store,
+        early.snapshot,
+        early.stored,
+        early.rolls,
+        membership,
+      );
+    }
+
+    return bootFromSnapshot(store, membership);
+  })().catch((e: unknown) => {
+    console.warn("Prime failed", e);
+
+    return undefined;
+  });
+
+  const cap = new Promise<undefined>((resolve) => {
+    setTimeout(() => resolve(undefined), PRIME_CAP);
+  });
+
+  return Promise.race([read, cap]);
+};
+
+/**
+ * Paints the last saved build without touching the network: validates the snapshot against
+ * the locally stored manifest stamp, seeds the move engine behind the paint, and hands back
+ * a LoadResult, or undefined when there is nothing usable to show
+ */
+export const bootFromSnapshot = async (
+  store: DefStore,
+  membership: Membership | undefined,
+): Promise<LoadResult | undefined> => {
+  if (!membership) {
+    return undefined;
+  }
+
+  const [snapshot, stored, rolls] = await Promise.all([
+    store.getOne<Snapshot>(PROFILE, BUILT),
+    store.manifestVersion(),
+    readCachedRolls(store),
+  ]);
+
+  return hydrate(store, snapshot, stored, rolls, membership);
+};
+
+/** Persists a built result for the next boot; setHasUnknown breaks structured clone */
+export const saveSnapshot = (
+  store: DefStore,
+  result: LoadResult,
+  stampValue: string,
+) => {
+  const { setHasUnknown, ...buckets } = result.buckets;
+
+  const snapshot: Snapshot = {
+    stamp: stampValue,
+    index: result.session.index,
+    minted: result.session.minted,
+    tier: result.tier,
+    stores: result.stores,
+    buckets,
+    counts: result.counts,
+    skipped: result.skipped,
+    degraded: result.degraded,
+    playing: result.playing,
+    activities: result.activities,
+    variables: result.variables,
+    records: result.records,
+    orderRewards: result.orderRewards,
+  };
+
+  // Losing the snapshot only costs paint speed
+  store.putOne(PROFILE, BUILT, snapshot).catch((e: unknown) => {
+    console.warn("Snapshot save failed", e);
+  });
+};
+
+const fromSnapshot = (
+  snapshot: Snapshot,
+  store: DefStore,
+  membership: Membership,
+): LoadResult => ({
+  stores: snapshot.stores,
+  buckets: { ...snapshot.buckets, setHasUnknown: () => {} },
+  items: storeItems(snapshot.stores),
+  manifestVersion: snapshot.index.manifestVersion,
+  tier: snapshot.tier,
+  source: "cache",
+  counts: snapshot.counts,
+  skipped: snapshot.skipped,
+  degraded: snapshot.degraded,
+  playing: snapshot.playing,
+  activities: snapshot.activities,
+  records: snapshot.records ?? {},
+  orderRewards: snapshot.orderRewards ?? {},
+  variables: snapshot.variables,
+  // Empty defs until the live pass fills them in
+  session: {
+    store,
+    index: snapshot.index,
+    membership,
+    support: new Map(),
+    items: {},
+    plugSets: {},
+    hidden: new Set(),
+    minted: snapshot.minted,
+    builtFrom: snapshot.minted,
+    contents: "",
+    guest: undefined,
+  },
+});

@@ -20,14 +20,40 @@ import {
   type JSX,
 } from "solid-js";
 
-import { activeStore, NOBODY, observe, prefer, type Active } from "./active.ts";
-import { activityTables } from "./activityTables.ts";
-import { accessToken, beginLogin, signedIn, signOut } from "./auth.ts";
-import { useNoteLeaveGuard } from "./NoteEditor.tsx";
-import { syncNotes } from "./notes.ts";
-import { syncTags } from "./tags.ts";
-import { fetchCarnageReport, type Membership } from "./bungie.ts";
-import { acquired } from "./arrivals.ts";
+import {
+  collectionFilter,
+  queryName,
+  SEARCHES,
+  setQuery,
+} from "./collections/shared/collectionSearch.ts";
+import { GuestPicker } from "./components/GuestPicker.tsx";
+import { HoverCard } from "./components/HoverCard.tsx";
+import { GuestGlyph } from "./components/lib/GuestGlyph.tsx";
+import { Loading } from "./components/lib/Loading.tsx";
+import { PanelGlyph } from "./components/lib/PanelGlyph.tsx";
+import { RefreshGlyph } from "./components/lib/RefreshGlyph.tsx";
+import { SearchField } from "./components/lib/SearchField.tsx";
+import { SignOutGlyph } from "./components/lib/SignOutGlyph.tsx";
+import { Button } from "./components/lib/zaidan/button.tsx";
+import { Separator } from "./components/lib/zaidan/separator.tsx";
+import { useNoteLeaveGuard } from "./components/NoteEditor.tsx";
+import { PerkCard } from "./components/PerkCard.tsx";
+import { SearchBar } from "./components/SearchBar.tsx";
+import { Settings } from "./components/Settings.tsx";
+import { TagConfirm } from "./components/TagConfirm.tsx";
+import { showToast, Toasts } from "./components/Toasts.tsx";
+import { activityTables } from "./core/activities/activityTables.ts";
+import {
+  guestHistory,
+  storedRuns,
+  syncHistory,
+  syncTiers,
+  timingsByHash,
+  type HistoryRun,
+} from "./core/activities/history.ts";
+import { accessToken, beginLogin, signedIn, signOut } from "./core/api/auth.ts";
+import { fetchCarnageReport, type Membership } from "./core/api/bungie.ts";
+import { bySlot, setsOf } from "./core/collections/armorSets.ts";
 import {
   acquiredFor,
   catalystFor,
@@ -41,17 +67,22 @@ import {
   type ArmorSet,
   type Entry,
   type EntryFacts,
-} from "./collections.ts";
-import { bySlot, setsOf } from "./collections/armorSets.ts";
+} from "./core/collections/collections.ts";
+import { messageOf } from "./core/error.ts";
+import { acquired } from "./core/items/arrivals.ts";
+import { comparable } from "./core/items/compare.ts";
+import { syncNotes } from "./core/items/notes.ts";
+import { clearPerk, previewedPerk } from "./core/items/perkPreview.ts";
+import { clear, previewed } from "./core/items/preview.ts";
+import { syncTags } from "./core/items/tags.ts";
 import {
-  collectionFilter,
-  queryName,
-  SEARCHES,
-  setQuery,
-} from "./collections/collectionSearch.ts";
-import { comparable } from "./compare.ts";
-import { defs } from "./defs.ts";
-import { messageOf } from "./error.ts";
+  activeStore,
+  NOBODY,
+  observe,
+  prefer,
+  type Active,
+} from "./core/profile/active.ts";
+import { defs } from "./core/profile/defs.ts";
 import {
   guestLabel,
   guestParam,
@@ -61,17 +92,7 @@ import {
   sameMembership,
   setGuest,
   type Guest,
-} from "./guest.ts";
-import { GuestPicker } from "./GuestPicker.tsx";
-import { HoverCard } from "./HoverCard.tsx";
-import {
-  guestHistory,
-  storedRuns,
-  syncHistory,
-  syncTiers,
-  timingsByHash,
-  type HistoryRun,
-} from "./history.ts";
+} from "./core/profile/guest.ts";
 import {
   load,
   loadGuest,
@@ -79,32 +100,20 @@ import {
   refreshProfile,
   type LoadResult,
   type RefreshOutcome,
-} from "./load.ts";
-import { currentStores, moveItem, subscribeStores } from "./moves.ts";
-import { vaultable } from "./moveTargets.ts";
-import { syncOrders } from "./orders.ts";
-import { plugIcons, tileIcons, warmIcons } from "./preload.ts";
-import { clearPerk, previewedPerk } from "./perkPreview.ts";
-import { PerkCard } from "./PerkCard.tsx";
-import { clear, previewed } from "./preview.ts";
-import { collapseRail, railCollapsed } from "./rail.ts";
-import { startAutoRefresh } from "./refresh.ts";
-import { useUrl } from "./router.ts";
-import { SearchBar } from "./SearchBar.tsx";
-import { itemFilter, itemSearch, primeSearch } from "./search.ts";
-import { Settings } from "./Settings.tsx";
-import { settings } from "./settings.ts";
-import { showToast, Toasts } from "./toast.tsx";
-import { TagConfirm } from "./TagConfirm.tsx";
-import { TrashWatch } from "./triage/TrashWatch.tsx";
-import { GuestGlyph } from "./ui/GuestGlyph.tsx";
-import { Loading } from "./ui/Loading.tsx";
-import { PanelGlyph } from "./ui/PanelGlyph.tsx";
-import { RefreshGlyph } from "./ui/RefreshGlyph.tsx";
-import { SearchField } from "./ui/SearchField.tsx";
-import { SignOutGlyph } from "./ui/SignOutGlyph.tsx";
-import { Button } from "./ui/zaidan/button.tsx";
-import { Separator } from "./ui/zaidan/separator.tsx";
+} from "./core/profile/load.ts";
+import {
+  currentStores,
+  moveItem,
+  subscribeStores,
+} from "./core/profile/moves.ts";
+import { vaultable } from "./core/profile/moveTargets.ts";
+import { plugIcons, tileIcons, warmIcons } from "./core/profile/preload.ts";
+import { startAutoRefresh } from "./core/profile/refresh.ts";
+import { collapseRail, railCollapsed } from "./core/rail.ts";
+import { useUrl } from "./core/router.ts";
+import { itemFilter, itemSearch, primeSearch } from "./core/search/search.ts";
+import { settings } from "./core/settings.ts";
+import { syncOrders } from "./core/todo/orders.ts";
 import {
   collectionsHref,
   entryHref,
@@ -112,7 +121,8 @@ import {
   TABS,
   type Kind,
   type Tab,
-} from "./url.ts";
+} from "./core/url.ts";
+import { TrashWatch } from "./triage/shared/TrashWatch.tsx";
 
 const PINS = 2;
 

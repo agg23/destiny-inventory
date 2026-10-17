@@ -1,0 +1,186 @@
+import type { DimItem } from "app/inventory/item-types";
+import { For, Show } from "solid-js";
+
+import { Button } from "../../components/lib/zaidan/button.tsx";
+import { showToast } from "../../components/Toasts.tsx";
+import { tagDefs } from "../../core/items/tags.ts";
+import type { TriageStep } from "../../core/url.ts";
+import { plural } from "../../history/shared/runFormat.ts";
+import { sweepFor } from "./triage.ts";
+import type { Selection } from "./triageSelection.ts";
+import type { Writes } from "./triageWrites.ts";
+
+const copies = (count: number): string =>
+  `${count} other ${count === 1 ? "copy" : "copies"}`;
+
+interface Props {
+  step: TriageStep;
+  selection: Selection;
+  writes: Writes;
+  pool: DimItem[];
+  shown: DimItem[];
+  guarded: boolean;
+}
+
+export const TriageBar = (props: Props) => {
+  const chosen = () => props.selection.items();
+
+  const askBulk = (tagId: string | undefined, label: string) => {
+    const targets = chosen();
+
+    if (targets.length === 0) {
+      showToast("Nothing is selected");
+
+      return;
+    }
+
+    props.writes.ask({
+      label: `${label} ${plural(targets.length, "item")}`,
+      note: undefined,
+      writes: [{ targets, tagId }],
+    });
+  };
+
+  const askSweep = () => {
+    const [one] = chosen();
+
+    if (!one) {
+      return;
+    }
+
+    const sweep = sweepFor(one, props.pool, props.shown, props.guarded);
+
+    if (sweep.targets.length === 0) {
+      showToast(
+        sweep.guarded > 0
+          ? `Nothing to junk - ${copies(sweep.guarded)} protected`
+          : `No other copies of ${one.name}`,
+      );
+
+      return;
+    }
+
+    const notes = [
+      sweep.guarded > 0 ? `${sweep.guarded} protected, skipped` : "",
+      sweep.offscreen > 0 ? `${sweep.offscreen} not shown` : "",
+    ].filter((part) => part.length > 0);
+
+    props.writes.ask({
+      label: `Junk ${copies(sweep.targets.length)} of ${one.name}`,
+      note: notes.length > 0 ? notes.join(" · ") : undefined,
+      writes: [{ targets: sweep.targets, tagId: "junk" }],
+    });
+  };
+
+  const onCommit = () => {
+    props.writes.commit();
+    props.selection.clear();
+  };
+
+  return (
+    <div class="flex min-h-8 flex-wrap items-center gap-2 empty:hidden">
+      <Show
+        when={props.writes.pending()}
+        fallback={
+          <>
+            <Show when={props.step === "tag"}>
+              <span class="mr-2 flex items-center gap-2">
+                <Show
+                  when={chosen().length > 0}
+                  fallback={
+                    <span class="text-muted-foreground">
+                      Select items to tag them
+                    </span>
+                  }
+                >
+                  {plural(chosen().length, "item")} selected
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    onClick={props.selection.clear}
+                  >
+                    Clear
+                  </Button>
+                </Show>
+              </span>
+            </Show>
+
+            <Show when={props.writes.undone()}>
+              {(held) => (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={props.writes.undo}
+                >
+                  Undo · {held().label}
+                </Button>
+              )}
+            </Show>
+
+            <Show when={props.step === "tag"}>
+              <For each={tagDefs()}>
+                {(def) => (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={chosen().length === 0}
+                    onClick={() => askBulk(def.id, def.label)}
+                  >
+                    <span
+                      class="size-2 rounded-full"
+                      style={{
+                        "background-color": `var(--color-${def.color})`,
+                      }}
+                    />
+                    {def.label}
+                  </Button>
+                )}
+              </For>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={chosen().length === 0}
+                onClick={() => askBulk(undefined, "Clear the tag on")}
+              >
+                Clear tag
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={chosen().length !== 1}
+                title={
+                  chosen().length === 1
+                    ? undefined
+                    : "Select exactly one item to keep"
+                }
+                onClick={askSweep}
+              >
+                Keep this, junk the rest
+              </Button>
+            </Show>
+          </>
+        }
+      >
+        {(held) => (
+          <>
+            <span class="mr-2">
+              {held().label}
+              <Show when={held().note}>
+                {(note) => (
+                  <span class="text-muted-foreground"> · {note()}</span>
+                )}
+              </Show>
+            </span>
+
+            <Button size="sm" onClick={onCommit}>
+              Confirm
+            </Button>
+            <Button size="sm" variant="ghost" onClick={props.writes.cancel}>
+              Cancel
+            </Button>
+          </>
+        )}
+      </Show>
+    </div>
+  );
+};

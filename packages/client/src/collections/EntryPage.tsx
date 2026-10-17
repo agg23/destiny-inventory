@@ -4,7 +4,13 @@ import { A, useNavigate, useParams } from "@solidjs/router";
 import { createMemo, createResource, For, Show } from "solid-js";
 
 import { useApp } from "../App.tsx";
-import { BUNGIE } from "../bungie.ts";
+import { ItemIcon } from "../components/ItemIcon.tsx";
+import { ItemDetails, ItemHead, typeName } from "../components/ItemPanel.tsx";
+import { Loading } from "../components/lib/Loading.tsx";
+import { HEADING } from "../components/lib/text.ts";
+import { Button } from "../components/lib/zaidan/button.tsx";
+import { NoteEditor } from "../components/NoteEditor.tsx";
+import { BUNGIE } from "../core/api/bungie.ts";
 import {
   CLASSES,
   entryForHash,
@@ -19,19 +25,18 @@ import {
   withTerms,
   type Cosmetic,
   type Entry,
-} from "../collections.ts";
-import { defs } from "../defs.ts";
-import { fakeItems } from "../fakeItems.ts";
-import { ItemIcon } from "../ItemIcon.tsx";
-import { ItemDetails, ItemHead, typeName } from "../ItemPanel.tsx";
-import { NoteEditor } from "../NoteEditor.tsx";
-import { useUrl } from "../router.ts";
-import { Loading } from "../ui/Loading.tsx";
-import { HEADING } from "../ui/text.ts";
-import { Button } from "../ui/zaidan/button.tsx";
-import { collectionsHref, entryHref, lightGgHref, vaultHref } from "../url.ts";
-import { useCollectionData } from "./collectionData.ts";
-import { collectionFilter } from "./collectionSearch.ts";
+} from "../core/collections/collections.ts";
+import { defs } from "../core/profile/defs.ts";
+import { fakeItems } from "../core/profile/fakeItems.ts";
+import { useUrl } from "../core/router.ts";
+import {
+  collectionsHref,
+  entryHref,
+  lightGgHref,
+  vaultHref,
+} from "../core/url.ts";
+import { useCollectionData } from "./shared/collectionData.ts";
+import { collectionFilter } from "./shared/collectionSearch.ts";
 
 const BLOCK = "flex flex-col gap-2";
 

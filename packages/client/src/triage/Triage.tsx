@@ -2,22 +2,22 @@ import type { DimItem } from "app/inventory/item-types";
 import { createMemo, Show } from "solid-js";
 
 import { useApp } from "../App.tsx";
-import { plural } from "../history/runFormat.ts";
-import { Rail } from "../Rail.tsx";
-import { useUrl } from "../router.ts";
-import { tagDefs, tagFor } from "../tags.ts";
-import { feed, triageable } from "../triage.ts";
-import { TriageBar } from "./TriageBar.tsx";
-import { TriageCompare } from "./TriageCompare.tsx";
-import { TriageFeed } from "./TriageFeed.tsx";
-import { TriageTrash } from "./TriageTrash.tsx";
-import { trashRun } from "./trashRun.ts";
-import { createSelection } from "./triageSelection.ts";
-import { createWrites } from "./triageWrites.ts";
-import { Checkbox } from "../ui/Checkbox.tsx";
-import { PickOne } from "../ui/PickOne.tsx";
-import { Select } from "../ui/Select.tsx";
-import { TRIAGE_SORTS, TRIAGE_STEPS, type TriageStep } from "../url.ts";
+import { Checkbox } from "../components/lib/Checkbox.tsx";
+import { PickOne } from "../components/lib/PickOne.tsx";
+import { Select } from "../components/lib/Select.tsx";
+import { Rail } from "../components/rail/Rail.tsx";
+import { tagDefs, tagFor } from "../core/items/tags.ts";
+import { useUrl } from "../core/router.ts";
+import { TRIAGE_SORTS, TRIAGE_STEPS, type TriageStep } from "../core/url.ts";
+import { plural } from "../history/shared/runFormat.ts";
+import { trashRun } from "./shared/trashRun.ts";
+import { feed, triageable } from "./shared/triage.ts";
+import { TriageBar } from "./shared/TriageBar.tsx";
+import { TriageCompare } from "./shared/TriageCompare.tsx";
+import { TriageFeed } from "./shared/TriageFeed.tsx";
+import { createSelection } from "./shared/triageSelection.ts";
+import { TriageTrash } from "./shared/TriageTrash.tsx";
+import { createWrites } from "./shared/triageWrites.ts";
 
 const STEP_LABELS: Record<TriageStep, string> = {
   tag: "1 · Tag",

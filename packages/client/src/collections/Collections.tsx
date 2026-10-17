@@ -3,6 +3,9 @@ import { BucketHashes } from "data/d2/generated-enums";
 import { createMemo, For, Show } from "solid-js";
 
 import { useApp } from "../App.tsx";
+import { Loading } from "../components/lib/Loading.tsx";
+import { HEADING, HEADING_NOTE } from "../components/lib/text.ts";
+import { armorOrder } from "../core/collections/armorSets.ts";
 import {
   CLASSES,
   isArmorRailTerm,
@@ -18,21 +21,22 @@ import {
   type ClassName,
   type Entry,
   type Group,
-} from "../collections.ts";
-import { useUrl } from "../router.ts";
-import { Loading } from "../ui/Loading.tsx";
-import { HEADING, HEADING_NOTE } from "../ui/text.ts";
-import { entryHref } from "../url.ts";
-import { armorOrder } from "./armorSets.ts";
-import { useCollectionData, useEntryPreview } from "./collectionData.ts";
-import { collectionFilter, isSearch, queryName } from "./collectionSearch.ts";
-import { ArmorBlock } from "./components/ArmorBlock.tsx";
-import { CollectionTabs } from "./components/CollectionTabs.tsx";
-import { CollectionTile } from "./components/CollectionTile.tsx";
-import { EntryList } from "./components/EntryList.tsx";
-import { CLASS_LABELS, Filters } from "./components/Filters.tsx";
-import { Rail } from "./components/Rail.tsx";
-import { SlotRows } from "./components/SlotRows.tsx";
+} from "../core/collections/collections.ts";
+import { useUrl } from "../core/router.ts";
+import { entryHref } from "../core/url.ts";
+import { ArmorBlock } from "./shared/ArmorBlock.tsx";
+import { useCollectionData, useEntryPreview } from "./shared/collectionData.ts";
+import {
+  collectionFilter,
+  isSearch,
+  queryName,
+} from "./shared/collectionSearch.ts";
+import { CollectionTabs } from "./shared/CollectionTabs.tsx";
+import { CollectionTile } from "./shared/CollectionTile.tsx";
+import { EntryList } from "./shared/EntryList.tsx";
+import { CLASS_LABELS, Filters } from "./shared/Filters.tsx";
+import { Rail } from "./shared/Rail.tsx";
+import { SlotRows } from "./shared/SlotRows.tsx";
 
 const WEAPON_SLOTS = [
   BucketHashes.KineticWeapons,

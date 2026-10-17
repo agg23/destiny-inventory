@@ -2,10 +2,10 @@
 @layer theme, base, components, destiny, app, utilities;
 
 @import "tailwindcss";
-@import "./ui/theme.css";
-@import "./ui/components.css";
-@import "./ui/anchored.css";
-@import "./items.css";
+@import "./components/lib/theme.css";
+@import "./components/lib/components.css";
+@import "./components/lib/anchored.css";
+@import "./components/items.css";
 
 /* Built from rarity names at runtime */
 @source inline("text-{exotic,legendary,rare,uncommon,common}");

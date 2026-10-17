@@ -1,18 +1,23 @@
 import { Navigate, Route, Router } from "@solidjs/router";
 import { render } from "solid-js/web";
 
-import { Activities } from "./Activities.tsx";
+import { Activities } from "./activities/Activities.tsx";
 import { App } from "./App.tsx";
 import { Collections } from "./collections/Collections.tsx";
 import { EntryPage } from "./collections/EntryPage.tsx";
-import { GuidePage } from "./GuidePage.tsx";
+import { GuidePage } from "./activities/GuidePage.tsx";
 import { History } from "./history/History.tsx";
 import { Todo } from "./todo/Todo.tsx";
 import { Triage } from "./triage/Triage.tsx";
-import { Vault } from "./Vault.tsx";
-import { beginLogin, completeLogin, markDevLogin, signedIn } from "./auth.ts";
-import { messageOf } from "./error.ts";
-import { primeBoot } from "./snapshot.ts";
+import { Vault } from "./vault/Vault.tsx";
+import {
+  beginLogin,
+  completeLogin,
+  markDevLogin,
+  signedIn,
+} from "./core/api/auth.ts";
+import { messageOf } from "./core/error.ts";
+import { primeBoot } from "./core/profile/snapshot.ts";
 import "./tokens.css";
 
 const root = document.getElementById("root");
@@ -24,7 +29,7 @@ if (!root) {
 const start = async () => {
   // Or the gallery lands on first load
   if (location.pathname === "/ui") {
-    const { Gallery } = await import("./ui/Gallery.tsx");
+    const { Gallery } = await import("./gallery/Gallery.tsx");
 
     render(() => <Gallery />, root);
 

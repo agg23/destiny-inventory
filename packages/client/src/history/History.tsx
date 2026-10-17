@@ -1,37 +1,37 @@
 import { useNavigate, useParams } from "@solidjs/router";
 import { createMemo, createResource, For, Show } from "solid-js";
 
-import { activityTables } from "../activityTables.ts";
+import { useApp } from "../App.tsx";
+import { PickOne } from "../components/lib/PickOne.tsx";
+import { CARD } from "../components/lib/text.ts";
+import { Button } from "../components/lib/zaidan/button.tsx";
+import { activityArt } from "../core/activities/activities.ts";
+import { activityTables } from "../core/activities/activityTables.ts";
 import {
   localDay,
   runsByDay,
   type ActivityRow,
   type HistoryRun,
-} from "../history.ts";
-import { useApp } from "../App.tsx";
-import { useUrl } from "../router.ts";
-import { CARD } from "../ui/text.ts";
-import { Button } from "../ui/zaidan/button.tsx";
-import { PickOne } from "../ui/PickOne.tsx";
+} from "../core/activities/history.ts";
+import { useUrl } from "../core/router.ts";
 import {
   activityHref,
   activityLabel,
   runHref,
   tabHref,
   type HistoryTab,
-} from "../url.ts";
-import { activityArt } from "../activities.ts";
-import { activityLookup } from "./activityLookup.ts";
-import { ActivityMap, type Week } from "./ActivityMap.tsx";
-import { ActivityPage } from "./ActivityPage.tsx";
-import { ActivitySeries } from "./ActivitySeries.tsx";
-import { groupBuckets, groupDays } from "./groups.ts";
-import { HistoryRange, HistorySummary } from "./HistoryToolbar.tsx";
-import { pinnedSpan, spanOf, type Span } from "./range.ts";
-import { DURATION, METRICS, type Metric } from "./RunGraph.tsx";
-import { RunLog } from "./RunLog.tsx";
-import { createReport } from "./RunReport.tsx";
-import { bestOf, totalsOf } from "./totals.ts";
+} from "../core/url.ts";
+import { activityLookup } from "./shared/activityLookup.ts";
+import { ActivityMap, type Week } from "./shared/ActivityMap.tsx";
+import { ActivityPage } from "./shared/ActivityPage.tsx";
+import { ActivitySeries } from "./shared/ActivitySeries.tsx";
+import { groupBuckets, groupDays } from "./shared/groups.ts";
+import { HistoryRange, HistorySummary } from "./shared/HistoryToolbar.tsx";
+import { pinnedSpan, spanOf, type Span } from "./shared/range.ts";
+import { DURATION, METRICS, type Metric } from "./shared/RunGraph.tsx";
+import { RunLog } from "./shared/RunLog.tsx";
+import { createReport } from "./shared/RunReport.tsx";
+import { bestOf, totalsOf } from "./shared/totals.ts";
 
 const PAGE = 40;
 

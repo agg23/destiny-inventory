@@ -3,33 +3,46 @@ import type { DimItem } from "app/inventory/item-types";
 import { createMemo, createResource, For, Show } from "solid-js";
 
 import { useApp } from "../App.tsx";
-import { CharacterPicker } from "../CharacterPicker.tsx";
+import { CharacterPicker } from "../components/CharacterPicker.tsx";
 import {
-  orderPayouts,
-  seasonalChallenges,
-  type ChallengeGroup,
-  type OrderPayout,
-} from "../challenges.ts";
-import { useClock } from "../clock.ts";
+  HEADING,
+  HEADING_NOTE,
+  SECTION,
+  TABLE_FRAME,
+} from "../components/lib/text.ts";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableRow,
+} from "../components/lib/zaidan/table.tsx";
+import { RAIL } from "../components/rail/Rail.tsx";
+import { useClock } from "../core/clock.ts";
 import {
   acquiredFor,
   definedSession,
   entryForHash,
   isCollected,
   primeCollections,
-} from "../collections.ts";
-import { builtTiles, vendorTiles, type VendorTile } from "../fakeItems.ts";
+} from "../core/collections/collections.ts";
+import {
+  builtTiles,
+  vendorTiles,
+  type VendorTile,
+} from "../core/profile/fakeItems.ts";
+import { railCollapsed } from "../core/rail.ts";
+import {
+  orderPayouts,
+  seasonalChallenges,
+  type ChallengeGroup,
+  type OrderPayout,
+} from "../core/todo/challenges.ts";
 import {
   activeOrders,
   orderLedger,
   type Claimed,
   type Order,
-} from "../orders.ts";
-import { railCollapsed } from "../rail.ts";
-import { RAIL } from "../Rail.tsx";
-import { HEADING, HEADING_NOTE, SECTION, TABLE_FRAME } from "../ui/text.ts";
-import { Table, TableBody, TableCell, TableRow } from "../ui/zaidan/table.tsx";
-import { entryHref } from "../url.ts";
+} from "../core/todo/orders.ts";
 import {
   fetchVendorState,
   lastVendorFetch,
@@ -39,12 +52,13 @@ import {
   type Priority,
   type RankReset,
   type VendorState,
-} from "../vendors.ts";
-import { Challenges } from "./Challenges.tsx";
-import { ClaimedLog, OrderCard } from "./Orders.tsx";
-import { deadlines, Resets, type Deadline } from "./Resets.tsx";
-import { held, MINUTE } from "./todoFormat.ts";
-import { IdleVendors, VendorSection } from "./Vendors.tsx";
+} from "../core/todo/vendors.ts";
+import { entryHref } from "../core/url.ts";
+import { Challenges } from "./shared/Challenges.tsx";
+import { ClaimedLog, OrderCard } from "./shared/Orders.tsx";
+import { deadlines, Resets, type Deadline } from "./shared/Resets.tsx";
+import { held, MINUTE } from "./shared/todoFormat.ts";
+import { IdleVendors, VendorSection } from "./shared/Vendors.tsx";
 
 const stocked = (vendors: VendorState[]): VendorState[] =>
   vendors.filter(
