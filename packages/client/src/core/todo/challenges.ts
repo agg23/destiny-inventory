@@ -5,7 +5,7 @@ import type {
 import type { DestinyGlobalConstantsDefinition } from "bungie-api-ts/destiny2";
 
 import { defs } from "../profile/defs.ts";
-import type { CharacterRecords, OrderRewards } from "../profile/load.ts";
+import type { CharacterRecords, OrderRewards } from "../profile/loadTypes.ts";
 
 // DIM's manifest type predates the table
 type Manifest = D2ManifestDefinitions & {

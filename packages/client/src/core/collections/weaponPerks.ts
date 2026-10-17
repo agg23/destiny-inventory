@@ -9,9 +9,10 @@ import { createSignal } from "solid-js";
 
 import { isCatalyst } from "../items/perks.ts";
 import { defs } from "../profile/defs.ts";
-import { readMerged, type Session } from "../profile/load.ts";
+import { readMerged } from "../profile/load.ts";
+import type { Session } from "../profile/loadTypes.ts";
 import { PLUG_SETS } from "../profile/store.ts";
-import type { Collections, Weapon } from "./collections.ts";
+import type { Collections, Weapon } from "./types.ts";
 
 /** One plug's searchable text, lowercased and stripped of accents */
 export interface PerkText {

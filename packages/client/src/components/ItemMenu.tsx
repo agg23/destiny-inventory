@@ -3,10 +3,11 @@ import { useNavigate } from "@solidjs/router";
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { quoteFilterString } from "app/search/query-parser";
-import { createSignal, For, Show, type JSX } from "solid-js";
+import { For, Show, type JSX } from "solid-js";
 
-import { useApp } from "../App.tsx";
+import { useApp } from "../core/app/state.ts";
 import { comparable } from "../core/items/compare.ts";
+import { menuFor, setMenuFor, setMenuOpen } from "../core/items/itemMenu.ts";
 import { clear } from "../core/items/preview.ts";
 import { requestTag } from "../core/items/tagConfirm.ts";
 import { commonTag, setOnlyTag, tagDefs, tagFor } from "../core/items/tags.ts";
@@ -355,13 +356,6 @@ const Rows = (props: RowProps) => {
     </>
   );
 };
-
-const [menuFor, setMenuFor] = createSignal<DimItem | undefined>(undefined);
-const [menuOpen, setMenuOpen] = createSignal(false);
-
-/** True while this item's context menu is open */
-export const menued = (item: DimItem) =>
-  menuOpen() && menuFor()?.index === item.index;
 
 /** One menu for a whole list of tiles; find resolves a data-item-index to its item */
 export const ItemMenu = (props: Props) => {

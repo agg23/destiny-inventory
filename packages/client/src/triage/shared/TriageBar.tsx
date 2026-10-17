@@ -2,8 +2,8 @@ import type { DimItem } from "app/inventory/item-types";
 import { For, Show } from "solid-js";
 
 import { Button } from "../../components/lib/zaidan/button.tsx";
-import { showToast } from "../../components/Toasts.tsx";
 import { tagDefs } from "../../core/items/tags.ts";
+import { showToast } from "../../core/toast.ts";
 import type { TriageStep } from "../../core/url.ts";
 import { plural } from "../../history/shared/runFormat.ts";
 import { sweepFor } from "./triage.ts";

@@ -18,11 +18,9 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/lib/zaidan/table.tsx";
-import {
-  tileArt,
-  type ActivityTables,
-} from "../../core/activities/activities.ts";
+import { tileArt } from "../../core/activities/art.ts";
 import { duration, type HistoryRun } from "../../core/activities/history.ts";
+import type { ActivityTables } from "../../core/activities/types.ts";
 import { Chevron, Result } from "./ActivityRow.tsx";
 import { ratio, rungColor, score, stamp } from "./runFormat.ts";
 import { METRICS, RunGraph, type Metric } from "./RunGraph.tsx";

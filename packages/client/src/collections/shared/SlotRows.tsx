@@ -1,7 +1,7 @@
 import { For, type JSX } from "solid-js";
 
 import { LABEL, TILE_GRID } from "../../components/lib/text.ts";
-import type { Entry } from "../../core/collections/collections.ts";
+import type { Entry } from "../../core/collections/types.ts";
 import { defs } from "../../core/profile/defs.ts";
 
 const bucketName = (hash: number): string =>

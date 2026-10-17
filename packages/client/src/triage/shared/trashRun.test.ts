@@ -2,7 +2,7 @@ import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { AppState } from "../../App.tsx";
+import type { AppState } from "../../core/app/state.ts";
 import { setOnlyTag, tagFor } from "../../core/items/tags.ts";
 import {
   advanceTrash,
@@ -15,7 +15,7 @@ import {
   trashRun,
 } from "./trashRun.ts";
 
-vi.mock("../../components/Toasts.tsx", () => ({ showToast: vi.fn() }));
+vi.mock("../../core/toast.ts", () => ({ showToast: vi.fn() }));
 
 vi.mock("app/inventory/stores-helpers", () => ({
   spaceLeftForItem: () => 100,

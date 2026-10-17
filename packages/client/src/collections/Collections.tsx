@@ -2,26 +2,25 @@ import { useNavigate } from "@solidjs/router";
 import { BucketHashes } from "data/d2/generated-enums";
 import { createMemo, For, Show } from "solid-js";
 
-import { useApp } from "../App.tsx";
 import { Loading } from "../components/lib/Loading.tsx";
 import { HEADING, HEADING_NOTE } from "../components/lib/text.ts";
+import { useApp } from "../core/app/state.ts";
 import { armorOrder } from "../core/collections/armorSets.ts";
+import { rankByName } from "../core/collections/collections.ts";
+import { isCollected } from "../core/collections/ownership.ts";
 import {
   CLASSES,
   isArmorRailTerm,
-  isCollected,
   isRailTerm,
   queryPicks,
-  rankByName,
   STATUSES,
   termValue,
   withClass,
   withTerm,
   withTerms,
   type ClassName,
-  type Entry,
-  type Group,
-} from "../core/collections/collections.ts";
+} from "../core/collections/terms.ts";
+import type { Entry, Group } from "../core/collections/types.ts";
 import { useUrl } from "../core/router.ts";
 import { entryHref } from "../core/url.ts";
 import { ArmorBlock } from "./shared/ArmorBlock.tsx";

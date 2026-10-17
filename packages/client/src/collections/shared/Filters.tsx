@@ -8,7 +8,7 @@ import {
   STATUSES,
   termValue,
   type ClassName,
-} from "../../core/collections/collections.ts";
+} from "../../core/collections/terms.ts";
 import { LAYOUTS, type Kind, type Layout } from "../../core/url.ts";
 import { Choice } from "./Choice.tsx";
 

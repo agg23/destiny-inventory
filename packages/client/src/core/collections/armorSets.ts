@@ -1,6 +1,6 @@
 import { BucketHashes } from "data/d2/generated-enums";
 
-import type { Entry } from "./collections.ts";
+import type { Entry } from "./types.ts";
 
 export const ARMOR_SLOTS = [
   BucketHashes.Helmet,

@@ -4,13 +4,13 @@ import { createMemo, Show } from "solid-js";
 
 import { benefitFor } from "../core/items/perks.ts";
 import {
-  Changes,
   GOLD_BADGE,
   PERK,
   PERK_TITLE,
   PERK_TEXT,
   PerkIcon,
-} from "./ItemPanel.tsx";
+} from "./card/PerkDetails.tsx";
+import { Changes } from "./card/Stats.tsx";
 import { AnchoredPanel } from "./lib/AnchoredPanel.tsx";
 import { Badge } from "./lib/zaidan/badge.tsx";
 

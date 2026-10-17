@@ -8,18 +8,28 @@ import type {
   DestinySandboxPerkDefinition,
 } from "bungie-api-ts/destiny2";
 
+import {
+  cleanName,
+  nameKey,
+  perkKey,
+  perkNames,
+  poolFor,
+  weaponKey,
+  type Pool,
+} from "./aegisNames.ts";
 import { loadManifest } from "./manifest.ts";
+import {
+  fetchTabs,
+  fetchText,
+  headerRow,
+  indexUrl,
+  parseRows,
+  sheetUrl,
+} from "./sheets.ts";
 
 const REPO_ROOT = new URL("../../../", import.meta.url).pathname;
 const CACHE_ROOT = join(REPO_ROOT, ".cache", "manifest");
 const DATA_ROOT = join(REPO_ROOT, ".cache");
-
-// The CSV export 429s permanently on these sheets. htmlview serves the same cells
-const sheetUrl = (sheet: string, gid: string): string =>
-  `https://docs.google.com/spreadsheets/d/${sheet}/htmlview/sheet?headers=true&gid=${gid}`;
-
-const indexUrl = (sheet: string): string =>
-  `https://docs.google.com/spreadsheets/d/${sheet}/htmlview`;
 
 const WEAPON_CATEGORY = 1;
 
@@ -103,41 +113,6 @@ const PVP: SheetSource = {
 
 const SET_BONUS_TAB = "Set Bonuses";
 
-// The sheets drift from the manifest in case, punctuation, and accents, as in "Ir Yût"
-const nameKey = (name: string): string =>
-  name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
-
-const fixes = (pairs: [string, string][]): Map<string, string> =>
-  new Map(pairs.map(([from, to]) => [nameKey(from), nameKey(to)]));
-
-const NAME_FIXES = fixes([
-  ["Mykel's Reverance", "Mykel's Reverence"],
-  ["Sherpard's Watch", "Shepherd's Watch"],
-  ["Appetance", "Appetence"],
-  ["Glaciocasm", "Glacioclasm"],
-  ["Willful Harmatia", "Willful Hamartia"],
-  ["Fimbulwinter Snitch", "Fimbulwinter Stitch"],
-  ["Graviton Spike Grenades", "Graviton Spike"],
-]);
-
-const PERK_FIXES = fixes([
-  ["Destablizing Rounds", "Destabilizing Rounds"],
-  ["Attritiion Orbs", "Attrition Orbs"],
-  ["Ambitious Assasin", "Ambitious Assassin"],
-  ["Ambition Assassin", "Ambitious Assassin"],
-  ["Blunt Execution", "Blunt Execution Rounds"],
-]);
-
-const weaponKey = (name: string): string =>
-  NAME_FIXES.get(nameKey(name)) ?? nameKey(name);
-
-const perkKey = (name: string): string =>
-  PERK_FIXES.get(nameKey(name)) ?? nameKey(name);
-
 export interface AegisRoll {
   name: string;
   category: string;
@@ -187,154 +162,6 @@ export interface AegisData {
   perks: AegisPerk[];
   setBonuses: AegisSetBonus[];
 }
-
-interface Tab {
-  gid: string;
-  name: string;
-}
-
-const fetchText = async (url: string): Promise<string> => {
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`Sheet fetch failed: ${response.status} ${url}`);
-  }
-
-  return response.text();
-};
-
-const decodeEntities = (value: string): string =>
-  value
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#([0-9]+);/g, (_, code: string) =>
-      String.fromCodePoint(Number(code)),
-    )
-    .split("\n")
-    .map((line) => line.replace(/[ \t]+/g, " ").trim())
-    .join("\n")
-    .trim();
-
-const parseRows = (html: string): string[][] => {
-  const rows: string[][] = [];
-
-  for (const [, body = ""] of html.matchAll(/<tr[^>]*>(.*?)<\/tr>/gs)) {
-    const cells: string[] = [];
-
-    for (const [, cell = ""] of body.matchAll(/<t[dh][^>]*>(.*?)<\/t[dh]>/gs)) {
-      cells.push(decodeEntities(cell));
-    }
-
-    rows.push(cells);
-  }
-
-  return rows;
-};
-
-const fetchTabs = async (sheet: string): Promise<Tab[]> => {
-  const html = await fetchText(indexUrl(sheet));
-  const tabs: Tab[] = [];
-
-  for (const [, name = "", gid = ""] of html.matchAll(
-    /items\.push\(\{name: "((?:[^"\\]|\\.)*)".*?gid: "([0-9]+)"/g,
-  )) {
-    // The bootstrap is JS, which escapes "&" as \x26
-    const unescaped = name.replace(/\\x([0-9a-f]{2})/gi, (_, hex: string) =>
-      String.fromCharCode(parseInt(hex, 16)),
-    );
-
-    tabs.push({ gid, name: JSON.parse(`"${unescaped}"`) as string });
-  }
-
-  if (tabs.length === 0) {
-    throw new Error(
-      "Sheet index listed no tabs, the htmlview bootstrap changed",
-    );
-  }
-
-  return tabs;
-};
-
-const headerRow = (rows: string[][], label: string): number => {
-  for (let index = 0; index < Math.min(rows.length, 8); index += 1) {
-    if (rows[index]?.includes(label)) {
-      return index;
-    }
-  }
-
-  return -1;
-};
-
-const cleanName = (raw: string): string => raw.split("\n")[0]!.trim();
-
-const NON_PERK = new Set(["", "-", "none", "n/a", "any"]);
-
-const perkNames = (cell: string | undefined): string[] => {
-  if (!cell) {
-    return [];
-  }
-
-  return cell
-    .split("\n")
-    .map((line) => line.replace(/\*+$/, "").trim())
-    .filter((line) => !NON_PERK.has(line.toLowerCase()));
-};
-
-interface Pool {
-  names: Map<string, Set<number>>;
-  randomized: boolean;
-}
-
-const poolFor = (
-  item: DestinyInventoryItemDefinition,
-  items: Record<string, DestinyInventoryItemDefinition>,
-  plugSets: Record<string, DestinyPlugSetDefinition>,
-): Pool => {
-  const names = new Map<string, Set<number>>();
-  let randomized = false;
-
-  for (const entry of item.sockets?.socketEntries ?? []) {
-    if (entry.randomizedPlugSetHash) {
-      randomized = true;
-    }
-
-    const fromSets = [entry.randomizedPlugSetHash, entry.reusablePlugSetHash]
-      .filter((hash): hash is number => !!hash)
-      .flatMap((hash) =>
-        (plugSets[hash]?.reusablePlugItems ?? []).map(
-          (plug) => plug.plugItemHash,
-        ),
-      );
-
-    const inline = (entry.reusablePlugItems ?? []).map(
-      (plug) => plug.plugItemHash,
-    );
-
-    for (const hash of [...fromSets, ...inline]) {
-      const key = nameKey(items[hash]?.displayProperties?.name ?? "");
-
-      if (!key) {
-        continue;
-      }
-
-      const existing = names.get(key);
-
-      if (existing) {
-        existing.add(hash);
-      } else {
-        names.set(key, new Set([hash]));
-      }
-    }
-  }
-
-  return { names, randomized };
-};
 
 const numberOf = (raw: string | undefined): number | undefined => {
   const value = Number((raw ?? "").trim());

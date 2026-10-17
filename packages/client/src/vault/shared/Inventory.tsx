@@ -8,26 +8,20 @@ import { potentialSpaceLeftForItem } from "app/inventory/stores-helpers";
 import { BucketHashes } from "data/d2/generated-enums";
 import { createMemo, For, Index, onCleanup, Show } from "solid-js";
 
-import type { Matched } from "../../App.tsx";
 import { CharacterPicker } from "../../components/CharacterPicker.tsx";
 import { ItemIcon } from "../../components/ItemIcon.tsx";
-import { ItemMenu, menued } from "../../components/ItemMenu.tsx";
-import { Select } from "../../components/lib/Select.tsx";
+import { ItemMenu } from "../../components/ItemMenu.tsx";
 import { HEADING, LABEL } from "../../components/lib/text.ts";
 import { Button } from "../../components/lib/zaidan/button.tsx";
+import type { Matched } from "../../core/app/matched.ts";
 import { unmovable } from "../../core/items/compare.ts";
+import { menued } from "../../core/items/itemMenu.ts";
 import { previewed } from "../../core/items/preview.ts";
 import { tagFor } from "../../core/items/tags.ts";
-import { LOST_ITEMS, vaultable } from "../../core/profile/moveTargets.ts";
-import {
-  applySettings,
-  savedSettings,
-  settings,
-  VAULT_SORT_NAMES,
-  VAULT_SORTS,
-  type VaultSort,
-} from "../../core/settings.ts";
+import { LOST_ITEMS } from "../../core/profile/moveTargets.ts";
+import { settings } from "../../core/settings.ts";
 import { createDragSelect } from "./dragSelect.ts";
+import { VaultHeader } from "./VaultHeader.tsx";
 
 const COLUMNS =
   "grid grid-cols-[var(--store-column)_minmax(0,1fr)] items-start gap-2";
@@ -51,26 +45,6 @@ interface Props {
   onCollect: (items: DimItem[], target: DimStore) => void;
   moving: string | undefined;
 }
-
-const VaultHeader = (props: { store: DimStore; capacity: number }) => (
-  <div class="flex h-(--banner) items-center gap-3 rounded-lg border bg-card px-3">
-    <img class="size-8 shrink-0" src={props.store.icon} alt="" />
-    <div class="min-w-0">
-      <div class="truncate font-medium">Vault</div>
-      <div class="truncate text-xs text-muted-foreground">
-        {props.store.items.filter(vaultable).length}/{props.capacity} items
-      </div>
-    </div>
-    <Select
-      label="Sort"
-      class="ml-auto shrink-0"
-      value={settings().sort}
-      options={VAULT_SORTS}
-      names={VAULT_SORT_NAMES}
-      onChange={(sort: VaultSort) => applySettings({ ...savedSettings(), sort })}
-    />
-  </div>
-);
 
 const sameBuckets = (was: InventoryBucket[], next: InventoryBucket[]): boolean =>
   was.length === next.length && was.every((bucket, at) => bucket === next[at]);

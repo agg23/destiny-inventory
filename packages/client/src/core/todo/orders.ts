@@ -5,7 +5,7 @@ import { DestinyUnlockValueUIStyle } from "bungie-api-ts/destiny2";
 import { createSignal, untrack } from "solid-js";
 
 import { defs } from "../profile/defs.ts";
-import type { OrderRewards } from "../profile/load.ts";
+import type { OrderRewards } from "../profile/loadTypes.ts";
 import { payoutsByReward } from "./challenges.ts";
 
 export const ORDERS_BUCKET = 635141261;

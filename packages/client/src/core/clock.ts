@@ -34,3 +34,6 @@ export const useClock = (): (() => number) => {
 
   return now;
 };
+
+export const timeWithSeconds = (at: number) =>
+  new Date(at).toLocaleTimeString();

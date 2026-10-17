@@ -7,11 +7,11 @@ import {
   verdictMode,
   type Verdict,
 } from "../../core/items/arrivals.ts";
+import { menued } from "../../core/items/itemMenu.ts";
 import { dismiss, preview } from "../../core/items/preview.ts";
 import { shownModes } from "../../core/settings.ts";
+import { typeName } from "../card/ItemHead.tsx";
 import { ItemIcon } from "../ItemIcon.tsx";
-import { menued } from "../ItemMenu.tsx";
-import { typeName } from "../ItemPanel.tsx";
 import { HEADING, ROW } from "../lib/text.ts";
 import { VersionGlyph } from "../lib/VersionGlyph.tsx";
 

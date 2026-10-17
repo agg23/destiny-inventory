@@ -1,11 +1,12 @@
 import type { DimItem } from "app/inventory/item-types";
 import { createMemo, For, Show } from "solid-js";
 
-import { useApp } from "../../App.tsx";
 import { ItemIcon } from "../../components/ItemIcon.tsx";
-import { ItemMenu, menued } from "../../components/ItemMenu.tsx";
+import { ItemMenu } from "../../components/ItemMenu.tsx";
 import { HEADING, LABEL, TILE_GRID } from "../../components/lib/text.ts";
 import { Button } from "../../components/lib/zaidan/button.tsx";
+import { useApp } from "../../core/app/state.ts";
+import { menued } from "../../core/items/itemMenu.ts";
 import { previewed } from "../../core/items/preview.ts";
 import { CATEGORIES } from "./triage.ts";
 import type { Selection } from "./triageSelection.ts";

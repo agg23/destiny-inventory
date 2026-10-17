@@ -9,7 +9,7 @@ import {
   storeLabel,
 } from "../../core/profile/moveTargets.ts";
 import { plural } from "../../history/shared/runFormat.ts";
-import { TagControl } from "../ItemPanel.tsx";
+import { TagControl } from "../card/TagControl.tsx";
 import { SplitButton } from "../lib/SplitButton.tsx";
 import { HEADING, LABEL } from "../lib/text.ts";
 import { Button } from "../lib/zaidan/button.tsx";

@@ -1,11 +1,13 @@
 import type { DimItem } from "app/inventory/item-types";
 import { Show } from "solid-js";
 
-import type { Catalyst } from "../core/collections/collections.ts";
+import type { Catalyst } from "../core/collections/types.ts";
 import { verdictMode, type ModeVerdict } from "../core/items/arrivals.ts";
 import { noteFor } from "../core/items/notes.ts";
 import type { CardCost } from "../core/items/preview.ts";
-import { ItemDetails, ItemHead, VERDICT_ROW } from "./ItemPanel.tsx";
+import { VERDICT_ROW } from "./card/AegisNote.tsx";
+import { ItemDetails } from "./card/ItemDetails.tsx";
+import { ItemHead } from "./card/ItemHead.tsx";
 import { AnchoredPanel } from "./lib/AnchoredPanel.tsx";
 
 interface Props {

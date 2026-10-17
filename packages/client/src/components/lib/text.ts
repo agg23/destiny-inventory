@@ -38,3 +38,7 @@ export const HERO =
 
 /** A saved note's text */
 export const NOTE_TEXT = "text-xs whitespace-pre-wrap wrap-anywhere";
+
+/** Capitalizes the first letter, for the sheet's lowercase notes and Bungie's capitals */
+export const sentence = (text: string): string =>
+  text.replace(/\p{L}/u, (first) => first.toUpperCase());

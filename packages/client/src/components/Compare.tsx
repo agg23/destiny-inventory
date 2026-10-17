@@ -5,14 +5,11 @@ import { createMemo, createSignal, For, Show } from "solid-js";
 import { recency } from "../core/items/arrivals.ts";
 import { best, TOTAL } from "../core/items/compare.ts";
 import { shortStat } from "../core/items/statNames.ts";
-import {
-  Benefits,
-  ItemDetails,
-  ItemHead,
-  Moves,
-  STAT_NAME,
-  TOTAL_ROW,
-} from "./ItemPanel.tsx";
+import { ItemDetails } from "./card/ItemDetails.tsx";
+import { ItemHead } from "./card/ItemHead.tsx";
+import { Moves } from "./card/Moves.tsx";
+import { Benefits } from "./card/PerkDetails.tsx";
+import { STAT_NAME, TOTAL_ROW } from "./card/Stats.tsx";
 import { Checkbox } from "./lib/Checkbox.tsx";
 import { Button } from "./lib/zaidan/button.tsx";
 import { X } from "./lib/zaidan/icons.tsx";

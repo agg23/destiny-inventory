@@ -1,7 +1,7 @@
 import type { Baseline as Captured, Reward } from "@dvm/service";
 
-import type { Recalled } from "../../core/activities/activities.ts";
 import { activityTables } from "../../core/activities/activityTables.ts";
+import type { Recalled } from "../../core/activities/types.ts";
 import { cached } from "../../core/api/cache.ts";
 
 // A live profile deletes a taken reward outright

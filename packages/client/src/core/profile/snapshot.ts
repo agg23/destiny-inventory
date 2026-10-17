@@ -15,7 +15,7 @@ import type {
   OrderRewards,
   LoadResult,
   StringVariables,
-} from "./load.ts";
+} from "./loadTypes.ts";
 import { seedInventory } from "./moves.ts";
 import { openStore, PROFILE, type DefStore } from "./store.ts";
 import { storeItems, type Failure } from "./stores.ts";

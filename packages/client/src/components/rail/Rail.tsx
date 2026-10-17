@@ -1,6 +1,6 @@
 import { Show } from "solid-js";
 
-import { useApp } from "../../App.tsx";
+import { useApp } from "../../core/app/state.ts";
 import { railCollapsed } from "../../core/rail.ts";
 import { Compare } from "../Compare.tsx";
 import { ItemMenu } from "../ItemMenu.tsx";

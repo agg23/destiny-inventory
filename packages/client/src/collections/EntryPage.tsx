@@ -3,29 +3,31 @@ import { getItemKillTrackerInfo } from "app/utils/item-utils";
 import { A, useNavigate, useParams } from "@solidjs/router";
 import { createMemo, createResource, For, Show } from "solid-js";
 
-import { useApp } from "../App.tsx";
+import { ItemDetails } from "../components/card/ItemDetails.tsx";
+import { ItemHead, typeName } from "../components/card/ItemHead.tsx";
 import { ItemIcon } from "../components/ItemIcon.tsx";
-import { ItemDetails, ItemHead, typeName } from "../components/ItemPanel.tsx";
 import { Loading } from "../components/lib/Loading.tsx";
 import { HEADING } from "../components/lib/text.ts";
 import { Button } from "../components/lib/zaidan/button.tsx";
 import { NoteEditor } from "../components/NoteEditor.tsx";
 import { BUNGIE } from "../core/api/bungie.ts";
+import { useApp } from "../core/app/state.ts";
 import {
-  CLASSES,
   entryForHash,
-  isArmorRailTerm,
-  isRailTerm,
   cosmeticEntry,
   ornamentTargets,
+} from "../core/collections/collections.ts";
+import { sourceLabel } from "../core/collections/ownership.ts";
+import {
+  CLASSES,
+  isArmorRailTerm,
+  isRailTerm,
   queryPicks,
-  sourceLabel,
   termValue,
   withClass,
   withTerms,
-  type Cosmetic,
-  type Entry,
-} from "../core/collections/collections.ts";
+} from "../core/collections/terms.ts";
+import type { Cosmetic, Entry } from "../core/collections/types.ts";
 import { defs } from "../core/profile/defs.ts";
 import { fakeItems } from "../core/profile/fakeItems.ts";
 import { useUrl } from "../core/router.ts";

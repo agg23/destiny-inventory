@@ -1,7 +1,6 @@
 import { useBeforeLeave } from "@solidjs/router";
 import { createEffect, on, Show } from "solid-js";
 
-import type { AppState } from "../../App.tsx";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -10,6 +9,7 @@ import {
   AlertDialogTitle,
 } from "../../components/lib/zaidan/alert-dialog.tsx";
 import { Button } from "../../components/lib/zaidan/button.tsx";
+import { useApp } from "../../core/app/state.ts";
 import {
   advanceTrash,
   bindTrash,
@@ -20,8 +20,8 @@ import {
 } from "./trashRun.ts";
 
 /** Drives the trash run from any page, guards leaving it, and offers recovery */
-export const TrashWatch = (props: { app: AppState }) => {
-  const app = props.app;
+export const TrashWatch = () => {
+  const app = useApp();
 
   bindTrash(app);
 

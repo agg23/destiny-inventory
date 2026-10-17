@@ -11,7 +11,8 @@ import {
 } from "../../components/lib/zaidan/table.tsx";
 import { TileRatings } from "../../components/Tile.tsx";
 import { BUNGIE } from "../../core/api/bungie.ts";
-import { sourceLabel, type Entry } from "../../core/collections/collections.ts";
+import { sourceLabel } from "../../core/collections/ownership.ts";
+import type { Entry } from "../../core/collections/types.ts";
 import type { Kind } from "../../core/url.ts";
 import type { CollectionData } from "./collectionData.ts";
 import { damageIcon, entryTiers } from "./CollectionTile.tsx";

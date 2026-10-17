@@ -5,7 +5,7 @@ import {
   setless,
   setsOf,
 } from "../../core/collections/armorSets.ts";
-import type { Entry } from "../../core/collections/collections.ts";
+import type { Entry } from "../../core/collections/types.ts";
 import { SetCard } from "./SetCard.tsx";
 import { SlotRows } from "./SlotRows.tsx";
 

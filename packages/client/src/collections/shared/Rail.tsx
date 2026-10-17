@@ -1,7 +1,7 @@
 import { For } from "solid-js";
 
 import { LABEL, ROW } from "../../components/lib/text.ts";
-import type { Group, Section } from "../../core/collections/collections.ts";
+import type { Group, Section } from "../../core/collections/types.ts";
 
 const LIST = "flex flex-col";
 

@@ -2,7 +2,6 @@ import { useNavigate } from "@solidjs/router";
 import type { DimItem } from "app/inventory/item-types";
 import { createMemo, createResource, For, Show } from "solid-js";
 
-import { useApp } from "../App.tsx";
 import { CharacterPicker } from "../components/CharacterPicker.tsx";
 import {
   HEADING,
@@ -17,14 +16,14 @@ import {
   TableRow,
 } from "../components/lib/zaidan/table.tsx";
 import { RAIL } from "../components/rail/Rail.tsx";
+import { useApp } from "../core/app/state.ts";
 import { useClock } from "../core/clock.ts";
 import {
-  acquiredFor,
   definedSession,
   entryForHash,
-  isCollected,
   primeCollections,
 } from "../core/collections/collections.ts";
+import { acquiredFor, isCollected } from "../core/collections/ownership.ts";
 import {
   builtTiles,
   vendorTiles,
@@ -43,16 +42,17 @@ import {
   type Claimed,
   type Order,
 } from "../core/todo/orders.ts";
+import { fetchVendorState, lastVendorFetch } from "../core/todo/vendorFetch.ts";
 import {
-  fetchVendorState,
-  lastVendorFetch,
   priorityOffers,
   rankResets,
   readVendors,
-  type Priority,
-  type RankReset,
-  type VendorState,
 } from "../core/todo/vendors.ts";
+import type {
+  Priority,
+  RankReset,
+  VendorState,
+} from "../core/todo/vendorTypes.ts";
 import { entryHref } from "../core/url.ts";
 import { Challenges } from "./shared/Challenges.tsx";
 import { ClaimedLog, OrderCard } from "./shared/Orders.tsx";

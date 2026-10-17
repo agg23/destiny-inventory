@@ -15,7 +15,7 @@ import type {
 import { fetchRecords, fetchTable } from "../api/artifacts.ts";
 import { cached } from "../api/cache.ts";
 import { loadConfig } from "../api/config.ts";
-import type { ActivityTables } from "./activities.ts";
+import type { ActivityTables } from "./types.ts";
 
 type Table<T> = Record<number, T>;
 

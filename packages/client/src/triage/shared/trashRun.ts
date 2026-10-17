@@ -4,14 +4,14 @@ import { spaceLeftForItem } from "app/inventory/stores-helpers";
 import { isClassCompatible } from "app/utils/item-utils";
 import { createSignal } from "solid-js";
 
-import type { AppState } from "../../App.tsx";
-import { showToast } from "../../components/Toasts.tsx";
+import type { AppState } from "../../core/app/state.ts";
 import {
   setOnlyTagMany,
   tagFor,
   type TagTarget,
 } from "../../core/items/tags.ts";
 import { LOST_ITEMS, storeLabel } from "../../core/profile/moveTargets.ts";
+import { showToast } from "../../core/toast.ts";
 import { plural } from "../../history/shared/runFormat.ts";
 
 const KEY = "dvm.trash";

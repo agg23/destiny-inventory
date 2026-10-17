@@ -3,7 +3,7 @@ import { For, Show, type JSX } from "solid-js";
 import { LABEL, NOTE_TEXT } from "../../components/lib/text.ts";
 import { BUNGIE } from "../../core/api/bungie.ts";
 import { ARMOR_SLOTS, bySlot } from "../../core/collections/armorSets.ts";
-import type { Entry } from "../../core/collections/collections.ts";
+import type { Entry } from "../../core/collections/types.ts";
 import { noteFor } from "../../core/items/notes.ts";
 import { setBonusOf } from "../../core/items/perks.ts";
 import { defs } from "../../core/profile/defs.ts";

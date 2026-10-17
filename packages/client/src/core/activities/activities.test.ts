@@ -8,10 +8,8 @@ import {
   matching,
   readable,
   totalDrops,
-  type ActivityTables,
-  type Category,
-  type Realm,
 } from "./activities.ts";
+import type { ActivityTables, Category, Realm } from "./types.ts";
 
 const flat = (realms: Realm[]): Category[] =>
   realms.flatMap((realm) => realm.categories);

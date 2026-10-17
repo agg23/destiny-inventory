@@ -1,14 +1,4 @@
-import type { DimItem } from "app/inventory/item-types";
-import type { InventoryBuckets } from "app/inventory/inventory-buckets";
-import type { DimStore } from "app/inventory/store-types";
-import {
-  ComponentPrivacySetting,
-  type DestinyCharacterActivitiesComponent,
-  type DestinyInventoryItemDefinition,
-  type DestinyPlugSetDefinition,
-  type DestinyProfileResponse,
-  type DestinyRecordComponent,
-} from "bungie-api-ts/destiny2";
+import type { DestinyProfileResponse } from "bungie-api-ts/destiny2";
 
 import { materializeClosure } from "@dvm/defs-core";
 
@@ -22,8 +12,26 @@ import {
 } from "../api/bungie.ts";
 import { loadConfig, type ArtifactIndex } from "../api/config.ts";
 import { loadRolls } from "../items/rolls.ts";
-import type { Guest } from "./guest.ts";
-import { movesSettledAt, seedInventory } from "./moves.ts";
+import {
+  NotSignedIn,
+  type ItemDef,
+  type LoadResult,
+  type PlugSetDef,
+  type Session,
+} from "./loadTypes.ts";
+import { seedInventory } from "./moves.ts";
+import {
+  characterRecords,
+  contentsOf,
+  isStale,
+  liveReferences,
+  mintedAt,
+  orderRewards,
+  playingNow,
+  profileItems,
+  sameContents,
+  stringVariables,
+} from "./profileReads.ts";
 import { bootFromSnapshot, saveSnapshot } from "./snapshot.ts";
 import {
   CORE,
@@ -33,7 +41,7 @@ import {
   PROFILE,
   type DefStore,
 } from "./store.ts";
-import { buildStoresFrom, storeItems, type Failure } from "./stores.ts";
+import { buildStoresFrom, storeItems } from "./stores.ts";
 
 const SUPPORT = [
   "InventoryBucket",
@@ -67,94 +75,12 @@ const SUPPORT = [
   "Vendor",
 ];
 
-const CURRENT = "current";
+export const CURRENT = "current";
 
 // Bumped whenever the shipped def shape changes, so cached records get refetched
 const SHAPE = 8;
 
-const stamp = (version: string): string => `${version}/${SHAPE}`;
-
-type ItemDef = DestinyInventoryItemDefinition;
-type PlugSetDef = DestinyPlugSetDefinition;
-
-export interface LoadResult {
-  stores: DimStore[];
-  buckets: InventoryBuckets;
-  items: DimItem[];
-  manifestVersion: string;
-  tier: "core" | "detail";
-  source: "cache" | "live";
-  counts: { owned: number; defs: number; skipped: number; hidden: number };
-  skipped: Failure[];
-  degraded: Failure[];
-  session: Session;
-  playing: string | undefined;
-  activities: CharacterActivities;
-  variables: StringVariables;
-  records: CharacterRecords;
-  orderRewards: OrderRewards;
-}
-
-export type CharacterActivities = Record<
-  string,
-  DestinyCharacterActivitiesComponent
->;
-
-export type StringVariables = Record<string, Record<number, number>>;
-
-export type CharacterRecords = Record<
-  string,
-  Record<number, DestinyRecordComponent>
->;
-
-export type OrderRewards = Record<string, Record<number, number>>;
-
-// The seasonal hub's challenges are character scoped, the lifetime counters are not
-const characterRecords = (profile: DestinyProfileResponse): CharacterRecords => {
-  const shared = profile.profileRecords?.data?.records ?? {};
-  const rows: CharacterRecords = {};
-
-  for (const [id, held] of Object.entries(
-    profile.characterRecords?.data ?? {},
-  )) {
-    rows[id] = { ...shared, ...held.records };
-  }
-
-  return rows;
-};
-
-const orderRewards = (profile: DestinyProfileResponse): OrderRewards => {
-  const rows: OrderRewards = {};
-
-  for (const [id, held] of Object.entries(
-    profile.characterProgressions?.data ?? {},
-  )) {
-    rows[id] = held.unclaimedOrderRewards ?? {};
-  }
-
-  return rows;
-};
-
-const stringVariables = (profile: DestinyProfileResponse): StringVariables => {
-  const shared =
-    profile.profileStringVariables?.data?.integerValuesByHash ?? {};
-  const rows: StringVariables = {};
-
-  for (const [id, held] of Object.entries(
-    profile.characterStringVariables?.data ?? {},
-  )) {
-    rows[id] = { ...shared, ...held.integerValuesByHash };
-  }
-
-  return rows;
-};
-
-export class NotSignedIn extends Error {
-  constructor() {
-    super("Not signed in");
-    this.name = "NotSignedIn";
-  }
-}
+export const stamp = (version: string): string => `${version}/${SHAPE}`;
 
 const byHash = <T extends { hash: number }>(
   records: T[],
@@ -213,124 +139,6 @@ export const readMerged = async (
 
   return [...merged.values()];
 };
-
-// Only field that says which response is newer
-const mintedAt = (profile: DestinyProfileResponse): number =>
-  new Date(profile.responseMintedTimestamp ?? 0).getTime();
-
-// Change between mints without changing any item
-const VOLATILE_KEYS = new Set([
-  "responseMintedTimestamp",
-  "secondaryComponentsMintedTimestamp",
-  "characterActivities",
-  "profileStringVariables",
-  "characterStringVariables",
-  "minutesPlayedThisSession",
-  "minutesPlayedTotal",
-]);
-
-const contentsOf = (profile: DestinyProfileResponse): string =>
-  JSON.stringify(profile, (key, value: unknown) =>
-    VOLATILE_KEYS.has(key) ? undefined : value,
-  );
-
-// Rebuild after a move even if the profile matches
-const sameContents = (session: Session, contents: string): boolean =>
-  contents === session.contents && movesSettledAt() < session.builtFrom;
-
-// Bungie's cache can hand back stale data
-const isStale = (session: Session, minted: number): boolean =>
-  minted <= Math.max(session.minted, movesSettledAt());
-
-const ageOf = (minted: number): string =>
-  `${((Date.now() - minted) / 1000).toFixed(1)}s`;
-
-const LIVE_WINDOW = 10 * 60_000;
-
-// currentActivityHash sits stale after a logout
-const playingNow = (profile: DestinyProfileResponse): string | undefined => {
-  const characters = profile.characters?.data ?? {};
-  const now = Date.now();
-
-  for (const [id, activity] of Object.entries(
-    profile.characterActivities?.data ?? {},
-  )) {
-    const lastPlayed = new Date(characters[id]?.dateLastPlayed ?? 0).getTime();
-
-    if (activity.currentActivityHash !== 0 && now - lastPlayed < LIVE_WINDOW) {
-      return id;
-    }
-  }
-
-  return undefined;
-};
-
-const profileItems = (profile: DestinyProfileResponse) => [
-  ...(profile.profileInventory?.data?.items ?? []),
-  ...Object.values(profile.characterInventories?.data ?? {}).flatMap(
-    (i) => i.items,
-  ),
-  ...Object.values(profile.characterEquipment?.data ?? {}).flatMap(
-    (e) => e.items,
-  ),
-];
-
-// Crafted and enhanced perks sit outside the plug set
-const liveReferences = (profile: DestinyProfileResponse): number[] => {
-  const hashes: number[] = [];
-
-  for (const item of Object.values(
-    profile.itemComponents?.sockets?.data ?? {},
-  )) {
-    for (const socket of item.sockets) {
-      if (socket.plugHash !== undefined) {
-        hashes.push(socket.plugHash);
-      }
-    }
-  }
-
-  for (const item of Object.values(
-    profile.itemComponents?.reusablePlugs?.data ?? {},
-  )) {
-    for (const plugs of Object.values(item.plugs)) {
-      for (const plug of plugs) {
-        hashes.push(plug.plugItemHash);
-      }
-    }
-  }
-
-  const plugSets = [
-    ...Object.values(profile.characterPlugSets?.data ?? {}),
-    profile.profilePlugSets?.data,
-  ];
-
-  for (const component of plugSets) {
-    for (const plugs of Object.values(component?.plugs ?? {})) {
-      for (const plug of plugs) {
-        hashes.push(plug.plugItemHash);
-      }
-    }
-  }
-
-  return hashes;
-};
-
-export interface Session {
-  store: DefStore;
-  index: ArtifactIndex;
-  membership: Membership;
-  support: Map<string, Record<string, unknown>>;
-  items: Record<number, ItemDef>;
-  plugSets: Record<number, PlugSetDef>;
-  hidden: Set<number>;
-  minted: number;
-  /** Mint time of the profile the stores were built from */
-  builtFrom: number;
-  /** Profile serialized without the fields that change on every mint */
-  contents: string;
-  /** Set only while another account's profile is on screen */
-  guest: Guest | undefined;
-}
 
 export const load = async (
   onUpgrade?: (result: LoadResult) => void,
@@ -674,14 +482,6 @@ const populate = async ({
   await store.setManifestVersion(stamp(index.manifestVersion));
 };
 
-export type RefreshStatus = "updated" | "unchanged" | "manifest-changed";
-
-export interface RefreshOutcome {
-  status: RefreshStatus;
-  playing: string | undefined;
-  result: LoadResult | undefined;
-}
-
 /** Pulls definitions the load-time closure never reached, such as a weapon nobody owns */
 export const materializeItems = async (
   session: Session,
@@ -709,207 +509,8 @@ export const materializeItems = async (
   Object.assign(session.plugSets, closure.plugSets);
 };
 
-const materializeNew = (session: Session, profile: DestinyProfileResponse) =>
+export const materializeNew = (session: Session, profile: DestinyProfileResponse) =>
   materializeItems(session, [
     ...profileItems(profile).map((item) => item.itemHash),
     ...liveReferences(profile),
   ]);
-
-// The store factory bails on a profile with no inventory components
-const withoutInventories = (
-  profile: DestinyProfileResponse,
-): DestinyProfileResponse => {
-  const empty = {
-    data: { items: [] },
-    privacy: ComponentPrivacySetting.Private,
-  };
-
-  const byCharacter = {
-    data: Object.fromEntries(
-      Object.keys(profile.characters?.data ?? {}).map((id) => [
-        id,
-        { items: [] },
-      ]),
-    ),
-    privacy: ComponentPrivacySetting.Private,
-  };
-
-  return {
-    ...profile,
-    profileInventory: profile.profileInventory?.data
-      ? profile.profileInventory
-      : empty,
-    characterInventories: profile.characterInventories?.data
-      ? profile.characterInventories
-      : byCharacter,
-    characterEquipment: profile.characterEquipment?.data
-      ? profile.characterEquipment
-      : byCharacter,
-  };
-};
-
-const guestOf = (membership: Membership, profile: DestinyProfileResponse) => {
-  const who = profile.profile?.data?.userInfo;
-
-  return {
-    membershipType: membership.membershipType,
-    membershipId: membership.membershipId,
-    name: who?.bungieGlobalDisplayName || who?.displayName || "Guardian",
-    code: who?.bungieGlobalDisplayNameCode,
-    pinned: false,
-  };
-};
-
-/** Another account's profile built against the loaded definitions, and cached nowhere */
-export const loadGuest = async (
-  owner: LoadResult,
-  membership: Membership,
-): Promise<LoadResult> => {
-  const token = await accessToken();
-
-  if (!token) {
-    throw new NotSignedIn();
-  }
-
-  const profile = withoutInventories(await fetchProfile(membership, token));
-
-  const session: Session = {
-    ...owner.session,
-    membership,
-    minted: mintedAt(profile),
-    builtFrom: mintedAt(profile),
-    contents: "",
-    guest: guestOf(membership, profile),
-  };
-
-  await materializeNew(session, profile);
-
-  const built = buildStoresFrom(
-    session.support,
-    session.items,
-    session.plugSets,
-    profile,
-    session.hidden,
-  );
-
-  return {
-    ...owner,
-    stores: built.stores,
-    buckets: built.buckets,
-    items: storeItems(built.stores),
-    source: "live",
-    playing: playingNow(profile),
-    activities: profile.characterActivities?.data ?? {},
-    variables: stringVariables(profile),
-    records: characterRecords(profile),
-    orderRewards: orderRewards(profile),
-    counts: {
-      ...owner.counts,
-      skipped: built.skipped.reduce((total, group) => total + group.count, 0),
-      hidden: built.hidden,
-    },
-    skipped: built.skipped,
-    degraded: built.degraded,
-    session,
-  };
-};
-
-export const refreshProfile = async (
-  first: LoadResult,
-): Promise<RefreshOutcome> => {
-  const token = await accessToken();
-
-  if (!token) {
-    throw new NotSignedIn();
-  }
-
-  const session = first.session;
-  const config = await loadConfig();
-
-  if (config.artifacts.manifestVersion !== session.index.manifestVersion) {
-    return {
-      status: "manifest-changed",
-      playing: undefined,
-      result: undefined,
-    };
-  }
-
-  const profile = await fetchProfile(session.membership, token);
-  const minted = mintedAt(profile);
-  const playing = playingNow(profile);
-
-  if (isStale(session, minted)) {
-    console.info(`Profile ${ageOf(minted)} old, discarded`);
-
-    return { status: "unchanged", playing, result: undefined };
-  }
-
-  const contents = contentsOf(profile);
-
-  if (sameContents(session, contents)) {
-    session.minted = minted;
-    console.info(`Profile ${ageOf(minted)} old, no item changes`);
-
-    return {
-      status: "updated",
-      playing,
-      result: {
-        ...first,
-        source: "live",
-        playing,
-        activities: profile.characterActivities?.data ?? {},
-        variables: stringVariables(profile),
-        records: characterRecords(profile),
-        orderRewards: orderRewards(profile),
-      },
-    };
-  }
-
-  await materializeNew(session, profile);
-
-  if (isStale(session, minted)) {
-    console.info(`Profile ${ageOf(minted)} old, discarded`);
-
-    return { status: "unchanged", playing, result: undefined };
-  }
-
-  void session.store.putOne(PROFILE, CURRENT, profile);
-
-  const built = buildStoresFrom(
-    session.support,
-    session.items,
-    session.plugSets,
-    profile,
-    session.hidden,
-  );
-
-  session.minted = minted;
-  session.builtFrom = minted;
-  session.contents = contents;
-  await seedInventory(built.stores, session.membership);
-  console.info(`Profile ${ageOf(minted)} old, rebuilt`);
-
-  const result: LoadResult = {
-    ...first,
-    stores: built.stores,
-    buckets: built.buckets,
-    items: storeItems(built.stores),
-    source: "live",
-    playing,
-    activities: profile.characterActivities?.data ?? {},
-    variables: stringVariables(profile),
-    records: characterRecords(profile),
-    orderRewards: orderRewards(profile),
-    counts: {
-      ...first.counts,
-      skipped: built.skipped.reduce((total, group) => total + group.count, 0),
-      hidden: built.hidden,
-    },
-    skipped: built.skipped,
-    degraded: built.degraded,
-  };
-
-  saveSnapshot(session.store, result, stamp(first.manifestVersion));
-
-  return { status: "updated", playing, result };
-};

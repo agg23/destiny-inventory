@@ -1,10 +1,10 @@
-import type { ActivityTables } from "../../core/activities/activities.ts";
 import {
   byBucket,
   localDay,
   type BucketGroup,
   type HistoryRun,
 } from "../../core/activities/history.ts";
+import type { ActivityTables } from "../../core/activities/types.ts";
 import type { ActivityLookup } from "./activityLookup.ts";
 
 export interface Day {

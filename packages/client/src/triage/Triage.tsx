@@ -1,11 +1,11 @@
 import type { DimItem } from "app/inventory/item-types";
 import { createMemo, Show } from "solid-js";
 
-import { useApp } from "../App.tsx";
 import { Checkbox } from "../components/lib/Checkbox.tsx";
 import { PickOne } from "../components/lib/PickOne.tsx";
 import { Select } from "../components/lib/Select.tsx";
 import { Rail } from "../components/rail/Rail.tsx";
+import { useApp } from "../core/app/state.ts";
 import { tagDefs, tagFor } from "../core/items/tags.ts";
 import { useUrl } from "../core/router.ts";
 import { TRIAGE_SORTS, TRIAGE_STEPS, type TriageStep } from "../core/url.ts";

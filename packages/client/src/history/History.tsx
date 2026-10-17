@@ -1,18 +1,18 @@
 import { useNavigate, useParams } from "@solidjs/router";
-import { createMemo, createResource, For, Show } from "solid-js";
+import { createMemo, createResource, Show } from "solid-js";
 
-import { useApp } from "../App.tsx";
 import { PickOne } from "../components/lib/PickOne.tsx";
 import { CARD } from "../components/lib/text.ts";
 import { Button } from "../components/lib/zaidan/button.tsx";
-import { activityArt } from "../core/activities/activities.ts";
 import { activityTables } from "../core/activities/activityTables.ts";
+import { activityArt } from "../core/activities/art.ts";
 import {
   localDay,
   runsByDay,
   type ActivityRow,
   type HistoryRun,
 } from "../core/activities/history.ts";
+import { useApp } from "../core/app/state.ts";
 import { useUrl } from "../core/router.ts";
 import {
   activityHref,

@@ -8,17 +8,15 @@ import {
   bucketOf,
   byBucket,
   duration,
-  NO_TIER,
   playedSeconds,
-  project,
   runsByDay,
   sessions,
   span,
   summarize,
-  syncTiers,
   timingsByHash,
   type HistoryRun,
 } from "./history.ts";
+import { NO_TIER, project, syncTiers } from "./historySync.ts";
 
 const MINUTE = 60 * 1000;
 

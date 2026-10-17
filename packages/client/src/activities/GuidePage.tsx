@@ -4,12 +4,9 @@ import { createMemo, createResource, Show } from "solid-js";
 
 import { HERO } from "../components/lib/text.ts";
 import { Button } from "../components/lib/zaidan/button.tsx";
-import {
-  activityArt,
-  baseName,
-  tileArt,
-} from "../core/activities/activities.ts";
+import { baseName } from "../core/activities/activityNames.ts";
 import { activityTables } from "../core/activities/activityTables.ts";
+import { activityArt, tileArt } from "../core/activities/art.ts";
 import { guideNamed } from "../core/activities/guides.ts";
 import { activityLabel, tabHref } from "../core/url.ts";
 

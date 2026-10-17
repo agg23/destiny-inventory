@@ -1,7 +1,7 @@
 import { Show } from "solid-js";
 
 import { TableCell } from "../../components/lib/zaidan/table.tsx";
-import { tileArt } from "../../core/activities/activities.ts";
+import { tileArt } from "../../core/activities/art.ts";
 import { rungColor } from "./runFormat.ts";
 
 export interface PlateProps {

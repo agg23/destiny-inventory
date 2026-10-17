@@ -1,7 +1,7 @@
 import { Show } from "solid-js";
 
-import { useApp } from "../App.tsx";
 import { Rail } from "../components/rail/Rail.tsx";
+import { useApp } from "../core/app/state.ts";
 import { Inventory } from "./shared/Inventory.tsx";
 
 export const Vault = () => {

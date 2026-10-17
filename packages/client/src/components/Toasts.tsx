@@ -1,30 +1,6 @@
-import { createSignal, For } from "solid-js";
+import { For } from "solid-js";
 
-const DURATION = 5_000;
-
-export interface Toast {
-  id: number;
-  message: string;
-  kind: "info" | "danger";
-}
-
-const [toasts, setToasts] = createSignal<Toast[]>([]);
-
-let nextId = 0;
-
-const dismiss = (id: number) => {
-  setToasts((was) => was.filter((one) => one.id !== id));
-};
-
-/** Queues a toast that dismisses itself after a few seconds, or on click */
-export const showToast = (message: string, kind: Toast["kind"] = "info") => {
-  nextId += 1;
-
-  const id = nextId;
-
-  setToasts((was) => [...was, { id, message, kind }]);
-  window.setTimeout(() => dismiss(id), DURATION);
-};
+import { dismiss, toasts } from "../core/toast.ts";
 
 export const Toasts = () => (
   <div class="pointer-events-none fixed bottom-10 left-1/2 z-60 flex -translate-x-1/2 flex-col items-center gap-2">

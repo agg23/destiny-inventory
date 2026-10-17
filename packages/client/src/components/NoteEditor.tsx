@@ -2,7 +2,7 @@ import type { DimItem } from "app/inventory/item-types";
 import { useBeforeLeave } from "@solidjs/router";
 import { createEffect, createSignal, on, onCleanup, Show } from "solid-js";
 
-import { useApp } from "../App.tsx";
+import { useApp } from "../core/app/state.ts";
 import {
   collections,
   definedSession,

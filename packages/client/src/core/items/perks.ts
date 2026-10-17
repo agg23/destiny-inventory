@@ -5,7 +5,7 @@ import type {
   DestinyObjectiveProgress,
 } from "bungie-api-ts/destiny2";
 
-import type { Catalyst } from "../collections/collections.ts";
+import type { Catalyst } from "../collections/types.ts";
 import {
   getArmorArchetype,
   getSocketsByIndexes,

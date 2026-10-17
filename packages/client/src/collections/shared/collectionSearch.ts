@@ -25,18 +25,20 @@ import {
 import { matchText, plainString, startWordRegexp } from "app/search/text-utils";
 import D2Sources from "data/d2/source-info-v2";
 
+import { collections } from "../../core/collections/collections.ts";
 import {
   CATALYSTS,
-  collections,
   OTHER,
   STATUSES,
   withClass,
-  type ArmorSet,
-  type Collections,
-  type Entry,
-  type EntryFacts,
-  type Weapon,
-} from "../../core/collections/collections.ts";
+} from "../../core/collections/terms.ts";
+import type {
+  ArmorSet,
+  Collections,
+  Entry,
+  EntryFacts,
+  Weapon,
+} from "../../core/collections/types.ts";
 import {
   weaponPerks,
   type PerkText,

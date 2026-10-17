@@ -1,14 +1,9 @@
 import { activityName, type SlimActivity } from "@dvm/defs-core";
 
-import {
-  activityArt,
-  type ActivityTables,
-} from "../../core/activities/activities.ts";
-import {
-  NO_TIER,
-  type ActivityRow,
-  type HistoryRun,
-} from "../../core/activities/history.ts";
+import { activityArt } from "../../core/activities/art.ts";
+import type { ActivityRow, HistoryRun } from "../../core/activities/history.ts";
+import { NO_TIER } from "../../core/activities/historySync.ts";
+import type { ActivityTables } from "../../core/activities/types.ts";
 import type { PlateProps } from "./ActivityRow.tsx";
 
 const tierName = (

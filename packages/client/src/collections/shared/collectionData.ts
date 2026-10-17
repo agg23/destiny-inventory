@@ -1,19 +1,23 @@
 import type { DimItem } from "app/inventory/item-types";
 import { createMemo, createResource } from "solid-js";
 
-import { useApp } from "../../App.tsx";
+import { useApp } from "../../core/app/state.ts";
+import {
+  definedSession,
+  primeCollections,
+} from "../../core/collections/collections.ts";
 import {
   acquiredFor,
   catalystFor,
   copiesByKey,
-  definedSession,
   ownershipOf,
-  primeCollections,
-  type Catalyst,
-  type Cosmetic,
-  type Entry,
-  type Ownership,
-} from "../../core/collections/collections.ts";
+} from "../../core/collections/ownership.ts";
+import type {
+  Catalyst,
+  Cosmetic,
+  Entry,
+  Ownership,
+} from "../../core/collections/types.ts";
 import { dismiss, preview } from "../../core/items/preview.ts";
 import { fakeItems } from "../../core/profile/fakeItems.ts";
 

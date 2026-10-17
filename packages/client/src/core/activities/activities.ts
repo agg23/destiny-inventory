@@ -1,126 +1,31 @@
 import type {
-  GearTier,
   SlimActivity,
-  SlimActivitySet,
-  SlimActivityType,
-  SlimChallenge,
-  SlimDifficulty,
   SlimGraphNode,
   SlimModifier,
-  SlimPlace,
-  SlimMode,
-  SlimReward,
-  SlimSkull,
   SlimTier,
 } from "@dvm/defs-core";
-import { activityName, DIFFICULTIES } from "@dvm/defs-core";
+import { DIFFICULTIES } from "@dvm/defs-core";
 import type { DestinyActivity } from "bungie-api-ts/destiny2";
 
-import { BUNGIE } from "../api/bungie.ts";
-
-export interface ActivityTables {
-  activities: Record<number, SlimActivity>;
-  modifiers: Record<number, SlimModifier>;
-  types: Record<number, SlimActivityType>;
-  nodes: Record<number, SlimGraphNode>;
-  sets: Record<number, SlimActivitySet>;
-  destinations: Record<number, SlimPlace>;
-  places: Record<number, SlimPlace>;
-  rewards: Record<number, SlimReward>;
-  challenges: Record<number, SlimChallenge>;
-  difficulties: Record<number, SlimDifficulty>;
-  skulls: Record<number, SlimSkull>;
-  modes: Record<number, SlimMode>;
-}
-
-// Bungie's quantity is a flag, not a tally
-export interface Loot {
-  hash: number;
-  name: string;
-  icon: string | undefined;
-  quantity: number;
-}
-
-export interface Challenge {
-  name: string;
-  progress: number;
-  goal: number;
-  complete: boolean;
-}
-
-export type Matchmaking = "required" | "optional" | "none";
-
-export interface GearDrop {
-  base: GearTier;
-  top: GearTier;
-}
-
-export interface Variant {
-  hash: number;
-  name: string;
-  difficulty: string | undefined;
-  power: number | undefined;
-  matchmade: boolean;
-  gearTier: GearTier | undefined;
-}
-
-export interface Recalled {
-  flag: string;
-  bonusDrops: number;
-  focus: Loot | undefined;
-  bonus: Loot[];
-}
-
-export type Recall = (activityHash: number) => Recalled | undefined;
-
-export interface Available {
-  key: string;
-  hash: number;
-  name: string;
-  description: string;
-  pgcrImage: string | undefined;
-  typeName: string | undefined;
-  power: number | undefined;
-  topPower: number | undefined;
-  location: string | undefined;
-  featured: boolean;
-  bonus: Loot[];
-  bonusDrops: number;
-  focus: Loot | undefined;
-  matchmaking: Matchmaking;
-  challenges: Challenge[];
-  // Bungie drops consumed rewards from the payload
-  dropsTaken: number;
-  spentFocus: Loot | undefined;
-  spentBonus: Loot[];
-  variants: Variant[];
-  gear: GearDrop | undefined;
-  modifiers: SlimModifier[];
-  difficulties: SlimTier[];
-  locked: string[];
-}
-
-export interface Category {
-  hash: number;
-  name: string;
-  icon: string | undefined;
-  entries: Available[];
-  bonusDrops: number;
-  bonus: number;
-}
-
-export interface Realm {
-  name: string;
-  categories: Category[];
-  bonusDrops: number;
-  bonus: number;
-}
-
-// Bungie's uiStyle names predate the words on screen
-const BONUS_DROP = "extra_engram";
-
-export const BONUS_DROP_ITEM = 3956025454;
-const FOCUS = "daily_grind_guaranteed";
+import {
+  baseName,
+  identity,
+  laddered,
+  RAID_TYPE,
+  tier,
+} from "./activityNames.ts";
+import { backdrop } from "./art.ts";
+import { BONUS_DROP, flag, focusOf, gearOf, loot, reward } from "./rewards.ts";
+import type {
+  ActivityTables,
+  Available,
+  Category,
+  Challenge,
+  Matchmaking,
+  Realm,
+  Recall,
+  Recalled,
+} from "./types.ts";
 
 const OTHER = 0;
 const OTHER_NAME = "Elsewhere";
@@ -187,246 +92,7 @@ const DROPPED_TYPES = new Set([1838596016, 1686739444, 1299744814, 2694988718]);
 
 const STRIKE_TYPES = new Set([3547475498, 4110605575]);
 
-const RAID_TYPE = 2043403989;
-const DUNGEON_TYPE = 608898761;
-
 const BY_TYPE = new Map([[RAID_TYPE, RAIDS]]);
-
-// Bungie names both doors after the fireteam
-const VARIANT = /\s*[:-]\s*(Matchmade|Customize)\s*$/;
-
-interface ArtIndex {
-  exact: Map<string, SlimActivity[]>;
-  named: Map<string, SlimActivity[]>;
-}
-
-const ART_INDEX = new WeakMap<ActivityTables, ArtIndex>();
-
-const push = (
-  into: Map<string, SlimActivity[]>,
-  key: string,
-  one: SlimActivity,
-) => {
-  const found = into.get(key);
-
-  if (found) {
-    found.push(one);
-  } else {
-    into.set(key, [one]);
-  }
-};
-
-const artIndex = (tables: ActivityTables): ArtIndex => {
-  const held = ART_INDEX.get(tables);
-
-  if (held) {
-    return held;
-  }
-
-  const built: ArtIndex = { exact: new Map(), named: new Map() };
-
-  for (const definition of Object.values(tables.activities)) {
-    if (!definition.pgcrImage) {
-      continue;
-    }
-
-    push(built.exact, identity(definition), definition);
-    push(built.named, definition.name.replace(VARIANT, ""), definition);
-  }
-
-  ART_INDEX.set(tables, built);
-
-  return built;
-};
-
-// "Master Conquest: Derealize" is the same mission as "Derealize", one prefix deeper
-const tail = (name: string): string => {
-  const parts = name.split(": ");
-
-  return parts[parts.length - 1]!;
-};
-
-/** Resolves art for one activity, reaching for twins Bungie gave art the profile never lists */
-export const activityArt = (
-  definition: SlimActivity,
-  tables: ActivityTables,
-  group: SlimActivity[] = [],
-): string | undefined => {
-  const index = artIndex(tables);
-  const bare = definition.name.replace(VARIANT, "");
-  const where = definition.destinationHash ?? definition.placeHash ?? 0;
-  const arted = [
-    definition,
-    ...group,
-    ...(index.exact.get(identity(definition)) ?? []),
-    ...(index.named.get(bare) ?? []),
-    ...(index.exact.get(`${tail(bare)}|${where}`) ?? []),
-    ...(index.named.get(tail(bare)) ?? []),
-  ].filter((one) => one.pgcrImage);
-
-  return (
-    arted.find((one) => one.modeType === definition.modeType)?.pgcrImage ??
-    arted[0]?.pgcrImage
-  );
-};
-
-const backdrop = (
-  group: { definition: SlimActivity }[],
-  tables: ActivityTables,
-): string | undefined =>
-  activityArt(
-    group[0]!.definition,
-    tables,
-    group.map(({ definition }) => definition),
-  );
-
-// 55 Portal activities carry no art anywhere in the manifest, so the tile falls back to a wash
-const WASH: Record<string, string> = {
-  "The Crucible": "#7a2320, #31161a",
-  "Trials of Osiris": "#8a6a1f, #2b2418",
-  "Lighthouse Simulation": "#8a6a1f, #2b2418",
-  Nightfall: "#8a5410, #2c2015",
-  "Vanguard Op": "#1f4f77, #16212c",
-  Raid: "#6d4f12, #28211a",
-  Gambit: "#3f6b1c, #1b2716",
-  "Seasonal Arena": "#1d5f5c, #16262a",
-  "Exotic Mission": "#5a4a7a, #221f2c",
-  Mission: "#33475c, #1a2029",
-  Story: "#33475c, #1a2029",
-  "Solo Ops": "#2c5566, #182227",
-  Crawl: "#573a5e, #241a29",
-  Explore: "#3f5a35, #1d2419",
-  Social: "#6b563a, #262019",
-  "Sparrow Racing League": "#7a3a5a, #2a1a24",
-};
-
-const NEUTRAL_WASH = "#3a3d42, #1e2024";
-
-/** A background-image value for an activity tile, either its art or a wash keyed to its type */
-export const tileArt = (
-  image: string | undefined,
-  typeName: string | undefined,
-): string =>
-  image
-    ? `url(${BUNGIE}${image})`
-    : `linear-gradient(150deg, ${WASH[typeName ?? ""] ?? NEUTRAL_WASH})`;
-
-// bungie-api-ts 5.10.0 does not model the unlock expression
-interface Gated {
-  visibilityUnlockExpression?: { steps?: { valueHash?: number }[] };
-}
-
-const flag = (entry: DestinyActivity): string => {
-  const hashes = new Set<string>();
-
-  for (const group of entry.visibleRewards ?? []) {
-    for (const item of group.rewardItems) {
-      const gate = (item as Gated).visibilityUnlockExpression;
-
-      for (const step of gate?.steps ?? []) {
-        if (step.valueHash) {
-          hashes.add(String(step.valueHash));
-        }
-      }
-    }
-  }
-
-  return [...hashes].sort().join(".");
-};
-
-// Quantity zero is how Bungie omits a reward
-const loot = (entry: DestinyActivity, tables: ActivityTables): Loot[] => {
-  const found = new Map<string, Loot>();
-
-  for (const group of entry.visibleRewards ?? []) {
-    for (const item of group.rewardItems) {
-      const { itemHash, quantity } = item.itemQuantity;
-      const named = tables.rewards[itemHash];
-
-      if (item.uiStyle || quantity < 1 || !named?.name) {
-        continue;
-      }
-
-      const already = found.get(named.name);
-
-      if (already) {
-        already.quantity += quantity;
-      } else {
-        found.set(named.name, {
-          hash: itemHash,
-          name: named.name,
-          icon: named.icon,
-          quantity,
-        });
-      }
-    }
-  }
-
-  return [...found.values()];
-};
-
-// The tier lives on the reward item's type line, and the quantity flag says nothing about it
-const gearOf = (
-  entry: DestinyActivity,
-  tables: ActivityTables,
-): GearTier | undefined => {
-  let found: GearTier | undefined = undefined;
-
-  for (const group of entry.visibleRewards ?? []) {
-    for (const item of group.rewardItems) {
-      const tier = tables.rewards[item.itemQuantity.itemHash]?.gearTier;
-
-      if (!tier) {
-        continue;
-      }
-
-      found = found
-        ? {
-            low: Math.min(found.low, tier.low),
-            high: Math.max(found.high, tier.high),
-          }
-        : tier;
-    }
-  }
-
-  return found;
-};
-
-const reward = (entry: DestinyActivity, style: string): number => {
-  let total = 0;
-
-  for (const group of entry.visibleRewards ?? []) {
-    for (const item of group.rewardItems) {
-      if (item.uiStyle === style) {
-        total += item.itemQuantity.quantity;
-      }
-    }
-  }
-
-  return total;
-};
-
-const focusOf = (
-  entry: DestinyActivity,
-  tables: ActivityTables,
-): Loot | undefined => {
-  for (const group of entry.visibleRewards ?? []) {
-    for (const item of group.rewardItems) {
-      const named = tables.rewards[item.itemQuantity.itemHash];
-
-      if (item.uiStyle === FOCUS && named?.name) {
-        return {
-          hash: item.itemQuantity.itemHash,
-          name: named.name,
-          icon: named.icon,
-          quantity: item.itemQuantity.quantity,
-        };
-      }
-    }
-  }
-
-  return undefined;
-};
 
 interface Tree {
   byActivity: Map<number, number>;
@@ -499,27 +165,7 @@ const place = (
   return found && found !== type ? found : undefined;
 };
 
-const TIERS = [
-  "normal",
-  "standard",
-  "advanced",
-  "expert",
-  "master",
-  "grandmaster",
-];
-
 const QUICKPLAY = /^Quickplay\b/;
-
-const tier = (name: string): number => {
-  const found = TIERS.indexOf(
-    name
-      .slice(name.indexOf(":") + 1)
-      .trim()
-      .toLowerCase(),
-  );
-
-  return found === -1 ? TIERS.length : found;
-};
 
 const rank = (a: Available, b: Available): number => {
   const quick = Number(QUICKPLAY.test(b.name)) - Number(QUICKPLAY.test(a.name));
@@ -793,27 +439,6 @@ const placed = (definition: SlimActivity, root: number): number =>
   STRIKE_TYPES.has(definition.activityTypeHash)
     ? STRIKES_OTHER
     : root;
-
-// Raids and dungeons ship one activity per difficulty instead of one carrying a ladder
-const LADDERED_TYPES = new Set([RAID_TYPE, DUNGEON_TYPE]);
-
-const laddered = (definition: SlimActivity): boolean =>
-  definition.activityTypeHash !== undefined &&
-  LADDERED_TYPES.has(definition.activityTypeHash);
-
-export const baseName = (definition: SlimActivity): string =>
-  laddered(definition)
-    ? activityName(definition.name)
-    : definition.name.replace(VARIANT, "");
-
-// Grasp of Avarice gives its two doors their own destinations, and they share only the place
-const identity = (definition: SlimActivity): string => {
-  const where = laddered(definition)
-    ? definition.placeHash ?? definition.destinationHash ?? 0
-    : definition.destinationHash ?? definition.placeHash ?? 0;
-
-  return `${baseName(definition)}|${where}`;
-};
 
 const home = (
   group: { definition: SlimActivity }[],

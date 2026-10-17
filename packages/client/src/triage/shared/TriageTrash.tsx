@@ -1,6 +1,5 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
 
-import { useApp } from "../../App.tsx";
 import { ItemIcon } from "../../components/ItemIcon.tsx";
 import { Objective } from "../../components/lib/Progress.tsx";
 import { HEADING, TILE_GRID } from "../../components/lib/text.ts";
@@ -16,8 +15,9 @@ import {
 } from "../../components/lib/zaidan/alert-dialog.tsx";
 import { Button } from "../../components/lib/zaidan/button.tsx";
 import { NameCounts } from "../../components/NameCounts.tsx";
-import { showToast } from "../../components/Toasts.tsx";
+import { useApp } from "../../core/app/state.ts";
 import { guest } from "../../core/profile/guest.ts";
+import { showToast } from "../../core/toast.ts";
 import { plural } from "../../history/shared/runFormat.ts";
 import {
   nextTrash,

@@ -19,12 +19,8 @@ import { readable } from "../../core/activities/activities.ts";
 import { BUNGIE } from "../../core/api/bungie.ts";
 import { tileKey } from "../../core/profile/fakeItems.ts";
 import { nextDailyReset, remaining } from "../../core/todo/reset.ts";
-import {
-  visitEndsAt,
-  type Offer,
-  type Slot,
-  type VendorState,
-} from "../../core/todo/vendors.ts";
+import { visitEndsAt } from "../../core/todo/vendors.ts";
+import type { Offer, Slot, VendorState } from "../../core/todo/vendorTypes.ts";
 import { exact } from "./todoFormat.ts";
 
 const OfferRow = (props: { offer: Offer; now: number }) => (

@@ -8,7 +8,7 @@ import {
 } from "solid-js";
 
 import { BUNGIE } from "../core/api/bungie.ts";
-import type { ArmorSet, Entry } from "../core/collections/collections.ts";
+import type { ArmorSet, Entry } from "../core/collections/types.ts";
 import type { SearchEngine } from "../core/search/search.ts";
 import {
   forgetSearch,

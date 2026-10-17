@@ -3,7 +3,7 @@ import type {
   Catalyst,
   Entry,
   Ownership,
-} from "../../core/collections/collections.ts";
+} from "../../core/collections/types.ts";
 import {
   ratingFor,
   setBonusFor,

@@ -5,7 +5,6 @@ import type {
 } from "bungie-api-ts/destiny2";
 import { createResource, createSignal, For, onCleanup, Show } from "solid-js";
 
-import { useApp } from "../../App.tsx";
 import { ItemIcon } from "../../components/ItemIcon.tsx";
 import { TABLE_FRAME, TABLE_HEADER } from "../../components/lib/text.ts";
 import { Button } from "../../components/lib/zaidan/button.tsx";
@@ -17,14 +16,15 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/lib/zaidan/table.tsx";
-import type { ActivityTables } from "../../core/activities/activities.ts";
 import { duration } from "../../core/activities/history.ts";
+import type { ActivityTables } from "../../core/activities/types.ts";
 import { accessToken } from "../../core/api/auth.ts";
 import { BUNGIE, fetchCarnageReport } from "../../core/api/bungie.ts";
+import { useApp } from "../../core/app/state.ts";
 import { dismiss, preview } from "../../core/items/preview.ts";
 import { defs } from "../../core/profile/defs.ts";
 import { fakeItems } from "../../core/profile/fakeItems.ts";
-import type { Session } from "../../core/profile/load.ts";
+import type { Session } from "../../core/profile/loadTypes.ts";
 import { REPORTS } from "../../core/profile/store.ts";
 
 interface StoredReport {

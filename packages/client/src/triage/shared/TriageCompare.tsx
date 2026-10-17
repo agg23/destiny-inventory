@@ -8,9 +8,9 @@ import {
   Show,
 } from "solid-js";
 
-import { useApp } from "../../App.tsx";
 import { Compare } from "../../components/Compare.tsx";
 import { Button } from "../../components/lib/zaidan/button.tsx";
+import { useApp } from "../../core/app/state.ts";
 import { tagFor } from "../../core/items/tags.ts";
 import { useUrl } from "../../core/router.ts";
 import { bundlesOf, taggedIds, type Bundle } from "./triage.ts";
