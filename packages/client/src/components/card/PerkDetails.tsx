@@ -1,9 +1,11 @@
-import type { DimItem } from "app/inventory/item-types";
+import type { DimItem, DimPlug } from "app/inventory/item-types";
 import type { DestinyObjectiveProgress } from "bungie-api-ts/destiny2";
 import { createMemo, For, Show } from "solid-js";
 
 import { CATALYST_LABELS } from "../../core/collections/labels.ts";
 import type { Catalyst } from "../../core/collections/types.ts";
+import { clarityFor } from "../../core/items/clarity.ts";
+import { dismissPerk, previewPerk } from "../../core/items/perkPreview.ts";
 import {
   archetype,
   benefits,
@@ -22,6 +24,15 @@ import { Badge } from "../lib/zaidan/badge.tsx";
 import { RollTier } from "./AegisNote.tsx";
 import { GOLD_BADGE, GoldBadge } from "./GoldBadge.tsx";
 import { PERK, PERK_NAME, PERK_TEXT, PerkIcon, PerkRow } from "./PerkRow.tsx";
+
+const clarityHover = (item: DimItem, plug: DimPlug) => ({
+  onMouseEnter: (event: MouseEvent & { currentTarget: HTMLDivElement }) => {
+    if (clarityFor(plug.plugDef.hash)) {
+      previewPerk(item, plug, event.currentTarget);
+    }
+  },
+  onMouseLeave: () => dismissPerk(plug),
+});
 
 export const Archetype = (props: { item: DimItem }) => {
   const found = createMemo(() => archetype(props.item));
@@ -45,6 +56,7 @@ export const Intrinsics = (props: { item: DimItem }) => {
     <For each={list()}>
       {(intrinsic) => (
         <PerkRow
+          {...clarityHover(props.item, intrinsic.plug)}
           icon={intrinsic.icon}
           square
           name={intrinsic.name}
@@ -87,6 +99,7 @@ export const Catalysts = (props: { item: DimItem; account?: Catalyst }) => {
         <For each={list()}>
           {(catalyst) => (
             <PerkRow
+              {...clarityHover(props.item, catalyst.plug)}
               icon={catalyst.icon}
               square
               badged
@@ -255,6 +268,7 @@ export const Benefits = (props: { item: DimItem }) => {
       <For each={list()}>
         {(benefit) => (
           <PerkRow
+            {...clarityHover(props.item, benefit.plug)}
             icon={benefit.icon}
             enhanced={benefit.enhanced}
             square={benefit.intrinsic}

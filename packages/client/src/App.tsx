@@ -4,6 +4,7 @@ import type { DimStore } from "app/inventory/store-types";
 import { useLocation, useNavigate } from "@solidjs/router";
 import {
   createEffect,
+  createMemo,
   createSignal,
   on,
   onCleanup,
@@ -39,6 +40,7 @@ import { createSession } from "./core/app/session.ts";
 import { AppContext, type AppState } from "./core/app/state.ts";
 import { messageOf } from "./core/error.ts";
 import { acquired } from "./core/items/arrivals.ts";
+import { startClarity } from "./core/items/clarity.ts";
 import { syncNotes } from "./core/items/notes.ts";
 import { clearPerk } from "./core/items/perkPreview.ts";
 import { clear } from "./core/items/preview.ts";
@@ -94,6 +96,14 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   });
 
   createIconWarmup(session.current);
+
+  const loaded = createMemo(() => session.current() !== undefined);
+
+  createEffect(() => {
+    if (loaded()) {
+      onCleanup(startClarity());
+    }
+  });
 
   // Keyed on the id, a new session object would restart the recorder
   createEffect(

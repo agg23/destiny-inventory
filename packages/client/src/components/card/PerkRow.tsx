@@ -43,11 +43,17 @@ interface Props {
   stats?: StatChange[];
   description?: string;
   children?: JSX.Element;
+  onMouseEnter?: JSX.EventHandler<HTMLDivElement, MouseEvent>;
+  onMouseLeave?: () => void;
 }
 
 /** A perk's icon, name, stat changes and description, then any children */
 export const PerkRow = (props: Props) => (
-  <div class={PERK}>
+  <div
+    class={PERK}
+    onMouseEnter={props.onMouseEnter}
+    onMouseLeave={props.onMouseLeave}
+  >
     <PerkIcon
       icon={props.icon}
       enhanced={props.enhanced}

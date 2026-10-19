@@ -88,7 +88,7 @@ export const ItemHead = (props: {
 );
 
 // DestinyAmmunitionType
-const AMMO: Record<number, { url: string; name: string }> = {
+export const AMMO: Record<number, { url: string; name: string }> = {
   1: { url: ammoPrimary, name: "Primary" },
   2: { url: ammoSpecial, name: "Special" },
   3: { url: ammoHeavy, name: "Heavy" },

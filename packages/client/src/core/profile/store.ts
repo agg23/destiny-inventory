@@ -1,5 +1,5 @@
 const DB_NAME = "dvm";
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 
 export const CORE = "core";
 export const DETAIL = "detail";
@@ -9,6 +9,7 @@ export const REPORTS = "reports";
 export const PROGRESS = "progress";
 export const PROFILE = "profile";
 export const STAT_CHUNKS = "statChunks";
+export const CLARITY = "clarity";
 
 const META = "meta";
 const STORES = [CORE, DETAIL, PLUG_SETS];
@@ -51,6 +52,10 @@ const open = (): Promise<IDBDatabase> =>
 
       if (!db.objectStoreNames.contains(META)) {
         db.createObjectStore(META);
+      }
+
+      if (!db.objectStoreNames.contains(CLARITY)) {
+        db.createObjectStore(CLARITY);
       }
     };
 

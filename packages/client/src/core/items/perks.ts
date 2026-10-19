@@ -1,4 +1,8 @@
-import type { DimItem, DimPlug } from "app/inventory/item-types";
+import type {
+  DimItem,
+  DimPlug,
+  PluggableInventoryItemDefinition,
+} from "app/inventory/item-types";
 import {
   getArmorArchetype,
   getSocketsByIndexes,
@@ -30,6 +34,7 @@ export interface StatChange extends Delta {
 }
 
 interface Benefit {
+  plug: DimPlug;
   name: string;
   icon: string | undefined;
   enhanced: boolean;
@@ -47,6 +52,7 @@ export type CatalystState = (typeof CATALYSTS)[number];
 
 interface CatalystPlug {
   hash: number;
+  plug: DimPlug;
   name: string;
   icon: string | undefined;
   lines: CatalystLine[];
@@ -157,6 +163,7 @@ export const benefitFor = (
   const written = describe(plug);
 
   return {
+    plug,
     name,
     icon: iconOf(plug.plugDef.displayProperties),
     enhanced: isEnhancedPerk(plug.plugDef),
@@ -370,7 +377,7 @@ export const catalysts = (
   for (const socket of item.sockets?.allSockets ?? []) {
     const offered = [
       ...[...socket.plugOptions, ...(socket.plugSet?.plugs ?? [])].map(
-        (plug) => ({ def: plug.plugDef, stats: changes(item, plug) }),
+        (plug) => ({ def: plug.plugDef, plug, stats: changes(item, plug) }),
       ),
       // DIM skips this field beside a plug set
       ...(socket.socketDefinition.reusablePlugItems ?? []).flatMap((plug) => {
@@ -380,6 +387,14 @@ export const catalysts = (
           ? [
               {
                 def,
+                // Only isCatalyst defs are kept, and those have a plug
+                plug: {
+                  plugDef: def as PluggableInventoryItemDefinition,
+                  plugObjectives: [],
+                  enabled: true,
+                  enableFailReasons: "",
+                  stats: null,
+                },
                 stats: (def.investmentStats ?? []).flatMap((stat) =>
                   stat.isConditionallyActive
                     ? []
@@ -430,7 +445,7 @@ export const catalysts = (
       ...listed.filter(({ def }) => ownHashes(def).length > 0),
     ];
 
-    return ordered.map(({ def, stats }) => {
+    return ordered.map(({ def, plug, stats }) => {
       const own = new Set(ownHashes(def));
       const objectives = [
         ...(account?.objectives ?? []).filter((objective) =>
@@ -441,6 +456,7 @@ export const catalysts = (
 
       return {
         hash: def.hash,
+        plug,
         name: def.displayProperties.name,
         icon: iconOf(def.displayProperties),
         lines: catalystLines(def),
