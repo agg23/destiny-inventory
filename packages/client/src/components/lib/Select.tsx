@@ -9,6 +9,7 @@ interface SharedProps<T extends string> {
   label: string;
   options: readonly T[];
   names: Record<T, string>;
+  size?: "sm" | "default";
   class?: string;
   children?: JSX.Element;
 }
@@ -35,6 +36,7 @@ export const Select = <T extends string>(
     {props.label}
     <NativeSelect
       class="text-foreground"
+      size={props.size}
       value={props.value ?? ALL}
       onChange={(event) => {
         const value = event.currentTarget.value as T;

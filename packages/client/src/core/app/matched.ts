@@ -1,5 +1,6 @@
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
+import { isClassCompatible } from "app/utils/item-utils";
 import { createEffect, createMemo } from "solid-js";
 
 import { defs } from "../profile/defs.ts";
@@ -47,6 +48,7 @@ export const createMatched = (
   stores: () => DimStore[],
   query: () => string,
   previewQuery: () => string | undefined,
+  vaultArmorClass: () => DimStore["classType"] | undefined,
 ) => {
   createEffect(() => {
     const held = stores();
@@ -64,6 +66,7 @@ export const createMatched = (
   const matched = createMemo<Matched>(
     () => {
       const test = filter();
+      const armorClass = vaultArmorClass();
       const byStore = new Map<string, Map<number, DimItem[]>>();
       let total = 0;
 
@@ -72,6 +75,15 @@ export const createMatched = (
 
         for (const item of store.items) {
           if (!test(item)) {
+            continue;
+          }
+
+          if (
+            armorClass !== undefined &&
+            store.isVault &&
+            item.bucket.inArmor &&
+            !isClassCompatible(item.classType, armorClass)
+          ) {
             continue;
           }
 

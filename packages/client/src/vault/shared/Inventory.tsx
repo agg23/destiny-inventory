@@ -204,6 +204,7 @@ export const Inventory = () => {
               <VaultHeader
                 store={store()}
                 capacity={vaultCapacity()}
+                character={shown().find((one) => !one.isVault)}
               />
             )}
           </Show>

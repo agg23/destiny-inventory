@@ -48,6 +48,7 @@ export interface Settings {
   overlay: boolean;
   ratings: RatingDisplay;
   sort: VaultSort;
+  hideOtherClasses: boolean;
 }
 
 export const DEFAULTS: Settings = {
@@ -55,6 +56,7 @@ export const DEFAULTS: Settings = {
   overlay: false,
   ratings: "pve-pvp",
   sort: "name",
+  hideOtherClasses: false,
 };
 
 const clamp = (next: Settings): Settings => ({
@@ -62,6 +64,7 @@ const clamp = (next: Settings): Settings => ({
   overlay: next.overlay,
   ratings: next.ratings,
   sort: next.sort,
+  hideOtherClasses: next.hideOtherClasses,
 });
 
 const read = (): Settings => {
@@ -71,7 +74,8 @@ const read = (): Settings => {
     return DEFAULTS;
   }
 
-  const { tile, overlay, ratings, sort } = parsed as Partial<Settings>;
+  const { tile, overlay, ratings, sort, hideOtherClasses } =
+    parsed as Partial<Settings>;
 
   return clamp({
     tile: typeof tile === "number" ? tile : DEFAULTS.tile,
@@ -80,6 +84,10 @@ const read = (): Settings => {
       ? ratings!
       : DEFAULTS.ratings,
     sort: VAULT_SORTS.some((one) => one === sort) ? sort! : DEFAULTS.sort,
+    hideOtherClasses:
+      typeof hideOtherClasses === "boolean"
+        ? hideOtherClasses
+        : DEFAULTS.hideOtherClasses,
   });
 };
 
