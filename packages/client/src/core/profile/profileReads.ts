@@ -87,21 +87,29 @@ export const ageOf = (minted: number): string =>
 const LIVE_WINDOW = 10 * MINUTE;
 
 // currentActivityHash sits stale after a logout
+export const inGame = (
+  profile: DestinyProfileResponse,
+  characterId: string,
+  now: number,
+): boolean => {
+  const activity = profile.characterActivities?.data?.[characterId];
+  const lastPlayed = new Date(
+    profile.characters?.data?.[characterId]?.dateLastPlayed ?? 0,
+  ).getTime();
+
+  return (
+    !!activity &&
+    activity.currentActivityHash !== 0 &&
+    now - lastPlayed < LIVE_WINDOW
+  );
+};
+
 export const playingNow = (profile: DestinyProfileResponse): string | undefined => {
-  const characters = profile.characters?.data ?? {};
   const now = Date.now();
 
-  for (const [id, activity] of Object.entries(
-    profile.characterActivities?.data ?? {},
-  )) {
-    const lastPlayed = new Date(characters[id]?.dateLastPlayed ?? 0).getTime();
-
-    if (activity.currentActivityHash !== 0 && now - lastPlayed < LIVE_WINDOW) {
-      return id;
-    }
-  }
-
-  return undefined;
+  return Object.keys(profile.characterActivities?.data ?? {}).find((id) =>
+    inGame(profile, id, now),
+  );
 };
 
 export const profileItems = (profile: DestinyProfileResponse) => [

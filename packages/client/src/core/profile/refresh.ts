@@ -30,7 +30,7 @@ export const startAutoRefresh = ({
 
   const attempt = () => {
     // A refresh landing mid-move would rebuild the stores under it
-    if (stopped || document.hidden || !navigator.onLine || busy()) {
+    if (stopped || !navigator.onLine || busy()) {
       schedule();
 
       return;

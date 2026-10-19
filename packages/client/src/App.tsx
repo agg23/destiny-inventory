@@ -51,6 +51,7 @@ import { railRoomy } from "./core/rail.ts";
 import { useUrl } from "./core/router.ts";
 import { itemSearch } from "./core/search/search.ts";
 import { settings } from "./core/settings.ts";
+import { startStats } from "./core/stats/log.ts";
 import { showToast } from "./core/toast.ts";
 import { syncOrders } from "./core/todo/orders.ts";
 import { startUpdateCheck } from "./core/update.ts";
@@ -93,6 +94,26 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   });
 
   createIconWarmup(session.current);
+
+  // Keyed on the id, a new session object would restart the recorder
+  createEffect(
+    on(
+      () => {
+        const loaded = session.current();
+
+        return loaded && !session.viewing() && !loaded.session.guest
+          ? loaded.session.membership.membershipId
+          : undefined;
+      },
+      (membershipId) => {
+        const store = session.current()?.session.store;
+
+        if (membershipId && store) {
+          onCleanup(startStats(store, membershipId));
+        }
+      },
+    ),
+  );
 
   const tab = (): Tab =>
     TABS.find((one) => location.pathname.startsWith(`/${one}`)) ?? "vault";

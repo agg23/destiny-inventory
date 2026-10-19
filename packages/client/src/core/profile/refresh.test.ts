@@ -35,7 +35,7 @@ describe("auto refresh", () => {
     vi.unstubAllGlobals();
   });
 
-  it("polls on an interval while visible", async () => {
+  it("polls on an interval", async () => {
     const onRefresh = vi.fn(() => Promise.resolve());
     const { stop } = startAutoRefresh({ onRefresh, busy: () => false });
 
@@ -48,13 +48,13 @@ describe("auto refresh", () => {
     stop();
   });
 
-  it("does not poll while the tab is hidden", async () => {
+  it("keeps polling while the tab is hidden", async () => {
     setHidden(true);
     const onRefresh = vi.fn(() => Promise.resolve());
     const { stop } = startAutoRefresh({ onRefresh, busy: () => false });
 
-    await vi.advanceTimersByTimeAsync(120_000);
-    expect(onRefresh).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(16_000);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
 
     stop();
   });

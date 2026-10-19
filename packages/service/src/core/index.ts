@@ -25,6 +25,18 @@ export {
   type NoteStore,
 } from "./notes.ts";
 export {
+  isAfter,
+  MAX_CHUNK_LENGTH,
+  parseChunk,
+  STAT_BUCKET,
+  STAT_PAGE,
+  type StatChunk,
+  type StatChunkWrite,
+  type StatCursor,
+  type StatStore,
+  type StoredChunk,
+} from "./stats.ts";
+export {
   parseWrite,
   type ItemTag,
   type ItemTagChange,

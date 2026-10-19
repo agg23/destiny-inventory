@@ -10,6 +10,7 @@ const LABELS: Record<Tab, string> = {
   activities: "Activities",
   todo: "Todo",
   history: "History",
+  stats: "Stats",
 };
 
 const PAGE_LINK = "inline-flex h-7 items-center rounded-md px-2.5";

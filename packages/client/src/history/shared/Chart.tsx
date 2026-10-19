@@ -1,8 +1,10 @@
 import { BarChart, LineChart } from "echarts/charts";
 import {
   GridComponent,
+  MarkAreaComponent,
   TooltipComponent,
   type GridComponentOption,
+  type MarkAreaComponentOption,
   type TooltipComponentOption,
 } from "echarts/components";
 import * as echarts from "echarts/core";
@@ -14,6 +16,7 @@ echarts.use([
   BarChart,
   LineChart,
   GridComponent,
+  MarkAreaComponent,
   TooltipComponent,
   CanvasRenderer,
 ]);
@@ -22,6 +25,7 @@ export type ChartOption = echarts.ComposeOption<
   | BarSeriesOption
   | LineSeriesOption
   | GridComponentOption
+  | MarkAreaComponentOption
   | TooltipComponentOption
 >;
 

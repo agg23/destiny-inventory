@@ -3,6 +3,7 @@ import { fetchProfile } from "../api/bungie.ts";
 import { loadConfig } from "../api/config.ts";
 import { rebuildProfile, stamp } from "./load.ts";
 import type { LoadResult, RefreshOutcome } from "./loadTypes.ts";
+import { recordProfile } from "../stats/log.ts";
 import { ageOf, liveFields, mintedAt } from "./profileReads.ts";
 import { saveSnapshot } from "./snapshot.ts";
 
@@ -22,6 +23,7 @@ export const refreshProfile = async (
   }
 
   const profile = await fetchProfile(session.membership, token);
+  void recordProfile(session.membership.membershipId, profile);
   const minted = mintedAt(profile);
   const fields = liveFields(profile);
   const playing = fields.playing;

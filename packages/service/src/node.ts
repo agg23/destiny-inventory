@@ -9,10 +9,13 @@ import { Readable } from "node:stream";
 
 import {
   createHandler,
+  isAfter,
   loaderFrom,
   type ItemTag,
   type Note,
   type NoteStore,
+  type StatStore,
+  type StoredChunk,
   type TagDef,
   type TagStore,
 } from "./core/index.ts";
@@ -110,6 +113,29 @@ const memoryNotes = (): NoteStore => {
   };
 };
 
+const memoryStats = (): StatStore => {
+  const chunks = new Map<string, Map<string, StoredChunk>>();
+
+  return {
+    read: async (membershipId, after, limit) =>
+      [...bucket(chunks, membershipId).values()]
+        .filter((chunk) => isAfter(chunk, after))
+        .sort((a, b) => a.updatedAt - b.updatedAt || a.startsAt - b.startsAt)
+        .slice(0, limit),
+
+    write: async (membershipId, chunk, now) => {
+      const held = bucket(chunks, membershipId);
+      const existing = held.get(String(chunk.startsAt));
+
+      if (existing && existing.length > chunk.length) {
+        return;
+      }
+
+      held.set(String(chunk.startsAt), { ...chunk, updatedAt: now });
+    },
+  };
+};
+
 const toRequest = (req: IncomingMessage, body: Buffer): Request =>
   new Request(`http://localhost:${PORT}${req.url}`, {
     method: req.method,
@@ -142,6 +168,7 @@ const handler = createHandler({
   loader: loaderFrom(read),
   tags: memoryTags(),
   notes: memoryNotes(),
+  stats: memoryStats(),
 });
 
 createServer((req, res) => {

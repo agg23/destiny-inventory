@@ -186,7 +186,11 @@ export const load = async (
 
     if (fresh) {
       core = await fetchRecords<ItemDef>(index, "core");
-      items = keyBy(core, (record) => record.hash);
+      // Copies, since detail merges into these and core is cached as is
+      items = keyBy(
+        core.map((record) => ({ ...record })),
+        (record) => record.hash,
+      );
     } else {
       const closure = await materializeClosure(owned, {
         items: (hashes) => readMerged(store, hashes),

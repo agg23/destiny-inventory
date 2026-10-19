@@ -45,6 +45,7 @@ const service = () =>
     loader: { index: async () => undefined, raw: async () => undefined },
     tags: memory(),
     notes: { read: async () => [], write: async () => undefined },
+    stats: { read: async () => [], write: async () => undefined },
   });
 
 const bearer = async (membershipId: string) =>

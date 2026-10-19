@@ -6,6 +6,7 @@ import {
   type Membership,
   type NoteKind,
   type NoteStore,
+  type StatStore,
   type Store,
   type TagStore,
 } from "./core/index.ts";
@@ -210,6 +211,66 @@ const noteStore = (db: Database): NoteStore => ({
   },
 });
 
+interface ChunkRow {
+  starts_at: number;
+  ends_at: number;
+  // D1 returns BLOBs as number arrays
+  body: number[];
+  body_length: number;
+  updated_at: number;
+}
+
+const READ_CHUNKS = `SELECT starts_at, ends_at, body, body_length, updated_at FROM stat_chunks
+WHERE membership_id = ? AND (updated_at > ? OR (updated_at = ? AND starts_at > ?))
+ORDER BY updated_at, starts_at
+LIMIT ?`;
+
+const WRITE_CHUNK = `INSERT INTO stat_chunks (membership_id, starts_at, ends_at, body, body_length, updated_at)
+VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT (membership_id, starts_at) DO UPDATE SET
+  ends_at = excluded.ends_at,
+  body = excluded.body,
+  body_length = excluded.body_length,
+  updated_at = excluded.updated_at
+WHERE excluded.body_length >= stat_chunks.body_length`;
+
+const statStore = (db: Database): StatStore => ({
+  read: async (membershipId, after, limit) => {
+    const chunks = await db
+      .prepare(READ_CHUNKS)
+      .bind(
+        membershipId,
+        after.updatedAt,
+        after.updatedAt,
+        after.startsAt,
+        limit,
+      )
+      .all<ChunkRow>();
+
+    return chunks.results.map((row) => ({
+      startsAt: row.starts_at,
+      endsAt: row.ends_at,
+      gzipped: new Uint8Array(row.body),
+      length: row.body_length,
+      updatedAt: row.updated_at,
+    }));
+  },
+
+  write: async (membershipId, chunk, now) => {
+    await db
+      .prepare(WRITE_CHUNK)
+      .bind(
+        membershipId,
+        chunk.startsAt,
+        chunk.endsAt,
+        chunk.gzipped,
+        chunk.length,
+        now,
+      )
+      .run();
+  },
+});
+
 // Only the index is read here. The client fetches chunks straight from the asset handler
 const assetLoader = (env: Env, origin: string): ArtifactLoader => {
   const read = async (file: string): Promise<ArrayBuffer | undefined> => {
@@ -253,6 +314,7 @@ export default {
       baseline: baselineOf(env),
       tags: tagStore(env.TAGS),
       notes: noteStore(env.TAGS),
+      stats: statStore(env.TAGS),
     });
 
     const inner = new Request(

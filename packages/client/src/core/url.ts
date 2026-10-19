@@ -69,6 +69,14 @@ export const LAYOUTS = ["grid", "list"] as const;
 
 export type Layout = (typeof LAYOUTS)[number];
 
+export const STAT_PERIODS = ["24h", "7d", "30d", "all"] as const;
+
+export type StatPeriod = (typeof STAT_PERIODS)[number];
+
+export const KILL_MODES = ["all", "pve", "pvp"] as const;
+
+export type KillMode = (typeof KILL_MODES)[number];
+
 export const KINDS = ["weapon", "armor"] as const;
 
 export type Kind = (typeof KINDS)[number];
@@ -98,6 +106,12 @@ const PARAMS = {
   kind: choice(KINDS, "weapon"),
   by: choice(GROUPINGS, "type"),
   layout: choice(LAYOUTS, "grid"),
+  period: choice(STAT_PERIODS, "24h"),
+  day: text(),
+  currency: count(),
+  weapons: flag(),
+  weapon: ids(),
+  kills: choice(KILL_MODES, "all"),
 };
 
 export type Params = {
@@ -134,6 +148,7 @@ export const TABS = [
   "activities",
   "todo",
   "history",
+  "stats",
 ] as const;
 
 export type Tab = (typeof TABS)[number];

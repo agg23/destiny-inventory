@@ -6,11 +6,14 @@ import {
 } from "app/inventory/store/d2-item-factory";
 import type { DestinyProfileResponse } from "bungie-api-ts/destiny2";
 
+import { componentsOf, rebuildItem } from "../stats/rebuild.ts";
+import type { ItemSnapshot } from "../stats/types.ts";
 import type { VendorComponents } from "../todo/vendorTypes.ts";
 import { defs } from "./defs.ts";
-import { materializeItems } from "./load.ts";
+import { CURRENT, materializeItems } from "./load.ts";
 import type { LoadResult } from "./loadTypes.ts";
 import { componentPlugHashes } from "./profileReads.ts";
+import { PROFILE } from "./store.ts";
 
 // An uninstanced item reads nothing off the profile
 const NO_PROFILE = {} as DestinyProfileResponse;
@@ -143,4 +146,57 @@ export const vendorTiles = async (
   lastTiles = built;
 
   return built;
+};
+
+const REBUILT = new Map<string, DimItem>();
+
+/** Items gone from the profile, rebuilt with their real roll from a logged snapshot */
+export const rebuiltItems = async (
+  loaded: LoadResult,
+  snapshots: ItemSnapshot[],
+): Promise<Map<string, DimItem>> => {
+  const found = new Map<string, DimItem>();
+  const missing = snapshots.filter((snapshot) => {
+    const id = snapshot.item.itemInstanceId ?? "0";
+    const held = REBUILT.get(id);
+
+    if (held) {
+      found.set(id, held);
+    }
+
+    return !held;
+  });
+
+  await materializeItems(loaded.session, [
+    ...missing.map((snapshot) => snapshot.item.itemHash),
+    ...missing.map(componentsOf).flatMap(componentPlugHashes),
+  ]);
+
+  const table = defs();
+  const profile = await loaded.session.store.getOne<DestinyProfileResponse>(
+    PROFILE,
+    CURRENT,
+  );
+
+  if (!table || !profile) {
+    return found;
+  }
+
+  for (const snapshot of missing) {
+    const id = snapshot.item.itemInstanceId ?? "0";
+    const item = rebuildItem(table, loaded.buckets, profile, snapshot);
+
+    if (!item) {
+      continue;
+    }
+
+    found.set(id, item);
+
+    // Core defs carry no sockets
+    if (loaded.tier === "detail") {
+      REBUILT.set(id, item);
+    }
+  }
+
+  return found;
 };

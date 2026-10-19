@@ -14,6 +14,13 @@ import {
   SESSION_MS,
   type Session,
 } from "./session.ts";
+import {
+  gunzip,
+  gzip,
+  parseChunk,
+  STAT_PAGE,
+  type StatStore,
+} from "./stats.ts";
 import { parseWrite, type TagStore } from "./tags.ts";
 
 export interface ServiceConfig {
@@ -28,6 +35,7 @@ export interface ServiceConfig {
   baseline?: { store: Store; reference: Membership };
   tags: TagStore;
   notes: NoteStore;
+  stats: StatStore;
 }
 
 // Blocks path traversal
@@ -212,6 +220,64 @@ export const createHandler = (config: ServiceConfig) => {
           parseNote,
           "Bad note",
         );
+      }
+
+      if (
+        pathname === "/stats" &&
+        (request.method === "GET" || request.method === "POST")
+      ) {
+        const session = await sessionOf(request);
+
+        if (!session) {
+          return json({ error: "Sign in required" }, config.allowedOrigin, 401);
+        }
+
+        if (request.method === "GET") {
+          const params = new URL(request.url).searchParams;
+          const cursorPart = (name: string) => {
+            const raw = Number(params.get(name));
+
+            return Number.isSafeInteger(raw) && raw > 0 ? raw : 0;
+          };
+          const stored = await config.stats.read(
+            session.membershipId,
+            { updatedAt: cursorPart("since"), startsAt: cursorPart("after") },
+            STAT_PAGE,
+          );
+          const chunks = await Promise.all(
+            stored.map(async (chunk) => ({
+              startsAt: chunk.startsAt,
+              endsAt: chunk.endsAt,
+              body: await gunzip(chunk.gzipped),
+              updatedAt: chunk.updatedAt,
+            })),
+          );
+
+          return json(
+            { chunks, more: stored.length === STAT_PAGE },
+            config.allowedOrigin,
+          );
+        }
+
+        const chunk = parseChunk(await request.json());
+
+        if (!chunk) {
+          return json({ error: "Bad stat chunk" }, config.allowedOrigin, 400);
+        }
+
+        const now = Date.now();
+        await config.stats.write(
+          session.membershipId,
+          {
+            startsAt: chunk.startsAt,
+            endsAt: chunk.endsAt,
+            gzipped: await gzip(chunk.body),
+            length: chunk.body.length,
+          },
+          now,
+        );
+
+        return json({ now }, config.allowedOrigin);
       }
 
       if (pathname === "/auth/token" && request.method === "POST") {

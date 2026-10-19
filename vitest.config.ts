@@ -14,6 +14,8 @@ export default defineConfig({
   resolve: {
     alias: [
       ...dimAliases(root("./")),
+      // The service's entry sits under core/
+      { find: /^@dvm\/service$/, replacement: root("./packages/service/src/core/index.ts") },
       { find: /^@dvm\/([^/]+)$/, replacement: root("./packages/$1/src/index.ts") },
       // Replaces DIM's harness. Upstream test files run unmodified
       { find: /^testing\//, replacement: root("./packages/move-tests/src/") },
