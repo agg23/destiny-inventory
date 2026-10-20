@@ -7,6 +7,7 @@ import { accessToken } from "../api/auth.ts";
 import { fetchVendor, fetchVendors, type Membership } from "../api/bungie.ts";
 import { cached } from "../api/cache.ts";
 import { loadConfig } from "../api/config.ts";
+import { xurPresent } from "./reset.ts";
 import type {
   VendorComponents,
   VendorFetch,
@@ -22,13 +23,17 @@ export const vendorItems = cached(async (): Promise<VendorItems> => {
   return keyBy(rows, (row) => row.hash);
 });
 
-const TILED: number[] = WATCHED.flatMap((watch) => {
-  if (watch.mode === "claims") {
-    return [watch.vendor];
-  }
+const tiledVendors = (now: number): number[] =>
+  WATCHED.flatMap((watch) => {
+    if (watch.mode === "claims") {
+      return [watch.vendor];
+    }
 
-  return watch.mode === "visit" ? (watch.rows ?? []).flat() : [];
-});
+    // Bungie returns DestinyVendorNotFound while Xur is away
+    return watch.mode === "visit" && xurPresent(now)
+      ? (watch.rows ?? []).flat()
+      : [];
+  });
 
 export let held: VendorFetch | undefined = undefined;
 
@@ -50,6 +55,7 @@ export const fetchVendorState = async (
   }
 
   const ordered = [...characters].sort((a, b) => a.classType - b.classType);
+  const vendors = tiledVendors(Date.now());
 
   const [response, items, classed, ...tiled] = await Promise.all([
     fetchVendors(membership, character, token),
@@ -61,7 +67,9 @@ export const fetchVendorState = async (
           : fetchVendor(membership, one.id, ARMOR_ORNAMENTS, token),
       ),
     ),
-    ...TILED.map((vendor) => fetchVendor(membership, character, vendor, token)),
+    ...vendors.map((vendor) =>
+      fetchVendor(membership, character, vendor, token).catch(() => undefined),
+    ),
   ]);
 
   const ornaments = classed.flatMap((one) =>
@@ -74,7 +82,7 @@ export const fetchVendorState = async (
 
   const components: VendorComponents = {};
 
-  TILED.forEach((vendor, at) => {
+  vendors.forEach((vendor, at) => {
     const set = tiled[at]?.itemComponents;
 
     if (set) {
