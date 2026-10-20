@@ -1,6 +1,7 @@
 import { unenhancedVersion } from "app/utils/perk-utils";
 import { createSignal } from "solid-js";
 
+import { onIdle } from "../idle.ts";
 import { CLARITY, openStore, type DefStore } from "../profile/store.ts";
 import { HOUR } from "../time.ts";
 
@@ -338,7 +339,7 @@ export const startClarity = (): (() => void) => {
     }
   };
 
-  const idle = requestIdleCallback(() => {
+  const cancelIdle = onIdle(() => {
     void sync();
   });
 
@@ -349,7 +350,7 @@ export const startClarity = (): (() => void) => {
   }, HOUR);
 
   return () => {
-    cancelIdleCallback(idle);
+    cancelIdle();
     window.clearInterval(timer);
   };
 };

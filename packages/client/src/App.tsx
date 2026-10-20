@@ -169,6 +169,11 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     stores,
     itemQuery,
     query.previewQuery,
+    () =>
+      tab() === "vault" && settings().hideOtherClasses
+        ? (activeStore(active(), stores()) ??
+            stores().find((store) => !store.isVault))?.classType
+        : undefined,
   );
 
   const runs = createRuns(session.current, stores);

@@ -47,6 +47,7 @@ export const createSession = (url: Url, primed: LoadResult | undefined) => {
       return;
     }
 
+    console.warn("Live load failed", e);
     setLiveFailed(true);
     showToast(messageOf(e), "danger");
   };

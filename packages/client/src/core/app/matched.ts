@@ -3,6 +3,7 @@ import type { DimStore } from "app/inventory/store-types";
 import { isClassCompatible } from "app/utils/item-utils";
 import { createEffect, createMemo } from "solid-js";
 
+import { onIdle } from "../idle.ts";
 import { defs } from "../profile/defs.ts";
 import { vaultable } from "../profile/moveTargets.ts";
 import { itemFilter, primeSearch } from "../search/search.ts";
@@ -55,7 +56,7 @@ export const createMatched = (
     const tables = defs();
 
     if (held.length > 0) {
-      requestIdleCallback(() => primeSearch(held, tables));
+      onIdle(() => primeSearch(held, tables));
     }
   });
 

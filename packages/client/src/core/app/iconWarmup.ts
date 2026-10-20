@@ -1,5 +1,6 @@
 import { createEffect, onCleanup } from "solid-js";
 
+import { onIdle } from "../idle.ts";
 import type { LoadResult } from "../profile/loadTypes.ts";
 import { plugIcons, tileIcons, warmIcons } from "../profile/preload.ts";
 
@@ -34,12 +35,12 @@ export const createIconWarmup = (current: () => LoadResult | undefined) => {
 
     let stop: (() => void) | undefined = undefined;
 
-    const idle = requestIdleCallback(() => {
+    const cancelIdle = onIdle(() => {
       stop = warmIcons(plugIcons(loaded.items));
     });
 
     onCleanup(() => {
-      cancelIdleCallback(idle);
+      cancelIdle();
       stop?.();
     });
   });
