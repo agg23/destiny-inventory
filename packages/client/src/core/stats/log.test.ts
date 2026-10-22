@@ -2,7 +2,7 @@ import type { DestinyProfileResponse } from "bungie-api-ts/destiny2";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DefStore } from "../profile/store.ts";
-import type { Chunk } from "./types.ts";
+import type { Chunk, Observed } from "./types.ts";
 
 const served: { pages: unknown[][]; pulls: string[] } = { pages: [], pulls: [] };
 
@@ -25,6 +25,7 @@ const { bucketOf, changesBetween, recordProfile, startStats, SYNC_INTERVAL } =
   await import("./log.ts");
 
 const GLIMMER = 3159615086;
+const SILVER = 3147280338;
 const START = Date.parse("2026-10-18T17:00:00Z");
 
 const memoryStore = (): DefStore => {
@@ -66,11 +67,22 @@ const memoryStore = (): DefStore => {
   } as DefStore;
 };
 
-const profile = (minted: number, glimmer: number): DestinyProfileResponse =>
+const profile = (
+  minted: number,
+  glimmer: number,
+  silver: number | undefined = undefined,
+): DestinyProfileResponse =>
   ({
     responseMintedTimestamp: new Date(minted).toISOString(),
     profileCurrencies: {
-      data: { items: [{ itemHash: GLIMMER, quantity: glimmer }] },
+      data: {
+        items: [
+          { itemHash: GLIMMER, quantity: glimmer },
+          ...(silver === undefined
+            ? []
+            : [{ itemHash: SILVER, quantity: silver }]),
+        ],
+      },
     },
   }) as unknown as DestinyProfileResponse;
 
@@ -128,6 +140,24 @@ describe("stats log", () => {
       [START + 40_000, 1_300],
     ]);
     expect(chunks.map((chunk) => chunk.startsAt)).toEqual([bucketOf(START)]);
+  });
+
+  it("holds Silver at its last balance while out of game", async () => {
+    const store = memoryStore();
+
+    startStats(store, "m");
+    await settle();
+    await recordProfile("m", profile(START + 10_000, 1_000, 500));
+    await recordProfile("m", profile(START + 25_000, 1_100));
+    await recordProfile("m", profile(START + 40_000, 1_100, 500));
+
+    const changes = await changesBetween(store, "m", START, START + 60_000);
+    const observed = await store.getOne<Observed>("profile", "observed/m");
+
+    expect(
+      changes.map((change) => "itemHash" in change && change.itemHash),
+    ).toEqual([GLIMMER]);
+    expect(observed?.currencies[SILVER]).toBe(500);
   });
 
   it("takes one recorder's copy of a closed bucket and never the open one", async () => {

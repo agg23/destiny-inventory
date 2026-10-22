@@ -2,6 +2,7 @@ import {
   DestinyProgressionScope,
   type DestinyProfileResponse,
 } from "bungie-api-ts/destiny2";
+import { silverItemHash } from "app/search/d2-known-values";
 import { createSignal } from "solid-js";
 
 import { STAT_BUCKET, type StatChunk, type StatCursor } from "@dvm/service";
@@ -80,6 +81,13 @@ const record = async (held: Recorder, profile: DestinyProfileResponse) => {
   // Bungie's cache can hand back older mints
   if (was && now.minted <= was.minted) {
     return;
+  }
+
+  // Bungie only sends Silver while in game
+  const silver = was?.currencies[silverItemHash];
+
+  if (silver !== undefined && now.currencies[silverItemHash] === undefined) {
+    now.currencies[silverItemHash] = silver;
   }
 
   await held.store.putOne(PROFILE, observedKey(held.membershipId), now);
