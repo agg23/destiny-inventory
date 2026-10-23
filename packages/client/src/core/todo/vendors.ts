@@ -1,4 +1,5 @@
 import type { DimItem } from "app/inventory/item-types";
+import { unadvertisedResettableVendors } from "app/search/d2-known-values";
 import type {
   DestinyVendorSaleItemComponent,
   DestinyVendorsResponse,
@@ -445,11 +446,12 @@ export const rankResets = (
     const progression = live.progression;
     const def = vendorDef(Number(vendor));
 
-    // Only resettable ranks carry currentResetCount
+    // Hawthorne, Rahool, and Xur reset but never send currentResetCount
     if (
       !progression ||
       !def ||
-      typeof progression.currentResetCount !== "number" ||
+      (typeof progression.currentResetCount !== "number" &&
+        !unadvertisedResettableVendors.includes(progression.progressionHash)) ||
       seen.has(progression.progressionHash)
     ) {
       continue;

@@ -223,7 +223,7 @@ export const Todo = () => {
                 </Show>
               </TableCell>
               <NumCell class="text-muted-foreground">
-                {plural(rank.resets, "reset")}
+                {rank.resets !== undefined && plural(rank.resets, "reset")}
               </NumCell>
             </TableRow>
           )}

@@ -94,5 +94,5 @@ export interface RankReset {
   name: string;
   rank: number;
   cap: number;
-  resets: number;
+  resets: number | undefined;
 }
