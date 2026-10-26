@@ -39,18 +39,23 @@ export const PerkCard = (props: Props) => {
             </>
           }
           stats={benefit()?.stats}
-          description={clarity() ? undefined : benefit()?.description}
-        >
-          <Show when={clarity()}>
-            {(lines) => <ClarityText lines={lines()} />}
-          </Show>
-        </PerkRow>
+          description={benefit()?.description}
+        />
       </div>
       <Show when={clarity()}>
-        <div class="flex items-center gap-1.5 border-t border-border px-4 py-1.5 text-[11px] text-muted-foreground">
-          <FlaskGlyph class="size-3.5" />
-          Data from Clarity
-        </div>
+        {(lines) => (
+          <>
+            <div class="tooltip-body">
+              <div class="py-1.5 pl-11">
+                <ClarityText lines={lines()} />
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 border-t border-border px-4 py-1.5 text-[11px] text-muted-foreground">
+              <FlaskGlyph class="size-3.5" />
+              Data from Clarity
+            </div>
+          </>
+        )}
       </Show>
     </AnchoredPanel>
   );
