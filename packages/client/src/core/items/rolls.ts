@@ -232,6 +232,14 @@ export const setBonusesRanked = (mode: Mode = "pve"): number =>
     (bonus) => bonus.rank !== undefined,
   ).length;
 
+/** Count of ranked perks or origin traits, the 124 in "#2 of 124" */
+export const perksRanked = (kind: AegisPerk["kind"]): number =>
+  new Set(
+    [...sheet("pve").perkRanks.values()].filter(
+      (perk) => perk.kind === kind && perk.rank !== undefined,
+    ),
+  ).size;
+
 /** Every hash sharing this hash's rated columns, itself included */
 export const versionsOf = (hash: number, mode: Mode = "pve"): number[] =>
   sheet(mode).versionsByHash.get(hash) ?? [hash];

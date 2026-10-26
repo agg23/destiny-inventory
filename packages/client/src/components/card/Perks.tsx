@@ -15,7 +15,6 @@ import { For, Show } from "solid-js";
 
 import { dismissPerk, previewPerk } from "../../core/items/perkPreview.ts";
 import { isIntrinsicPlug } from "../../core/items/perks.ts";
-import { perkFor } from "../../core/items/rolls.ts";
 import { sentence } from "../../core/text.ts";
 import { BungieImage } from "../BungieImage.tsx";
 import { cn } from "../lib/cn.ts";
@@ -129,7 +128,7 @@ const Socket = (props: {
       <For each={options()}>
         {(plug) => (
           <span
-            class="relative inline-flex"
+            class="inline-flex"
             onMouseEnter={(event) =>
               previewPerk(props.item, plug, event.currentTarget)
             }
@@ -144,13 +143,6 @@ const Socket = (props: {
               )}
               lazy
             />
-            <Show when={perkFor(plug.plugDef.hash)?.rank}>
-              {(rank) => (
-                <span class="absolute -right-px -bottom-px min-w-3 bg-popover px-px text-center text-[10px] leading-tight tabular-nums">
-                  {rank()}
-                </span>
-              )}
-            </Show>
           </span>
         )}
       </For>
