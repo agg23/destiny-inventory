@@ -68,6 +68,7 @@ export const CollectionTile = (props: Props) => {
       corner={props.copies > 0 ? props.copies : undefined}
       cornerClass="owned-count"
       tagColor={undefined}
+      favorite={false}
       icons={[damageIcon(props.entry)]}
       tiers={(mode) => entryTiers(props.entry, mode)}
       catalyst={props.catalyst?.unlocked ? props.catalyst : undefined}

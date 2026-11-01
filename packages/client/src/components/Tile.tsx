@@ -85,6 +85,7 @@ interface TileProps {
   corner: number | undefined;
   cornerClass?: string;
   tagColor: string | undefined;
+  favorite: boolean;
   icons: (string | undefined)[];
   tiers: (mode: Mode) => Tier[] | undefined;
   catalyst?: { progress: number; complete: boolean };
@@ -131,6 +132,21 @@ const Face = (props: TileProps) => (
       <Show when={props.gearTier > 0}>
         <span class="gear-tier">{props.gearTier}</span>
       </Show>
+      <Show when={props.tagColor}>
+        {(color) => (
+          <span
+            class="tile-tag"
+            style={{ "background-color": `var(--color-${color()})` }}
+          />
+        )}
+      </Show>
+      <Show when={props.favorite}>
+        <span class="tile-favorite">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+          </svg>
+        </span>
+      </Show>
       <Show when={props.corner}>
         {(value) => (
           <span class={`item-quantity ${props.cornerClass ?? ""}`}>
@@ -139,14 +155,6 @@ const Face = (props: TileProps) => (
         )}
       </Show>
       <span class="tile-icons">
-        <Show when={props.tagColor}>
-          {(color) => (
-            <span
-              class="tag-dot"
-              style={{ "background-color": `var(--color-${color()})` }}
-            />
-          )}
-        </Show>
         <For each={props.icons}>
           {(icon) => <BungieImage path={icon} />}
         </For>

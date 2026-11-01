@@ -205,6 +205,8 @@
   /* Framework's hover tint assumes a background image */
   .item-tile {
     --badge: clamp(9px, calc(var(--tile) * 0.2), 16px);
+    --glyph: clamp(8px, calc(var(--badge) * 0.8), 13px);
+    --chip: calc(clamp(9px, calc(var(--badge) * 0.85), 14px) * 1.25);
     --edge: 2px;
     z-index: 0;
     border-color: transparent;
@@ -257,30 +259,52 @@
     font-size: clamp(9px, calc(var(--badge) * 0.85), 14px);
     line-height: 1.25;
     font-variant-numeric: tabular-nums;
+    z-index: 2;
   }
 
   .item-tile .tile-icons {
     display: flex;
     gap: 1px;
     position: absolute;
-    bottom: calc(1px - var(--edge));
+    bottom: calc((var(--chip) - var(--glyph)) / 2 - var(--edge));
     left: calc(1px - var(--edge));
     z-index: 2;
   }
 
   .item-tile .tile-icons img {
-    width: var(--badge);
-    height: var(--badge);
+    width: var(--glyph);
+    height: var(--glyph);
     filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9));
   }
 
-  /* All four corners already have badges */
-  .item-tile .tag-dot {
-    align-self: center;
-    width: calc(var(--badge) * 5 / 6);
-    height: calc(var(--badge) * 5 / 6);
-    border-radius: 50%;
-    box-shadow: 0 0 2px rgba(0, 0, 0, 0.9);
+  .item-tile .tile-tag {
+    position: absolute;
+    right: calc(var(--edge) * -1);
+    bottom: calc(var(--edge) * -1);
+    left: calc(var(--edge) * -1);
+    z-index: 1;
+    height: var(--chip);
+    box-shadow: 0 -1px 0 rgb(0 0 0 / 0.6);
+  }
+
+  .item-tile:has(.tile-tag) .tile-icons img {
+    filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000);
+  }
+
+  .item-tile .tile-favorite {
+    position: absolute;
+    top: calc(16px - var(--edge));
+    left: calc(1px - var(--edge));
+    z-index: 2;
+    display: flex;
+    color: #fff;
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9));
+  }
+
+  .item-tile .tile-favorite svg {
+    width: var(--badge);
+    height: var(--badge);
+    fill: currentColor;
   }
 
   .tag-control {
