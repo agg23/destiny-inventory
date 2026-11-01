@@ -7,7 +7,7 @@ import type { DimStore } from "app/inventory/store-types";
 import { groupBy } from "es-toolkit";
 import { createMemo } from "solid-js";
 
-import { tagFor } from "../../core/items/tags.ts";
+import { isFavorite } from "../../core/items/tags.ts";
 import { settings } from "../../core/settings.ts";
 
 const CATEGORIES = ["Postmaster", "Weapons", "Armor", "General", "Inventory"];
@@ -28,8 +28,6 @@ const orderedVault = (items: DimItem[]): DimItem[] =>
         (a, b) => a.name.localeCompare(b.name) || b.power - a.power,
       )
     : ordered(items);
-
-const favorite = (item: DimItem): boolean => tagFor(item.id)?.id === "favorite";
 
 export const createVaultCells = (
   stores: () => DimStore[],
@@ -101,8 +99,8 @@ export const createVaultCells = (
     for (const [key, items] of cells()) {
       if (key.startsWith(`${held.id}:`)) {
         split.set(Number(key.slice(held.id.length + 1)), {
-          favorites: items.filter((item) => favorite(item)),
-          rest: items.filter((item) => !favorite(item)),
+          favorites: items.filter((item) => isFavorite(item.id)),
+          rest: items.filter((item) => !isFavorite(item.id)),
         });
       }
     }

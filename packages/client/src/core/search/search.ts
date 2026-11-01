@@ -40,7 +40,7 @@ import {
   setRatings,
 } from "../items/rolls.ts";
 import { MODES, type Mode } from "../items/rollTypes.ts";
-import { tagDefs, tagFor } from "../items/tags.ts";
+import { isFavorite, tagDefs, tagFor } from "../items/tags.ts";
 import { makeComplete } from "./complete.ts";
 import { indexKeywords, keywordFilter } from "./keyword.ts";
 import { ITEM_SEARCHES } from "./searches.ts";
@@ -138,8 +138,19 @@ const tagFilters: ItemFilterDefinition[] = [
     filter: ({ filterValue }) => {
       const wanted = filterValue.toLowerCase();
 
+      // Favorite used to be a tag
+      if (wanted === "favorite") {
+        return (item) => isFavorite(item.id);
+      }
+
       return (item) => tagFor(item.id)?.id === wanted;
     },
+  },
+  {
+    keywords: ["favorite"],
+    description: "Items you marked as a favorite",
+    destinyVersion: 2,
+    filter: () => (item) => isFavorite(item.id),
   },
 ];
 

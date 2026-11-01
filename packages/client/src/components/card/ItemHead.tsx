@@ -10,6 +10,7 @@ import { itemEntryHref, lightGgHref } from "../../core/url.ts";
 import { BungieImage } from "../BungieImage.tsx";
 import { CollectionsGlyph } from "../lib/CollectionsGlyph.tsx";
 import { ExternalGlyph } from "../lib/ExternalGlyph.tsx";
+import { FavoriteControl } from "./FavoriteControl.tsx";
 import { TagControl } from "./TagControl.tsx";
 
 // DestinyClass Titan, Hunter and Warlock
@@ -185,6 +186,7 @@ const ItemPower = (props: {
           <ItemLinks item={props.item} />
         </Show>
         <Show when={props.taggable && props.item.id !== "0"}>
+          <FavoriteControl items={[props.item]} />
           <TagControl items={[props.item]} />
         </Show>
         <Show when={notes().length > 0}>

@@ -11,6 +11,7 @@ import {
   storeLabel,
 } from "../../core/profile/moveTargets.ts";
 import { plural } from "../../core/text.ts";
+import { FavoriteControl } from "../card/FavoriteControl.tsx";
 import { TagControl } from "../card/TagControl.tsx";
 import { IconButton } from "../lib/IconButton.tsx";
 import { SplitButton } from "../lib/SplitButton.tsx";
@@ -52,6 +53,7 @@ export const SelectionPanel = () => {
 
       <div class="flex items-center gap-2">
         <span class={`${LABEL} mr-auto`}>Tag</span>
+        <FavoriteControl items={app.selected()} />
         <TagControl items={app.selected()} />
       </div>
 

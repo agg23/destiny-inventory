@@ -61,7 +61,7 @@ export const TriageCompare = (props: Props) => {
 
   const kept = (item: DimItem) => tagFor(item.id)?.id !== url.get("tag");
 
-  const sparedTag = () => (url.get("tag") === KEPT ? "favorite" : KEPT);
+  const sparedTag = () => (url.get("tag") === KEPT ? undefined : KEPT);
 
   const onKeep = (item: DimItem, keep: boolean) =>
     props.writes.apply(

@@ -8,7 +8,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { buildDefinitions } from "@dvm/dim-bridge";
 
-import { setOnlyTag } from "../items/tags.ts";
+import { setFavorite, setOnlyTag, tagTarget } from "../items/tags.ts";
 import { completion, itemFilter, suggest, valid } from "./search.ts";
 
 let defs: D2ManifestDefinitions;
@@ -260,5 +260,25 @@ describe("tag filter", () => {
     setOnlyTag(target!.id, target!.hash, undefined);
 
     expect(found("tag:keep")).toEqual([]);
+  });
+
+  it("keeps a favorite through tag changes", () => {
+    const [target] = items.filter((item) => item.id !== "0");
+    const ids = (query: string) => found(query).map((item) => item.id);
+
+    setFavorite([tagTarget(target!)], true);
+    setOnlyTag(target!.id, target!.hash, "junk");
+
+    expect(ids("is:favorite")).toEqual([target!.id]);
+    expect(ids("tag:favorite")).toEqual([target!.id]);
+    expect(ids("tag:junk")).toEqual([target!.id]);
+
+    setOnlyTag(target!.id, target!.hash, undefined);
+
+    expect(ids("is:favorite")).toEqual([target!.id]);
+
+    setFavorite([tagTarget(target!)], false);
+
+    expect(ids("is:favorite")).toEqual([]);
   });
 });

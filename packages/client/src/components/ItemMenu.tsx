@@ -11,8 +11,11 @@ import { menuFor, setMenuFor, setMenuOpen } from "../core/items/itemMenu.ts";
 import { clear } from "../core/items/preview.ts";
 import { requestTag } from "../core/items/tagConfirm.ts";
 import {
+  isFavorite,
+  setFavorite,
   setOnlyTag,
   tagDefs,
+  tagTarget,
   tagFor,
   tagSummary,
 } from "../core/items/tags.ts";
@@ -182,6 +185,7 @@ const SelectionRows = (props: { items: DimItem[] }) => {
   const app = useApp();
 
   const summary = () => tagSummary(props.items);
+  const allFavorite = () => props.items.every((item) => isFavorite(item.id));
   const reason = (target: DimStore) =>
     app.moving() ??
     bulkBlocked(props.items, app.stores(), app.active(), target);
@@ -216,6 +220,12 @@ const SelectionRows = (props: { items: DimItem[] }) => {
           value={summary().mixed ? undefined : (summary().current?.id ?? "")}
           closeOnSelect
           onChoose={(tagId) => requestTag(props.items, tagId)}
+        />
+        <Row
+          label={allFavorite() ? "Unfavorite" : "Favorite"}
+          onChoose={() =>
+            setFavorite(props.items.map(tagTarget), !allFavorite())
+          }
         />
       </Show>
       <ContextMenu.Separator class="z-context-menu-separator border-0" />
@@ -290,6 +300,15 @@ const Rows = (props: RowProps) => {
 
               setOnlyTag(props.item.id, props.item.hash, tagId);
             }}
+          />
+          <Row
+            label={isFavorite(props.item.id) ? "Unfavorite" : "Favorite"}
+            onChoose={() =>
+              setFavorite(
+                [tagTarget(props.item)],
+                !isFavorite(props.item.id),
+              )
+            }
           />
         </Show>
 

@@ -11,7 +11,7 @@ import {
 } from "../core/items/preview.ts";
 import { assess, setRatings } from "../core/items/rolls.ts";
 import type { Mode } from "../core/items/rollTypes.ts";
-import { tagFor } from "../core/items/tags.ts";
+import { isFavorite, tagFor } from "../core/items/tags.ts";
 import { setTiers, Tile } from "./Tile.tsx";
 
 interface Props {
@@ -36,13 +36,6 @@ const corner = (item: DimItem): number | undefined => {
 
 const gearTier = (item: DimItem): number =>
   item.tier === 0 && item.rarity === "Exotic" ? 5 : item.tier;
-
-// TODO: Favorite is still a tag until it gets its own storage
-const isFavorite = (item: DimItem): boolean =>
-  tagFor(item.id)?.id === "favorite";
-
-const tagColor = (item: DimItem): string | undefined =>
-  isFavorite(item) ? undefined : tagFor(item.id)?.color;
 
 const itemTiers = (item: DimItem, mode: Mode): Tier[] | undefined => {
   const overall = assess(item, mode)?.overall;
@@ -72,8 +65,8 @@ export const ItemTile = (props: Props) => (
     index={props.item.index}
     gearTier={gearTier(props.item)}
     corner={corner(props.item)}
-    tagColor={tagColor(props.item)}
-    favorite={isFavorite(props.item)}
+    tagColor={tagFor(props.item.id)?.color}
+    favorite={isFavorite(props.item.id)}
     icons={[
       props.item.element?.displayProperties.icon,
       props.item.breakerType?.displayProperties.icon,

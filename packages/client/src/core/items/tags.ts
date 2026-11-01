@@ -28,14 +28,15 @@ export interface TagSnapshot extends TagTarget {
   tagId: string | undefined;
 }
 
-const PROTECTED = new Set(["favorite", "keep", "pvp", "pve"]);
+const PROTECTED = new Set(["keep", "pvp", "pve"]);
+
+const FAVORITE = "favorite";
 
 const EMPTY: Held = { defs: [], items: [], since: 0 };
 
 // Colors from tokens.css
 const DEFAULT_DEFS: TagDef[] = (
   [
-    ["favorite", "Favorite", "exotic"],
     ["keep", "Keep", "good"],
     ["pvp", "PvP", "pvp"],
     ["pve", "PvE", "pve"],
@@ -219,7 +220,7 @@ const changesFor = (
   const current = assigned().get(instanceId);
 
   const cleared = [...(current ?? [])]
-    .filter((id) => id !== tagId)
+    .filter((id) => id !== tagId && id !== FAVORITE)
     .map((id) => ({
       instanceId,
       itemHash,
@@ -291,11 +292,29 @@ export const snapshotTags = (targets: TagTarget[]): TagSnapshot[] =>
     tagId: tagFor(target.instanceId)?.id,
   }));
 
-/** Whether the item carries a tag that guarded bulk actions skip */
+/** Whether the item is a favorite, independent of its tag */
+export const isFavorite = (instanceId: string): boolean =>
+  assigned().get(instanceId)?.has(FAVORITE) ?? false;
+
+/** Favorites or unfavorites every item, flushed as a single write */
+export const setFavorite = (targets: TagTarget[], favorite: boolean): void => {
+  const updatedAt = Date.now();
+
+  queue(
+    targets.filter(taggable).map((target) => ({
+      ...target,
+      tagId: FAVORITE,
+      removed: !favorite,
+      updatedAt,
+    })),
+  );
+};
+
+/** Whether the item is a favorite or carries a tag that guarded bulk actions skip */
 export const protectedTag = (instanceId: string): boolean => {
   const def = tagFor(instanceId);
 
-  return def !== undefined && PROTECTED.has(def.id);
+  return isFavorite(instanceId) || (def !== undefined && PROTECTED.has(def.id));
 };
 
 publishDefs();
