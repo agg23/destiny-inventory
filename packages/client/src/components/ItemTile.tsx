@@ -34,6 +34,9 @@ const corner = (item: DimItem): number | undefined => {
   return item.amount > 1 ? item.amount : undefined;
 };
 
+const gearTier = (item: DimItem): number =>
+  item.tier === 0 && item.rarity === "Exotic" ? 5 : item.tier;
+
 // TODO: Favorite is still a tag until it gets its own storage
 const isFavorite = (item: DimItem): boolean =>
   tagFor(item.id)?.id === "favorite";
@@ -67,7 +70,7 @@ export const ItemTile = (props: Props) => (
       props.class ?? "",
     ]}
     index={props.item.index}
-    gearTier={props.item.tier}
+    gearTier={gearTier(props.item)}
     corner={corner(props.item)}
     tagColor={tagColor(props.item)}
     favorite={isFavorite(props.item)}
