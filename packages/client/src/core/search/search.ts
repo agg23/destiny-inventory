@@ -129,7 +129,11 @@ const tagFilters: ItemFilterDefinition[] = [
     keywords: ["tag"],
     description: "Items carrying one of your specified tags",
     format: "freeform",
-    suggestions: tagDefs().map((def) => def.id),
+    // Freeform drops plain suggestions; DIM's notes filter does the same
+    suggestionsGenerator: () => [
+      "tag:",
+      ...tagDefs().map((def) => `tag:${def.id}`),
+    ],
     destinyVersion: 2,
     filter: ({ filterValue }) => {
       const wanted = filterValue.toLowerCase();
