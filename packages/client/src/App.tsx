@@ -42,6 +42,7 @@ import { messageOf } from "./core/error.ts";
 import { acquired } from "./core/items/arrivals.ts";
 import { startClarity } from "./core/items/clarity.ts";
 import { syncNotes } from "./core/items/notes.ts";
+import { syncPerkPreferences } from "./core/items/perkPreferences.ts";
 import { clearPerk } from "./core/items/perkPreview.ts";
 import { clear } from "./core/items/preview.ts";
 import { syncTags } from "./core/items/tags.ts";
@@ -77,6 +78,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     if (session.authed()) {
       void syncTags();
       void syncNotes();
+      void syncPerkPreferences();
     }
   });
 
@@ -274,6 +276,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
             />
 
             <HeaderActions
+              loaded={session.current()}
               stale={refresh.stale()}
               spinning={refresh.refreshing() || session.awaitingLive()}
               disabled={

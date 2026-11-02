@@ -1,9 +1,6 @@
 import type { DimItem } from "app/inventory/item-types";
 import type { WishListRoll } from "app/wishlists/types";
-import {
-  getInventoryWishListRoll,
-  type InventoryWishListRoll,
-} from "app/wishlists/wishlists";
+import type { InventoryWishListRoll } from "app/wishlists/wishlists";
 import { minBy } from "es-toolkit";
 
 import {
@@ -12,8 +9,10 @@ import {
   type AegisSetBonus,
   type Tier,
 } from "@dvm/defs-core";
+import type { Stance } from "@dvm/service";
 
-import { assessed, matched, sheet } from "./rollSheets.ts";
+import { basePerkName, perkStances } from "./perkPreferences.ts";
+import { assessed, sheet } from "./rollSheets.ts";
 import {
   rankOf,
   type Assessment,
@@ -30,6 +29,8 @@ export const ratingFor = (
   mode: Mode = "pve",
 ): Rating | undefined => sheet(mode).ratings.get(hash);
 
+const matched = new WeakMap<Assessment, InventoryWishListRoll>();
+
 /** Matching Aegis roll; every column must have rolled a pick since DIM counts selectable perks */
 export const rollFor = (item: DimItem): InventoryWishListRoll | undefined => {
   const { byHash } = sheet("pve");
@@ -38,17 +39,23 @@ export const rollFor = (item: DimItem): InventoryWishListRoll | undefined => {
     return undefined;
   }
 
-  if (matched.has(item.id)) {
-    return matched.get(item.id);
+  const read = assess(item);
+
+  if (!read || read.of === 0 || read.score !== read.of) {
+    return undefined;
   }
 
-  const read = assess(item);
-  const roll =
-    read && read.of > 0 && read.score === read.of
-      ? getInventoryWishListRoll(item, byHash)
-      : undefined;
+  let roll = matched.get(read);
 
-  matched.set(item.id, roll);
+  if (!roll) {
+    roll = {
+      wishListPerks: new Set(
+        read.slots.flatMap((slot) => (slot.rolled ? [slot.rolled.hash] : [])),
+      ),
+      notes: read.rating.notes,
+    };
+    matched.set(read, roll);
+  }
 
   return roll;
 };
@@ -105,7 +112,11 @@ const namePicks = (
   return picks;
 };
 
-const assessRoll = (item: DimItem, current: Sheet): Assessment | undefined => {
+const assessRoll = (
+  item: DimItem,
+  current: Sheet,
+  stances: ReadonlyMap<string, Stance>,
+): Assessment | undefined => {
   const { ratings, slotsByHash, perkRanks } = current;
   const rating = ratings.get(item.hash);
 
@@ -133,7 +144,9 @@ const assessRoll = (item: DimItem, current: Sheet): Assessment | undefined => {
     for (const plug of rollable) {
       const { name } = plug.plugDef.displayProperties;
       const hash = plug.plugDef.hash;
-      const isWanted = wanted.has(hash);
+      const stance = stances.get(basePerkName(name));
+      const isWanted =
+        stance === "up" || (stance !== "down" && wanted.has(hash));
       const isPlugged = hash === plugged?.plugDef.hash;
       const seen = options.find((option) => option.name === name);
 
@@ -149,6 +162,7 @@ const assessRoll = (item: DimItem, current: Sheet): Assessment | undefined => {
         rank: perkRanks.get(hash)?.rank,
         wanted: isWanted,
         plugged: isPlugged,
+        stance,
       });
     }
 
@@ -166,7 +180,9 @@ const assessRoll = (item: DimItem, current: Sheet): Assessment | undefined => {
         : undefined,
       wanted: column,
       options,
-      picks: namePicks(socket, column),
+      picks: namePicks(socket, column).filter(
+        (name) => stances.get(basePerkName(name)) !== "down",
+      ),
       matched: hits.length > 0,
     });
   }
@@ -182,18 +198,29 @@ const assessRoll = (item: DimItem, current: Sheet): Assessment | undefined => {
   };
 };
 
+const assessedWith: Record<Mode, ReadonlyMap<string, Stance> | undefined> = {
+  pve: undefined,
+  pvp: undefined,
+};
+
 /** Sheet rating, matched perk columns, and resulting tier for this exact roll */
 export const assess = (
   item: DimItem,
   mode: Mode = "pve",
 ): Assessment | undefined => {
   const current = sheet(mode);
+  const stances = perkStances()[mode];
+
+  if (assessedWith[mode] !== stances) {
+    assessed[mode] = new WeakMap();
+    assessedWith[mode] = stances;
+  }
 
   if (assessed[mode].has(item)) {
     return assessed[mode].get(item);
   }
 
-  const read = assessRoll(item, current);
+  const read = assessRoll(item, current, stances);
 
   assessed[mode].set(item, read);
 

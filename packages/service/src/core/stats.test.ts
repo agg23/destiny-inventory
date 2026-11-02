@@ -50,6 +50,7 @@ const service = () =>
       write: async () => undefined,
     },
     notes: { read: async () => [], write: async () => undefined },
+    perkPreferences: { read: async () => [], write: async () => undefined },
     stats: memory(),
   });
 

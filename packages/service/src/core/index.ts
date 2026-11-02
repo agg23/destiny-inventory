@@ -25,6 +25,16 @@ export {
   type NoteStore,
 } from "./notes.ts";
 export {
+  parsePreferences,
+  PERK_MODES,
+  STANCES,
+  type PerkMode,
+  type PerkPreference,
+  type PerkPreferenceChange,
+  type PerkPreferenceStore,
+  type Stance,
+} from "./perkPreferences.ts";
+export {
   isAfter,
   MAX_CHUNK_LENGTH,
   parseChunk,

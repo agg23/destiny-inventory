@@ -13,7 +13,8 @@ import {
 import { keyBy } from "es-toolkit";
 import { createSignal } from "solid-js";
 
-import { isCatalyst, visibleSandboxPerks } from "../items/perks.ts";
+import { basePerkName } from "../items/perkPreferences.ts";
+import { iconOf, isCatalyst, visibleSandboxPerks } from "../items/perks.ts";
 import { readMerged } from "../profile/load.ts";
 import type { Session } from "../profile/loadTypes.ts";
 import { PLUG_SETS } from "../profile/store.ts";
@@ -37,6 +38,17 @@ const [pool, setPool] = createSignal<Map<Weapon, PerkText[]> | undefined>(
 
 /** Every plug each weapon can roll across its versions, undefined until primed */
 export const weaponPerks = pool;
+
+/** A Perk 1 or 2 trait, one per name so enhanced versions fold in */
+export interface WeaponTrait {
+  name: string;
+  icon: string | undefined;
+}
+
+const [traits, setTraits] = createSignal<WeaponTrait[] | undefined>(undefined);
+
+/** Every trait any weapon can roll, by name, undefined until primed */
+export const weaponTraits = traits;
 
 let building: Promise<void> | undefined = undefined;
 
@@ -147,6 +159,7 @@ const buildPerks = async (session: Session, index: Collections) => {
   );
   const texts = new Map<number, PerkText>();
   const built = new Map<Weapon, PerkText[]>();
+  const traitsByName = new Map<string, WeaponTrait>();
 
   for (const weapon of index.weapons) {
     const seen = new Set<number>();
@@ -172,6 +185,21 @@ const buildPerks = async (session: Session, index: Collections) => {
           }
 
           seen.add(plug.hash);
+
+          const name = basePerkName(plug.displayProperties?.name ?? "");
+
+          if (
+            plug.plug?.plugCategoryHash === PlugCategoryHashes.Frames &&
+            (plug.itemTypeDisplayName === "Trait" ||
+              plug.itemTypeDisplayName === "Enhanced Trait") &&
+            name &&
+            !traitsByName.has(name)
+          ) {
+            traitsByName.set(name, {
+              name,
+              icon: iconOf(plug.displayProperties),
+            });
+          }
         }
       }
     }
@@ -193,6 +221,9 @@ const buildPerks = async (session: Session, index: Collections) => {
   }
 
   setPool(built);
+  setTraits(
+    [...traitsByName.values()].sort((a, b) => a.name.localeCompare(b.name)),
+  );
 };
 
 /** Reads every weapon's plug pools out of the def store, once per index */

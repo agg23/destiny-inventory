@@ -4,11 +4,12 @@ import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { buildStores } from "app/inventory/store/d2-store-factory";
 import { getTestDefinitions, getTestProfile } from "testing/test-utils.ts";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AegisPerk, AegisRoll } from "@dvm/defs-core";
 
 import { itemFilter, valid } from "../search/search.ts";
+import { savePerkStances } from "./perkPreferences.ts";
 import {
   assess,
   perkFor,
@@ -18,6 +19,10 @@ import {
   versionsOf,
 } from "./rolls.ts";
 import { setRolls } from "./rollSheets.ts";
+
+vi.mock("../api/auth.ts", () => ({
+  callService: async () => new Response(JSON.stringify({ now: Date.now() })),
+}));
 
 const ALL_OR_NOTHING = 3984776322;
 const SLICE = 3422796781;
@@ -101,9 +106,10 @@ beforeAll(async () => {
   copies = items.filter((item) => item.hash === ALL_OR_NOTHING).length;
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   load();
   loadPvp();
+  await savePerkStances({ pve: new Map(), pvp: new Map() });
 });
 
 describe("setRolls", () => {
@@ -324,6 +330,40 @@ describe("assess", () => {
 
     expect(read.of).toBe(0);
     expect(read.overall).toBe("A");
+  });
+});
+
+describe("perk stances", () => {
+  it("counts a perk pushed up as a hit in that mode only", async () => {
+    load(roll({ slots: [[SLICE], [KILL_CLIP]] }));
+    loadPvp(roll({ slots: [[SLICE], [KILL_CLIP]] }));
+    await savePerkStances({
+      pve: new Map([["Desperado", "up"]]),
+      pvp: new Map(),
+    });
+
+    const read = assess(weapon)!;
+
+    expect(read.slots[1]?.matched).toBe(true);
+    expect(read.slots[1]?.options[0]?.stance).toBe("up");
+    expect(read.overall).toBe("S");
+    expect(rollFor(weapon)).toBeDefined();
+    expect(assess(weapon, "pvp")?.slots[1]?.matched).toBe(false);
+  });
+
+  it("never counts a perk pushed down, even when the sheet picks it", async () => {
+    load(roll({ slots: [[SLICE], [DESPERADO]] }));
+    await savePerkStances({
+      pve: new Map([["Slice", "down"]]),
+      pvp: new Map(),
+    });
+
+    const read = assess(weapon)!;
+
+    expect(read.slots[0]?.matched).toBe(false);
+    expect(read.slots[0]?.picks).toEqual([]);
+    expect(read.overall).toBe("A");
+    expect(rollFor(weapon)).toBeUndefined();
   });
 });
 

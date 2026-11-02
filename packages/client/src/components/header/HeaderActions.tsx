@@ -2,6 +2,7 @@ import { Show } from "solid-js";
 
 import { signOut } from "../../core/api/auth.ts";
 import type { Guest } from "../../core/profile/guest.ts";
+import type { LoadResult } from "../../core/profile/loadTypes.ts";
 import { collapseRail, railCollapsed } from "../../core/rail.ts";
 import { timeWithSeconds } from "../../core/time.ts";
 import { GuestPicker } from "../GuestPicker.tsx";
@@ -14,6 +15,7 @@ import { Separator } from "../lib/zaidan/separator.tsx";
 import { Settings } from "../Settings.tsx";
 
 interface Props {
+  loaded: LoadResult | undefined;
   stale: boolean;
   spinning: boolean;
   disabled: boolean;
@@ -66,7 +68,7 @@ export const HeaderActions = (props: Props) => {
           </IconButton>
         </Show>
         <GuestPicker onChoose={props.onGuest} />
-        <Settings />
+        <Settings loaded={props.loaded} />
         <Separator orientation="vertical" class="mx-1 h-4" />
         <IconButton
           size="icon-sm"

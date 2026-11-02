@@ -3,6 +3,8 @@ import crucibleGlyph from "destiny-icons/factions/faction_crucible.svg?inline";
 import vanguardGlyph from "destiny-icons/factions/faction_vanguard.svg?inline";
 import { createMemo, For, Show } from "solid-js";
 
+import type { Stance } from "@dvm/service";
+
 import { assess } from "../../core/items/rolls.ts";
 import {
   MODE_NAMES,
@@ -13,6 +15,7 @@ import {
 import { shownModes } from "../../core/settings.ts";
 import { sentence } from "../../core/text.ts";
 import { Glyph, STROKE } from "../lib/Glyph.tsx";
+import { ThumbsDown, ThumbsUp } from "../lib/zaidan/icons.tsx";
 
 // Aegis rates every weapon it covers, not just good ones
 const RECOMMENDED_TIERS = new Set(["S", "A", "B"]);
@@ -102,6 +105,7 @@ interface MergedOption {
   name: string;
   plugged: boolean;
   wantedBy: Mode[];
+  stances: { stance: Stance; modes: Mode[] }[];
 }
 
 interface MergedRow {
@@ -111,6 +115,12 @@ interface MergedRow {
   options: MergedOption[];
   wants: { mode: Mode; also: boolean; names: string[] }[];
 }
+
+const stanceTitle = (stance: Stance, modes: Mode[]): string => {
+  const names = modes.map((mode) => MODE_NAMES[mode]).join(" and ");
+
+  return stance === "up" ? `Liked for ${names}` : `Disliked for ${names}`;
+};
 
 const mergeRows = (judged: Judged[]): MergedRow[] => {
   const perkColumns = Math.max(
@@ -133,7 +143,12 @@ const mergeRows = (judged: Judged[]): MergedRow[] => {
         let merged = options.find((existing) => existing.name === option.name);
 
         if (!merged) {
-          merged = { name: option.name, plugged: false, wantedBy: [] };
+          merged = {
+            name: option.name,
+            plugged: false,
+            wantedBy: [],
+            stances: [],
+          };
           options.push(merged);
         }
 
@@ -143,6 +158,20 @@ const mergeRows = (judged: Judged[]): MergedRow[] => {
 
         if (option.wanted && !merged.wantedBy.includes(mode)) {
           merged.wantedBy.push(mode);
+        }
+
+        if (option.stance) {
+          const stance = option.stance;
+          let held = merged.stances.find((entry) => entry.stance === stance);
+
+          if (!held) {
+            held = { stance, modes: [] };
+            merged.stances.push(held);
+          }
+
+          if (!held.modes.includes(mode)) {
+            held.modes.push(mode);
+          }
         }
       }
     }
@@ -264,6 +293,26 @@ export const AegisNote = (props: { item: DimItem }) => {
                           >
                             <OptionMark option={option} judges={row.judges} />
                             {option.name}
+                            <For each={option.stances}>
+                              {(held) => (
+                                <span
+                                  class="self-center text-muted-foreground [&_svg]:size-3"
+                                  role="img"
+                                  title={stanceTitle(held.stance, held.modes)}
+                                  aria-label={stanceTitle(
+                                    held.stance,
+                                    held.modes,
+                                  )}
+                                >
+                                  <Show
+                                    when={held.stance === "up"}
+                                    fallback={<ThumbsDown />}
+                                  >
+                                    <ThumbsUp />
+                                  </Show>
+                                </span>
+                              )}
+                            </For>
                             <Show when={option.plugged}>
                               <span class="text-muted-foreground">
                                 Selected

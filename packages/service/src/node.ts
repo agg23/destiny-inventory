@@ -14,6 +14,8 @@ import {
   type ItemTag,
   type Note,
   type NoteStore,
+  type PerkPreference,
+  type PerkPreferenceStore,
   type StatStore,
   type StoredChunk,
   type TagDef,
@@ -113,6 +115,26 @@ const memoryNotes = (): NoteStore => {
   };
 };
 
+const memoryPreferences = (): PerkPreferenceStore => {
+  const preferences = new Map<string, Map<string, PerkPreference>>();
+
+  return {
+    read: async (membershipId, since) =>
+      [...bucket(preferences, membershipId).values()].filter(
+        (preference) => preference.updatedAt > since,
+      ),
+
+    write: async (membershipId, changes, now) => {
+      for (const change of changes) {
+        bucket(preferences, membershipId).set(`${change.mode}/${change.perk}`, {
+          ...change,
+          updatedAt: now,
+        });
+      }
+    },
+  };
+};
+
 const memoryStats = (): StatStore => {
   const chunks = new Map<string, Map<string, StoredChunk>>();
 
@@ -168,6 +190,7 @@ const handler = createHandler({
   loader: loaderFrom(read),
   tags: memoryTags(),
   notes: memoryNotes(),
+  perkPreferences: memoryPreferences(),
   stats: memoryStats(),
 });
 

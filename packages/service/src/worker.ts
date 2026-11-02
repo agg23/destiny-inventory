@@ -6,6 +6,9 @@ import {
   type Membership,
   type NoteKind,
   type NoteStore,
+  type PerkMode,
+  type PerkPreferenceStore,
+  type Stance,
   type StatStore,
   type Store,
   type TagStore,
@@ -211,6 +214,58 @@ const noteStore = (db: Database): NoteStore => ({
   },
 });
 
+interface PreferenceRow {
+  mode: PerkMode;
+  perk: string;
+  stance: Stance;
+  removed: number;
+  updated_at: number;
+}
+
+const READ_PREFERENCES =
+  "SELECT mode, perk, stance, removed, updated_at FROM perk_preferences WHERE membership_id = ? AND updated_at > ?";
+
+const WRITE_PREFERENCE = `INSERT INTO perk_preferences (membership_id, mode, perk, stance, removed, updated_at)
+VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT (membership_id, mode, perk) DO UPDATE SET
+  stance = excluded.stance,
+  removed = excluded.removed,
+  updated_at = excluded.updated_at`;
+
+const perkPreferenceStore = (db: Database): PerkPreferenceStore => ({
+  read: async (membershipId, since) => {
+    const preferences = await db
+      .prepare(READ_PREFERENCES)
+      .bind(membershipId, since)
+      .all<PreferenceRow>();
+
+    return preferences.results.map((row) => ({
+      mode: row.mode,
+      perk: row.perk,
+      stance: row.stance,
+      removed: row.removed === 1,
+      updatedAt: row.updated_at,
+    }));
+  },
+
+  write: async (membershipId, changes, now) => {
+    await db.batch(
+      changes.map((change) =>
+        db
+          .prepare(WRITE_PREFERENCE)
+          .bind(
+            membershipId,
+            change.mode,
+            change.perk,
+            change.stance,
+            change.removed ? 1 : 0,
+            now,
+          ),
+      ),
+    );
+  },
+});
+
 interface ChunkRow {
   starts_at: number;
   ends_at: number;
@@ -314,6 +369,7 @@ export default {
       baseline: baselineOf(env),
       tags: tagStore(env.TAGS),
       notes: noteStore(env.TAGS),
+      perkPreferences: perkPreferenceStore(env.TAGS),
       stats: statStore(env.TAGS),
     });
 

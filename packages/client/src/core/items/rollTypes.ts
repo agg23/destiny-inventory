@@ -8,6 +8,7 @@ import {
   type AegisSetBonus,
   type Tier,
 } from "@dvm/defs-core";
+import type { Stance } from "@dvm/service";
 
 export const MODES = ["pve", "pvp"] as const;
 
@@ -47,6 +48,7 @@ export interface SlotPerk {
   rank: number | undefined;
   wanted: boolean;
   plugged: boolean;
+  stance: Stance | undefined;
 }
 
 export interface SlotVerdict {

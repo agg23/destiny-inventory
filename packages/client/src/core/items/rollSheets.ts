@@ -1,6 +1,5 @@
 import type { DimItem } from "app/inventory/item-types";
 import type { WishListRoll } from "app/wishlists/types";
-import type { InventoryWishListRoll } from "app/wishlists/wishlists";
 import { createSignal } from "solid-js";
 
 import type { AegisData, AegisPerk, AegisSetBonus, Tier } from "@dvm/defs-core";
@@ -38,8 +37,6 @@ const [sheets, setSheets] = createSignal<Record<Mode, Sheet>>({
 });
 
 export const sheet = (mode: Mode): Sheet => sheets()[mode];
-
-export let matched = new Map<string, InventoryWishListRoll | undefined>();
 
 export const assessed: Record<Mode, WeakMap<DimItem, Assessment | undefined>> = {
   pve: new WeakMap(),
@@ -121,10 +118,6 @@ export const setRolls = (data: AegisData, mode: Mode = "pve") => {
 
   for (const bonus of data.setBonuses ?? []) {
     bonuses.set(bonus.hash, bonus);
-  }
-
-  if (mode === "pve") {
-    matched = new Map();
   }
 
   assessed[mode] = new WeakMap();

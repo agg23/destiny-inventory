@@ -3,6 +3,10 @@ import type { Membership } from "./bungie.ts";
 import type { ArtifactLoader } from "./loader.ts";
 import { parseNote, type NoteStore } from "./notes.ts";
 import {
+  parsePreferences,
+  type PerkPreferenceStore,
+} from "./perkPreferences.ts";
+import {
   exchangeCode,
   refreshTokens,
   type OAuthConfig,
@@ -35,6 +39,7 @@ export interface ServiceConfig {
   baseline?: { store: Store; reference: Membership };
   tags: TagStore;
   notes: NoteStore;
+  perkPreferences: PerkPreferenceStore;
   stats: StatStore;
 }
 
@@ -219,6 +224,19 @@ export const createHandler = (config: ServiceConfig) => {
           (notes) => ({ notes }),
           parseNote,
           "Bad note",
+        );
+      }
+
+      if (
+        pathname === "/perk-preferences" &&
+        (request.method === "GET" || request.method === "POST")
+      ) {
+        return sync(
+          request,
+          config.perkPreferences,
+          (preferences) => ({ preferences }),
+          parsePreferences,
+          "Bad perk preferences",
         );
       }
 

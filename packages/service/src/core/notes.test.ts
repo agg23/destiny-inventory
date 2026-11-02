@@ -41,6 +41,7 @@ const service = () =>
       write: async () => undefined,
     },
     notes: memory(),
+    perkPreferences: { read: async () => [], write: async () => undefined },
     stats: { read: async () => [], write: async () => undefined },
   });
 
