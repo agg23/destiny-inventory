@@ -108,23 +108,22 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   });
 
   // Keyed on the id, a new session object would restart the recorder
+  const statsMembership = createMemo(() => {
+    const loaded = session.current();
+
+    return loaded && !session.viewing() && !loaded.session.guest
+      ? loaded.session.membership.membershipId
+      : undefined;
+  });
+
   createEffect(
-    on(
-      () => {
-        const loaded = session.current();
+    on(statsMembership, (membershipId) => {
+      const store = session.current()?.session.store;
 
-        return loaded && !session.viewing() && !loaded.session.guest
-          ? loaded.session.membership.membershipId
-          : undefined;
-      },
-      (membershipId) => {
-        const store = session.current()?.session.store;
-
-        if (membershipId && store) {
-          onCleanup(startStats(store, membershipId));
-        }
-      },
-    ),
+      if (membershipId && store) {
+        onCleanup(startStats(store, membershipId));
+      }
+    }),
   );
 
   const tab = (): Tab =>

@@ -275,8 +275,9 @@ interface ChunkRow {
   updated_at: number;
 }
 
+// The equivalent OR form only seeks on membership_id with bound params, reading every chunk
 const READ_CHUNKS = `SELECT starts_at, ends_at, body, body_length, updated_at FROM stat_chunks
-WHERE membership_id = ? AND (updated_at > ? OR (updated_at = ? AND starts_at > ?))
+WHERE membership_id = ? AND (updated_at, starts_at) > (?, ?)
 ORDER BY updated_at, starts_at
 LIMIT ?`;
 
@@ -293,13 +294,7 @@ const statStore = (db: Database): StatStore => ({
   read: async (membershipId, after, limit) => {
     const chunks = await db
       .prepare(READ_CHUNKS)
-      .bind(
-        membershipId,
-        after.updatedAt,
-        after.updatedAt,
-        after.startsAt,
-        limit,
-      )
+      .bind(membershipId, after.updatedAt, after.startsAt, limit)
       .all<ChunkRow>();
 
     return chunks.results.map((row) => ({
