@@ -26,10 +26,15 @@ const STRANGE_GEAR_OFFERS = 3751514131;
 
 const EXOTIC_ENGRAM = 903043774;
 
+const ADA = 350061650;
+
+const GLIMMER = 3159615086;
+
 export const PURCHASED_REASONS = [
   "Already Purchased on Account",
   "Already Acquired",
   "Already Claimed This Week",
+  "Already Owned",
 ];
 
 export const WATCHED: Watch[] = [
@@ -49,6 +54,13 @@ export const WATCHED: Watch[] = [
     ],
     skip: [EXOTIC_ENGRAM],
     currency: STRANGE_COIN,
+  },
+  {
+    vendor: ADA,
+    mode: "offers",
+    rows: [[ADA]],
+    categories: ["category_materials_exchange"],
+    currency: GLIMMER,
   },
   { vendor: 153857624, mode: "claims", name: "Zavala" },
   { vendor: 3949128738, mode: "offers", only: EXCHANGE },

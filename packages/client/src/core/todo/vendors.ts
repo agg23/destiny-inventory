@@ -287,22 +287,23 @@ export const readVendors = (
       rows: [],
     };
 
-    // Caller computes the countdown to keep this stable
-    // The rotation API says Tuesday, but the stock changes at the daily reset
-    if (mode === "visit" || mode === "rotation") {
-      return [
-        {
-          ...shell,
-          refreshesAt: undefined,
-          rows: rotationRows(response, items, watch, ornaments),
-        },
-      ];
-    }
-
     const refreshesAt =
       live.nextRefreshDate === undefined
         ? undefined
         : new Date(live.nextRefreshDate).getTime();
+
+    // Caller computes the countdown to keep this stable
+    // The rotation API says Tuesday, but the stock changes at the daily reset
+    if (watch.rows !== undefined) {
+      return [
+        {
+          ...shell,
+          refreshesAt:
+            mode === "visit" || mode === "rotation" ? undefined : refreshesAt,
+          rows: rotationRows(response, items, watch, ornaments),
+        },
+      ];
+    }
 
     if (mode === "claims") {
       return [
