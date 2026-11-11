@@ -41,4 +41,14 @@
     top: auto;
     bottom: 0;
   }
+
+  /* Fixed escapes a scrolling parent's clip */
+  .search-suggestions {
+    position: fixed;
+    top: anchor(bottom);
+    left: anchor(left);
+    width: anchor-size(width);
+    margin-top: 4px;
+    position-try-fallbacks: flip-block;
+  }
 }

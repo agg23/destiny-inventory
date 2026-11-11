@@ -12,6 +12,7 @@ import {
   TILE_MAX,
   TILE_MIN,
 } from "../core/settings.ts";
+import { AutotagRules } from "./AutotagRules.tsx";
 import { CogGlyph } from "./lib/CogGlyph.tsx";
 import { IconButton } from "./lib/IconButton.tsx";
 import { Select } from "./lib/Select.tsx";
@@ -28,6 +29,7 @@ import { PerkPreferences } from "./PerkPreferences.tsx";
 export const Settings = (props: { loaded: LoadResult | undefined }) => {
   const [open, setOpen] = createSignal(false);
   const [editingPerks, setEditingPerks] = createSignal(false);
+  const [editingRules, setEditingRules] = createSignal(false);
 
   let discarding = false;
 
@@ -117,6 +119,20 @@ export const Settings = (props: { loaded: LoadResult | undefined }) => {
             </Button>
           </div>
 
+          <div class="flex items-center justify-between gap-4">
+            Autotag rules
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                close(true);
+                setEditingRules(true);
+              }}
+            >
+              Edit
+            </Button>
+          </div>
+
           <div class="flex justify-end gap-2">
             <Button size="sm" variant="ghost" onClick={() => close(false)}>
               Cancel
@@ -131,6 +147,10 @@ export const Settings = (props: { loaded: LoadResult | undefined }) => {
         loaded={props.loaded}
         open={editingPerks()}
         onClose={() => setEditingPerks(false)}
+      />
+      <AutotagRules
+        open={editingRules()}
+        onClose={() => setEditingRules(false)}
       />
     </>
   );

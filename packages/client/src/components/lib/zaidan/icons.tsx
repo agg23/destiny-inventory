@@ -40,6 +40,12 @@ export const ChevronDown = (props: { class?: string }) => (
   </Icon>
 );
 
+export const ChevronUp = (props: { class?: string }) => (
+  <Icon class={props.class}>
+    <path d="m18 15-6-6-6 6" />
+  </Icon>
+);
+
 export const ChevronRight = (props: { class?: string }) => (
   <Icon class={props.class}>
     <path d="m9 18 6-6-6-6" />

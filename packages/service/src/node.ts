@@ -11,6 +11,9 @@ import {
   createHandler,
   isAfter,
   loaderFrom,
+  type AutotagRule,
+  type AutotagState,
+  type AutotagStore,
   type ItemTag,
   type Note,
   type NoteStore,
@@ -135,6 +138,67 @@ const memoryPreferences = (): PerkPreferenceStore => {
   };
 };
 
+const memoryAutotag = (): AutotagStore => {
+  const rules = new Map<string, Map<string, AutotagRule>>();
+  const states = new Map<string, AutotagState>();
+
+  return {
+    read: async (membershipId, since) => ({
+      rules: [...bucket(rules, membershipId).values()].filter(
+        (rule) => rule.updatedAt > since,
+      ),
+      state: states.get(membershipId),
+    }),
+
+    write: async (membershipId, changes, now) => {
+      for (const change of changes) {
+        bucket(rules, membershipId).set(change.id, {
+          ...change,
+          updatedAt: now,
+        });
+      }
+    },
+
+    writeState: async (membershipId, change, now) => {
+      const held = states.get(membershipId);
+
+      if (change.kind === "enable") {
+        let mark = change.mark;
+
+        if (held && (held.enabled || held.mark > change.mark)) {
+          mark = held.mark;
+        }
+
+        states.set(membershipId, {
+          enabled: true,
+          mark,
+          updatedAt: now,
+        });
+
+        return true;
+      }
+
+      if (!held) {
+        return change.kind === "disable";
+      }
+
+      if (change.kind === "disable") {
+        states.set(membershipId, { ...held, enabled: false, updatedAt: now });
+
+        return true;
+      }
+
+      if (!held.enabled || held.mark !== change.from) {
+        return false;
+      }
+
+      states.set(membershipId, { ...held, mark: change.to, updatedAt: now });
+
+      return true;
+    },
+  };
+};
+
 const memoryStats = (): StatStore => {
   const chunks = new Map<string, Map<string, StoredChunk>>();
 
@@ -191,6 +255,7 @@ const handler = createHandler({
   tags: memoryTags(),
   notes: memoryNotes(),
   perkPreferences: memoryPreferences(),
+  autotag: memoryAutotag(),
   stats: memoryStats(),
 });
 

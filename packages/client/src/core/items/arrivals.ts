@@ -5,18 +5,20 @@ import { minBy } from "es-toolkit";
 import { assess, versionsOf } from "./rolls.ts";
 import { MODE_NAMES, type Assessment, type Mode } from "./rollTypes.ts";
 
-const PADDING = 20;
+/** Digits recency pads instance ids to */
+export const ID_DIGITS = 20;
 const SHOWN = 10;
 
 /** Acquisition order sort key; instance ids ascend but vary in digit count */
-export const recency = (item: DimItem): string => item.id.padStart(PADDING, "0");
+export const recency = (item: DimItem): string => item.id.padStart(ID_DIGITS, "0");
 
 /** Sort comparator, most recently acquired first */
 export const newestFirst = (a: DimItem, b: DimItem): number =>
   recency(a) < recency(b) ? 1 : -1;
 
-// Stacks all share the id "0"
-const dropped = (item: DimItem) => item.id !== "0" && item.equipment;
+/** Instanced gear. Stacks all share the id "0" */
+export const dropped = (item: DimItem): boolean =>
+  item.id !== "0" && item.equipment;
 
 export const acquired = (stores: DimStore[]): DimItem[] =>
   stores
@@ -25,7 +27,7 @@ export const acquired = (stores: DimStore[]): DimItem[] =>
     .sort(newestFirst)
     .slice(0, SHOWN);
 
-type VerdictKind = "only" | "better" | "equal" | "worse" | "mixed";
+export type VerdictKind = "only" | "better" | "equal" | "worse" | "mixed";
 
 export interface Verdict {
   kind: VerdictKind;
@@ -147,9 +149,23 @@ export const combineVerdicts = (
   };
 };
 
+/** Every copy of an item hash among the given items */
+export const copiesByHash = (items: DimItem[]): ((hash: number) => DimItem[]) => {
+  const byHash = new Map<number, DimItem[]>();
+
+  for (const item of items) {
+    const existing = byHash.get(item.hash) ?? [];
+
+    existing.push(item);
+    byHash.set(item.hash, existing);
+  }
+
+  return (hash) => byHash.get(hash) ?? [];
+};
+
 const verdictIn = (
   item: DimItem,
-  stores: DimStore[],
+  copiesOf: (hash: number) => DimItem[],
   mode: Mode,
 ): Verdict | undefined => {
   const read = assess(item, mode);
@@ -158,13 +174,10 @@ const verdictIn = (
     return undefined;
   }
 
-  const versions = new Set(versionsOf(item.hash, mode));
-
-  const rivals = stores
-    .flatMap((store) => store.items)
+  const rivals = [...new Set(versionsOf(item.hash, mode))]
+    .flatMap(copiesOf)
     .filter(
       (other) =>
-        versions.has(other.hash) &&
         other.id !== item.id &&
         other.id !== "0" &&
         !!other.sockets &&
@@ -189,9 +202,9 @@ export const verdictMode = (verdict: ModeVerdict): string | undefined => {
 };
 
 /** Verdict across the shown modes, undefined without real sockets or a rating */
-export const verdictFor = (
+export const verdictAmong = (
   item: DimItem,
-  stores: DimStore[],
+  copiesOf: (hash: number) => DimItem[],
   shown: Mode[],
 ): ModeVerdict | undefined => {
   if (!item.sockets || item.sockets.fromDefinitions) {
@@ -201,8 +214,20 @@ export const verdictFor = (
   const verdicts: Partial<Record<Mode, Verdict>> = {};
 
   for (const mode of shown) {
-    verdicts[mode] = verdictIn(item, stores, mode);
+    verdicts[mode] = verdictIn(item, copiesOf, mode);
   }
 
   return combineVerdicts(verdicts, shown);
 };
+
+/** verdictAmong over every item in the stores */
+export const verdictFor = (
+  item: DimItem,
+  stores: DimStore[],
+  shown: Mode[],
+): ModeVerdict | undefined =>
+  verdictAmong(
+    item,
+    copiesByHash(stores.flatMap((store) => store.items)),
+    shown,
+  );

@@ -1,3 +1,8 @@
+import {
+  parseRules,
+  parseStateChange,
+  type AutotagStore,
+} from "./autotag.ts";
 import { readBaseline, type Store } from "./baseline.ts";
 import type { Membership } from "./bungie.ts";
 import type { ArtifactLoader } from "./loader.ts";
@@ -40,6 +45,7 @@ export interface ServiceConfig {
   tags: TagStore;
   notes: NoteStore;
   perkPreferences: PerkPreferenceStore;
+  autotag: AutotagStore;
   stats: StatStore;
 }
 
@@ -115,13 +121,11 @@ export const createHandler = (config: ServiceConfig) => {
       const raw = Number(new URL(request.url).searchParams.get("since"));
       const since = Number.isSafeInteger(raw) && raw > 0 ? raw : 0;
 
-      return json(
-        {
-          ...present(await store.read(session.membershipId, since)),
-          now: Date.now(),
-        },
-        config.allowedOrigin,
-      );
+      // Must precede the read to catch concurrent writes
+      const now = Date.now();
+      const snapshot = await store.read(session.membershipId, since);
+
+      return json({ ...present(snapshot), now }, config.allowedOrigin);
     }
 
     const change = parse(await request.json());
@@ -238,6 +242,45 @@ export const createHandler = (config: ServiceConfig) => {
           parsePreferences,
           "Bad perk preferences",
         );
+      }
+
+      if (
+        pathname === "/autotag" &&
+        (request.method === "GET" || request.method === "POST")
+      ) {
+        return sync(
+          request,
+          config.autotag,
+          (snapshot) => snapshot,
+          parseRules,
+          "Bad autotag rules",
+        );
+      }
+
+      if (pathname === "/autotag/state" && request.method === "POST") {
+        const session = await sessionOf(request);
+
+        if (!session) {
+          return json({ error: "Sign in required" }, config.allowedOrigin, 401);
+        }
+
+        const change = parseStateChange(await request.json());
+
+        if (!change) {
+          return json(
+            { error: "Bad autotag state" },
+            config.allowedOrigin,
+            400,
+          );
+        }
+
+        const applied = await config.autotag.writeState(
+          session.membershipId,
+          change,
+          Date.now(),
+        );
+
+        return json({ applied }, config.allowedOrigin);
       }
 
       if (

@@ -30,8 +30,13 @@ import {
   parseAndValidateQuery,
 } from "app/search/search-filter";
 
-import { TIERS } from "@dvm/defs-core";
+import { TIERS, type Tier } from "@dvm/defs-core";
 
+import {
+  copiesByHash,
+  verdictAmong,
+  type VerdictKind,
+} from "../items/arrivals.ts";
 import {
   assess,
   ratingFor,
@@ -40,7 +45,7 @@ import {
   setRatings,
 } from "../items/rolls.ts";
 import { MODES, type Mode } from "../items/rollTypes.ts";
-import { isFavorite, tagDefs, tagFor } from "../items/tags.ts";
+import { isFavorite, tagDefs, tagFor, tagRuleFor } from "../items/tags.ts";
 import { makeComplete } from "./complete.ts";
 import { indexKeywords, keywordFilter } from "./keyword.ts";
 import { ITEM_SEARCHES } from "./searches.ts";
@@ -90,28 +95,93 @@ const ratingFilter = (
   },
 });
 
+// Higher is better, so rate:>=b reads as B or better
+const TIER_VALUES: Record<string, number> = Object.fromEntries(
+  TIERS.map((tier, index) => [tier.toLowerCase(), TIERS.length - 1 - index]),
+);
+
+const tierValue = (tier: Tier | undefined): number | undefined =>
+  tier === undefined ? undefined : TIER_VALUES[tier.toLowerCase()];
+
+const rangeFilter = (
+  keywords: string[],
+  description: string,
+  overload: Record<string, number> | undefined,
+  values: (item: DimItem) => (number | undefined)[],
+): ItemFilterDefinition => ({
+  keywords,
+  description,
+  format: "range",
+  overload,
+  destinyVersion: 2,
+  // Range filters always get a comparator
+  filter: ({ compare }) => (item) =>
+    values(item).some((value) => value !== undefined && compare!(value)),
+});
+
+const setValues = (item: DimItem, mode: Mode): (number | undefined)[] =>
+  setRatings(item, mode).map((bonus) => tierValue(bonus.tier));
+
+const VERDICT_KINDS: Record<string, VerdictKind> = {
+  better: "better",
+  same: "equal",
+  worse: "worse",
+  only: "only",
+  mixed: "mixed",
+};
+
+const verdictFilter = (
+  keyword: string,
+  description: string,
+  mode: Mode,
+): ItemFilterDefinition => ({
+  keywords: [keyword],
+  description,
+  format: "query",
+  suggestions: Object.keys(VERDICT_KINDS),
+  destinyVersion: 2,
+  filter: ({ filterValue, allItems }) => {
+    const wanted = VERDICT_KINDS[filterValue.toLowerCase()];
+    const copiesOf = copiesByHash(allItems);
+
+    return (item) => verdictAmong(item, copiesOf, [mode])?.kind === wanted;
+  },
+});
+
 // DIM's tier: already means Destiny's gear tier
-const ratingFilters: ItemFilterDefinition[] = MODES.flatMap(
-  (mode): ItemFilterDefinition[] => {
+const ratingFilters: ItemFilterDefinition[] = [
+  ...MODES.flatMap((mode): ItemFilterDefinition[] => {
     const prefix = KEYWORD_PREFIXES[mode];
     const sheetName = SHEET_NAMES[mode];
 
     return [
-      ratingFilter(
+      rangeFilter(
         [`${prefix}rate`, `${prefix}rating`],
-        `${sheetName} rating for the roll, the weapon's tier stepped down for each perk column that missed, or either of an armor set's bonuses`,
-        RATINGS,
-        (item, wanted) =>
-          assess(item, mode)?.overall?.toLowerCase() === wanted ||
-          setRated(item, wanted, mode),
+        `${sheetName} rating for the roll, the weapon's tier stepped down for each perk column that missed, or either of an armor set's bonuses. ${prefix}rate:>=b is B or better`,
+        TIER_VALUES,
+        (item) => [
+          tierValue(assess(item, mode)?.overall),
+          ...setValues(item, mode),
+        ],
       ),
-      ratingFilter(
+      rangeFilter(
         [`${prefix}ratebase`, `${prefix}ratingbase`],
         `${sheetName} rating for the weapon itself, whatever this one rolled. Armor rates the same either way`,
-        RATINGS,
-        (item, wanted) =>
-          ratingFor(item.hash, mode)?.tier?.toLowerCase() === wanted ||
-          setRated(item, wanted, mode),
+        TIER_VALUES,
+        (item) => [
+          tierValue(ratingFor(item.hash, mode)?.tier),
+          ...setValues(item, mode),
+        ],
+      ),
+      rangeFilter(
+        [`${prefix}misses`],
+        `Perk columns where the roll got none of the ${sheetName} picks. ${prefix}misses:>=1 is downrated from the base rating`,
+        undefined,
+        (item) => {
+          const read = assess(item, mode);
+
+          return read && read.of > 0 ? [read.of - read.score] : [];
+        },
       ),
       ratingFilter(
         // The lexer only allows letters before the colon
@@ -120,9 +190,14 @@ const ratingFilters: ItemFilterDefinition[] = MODES.flatMap(
         SET_SUGGESTIONS,
         (item, wanted) => setRated(item, wanted, mode),
       ),
+      verdictFilter(
+        `${prefix}verdict`,
+        `This roll against your other copies on the ${sheetName}: better, same, worse, only, or mixed`,
+        mode,
+      ),
     ];
-  },
-);
+  }),
+];
 
 const tagFilters: ItemFilterDefinition[] = [
   {
@@ -151,6 +226,12 @@ const tagFilters: ItemFilterDefinition[] = [
     description: "Items you marked as a favorite",
     destinyVersion: 2,
     filter: () => (item) => isFavorite(item.id),
+  },
+  {
+    keywords: ["autotagged"],
+    description: "Items whose tag was set by an autotag rule",
+    destinyVersion: 2,
+    filter: () => (item) => tagRuleFor(item.id) !== undefined,
   },
 ];
 

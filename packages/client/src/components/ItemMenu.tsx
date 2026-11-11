@@ -8,6 +8,7 @@ import { For, Show, type JSX } from "solid-js";
 import { useApp } from "../core/app/state.ts";
 import { rivalFor } from "../core/items/compare.ts";
 import { menuFor, setMenuFor, setMenuOpen } from "../core/items/itemMenu.ts";
+import { ruleQuery } from "../core/items/autotag.ts";
 import { clear } from "../core/items/preview.ts";
 import { requestTag } from "../core/items/tagConfirm.ts";
 import {
@@ -17,6 +18,7 @@ import {
   tagDefs,
   tagTarget,
   tagFor,
+  tagRuleFor,
   tagSummary,
 } from "../core/items/tags.ts";
 import { guest } from "../core/profile/guest.ts";
@@ -143,6 +145,7 @@ const TagChoice = (props: {
 interface TagSubProps {
   label: string;
   value: string | undefined;
+  ruleId?: string;
   closeOnSelect?: boolean;
   onChoose: (tagId: string | undefined) => void;
 }
@@ -151,11 +154,37 @@ const TagSub = (props: TagSubProps) => (
   <ContextMenu.Sub gutter={6}>
     <ContextMenu.SubTrigger class={cn(ROW, "z-context-menu-sub-trigger")}>
       <span class="min-w-0 flex-1">Tag</span>
-      <span class="text-muted-foreground">{props.label}</span>
+      <span class="text-muted-foreground">
+        {props.ruleId === undefined ? props.label : `Auto ${props.label}`}
+      </span>
       <ChevronRight class="text-muted-foreground" />
     </ContextMenu.SubTrigger>
     <ContextMenu.Portal>
-      <ContextMenu.SubContent data-menu="item" class={SUB_PANEL}>
+      <ContextMenu.SubContent
+        data-menu="item"
+        class={cn(SUB_PANEL, "max-w-64")}
+      >
+        <Show when={props.ruleId}>
+          {(ruleId) => (
+            <>
+              <ContextMenu.Group>
+                <ContextMenu.GroupLabel
+                  class="z-dropdown-menu-label flex flex-col gap-0.5"
+                >
+                  Set via autotag
+                  <Show when={ruleQuery(ruleId())}>
+                    {(query) => (
+                      <span class="font-mono text-xs font-normal break-words">
+                        {query()}
+                      </span>
+                    )}
+                  </Show>
+                </ContextMenu.GroupLabel>
+              </ContextMenu.Group>
+              <ContextMenu.Separator class="z-context-menu-separator border-0" />
+            </>
+          )}
+        </Show>
         <ContextMenu.RadioGroup
           value={props.value}
           onChange={(id) => props.onChoose(id === "" ? undefined : id)}
@@ -291,6 +320,7 @@ const Rows = (props: RowProps) => {
           <TagSub
             label={tagFor(props.item.id)?.label ?? "No tag"}
             value={tagFor(props.item.id)?.id ?? ""}
+            ruleId={tagRuleFor(props.item.id)}
             onChoose={(tagId) => {
               if (props.onTag) {
                 props.onTag(props.item, tagId);

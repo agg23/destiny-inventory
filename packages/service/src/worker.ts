@@ -3,6 +3,8 @@ import {
   loaderFrom,
   refresh,
   type ArtifactLoader,
+  type AutotagRule,
+  type AutotagStore,
   type Membership,
   type NoteKind,
   type NoteStore,
@@ -21,7 +23,7 @@ interface Assets {
 interface Statement {
   bind: (...values: unknown[]) => Statement;
   all: <T>() => Promise<{ results: T[] }>;
-  run: () => Promise<unknown>;
+  run: () => Promise<{ meta: { changes: number } }>;
 }
 
 interface Database {
@@ -72,6 +74,7 @@ interface ItemRow {
   instance_id: string;
   item_hash: number;
   tag_id: string;
+  rule_id: string | null;
   removed: number;
   updated_at: number;
 }
@@ -80,7 +83,7 @@ const READ_DEFS =
   "SELECT id, label, color, position, removed, updated_at FROM tag_defs WHERE membership_id = ? AND updated_at > ?";
 
 const READ_ITEMS =
-  "SELECT instance_id, item_hash, tag_id, removed, updated_at FROM item_tags WHERE membership_id = ? AND updated_at > ?";
+  "SELECT instance_id, item_hash, tag_id, rule_id, removed, updated_at FROM item_tags WHERE membership_id = ? AND updated_at > ?";
 
 const WRITE_DEF = `INSERT INTO tag_defs (membership_id, id, label, color, position, removed, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -91,10 +94,11 @@ ON CONFLICT (membership_id, id) DO UPDATE SET
   removed = excluded.removed,
   updated_at = excluded.updated_at`;
 
-const WRITE_ITEM = `INSERT INTO item_tags (membership_id, instance_id, item_hash, tag_id, removed, updated_at)
-VALUES (?, ?, ?, ?, ?, ?)
+const WRITE_ITEM = `INSERT INTO item_tags (membership_id, instance_id, item_hash, tag_id, rule_id, removed, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (membership_id, instance_id, tag_id) DO UPDATE SET
   item_hash = excluded.item_hash,
+  rule_id = excluded.rule_id,
   removed = excluded.removed,
   updated_at = excluded.updated_at`;
 
@@ -118,6 +122,7 @@ const tagStore = (db: Database): TagStore => ({
         instanceId: row.instance_id,
         itemHash: row.item_hash,
         tagId: row.tag_id,
+        ruleId: row.rule_id ?? undefined,
         removed: row.removed === 1,
         updatedAt: row.updated_at,
       })),
@@ -147,6 +152,7 @@ const tagStore = (db: Database): TagStore => ({
             item.instanceId,
             item.itemHash,
             item.tagId,
+            item.ruleId ?? null,
             item.removed ? 1 : 0,
             now,
           ),
@@ -266,6 +272,127 @@ const perkPreferenceStore = (db: Database): PerkPreferenceStore => ({
   },
 });
 
+interface RuleRow {
+  id: string;
+  query: string;
+  tag_id: string | null;
+  vault: number;
+  enabled: number;
+  position: number;
+  removed: number;
+  updated_at: number;
+}
+
+interface StateRow {
+  enabled: number;
+  mark: string;
+  updated_at: number;
+}
+
+const READ_RULES =
+  "SELECT id, query, tag_id, vault, enabled, position, removed, updated_at FROM autotag_rules WHERE membership_id = ? AND updated_at > ?";
+
+const WRITE_RULE = `INSERT INTO autotag_rules (membership_id, id, query, tag_id, vault, enabled, position, removed, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (membership_id, id) DO UPDATE SET
+  query = excluded.query,
+  tag_id = excluded.tag_id,
+  vault = excluded.vault,
+  enabled = excluded.enabled,
+  position = excluded.position,
+  removed = excluded.removed,
+  updated_at = excluded.updated_at`;
+
+const READ_STATE =
+  "SELECT enabled, mark, updated_at FROM autotag_state WHERE membership_id = ?";
+
+// A stale profile can send a lower mark. Never move it back
+const ENABLE = `INSERT INTO autotag_state (membership_id, enabled, mark, updated_at)
+VALUES (?, 1, ?, ?)
+ON CONFLICT (membership_id) DO UPDATE SET
+  mark = CASE WHEN autotag_state.enabled = 1 THEN autotag_state.mark ELSE MAX(autotag_state.mark, excluded.mark) END,
+  enabled = 1,
+  updated_at = excluded.updated_at`;
+
+const DISABLE =
+  "UPDATE autotag_state SET enabled = 0, updated_at = ? WHERE membership_id = ?";
+
+const CLAIM =
+  "UPDATE autotag_state SET mark = ?, updated_at = ? WHERE membership_id = ? AND enabled = 1 AND mark = ?";
+
+const autotagStore = (db: Database): AutotagStore => ({
+  read: async (membershipId, since) => {
+    const [rules, state] = await Promise.all([
+      db.prepare(READ_RULES).bind(membershipId, since).all<RuleRow>(),
+      db.prepare(READ_STATE).bind(membershipId).all<StateRow>(),
+    ]);
+    const row = state.results[0];
+
+    return {
+      rules: rules.results.map(
+        (rule): AutotagRule => ({
+          id: rule.id,
+          query: rule.query,
+          tagId: rule.tag_id ?? undefined,
+          vault: rule.vault === 1,
+          enabled: rule.enabled === 1,
+          position: rule.position,
+          removed: rule.removed === 1,
+          updatedAt: rule.updated_at,
+        }),
+      ),
+      state: row
+        ? {
+            enabled: row.enabled === 1,
+            mark: row.mark,
+            updatedAt: row.updated_at,
+          }
+        : undefined,
+    };
+  },
+
+  write: async (membershipId, changes, now) => {
+    await db.batch(
+      changes.map((rule) =>
+        db
+          .prepare(WRITE_RULE)
+          .bind(
+            membershipId,
+            rule.id,
+            rule.query,
+            rule.tagId ?? null,
+            rule.vault ? 1 : 0,
+            rule.enabled ? 1 : 0,
+            rule.position,
+            rule.removed ? 1 : 0,
+            now,
+          ),
+      ),
+    );
+  },
+
+  writeState: async (membershipId, change, now) => {
+    if (change.kind === "enable") {
+      await db.prepare(ENABLE).bind(membershipId, change.mark, now).run();
+
+      return true;
+    }
+
+    if (change.kind === "disable") {
+      await db.prepare(DISABLE).bind(now, membershipId).run();
+
+      return true;
+    }
+
+    const result = await db
+      .prepare(CLAIM)
+      .bind(change.to, now, membershipId, change.from)
+      .run();
+
+    return result.meta.changes === 1;
+  },
+});
+
 interface ChunkRow {
   starts_at: number;
   ends_at: number;
@@ -365,6 +492,7 @@ export default {
       tags: tagStore(env.TAGS),
       notes: noteStore(env.TAGS),
       perkPreferences: perkPreferenceStore(env.TAGS),
+      autotag: autotagStore(env.TAGS),
       stats: statStore(env.TAGS),
     });
 

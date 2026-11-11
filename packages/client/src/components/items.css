@@ -334,6 +334,11 @@
     color: var(--fg);
   }
 
+  .tag-auto {
+    margin-right: 0.5em;
+    color: var(--text);
+  }
+
   .gear-tier {
     background: color-mix(in srgb, var(--bg) 80%, transparent);
     color: var(--cream);
@@ -438,9 +443,9 @@
     box-shadow: 0 0 0 1.5px var(--cream);
   }
 
-  /* Framework's tooltip assumes game art behind it. Above the sticky header */
+  /* Framework's tooltip assumes game art behind it. Above the sticky header and dialogs */
   .hover-card {
-    z-index: 6;
+    z-index: 60;
     max-height: calc(100vh - 16px);
     overflow: hidden;
     background-color: var(--panel);
@@ -449,7 +454,7 @@
 
   /* Keeps the hovered perk in the rail visible */
   .anchored.perk-card {
-    z-index: 7;
+    z-index: 61;
     position-anchor: --hovered-perk;
     max-height: calc(100vh - 16px);
     overflow: hidden;

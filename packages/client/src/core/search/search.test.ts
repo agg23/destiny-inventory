@@ -8,7 +8,13 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { buildDefinitions } from "@dvm/dim-bridge";
 
-import { setFavorite, setOnlyTag, tagTarget } from "../items/tags.ts";
+import {
+  setFavorite,
+  setOnlyTag,
+  tagRuleFor,
+  tagTarget,
+  writeRuleTags,
+} from "../items/tags.ts";
 import { completion, itemFilter, suggest, valid } from "./search.ts";
 
 let defs: D2ManifestDefinitions;
@@ -280,5 +286,22 @@ describe("tag filter", () => {
     setFavorite([tagTarget(target!)], false);
 
     expect(ids("is:favorite")).toEqual([]);
+  });
+
+  it("knows a rule's tag until it is set by hand", () => {
+    const [target] = items.filter((item) => item.id !== "0");
+    const ids = (query: string) => found(query).map((item) => item.id);
+
+    writeRuleTags([tagTarget(target!)], "junk", "rule-1");
+
+    expect(ids("is:autotagged")).toEqual([target!.id]);
+    expect(tagRuleFor(target!.id)).toBe("rule-1");
+
+    setOnlyTag(target!.id, target!.hash, "junk");
+
+    expect(ids("is:autotagged")).toEqual([]);
+    expect(ids("tag:junk")).toEqual([target!.id]);
+
+    setOnlyTag(target!.id, target!.hash, undefined);
   });
 });

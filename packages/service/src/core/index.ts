@@ -1,3 +1,14 @@
+export {
+  MARK_DIGITS,
+  parseRules,
+  parseStateChange,
+  type AutotagRule,
+  type AutotagRuleChange,
+  type AutotagSnapshot,
+  type AutotagState,
+  type AutotagStateChange,
+  type AutotagStore,
+} from "./autotag.ts";
 export { createHandler, type ServiceConfig } from "./handler.ts";
 export {
   loaderFrom,

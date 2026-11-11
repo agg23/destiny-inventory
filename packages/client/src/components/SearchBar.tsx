@@ -2,6 +2,7 @@ import {
   createEffect,
   createMemo,
   createSignal,
+  createUniqueId,
   For,
   Show,
   type JSX,
@@ -73,6 +74,7 @@ const Option = (props: OptionProps) => (
 );
 
 export const SearchBar = (props: Props) => {
+  const anchor = `--search-${createUniqueId()}`;
   const [open, setOpen] = createSignal(false);
   const [focused, setFocused] = createSignal(false);
   const [caret, setCaret] = createSignal(0);
@@ -326,6 +328,7 @@ export const SearchBar = (props: Props) => {
       ref={(el: HTMLInputElement) => (field = el)}
       wrapper={props.class}
       class={props.inputClass}
+      style={{ "anchor-name": anchor }}
       placeholder={ghost() === "" ? props.placeholder : ""}
       value={props.query}
       trailing={props.trailing}
@@ -358,7 +361,8 @@ export const SearchBar = (props: Props) => {
 
       <Show when={open() && total() > 0}>
         <ul
-          class="absolute top-full left-0 z-50 mt-1 max-h-[60vh] w-full overflow-y-auto rounded-lg bg-popover p-1 shadow-md ring-1 ring-foreground/10"
+          class="search-suggestions z-50 max-h-[60vh] overflow-y-auto rounded-lg bg-popover p-1 shadow-md ring-1 ring-foreground/10"
+          style={{ "position-anchor": anchor }}
           role="listbox"
           onMouseLeave={() => setHighlight(-1)}
         >

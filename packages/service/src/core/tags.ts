@@ -15,6 +15,8 @@ export interface ItemTag {
   instanceId: string;
   itemHash: number;
   tagId: string;
+  /** Set when an autotag rule applied the tag */
+  ruleId?: string;
   removed: boolean;
   updatedAt: number;
 }
@@ -80,19 +82,19 @@ const readDef = (raw: unknown): TagDefChange | undefined => {
 };
 
 const readItem = (raw: unknown): ItemTagChange | undefined => {
-  const { instanceId, itemHash, tagId, removed } = (raw ?? {}) as Record<
-    string,
-    unknown
-  >;
+  const { instanceId, itemHash, tagId, ruleId, removed } = (raw ??
+    {}) as Record<string, unknown>;
 
   const cleanInstanceId = text(instanceId);
   const cleanItemHash = whole(itemHash);
   const cleanTagId = text(tagId);
+  const cleanRuleId = ruleId === undefined ? undefined : text(ruleId);
 
   if (
     cleanInstanceId === undefined ||
     cleanItemHash === undefined ||
-    cleanTagId === undefined
+    cleanTagId === undefined ||
+    (ruleId !== undefined && cleanRuleId === undefined)
   ) {
     return undefined;
   }
@@ -101,6 +103,7 @@ const readItem = (raw: unknown): ItemTagChange | undefined => {
     instanceId: cleanInstanceId,
     itemHash: cleanItemHash,
     tagId: cleanTagId,
+    ruleId: cleanRuleId,
     removed: !!removed,
   };
 };

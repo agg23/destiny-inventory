@@ -13,9 +13,15 @@ const ENDPOINT = "/api/tags";
 
 const FLUSH_MS = 500;
 
+const RETRY_MS = 30_000;
+
+// MAX_CHANGES in the service
+const FLUSH_LIMIT = 1_000;
+
 interface Held {
   defs: TagDef[];
   items: ItemTag[];
+  queued: ItemTag[];
   since: number;
 }
 
@@ -32,7 +38,7 @@ const PROTECTED = new Set(["keep", "pvp", "pve"]);
 
 const FAVORITE = "favorite";
 
-const EMPTY: Held = { defs: [], items: [], since: 0 };
+const EMPTY: Held = { defs: [], items: [], queued: [], since: 0 };
 
 // Colors from tokens.css
 const DEFAULT_DEFS: TagDef[] = (
@@ -53,7 +59,8 @@ const DEFAULT_DEFS: TagDef[] = (
   updatedAt: 0,
 }));
 
-const itemKey = (item: ItemTag): string => `${item.instanceId}/${item.tagId}`;
+const itemKey = (item: { instanceId: string; tagId: string }): string =>
+  `${item.instanceId}/${item.tagId}`;
 
 const restore = (): Held => {
   const parsed = readStored(KEY) as Partial<Held> | undefined;
@@ -65,6 +72,7 @@ const restore = (): Held => {
   return {
     defs: Array.isArray(parsed.defs) ? parsed.defs : [],
     items: Array.isArray(parsed.items) ? parsed.items : [],
+    queued: Array.isArray(parsed.queued) ? parsed.queued : [],
     since: typeof parsed.since === "number" ? parsed.since : 0,
   };
 };
@@ -76,6 +84,10 @@ const [defs, setDefs] = createSignal<TagDef[]>([]);
 const [assigned, setAssigned] = createSignal<
   ReadonlyMap<string, ReadonlySet<string>>
 >(new Map());
+
+const [ruleByItemKey, setRuleByItemKey] = createSignal<ReadonlyMap<string, string>>(
+  new Map(),
+);
 
 /** Tag definitions in display order */
 export const tagDefs = defs;
@@ -111,7 +123,18 @@ const publishDefs = () => {
   );
 };
 
-const publishItems = () => setAssigned(index(held.items));
+const publishItems = () => {
+  setAssigned(index(held.items));
+  setRuleByItemKey(
+    new Map(
+      held.items.flatMap((item) =>
+        !item.removed && item.ruleId !== undefined
+          ? [[itemKey(item), item.ruleId]]
+          : [],
+      ),
+    ),
+  );
+};
 
 const save = () => {
   try {
@@ -138,6 +161,7 @@ export const syncTags = async (): Promise<void> => {
   const body = (await response.json()) as Served;
 
   held = {
+    ...held,
     defs: mergeNewer(held.defs, body.defs, (def) => def.id),
     items: mergeNewer(held.items, body.items, itemKey),
     since: body.now,
@@ -146,37 +170,66 @@ export const syncTags = async (): Promise<void> => {
   save();
   publishDefs();
   publishItems();
+
+  // Left over from a closed tab or a failed write
+  if (held.queued.length > 0) {
+    timer ??= setTimeout(() => void flush(), FLUSH_MS);
+  }
 };
 
-let queued: ItemTag[] = [];
 let timer: ReturnType<typeof setTimeout> | undefined = undefined;
+let flushing = false;
 
 const flush = async () => {
   timer = undefined;
 
-  const sending = queued;
-  queued = [];
-
-  if (sending.length === 0) {
+  if (flushing || held.queued.length === 0) {
     return;
   }
 
-  const response = await callService(ENDPOINT, {
-    method: "POST",
-    body: JSON.stringify({
-      defs: [],
-      items: sending.map((item) => ({
-        instanceId: item.instanceId,
-        itemHash: item.itemHash,
-        tagId: item.tagId,
-        removed: item.removed,
-      })),
-    }),
-  });
+  flushing = true;
 
-  // Requeue on failure; the next flush retries
-  if (!response?.ok) {
-    queued = mergeNewer(sending, queued, itemKey);
+  const sending = held.queued.slice(0, FLUSH_LIMIT);
+  let response: Response | undefined = undefined;
+
+  try {
+    response = await callService(ENDPOINT, {
+      method: "POST",
+      body: JSON.stringify({
+        defs: [],
+        items: sending.map((item) => ({
+          instanceId: item.instanceId,
+          itemHash: item.itemHash,
+          tagId: item.tagId,
+          ruleId: item.ruleId,
+          removed: item.removed,
+        })),
+      }),
+    });
+  } catch {
+    // Offline
+  } finally {
+    flushing = false;
+  }
+
+  // A rejected batch would block the queue forever
+  if (response?.ok || response?.status === 400) {
+    // Rows replaced mid-write are new objects and stay queued
+    const sent = new Set(sending);
+
+    held = {
+      ...held,
+      queued: held.queued.filter((item) => !sent.has(item)),
+    };
+
+    save();
+  }
+
+  if (held.queued.length > 0) {
+    timer ??= setTimeout(
+      () => void flush(),
+      response?.ok ? FLUSH_MS : RETRY_MS,
+    );
   }
 };
 
@@ -185,12 +238,14 @@ const queue = (changes: ItemTag[]) => {
     return;
   }
 
-  held = { ...held, items: mergeNewer(held.items, changes, itemKey) };
+  held = {
+    ...held,
+    items: mergeNewer(held.items, changes, itemKey),
+    queued: mergeNewer(held.queued, changes, itemKey),
+  };
 
   save();
   publishItems();
-
-  queued = mergeNewer(queued, changes, itemKey);
 
   timer ??= setTimeout(() => void flush(), FLUSH_MS);
 };
@@ -215,6 +270,7 @@ const changesFor = (
   target: TagTarget,
   tagId: string | undefined,
   updatedAt: number,
+  ruleId: string | undefined = undefined,
 ): ItemTag[] => {
   const { instanceId, itemHash } = target;
   const current = assigned().get(instanceId);
@@ -231,7 +287,10 @@ const changesFor = (
 
   return tagId === undefined
     ? cleared
-    : [...cleared, { instanceId, itemHash, tagId, removed: false, updatedAt }];
+    : [
+        ...cleared,
+        { instanceId, itemHash, tagId, ruleId, removed: false, updatedAt },
+      ];
 };
 
 // DIM gives every non-instanced item the id "0"
@@ -246,6 +305,30 @@ export const writeTags = (snapshot: TagSnapshot[]): void => {
       .filter(taggable)
       .flatMap((one) => changesFor(one, one.tagId, updatedAt)),
   );
+};
+
+/** Sets one tag across many items, flagged as applied by an autotag rule */
+export const writeRuleTags = (
+  targets: TagTarget[],
+  tagId: string,
+  ruleId: string,
+): void => {
+  const updatedAt = Date.now();
+
+  queue(
+    targets
+      .filter(taggable)
+      .flatMap((target) => changesFor(target, tagId, updatedAt, ruleId)),
+  );
+};
+
+/** The autotag rule that set an item's current tag, undefined when it was set by hand */
+export const tagRuleFor = (instanceId: string): string | undefined => {
+  const tag = tagFor(instanceId);
+
+  return tag
+    ? ruleByItemKey().get(itemKey({ instanceId, tagId: tag.id }))
+    : undefined;
 };
 
 /** The tag store's handle on an item */

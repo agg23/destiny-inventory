@@ -27,6 +27,7 @@ import { TagConfirm } from "./components/TagConfirm.tsx";
 import { Toasts } from "./components/Toasts.tsx";
 import { UpdateDialog } from "./components/UpdateDialog.tsx";
 import { createActiveCharacter } from "./core/app/activeCharacter.ts";
+import { createAutotagger } from "./core/app/autotagger.ts";
 import { createEntrySearch } from "./core/app/entrySearch.ts";
 import { createIconWarmup } from "./core/app/iconWarmup.ts";
 import { createItemMoves } from "./core/app/itemMoves.ts";
@@ -40,6 +41,7 @@ import { createSession } from "./core/app/session.ts";
 import { AppContext, type AppState } from "./core/app/state.ts";
 import { messageOf } from "./core/error.ts";
 import { acquired } from "./core/items/arrivals.ts";
+import { syncAutotag } from "./core/items/autotag.ts";
 import { startClarity } from "./core/items/clarity.ts";
 import { syncNotes } from "./core/items/notes.ts";
 import { syncPerkPreferences } from "./core/items/perkPreferences.ts";
@@ -79,6 +81,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
       void syncTags();
       void syncNotes();
       void syncPerkPreferences();
+      void syncAutotag();
     }
   });
 
@@ -180,6 +183,14 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   const runs = createRuns(session.current, stores);
   const selection = createSelection(url, tab, stores, session.current);
   const moves = createItemMoves(session.viewing, () => refresh.refreshSoon());
+
+  createAutotagger({
+    current: session.current,
+    stores,
+    viewing: session.viewing,
+    moving: moves.moving,
+    moveAll: moves.moveMany,
+  });
 
   const refresh = createProfileRefresh({
     current: session.current,

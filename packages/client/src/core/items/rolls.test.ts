@@ -470,6 +470,51 @@ describe("the rating filters", () => {
     expect(found("ratingbase:s").length).toBe(copies);
     expect(found("rating:s").length).toBeLessThan(copies);
   });
+  it("compares against a tier, better being higher", () => {
+    load(roll({ tier: "S", slots: [[SLICE], [KILL_CLIP]] }));
+
+    expect(valid("rate:>=b")).toBe(true);
+    expect(valid("pvprate:<c")).toBe(true);
+    expect(valid("rate:>=z")).toBe(false);
+    expect(has("rate:>=b", weapon)).toBe(true);
+    expect(has("rate:>=a", weapon)).toBe(true);
+    expect(has("rate:>a", weapon)).toBe(false);
+    expect(has("rate:<s", weapon)).toBe(true);
+    expect(has("ratebase:>a", weapon)).toBe(true);
+  });
+
+  it("never matches an unrated item by comparison", () => {
+    expect(found("rate:<=f")).toEqual([]);
+    expect(found("rate:>=f")).toEqual([]);
+  });
+
+  it("counts the columns that missed every pick", () => {
+    load(roll({ tier: "S", slots: [[SLICE], [KILL_CLIP]] }));
+
+    expect(has("misses:1", weapon)).toBe(true);
+    expect(has("misses:>=1", weapon)).toBe(true);
+    expect(has("misses:0", weapon)).toBe(false);
+    expect(has("pvpmisses:>=0", weapon)).toBe(false);
+
+    load(roll({ tier: "S", slots: [[SLICE], [DESPERADO]] }));
+
+    expect(has("misses:0", weapon)).toBe(true);
+  });
+
+  it("judges a roll against its other copies", () => {
+    load(roll({ tier: "S", slots: [[SLICE], [DESPERADO]] }));
+
+    const others = items.filter(
+      (item) => item.hash === ALL_OR_NOTHING && item.id !== weapon.id,
+    );
+
+    expect(valid("verdict:same")).toBe(true);
+    expect(valid("verdict:equal")).toBe(false);
+    expect(valid("pveverdict:better")).toBe(false);
+    expect(has("verdict:better", weapon)).toBe(true);
+    expect(has("pvpverdict:better", weapon)).toBe(false);
+    expect(others.some((other) => has("verdict:worse", other))).toBe(true);
+  });
 });
 
 describe("the wishlist search filter", () => {
