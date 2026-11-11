@@ -2,7 +2,6 @@ import type { DimItem } from "app/inventory/item-types";
 import { createMemo, For, lazy, Show } from "solid-js";
 
 import { BackButton } from "../../components/BackButton.tsx";
-import { ItemTile } from "../../components/ItemTile.tsx";
 import {
   HEADING,
   SECTION,
@@ -29,7 +28,8 @@ import {
 import type { ChartOption } from "../../history/shared/Chart.tsx";
 import { chartColors } from "../../history/shared/chartColors.ts";
 import { Delta } from "./Delta.tsx";
-import type { Balance, Earning, Flow } from "./statData.ts";
+import { CurrencyIcon } from "./MainCurrencies.tsx";
+import type { Balance, Earning, Flow, Level, LevelMark } from "./statData.ts";
 import { band } from "./bands.ts";
 import type { Timeline } from "./timeline.ts";
 
@@ -43,6 +43,9 @@ const Chart = lazy(() =>
 const CHART_HEIGHT = 240;
 
 const BREAK_HALF = 0.004;
+
+// Fraction of the x axis
+const LABEL_GAP = 0.012;
 
 // Per hour is noise under a minute
 const RATE_FLOOR = 60;
@@ -65,12 +68,18 @@ export const CurrencyView = (props: {
   spans: ChartSpan[];
   timeline: Timeline | undefined;
   item: DimItem | undefined;
-  balance: Balance | undefined;
+  icon: string | undefined;
+  balance: Pick<Balance, "now" | "delta" | "points"> | undefined;
+  spending: boolean;
+  level: Level | undefined;
+  marks: LevelMark[];
   flows: Flow[];
   daily: boolean;
   earnings: Earning[];
   onBack: () => void;
 }) => {
+  const lineName = () => (props.spending ? "Balance" : "Total");
+
   const option = createMemo((): ChartOption => {
     const colors = chartColors();
     const flows = props.flows;
@@ -95,11 +104,53 @@ export const CurrencyView = (props: {
       ? []
       : flows.map((flow) => ({
           x: flow.start + size / 2,
-          earned: flow.earned,
-          spent: flow.spent,
+          earned: props.spending ? flow.earned : flow.earned - flow.spent,
+          spent: props.spending ? flow.spent : 0,
         }));
 
+    const flowLine = (earned: number, spent: number) =>
+      props.spending
+        ? `earned ${earned.toLocaleString()}, spent ${spent.toLocaleString()}`
+        : `earned ${(earned - spent).toLocaleString()}`;
+
     const label = (at: number) => (props.daily ? shortDay(at) : shortTime(at));
+
+    const axisMin = timeline ? 0 : (flows[0]?.start ?? 0);
+    const axisMax = timeline ? 1 : (flows.at(-1)?.start ?? 0) + size;
+    const clusters: { first: number; marks: LevelMark[] }[] = [];
+
+    for (const mark of props.marks) {
+      const last = clusters.at(-1);
+      const previous = last?.marks.at(-1);
+
+      if (
+        last &&
+        previous &&
+        place(mark.at) - place(previous.at) < LABEL_GAP * (axisMax - axisMin)
+      ) {
+        last.marks.push(mark);
+      } else {
+        clusters.push({ first: mark.first, marks: [mark] });
+      }
+    }
+
+    const markLines = clusters.flatMap(({ first, marks }) =>
+      marks.map((mark, index) => {
+        if (index < marks.length - 1) {
+          return { xAxis: place(mark.at), label: { show: false } };
+        }
+
+        return {
+          xAxis: place(mark.at),
+          label: {
+            formatter:
+              first === mark.level
+                ? `Level ${mark.level}`
+                : `Level ${first}-${mark.level}`,
+          },
+        };
+      }),
+    );
 
     return {
       animation: false,
@@ -125,21 +176,23 @@ export const CurrencyView = (props: {
 
           const during = spanAt(at);
           const lines = [
-            `${props.daily ? shortDay(at) : dateTime(at)} · Balance ${balanceAt(at)?.toLocaleString() ?? "-"}`,
+            `${props.daily ? shortDay(at) : dateTime(at)} · ${lineName()} ${balanceAt(at)?.toLocaleString() ?? "-"}`,
           ];
 
           if (!timeline) {
             const flow = flowAt(at);
 
             lines.push(
-              `${props.daily ? "That day" : "That hour"}: earned ${(flow?.earned ?? 0).toLocaleString()}, spent ${(flow?.spent ?? 0).toLocaleString()}`,
+              `${props.daily ? "That day" : "That hour"}: ${flowLine(flow?.earned ?? 0, flow?.spent ?? 0)}`,
             );
           }
 
           if (during) {
             lines.unshift(
               `<b>${during.name}</b> ${shortTime(during.startedAt)} - ${shortTime(during.endedAt)}`,
-              `Earned ${during.earned.toLocaleString()}, spent ${during.spent.toLocaleString()}`,
+              props.spending
+                ? `Earned ${during.earned.toLocaleString()}, spent ${during.spent.toLocaleString()}`
+                : `Earned ${(during.earned - during.spent).toLocaleString()}`,
             );
           }
 
@@ -163,8 +216,8 @@ export const CurrencyView = (props: {
           }
         : {
             type: "time",
-            min: flows[0]?.start,
-            max: (flows.at(-1)?.start ?? 0) + size,
+            min: axisMin,
+            max: axisMax,
             axisLine: { lineStyle: { color: colors.line } },
             axisTick: { show: false },
             axisLabel: {
@@ -211,22 +264,39 @@ export const CurrencyView = (props: {
           data: bars.map((bar) => [bar.x, bar.earned]),
           itemStyle: { color: colors.good },
         },
-        {
-          type: "bar",
-          name: "Spent",
-          stack: "flow",
-          barMaxWidth: 24,
-          data: bars.map((bar) => [bar.x, -bar.spent]),
-          itemStyle: { color: colors.dim },
-        },
+        ...(props.spending
+          ? [
+              {
+                type: "bar" as const,
+                name: "Spent",
+                stack: "flow",
+                barMaxWidth: 24,
+                data: bars.map((bar) => [bar.x, -bar.spent]),
+                itemStyle: { color: colors.dim },
+              },
+            ]
+          : []),
         {
           type: "line",
-          name: "Balance",
+          name: lineName(),
           yAxisIndex: timeline ? 0 : 1,
           step: "end",
           symbol: "none",
           data: points.map(([at, value]) => [place(at), value]),
           lineStyle: { color: colors.text, width: 1.5 },
+          markLine: {
+            silent: true,
+            symbol: "none",
+            lineStyle: { color: colors.dim, type: "dashed", width: 1 },
+            label: {
+              position: "insideEndTop",
+              color: colors.text,
+              fontSize: 11,
+              textBorderColor: colors.background,
+              textBorderWidth: 2,
+            },
+            data: markLines,
+          },
           markArea: {
             silent: true,
             data: [
@@ -263,11 +333,12 @@ export const CurrencyView = (props: {
 
       <div class="flex items-center gap-3">
         <span class="size-10 shrink-0">
-          <Show when={props.item}>
-            {(item) => (
-              <ItemTile item={item()} class="nested size-10" badges={false} />
-            )}
-          </Show>
+          <CurrencyIcon
+            name={props.name}
+            item={props.item}
+            icon={props.icon}
+            class="nested size-10"
+          />
         </span>
         <span class="flex flex-col">
           <span class="text-lg font-medium">{props.name}</span>
@@ -275,7 +346,17 @@ export const CurrencyView = (props: {
             {(balance) => (
               <span class="flex items-baseline gap-2 tabular-nums">
                 <span>{balance().now.toLocaleString()}</span>
-                <Delta value={balance().delta} />
+                <Show when={props.spending}>
+                  <Delta value={balance().delta} />
+                </Show>
+                <Show when={props.level}>
+                  {(level) => (
+                    <span class="text-xs text-muted-foreground">
+                      Level {level().level.toLocaleString()} (
+                      {level().progress.toLocaleString()})
+                    </span>
+                  )}
+                </Show>
               </span>
             )}
           </Show>
@@ -294,8 +375,8 @@ export const CurrencyView = (props: {
           <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
             <h2 class={HEADING}>
               {props.timeline
-                ? "Balance"
-                : `Earned and spent ${props.daily ? "per day" : "per hour"}`}
+                ? lineName()
+                : `${props.spending ? "Earned and spent" : "Earned"} ${props.daily ? "per day" : "per hour"}`}
             </h2>
             <Show when={!props.timeline}>
               <span class="flex items-center gap-3 text-xs text-muted-foreground">
@@ -303,13 +384,15 @@ export const CurrencyView = (props: {
                   <span class="size-2.5 rounded-sm bg-good" />
                   Earned
                 </span>
-                <span class="inline-flex items-center gap-1.5">
-                  <span class="size-2.5 rounded-sm bg-(--dim)" />
-                  Spent
-                </span>
+                <Show when={props.spending}>
+                  <span class="inline-flex items-center gap-1.5">
+                    <span class="size-2.5 rounded-sm bg-(--dim)" />
+                    Spent
+                  </span>
+                </Show>
                 <span class="inline-flex items-center gap-1.5">
                   <span class="h-0.5 w-3 bg-(--text)" />
-                  Balance
+                  {lineName()}
                 </span>
               </span>
             </Show>

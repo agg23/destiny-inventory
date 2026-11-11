@@ -94,6 +94,8 @@ export interface Observed {
   objectives: Record<string, { itemHash: number; progress: number }>;
   // Account wide only, Bungie repeats them under every character
   progressions: Record<number, number>;
+  // Missing on observations stored before it was recorded
+  seasonPassHash: number | undefined;
   power: Record<string, number>;
   // Keyed by character id and bucket hash
   equipped: Record<string, { instanceId: string; itemHash: number }>;

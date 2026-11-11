@@ -117,6 +117,7 @@ const PARAMS = {
   period: choice(STAT_PERIODS, "24h"),
   day: text(),
   currency: count(),
+  xp: flag(),
   weapons: flag(),
   weapon: ids(),
   kills: choice(KILL_MODES, "all"),

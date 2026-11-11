@@ -5,6 +5,7 @@ interface ChartColors {
   accent: string;
   good: string;
   surface: string;
+  background: string;
 }
 
 let resolved: ChartColors | undefined = undefined;
@@ -22,6 +23,7 @@ export const chartColors = (): ChartColors => {
       accent: read("--color-exotic"),
       good: read("--color-good"),
       surface: read("--surface-raised"),
+      background: read("--bg"),
     };
   }
 

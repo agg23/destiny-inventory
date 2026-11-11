@@ -141,6 +141,7 @@ export const observe = (
     currencies,
     objectives,
     progressions,
+    seasonPassHash: profile.profile?.data?.currentSeasonPassHash,
     power,
     equipped,
     activities,

@@ -30,10 +30,84 @@ export const MAIN_CURRENCIES = [
   4257549985, // Ascendant Shard
   353704689, // Ascendant Alloy
   3467984096, // Exotic Cipher
+  4041218086, // Chronologs
 ];
+
+// Dummy item 1858002338 isn't shipped
+export const XP_ICON =
+  "/common/destiny2_content/icons/d0bdb272c66fab162240719a933d243b.png";
 
 /** Changes this far before the period are read for the activity already running at its start */
 export const LOOKBACK = 2 * HOUR;
+
+/** One currency or stack, or XP across every reward pass */
+export type FlowSource =
+  | { kind: "item"; itemHash: number }
+  | { kind: "xp"; progressionHashes: Set<number> };
+
+const deltaOf = (change: Change, source: FlowSource): number | undefined => {
+  if (source.kind === "item") {
+    if (
+      (change.kind === "currency" || change.kind === "stack") &&
+      change.itemHash === source.itemHash
+    ) {
+      return change.after - change.before;
+    }
+
+    return undefined;
+  }
+
+  if (
+    change.kind === "progression" &&
+    source.progressionHashes.has(change.progressionHash)
+  ) {
+    return change.after - change.before;
+  }
+
+  return undefined;
+};
+
+const readingKey = (change: Change): string | undefined => {
+  if (change.kind === "currency" || change.kind === "stack") {
+    return `${change.kind}/${change.itemHash}`;
+  }
+
+  if (change.kind === "progression") {
+    return `progression/${change.progressionHash}`;
+  }
+
+  if (change.kind === "objective") {
+    return `objective/${change.instanceId}/${change.objectiveHash}`;
+  }
+
+  if (change.kind === "power") {
+    return `power/${change.characterId}`;
+  }
+
+  return undefined;
+};
+
+/** Changes oldest first, each `before` restated as the previous reading of the same value */
+export const restateReadings = (changes: Change[]): Change[] => {
+  const last = new Map<string, number>();
+
+  // Stale recorder baselines log the same gain twice
+  return [...changes]
+    .sort((a, b) => a.at - b.at)
+    .map((change) => {
+      const key = readingKey(change);
+
+      if (key === undefined || !("before" in change)) {
+        return change;
+      }
+
+      const before = last.get(key) ?? change.before;
+
+      last.set(key, change.after);
+
+      return { ...change, before };
+    });
+};
 
 export interface Balance {
   itemHash: number;
@@ -83,6 +157,119 @@ export const balancesOf = (
       Number(b.currency) - Number(a.currency) ||
       Math.abs(b.delta) - Math.abs(a.delta),
   );
+};
+
+/** Running sum of a source since the period start, as step line points */
+export const runningTotalOf = (
+  changes: Change[],
+  from: number,
+  to: number,
+  source: FlowSource,
+): Pick<Balance, "now" | "delta" | "points"> => {
+  const points: [number, number][] = [];
+  let total = 0;
+
+  for (const change of changes) {
+    const delta = deltaOf(change, source);
+
+    if (delta === undefined || change.at < from || change.at > to) {
+      continue;
+    }
+
+    if (points.length === 0) {
+      points.push([Math.max(from, change.from), 0]);
+    }
+
+    total += delta;
+    points.push([change.at, total]);
+  }
+
+  points.push([to, total]);
+
+  return { now: total, delta: total, points };
+};
+
+export interface Level {
+  level: number;
+  progress: number;
+}
+
+/** Level reached with `progress`, walking the steps like Bungie's own level */
+export const levelOf = (
+  steps: { progressTotal: number }[],
+  repeatLastStep: boolean,
+  progress: number,
+): Level => {
+  let level = 0;
+  let left = progress;
+
+  for (const step of steps) {
+    if (left < step.progressTotal) {
+      return { level, progress: left };
+    }
+
+    left -= step.progressTotal;
+    level += 1;
+  }
+
+  const last = steps.at(-1)?.progressTotal ?? 0;
+
+  if (repeatLastStep && last > 0) {
+    level += Math.floor(left / last);
+    left = left % last;
+  }
+
+  return { level, progress: left };
+};
+
+export interface LevelMark {
+  at: number;
+  // Offline gains can cross several levels in one change
+  first: number;
+  level: number;
+}
+
+/** Each XP change that first reached a new level, at the level reached */
+export const levelMarksOf = (
+  changes: Change[],
+  from: number,
+  to: number,
+  progressionHashes: Set<number>,
+  levelAt: (progressionHash: number, progress: number) => number | undefined,
+): LevelMark[] => {
+  const marks: LevelMark[] = [];
+  const highest = new Map<number, number>();
+
+  for (const change of changes) {
+    if (
+      change.kind !== "progression" ||
+      !progressionHashes.has(change.progressionHash) ||
+      change.at < from ||
+      change.at > to
+    ) {
+      continue;
+    }
+
+    const before = levelAt(change.progressionHash, change.before);
+    const after = levelAt(change.progressionHash, change.after);
+
+    if (before === undefined || after === undefined) {
+      continue;
+    }
+
+    // Stale snapshots dip and recover
+    const reached = Math.max(
+      highest.get(change.progressionHash) ?? before,
+      before,
+    );
+
+    if (after > reached) {
+      marks.push({ at: change.at, first: reached + 1, level: after });
+      highest.set(change.progressionHash, after);
+    }
+  }
+
+  return marks;
 };
 
 type KillChange = Extract<Change, { kind: "objective" }>;
@@ -203,7 +390,11 @@ const emptyTally = (
 const leansFor =
   (change: Change) =>
   (ended: Span): boolean => {
-    if (change.kind === "currency" || change.kind === "stack") {
+    if (
+      change.kind === "currency" ||
+      change.kind === "stack" ||
+      change.kind === "progression"
+    ) {
       return change.after > change.before;
     }
 
@@ -351,23 +542,20 @@ export const activityDigestsOf = (
 export const dropsOf = (digest: ActivityDigest): Drop[] =>
   digest.events.flatMap((event) => (event.kind === "drops" ? event.drops : []));
 
-/** Earned and spent of one currency per activity, keyed by spanKey */
+/** Earned and spent per activity, keyed by spanKey */
 export const spanFlowsOf = (
   changes: Change[],
   from: number,
   to: number,
-  itemHash: number,
+  source: FlowSource,
 ): Map<string, { earned: number; spent: number }> => {
   const spans = spansOf(changes);
   const flows = new Map<string, { earned: number; spent: number }>();
 
   for (const change of changes) {
-    if (
-      (change.kind !== "currency" && change.kind !== "stack") ||
-      change.itemHash !== itemHash ||
-      change.at < from ||
-      change.at > to
-    ) {
+    const delta = deltaOf(change, source);
+
+    if (delta === undefined || change.at < from || change.at > to) {
       continue;
     }
 
@@ -379,7 +567,6 @@ export const spanFlowsOf = (
 
     const key = spanKey(found.span);
     const held = flows.get(key) ?? { earned: 0, spent: 0 };
-    const delta = change.after - change.before;
 
     if (delta > 0) {
       held.earned += delta;
@@ -400,12 +587,12 @@ export interface Earning {
   seconds: number;
 }
 
-/** What each activity earned of one currency, gains only, grouped by label */
+/** What each activity earned, grouped by label. Gains only for items, net for XP */
 export const earningsOf = (
   changes: Change[],
   from: number,
   to: number,
-  itemHash: number,
+  source: FlowSource,
   labelOf: (span: Span) => string,
 ): Earning[] => {
   const spans = spansOf(changes);
@@ -434,10 +621,11 @@ export const earningsOf = (
   }
 
   for (const change of changes) {
+    const delta = deltaOf(change, source);
+
     if (
-      (change.kind !== "currency" && change.kind !== "stack") ||
-      change.itemHash !== itemHash ||
-      change.after <= change.before ||
+      delta === undefined ||
+      (source.kind === "item" && delta <= 0) ||
       change.at < from ||
       change.at > to
     ) {
@@ -447,7 +635,7 @@ export const earningsOf = (
     const found = attributed(change, spans);
 
     if (found.span) {
-      rowOf(found.span).earned += change.after - change.before;
+      rowOf(found.span).earned += delta;
     }
   }
 
@@ -482,17 +670,16 @@ export interface Flow {
   spent: number;
 }
 
-/** Earned and spent of one currency per bucket, empty buckets included */
+/** Earned and spent per bucket, empty buckets included */
 export const flowsOf = (
   changes: Change[],
   from: number,
   to: number,
-  itemHash: number,
+  source: FlowSource,
 ): { daily: boolean; flows: Flow[] } => {
   const mine = changes.filter(
     (change) =>
-      (change.kind === "currency" || change.kind === "stack") &&
-      change.itemHash === itemHash &&
+      deltaOf(change, source) !== undefined &&
       change.at >= from &&
       change.at <= to,
   );
@@ -514,16 +701,12 @@ export const flowsOf = (
   }
 
   for (const change of mine) {
-    if (change.kind !== "currency" && change.kind !== "stack") {
-      continue;
-    }
-
     const flow = flows.find(
       (one) => one.start <= change.at && change.at < nextOf(one.start),
     );
-    const delta = change.after - change.before;
+    const delta = deltaOf(change, source);
 
-    if (!flow) {
+    if (!flow || delta === undefined) {
       continue;
     }
 

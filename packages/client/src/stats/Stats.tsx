@@ -56,15 +56,22 @@ import {
   earningsOf,
   flowsOf,
   killBarsOf,
+  levelMarksOf,
+  levelOf,
   LOOKBACK,
   MAIN_CURRENCIES,
   nextMidnight,
   PERIODS,
   playDaysOf,
+  restateReadings,
+  runningTotalOf,
   spanFlowsOf,
   spanKey,
   weaponKillsOf,
+  XP_ICON,
   type ActivityDigest,
+  type FlowSource,
+  type Level,
   type KillBar,
   type PlayDay,
   type WeaponKills,
@@ -164,7 +171,7 @@ export const Stats = () => {
         to,
       );
 
-      return { changes, from, to, observed };
+      return { changes: restateReadings(changes), from, to, observed };
     },
   );
 
@@ -189,7 +196,10 @@ export const Stats = () => {
         "itemHash" in change ? [change.itemHash] : [],
       );
 
-      return { loaded, hashes: [...new Set([...hashes, ...MAIN_CURRENCIES])] };
+      return {
+        loaded,
+        hashes: [...new Set([...hashes, ...MAIN_CURRENCIES])],
+      };
     },
     ({ loaded, hashes }) => fakeItems(loaded, hashes),
   );
@@ -554,11 +564,50 @@ export const Stats = () => {
 
   const currency = () => url.get("currency");
 
+  // Each reward pass has its own progression; the prestige one repeats it
+  const xpSource = createMemo((): Extract<FlowSource, { kind: "xp" }> => {
+    // defs() isn't a signal; loading finishes after it's set
+    const passes = own()
+      ? Object.values(defs()?.SeasonPass.getAll() ?? {})
+      : [];
+
+    return {
+      kind: "xp",
+      progressionHashes: new Set(
+        passes.map((pass) => pass.rewardProgressionHash),
+      ),
+    };
+  });
+
+  const levelAt = (
+    progressionHash: number,
+    progress: number,
+  ): Level | undefined => {
+    const def = defs()?.Progression.getOptional(progressionHash);
+
+    return def ? levelOf(def.steps, def.repeatLastStep, progress) : undefined;
+  };
+
+  const xpLevel = (): Level | undefined => {
+    const observed = recorded()?.observed;
+    const pass =
+      observed?.seasonPassHash === undefined
+        ? undefined
+        : defs()?.SeasonPass.getOptional(observed.seasonPassHash);
+    const progress = pass && observed?.progressions[pass.rewardProgressionHash];
+
+    if (!pass || progress === undefined) {
+      return undefined;
+    }
+
+    return levelAt(pass.rewardProgressionHash, progress);
+  };
+
   const chartSpansOf = (
     held: { changes: Change[]; from: number; to: number },
-    hash: number,
+    source: FlowSource,
   ): ChartSpan[] => {
-    const flows = spanFlowsOf(held.changes, held.from, held.to, hash);
+    const flows = spanFlowsOf(held.changes, held.from, held.to, source);
 
     return spans()
       .filter(
@@ -581,18 +630,56 @@ export const Stats = () => {
     const hash = currency();
     const held = recorded();
 
-    if (hash === undefined || !held) {
+    if (!held || (hash === undefined && !url.get("xp"))) {
       return undefined;
     }
 
+    if (hash === undefined) {
+      const source = xpSource();
+
+      return {
+        name: "XP",
+        item: undefined,
+        icon: XP_ICON,
+        balance: runningTotalOf(held.changes, held.from, held.to, source),
+        spending: false,
+        level: xpLevel(),
+        marks: levelMarksOf(
+          held.changes,
+          held.from,
+          held.to,
+          source.progressionHashes,
+          (progressionHash, progress) =>
+            levelAt(progressionHash, progress)?.level,
+        ),
+        ...flowsOf(held.changes, held.from, held.to, source),
+        earnings: earningsOf(
+          held.changes,
+          held.from,
+          held.to,
+          source,
+          spanLabel,
+        ),
+        spans: chartSpansOf(held, source),
+        timeline: oneDay() ? strip()?.timeline : undefined,
+      };
+    }
+
+    const source: FlowSource = { kind: "item", itemHash: hash };
+
     return {
-      hash,
+      name: nameOf(hash),
+      item: fakes()?.get(hash),
+      icon: undefined,
       balance: balancesOf(held.changes, held.from, held.to).find(
         (balance) => balance.itemHash === hash,
       ),
-      ...flowsOf(held.changes, held.from, held.to, hash),
-      earnings: earningsOf(held.changes, held.from, held.to, hash, spanLabel),
-      spans: chartSpansOf(held, hash),
+      spending: true,
+      level: undefined,
+      marks: [],
+      ...flowsOf(held.changes, held.from, held.to, source),
+      earnings: earningsOf(held.changes, held.from, held.to, source, spanLabel),
+      spans: chartSpansOf(held, source),
       timeline: oneDay() ? strip()?.timeline : undefined,
     };
   });
@@ -600,23 +687,54 @@ export const Stats = () => {
   const mainCurrencies = createMemo((): MainCurrency[] => {
     const held = recorded();
     const balances = held ? balancesOf(held.changes, held.from, held.to) : [];
+    const level = xpLevel();
+    const xp: MainCurrency = {
+      key: "xp",
+      name: "XP",
+      value: level
+        ? `${level.level.toLocaleString()} (${level.progress.toLocaleString()})`
+        : "-",
+      delta: 0,
+      item: undefined,
+      icon: XP_ICON,
+      selected: !!url.get("xp"),
+      onPick: () =>
+        url.push({
+          xp: !url.get("xp"),
+          currency: undefined,
+          weapons: false,
+          weapon: [],
+        }),
+    };
 
-    return MAIN_CURRENCIES.map((itemHash) => {
-      const balance = balances.find((one) => one.itemHash === itemHash);
+    return [
+      xp,
+      ...MAIN_CURRENCIES.map((itemHash): MainCurrency => {
+        const balance = balances.find((one) => one.itemHash === itemHash);
 
-      return {
-        itemHash,
-        name: nameOf(itemHash),
-        // An emptied currency drops out of the profile
-        now:
-          held?.observed?.currencies[itemHash] ??
-          held?.observed?.stacks[itemHash] ??
-          balance?.now ??
-          0,
-        delta: balance?.delta ?? 0,
-        item: fakes()?.get(itemHash),
-      };
-    });
+        return {
+          key: String(itemHash),
+          name: nameOf(itemHash),
+          // An emptied currency drops out of the profile
+          value: (
+            held?.observed?.currencies[itemHash] ??
+            held?.observed?.stacks[itemHash] ??
+            balance?.now ??
+            0
+          ).toLocaleString(),
+          delta: balance?.delta ?? 0,
+          item: fakes()?.get(itemHash),
+          selected: currency() === itemHash,
+          onPick: () =>
+            url.push({
+              currency: currency() === itemHash ? undefined : itemHash,
+              xp: false,
+              weapons: false,
+              weapon: [],
+            }),
+        };
+      }),
+    ];
   });
 
   const picked = () => url.get("weapon");
@@ -768,17 +886,7 @@ export const Stats = () => {
       </Show>
 
       <Show when={own() && !weaponPage()}>
-        <MainCurrencies
-          currencies={mainCurrencies()}
-          selected={currency()}
-          onPick={(itemHash) =>
-            url.push({
-              currency: currency() === itemHash ? undefined : itemHash,
-              weapons: false,
-              weapon: [],
-            })
-          }
-        />
+        <MainCurrencies currencies={mainCurrencies()} />
       </Show>
 
       <Show
@@ -937,15 +1045,19 @@ export const Stats = () => {
       >
         {(view) => (
           <CurrencyView
-            name={nameOf(view().hash)}
+            name={view().name}
             spans={view().spans}
             timeline={view().timeline}
-            item={fakes()?.get(view().hash)}
+            item={view().item}
+            icon={view().icon}
             balance={view().balance}
+            spending={view().spending}
+            level={view().level}
+            marks={view().marks}
             flows={view().flows}
             daily={view().daily}
             earnings={view().earnings}
-            onBack={() => url.push({ currency: undefined })}
+            onBack={() => url.push({ currency: undefined, xp: false })}
           />
         )}
       </Show>
