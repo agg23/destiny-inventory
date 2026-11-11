@@ -100,7 +100,7 @@ export const Compare = (props: Props) => {
                     </span>
                   )}
                 </Show>
-                <ItemHead item={item} compact taggable links />
+                <ItemHead item={item} taggable links />
                 <Show when={props.onUnpin}>
                   {(onUnpin) => (
                     <Button

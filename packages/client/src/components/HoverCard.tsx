@@ -52,6 +52,7 @@ export const HoverCard = (props: Props) => (
   <AnchoredPanel class="item-tooltip hover-card" cursorX={props.cursorX}>
     <ItemHead
       item={props.item}
+      hideIcon
       taggable
       notes={props.notes}
       cost={props.cost}

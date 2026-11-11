@@ -420,12 +420,14 @@ export const Gallery = () => {
         </div>
         <div class="item-tooltip">
           <div class="tooltip-header exotic">
-            <div class="tooltip-name">Gjallarhorn</div>
-            <div class="tooltip-type">
-              <span>Rocket launcher</span>
+            <div class="flex h-full min-w-0 flex-col justify-center px-4">
+              <div class="tooltip-name line-clamp-2">Gjallarhorn</div>
+              <div class="tooltip-type">
+                <span>Rocket launcher</span>
+              </div>
             </div>
           </div>
-          <div class="tooltip-body">
+          <div class="border-b px-4 py-2">
             <div class="tooltip-power">
               <span class="power-facts">
                 <span class="power-value">1810</span>

@@ -247,7 +247,7 @@ export const EntryPage = () => {
             <Show when={newest()}>
               {(item) => (
                 <div class="item-tooltip">
-                  <ItemHead item={item()} />
+                  <ItemHead item={item()} hideIcon />
                   <ItemDetails
                     item={item()}
                     allPerks

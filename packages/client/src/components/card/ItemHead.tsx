@@ -30,7 +30,8 @@ export const typeName = (item: DimItem): string => {
 
 export const ItemHead = (props: {
   item: DimItem;
-  compact?: boolean;
+  /** Without the icon, padded for a panel that has no padding */
+  hideIcon?: boolean;
   taggable?: boolean;
   /** Collections and light.gg links */
   links?: boolean;
@@ -41,30 +42,19 @@ export const ItemHead = (props: {
 
   return (
     <>
-      <div
-        class={`tooltip-header ${props.item.rarity.toLowerCase()}`}
-        classList={{ "h-(--item-head) p-0": props.compact }}
-      >
+      <div class={`tooltip-header ${props.item.rarity.toLowerCase()}`}>
         <div class="flex h-full items-stretch gap-2">
-          <Show when={props.compact}>
+          <Show when={!props.hideIcon}>
             <BungieImage
               path={props.item.icon}
               class="aspect-square h-full shrink-0"
             />
           </Show>
           <div
-            class="min-w-0 flex-1"
-            classList={{ "flex flex-col justify-center pr-4": props.compact }}
+            class="flex min-w-0 flex-1 flex-col justify-center pr-4"
+            classList={{ "pl-4": props.hideIcon }}
           >
-            <div
-              class="tooltip-name"
-              classList={{
-                "line-clamp-2 pr-6 text-sm leading-5 whitespace-normal":
-                  props.compact,
-              }}
-            >
-              {props.item.name}
-            </div>
+            <div class="tooltip-name line-clamp-2 pr-6">{props.item.name}</div>
             <div class="tooltip-type">
               <span class="truncate">{typeName(props.item)}</span>
               <Show when={props.item.tier > 0}>
@@ -75,11 +65,8 @@ export const ItemHead = (props: {
         </div>
       </div>
       <div
-        class="py-2 empty:hidden"
-        classList={{
-          "tooltip-body": !props.compact,
-          "border-b": props.compact,
-        }}
+        class="border-b py-2 empty:hidden"
+        classList={{ "px-4": props.hideIcon }}
       >
         <ItemPower
           item={props.item}
@@ -92,11 +79,8 @@ export const ItemHead = (props: {
       <Show when={source()}>
         {(name) => (
           <div
-            class="flex justify-between gap-3 text-xs"
-            classList={{
-              "tooltip-body": !props.compact,
-              "border-b py-2": props.compact,
-            }}
+            class="flex justify-between gap-3 border-b py-2 text-xs"
+            classList={{ "px-4": props.hideIcon }}
           >
             <span class="shrink-0 text-muted-foreground">Source</span>
             <span class="truncate">{name()}</span>
