@@ -9,6 +9,7 @@ import {
 } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 
+import { BackButton } from "../components/BackButton.tsx";
 import { Select } from "../components/lib/Select.tsx";
 import { HEADING, SECTION } from "../components/lib/text.ts";
 import { Button } from "../components/lib/zaidan/button.tsx";
@@ -69,6 +70,7 @@ import {
   type WeaponKills,
 } from "./shared/statData.ts";
 import { intervalFor, timelineOf } from "./shared/timeline.ts";
+import { UsageView } from "./shared/UsageView.tsx";
 import { WeaponKillTable } from "./shared/WeaponKillTable.tsx";
 import { WeaponView, type KillSpan } from "./shared/WeaponView.tsx";
 
@@ -722,30 +724,42 @@ export const Stats = () => {
     });
   };
 
+  const weaponPage = () => url.get("weapons") || url.get("usage");
+
   return (
     <div class="flex flex-col gap-6 p-4">
-      <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <Select
-          label="Showing"
-          value={url.get("day") === undefined ? period().id : CHOSEN_DAY}
-          options={PERIODS.map((one): string => one.id)}
-          names={PERIOD_NAMES}
-          onChange={pickPeriod}
+      <Show when={weaponPage()}>
+        <BackButton
+          onClick={() => url.push({ weapons: false, weapon: [], usage: false })}
         >
-          <Show when={url.get("day")}>
-            <option value={CHOSEN_DAY}>{range().label}</option>
-          </Show>
-        </Select>
-        <Show when={url.get("day")}>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => url.push({ day: undefined, shown: undefined })}
+          All stats
+        </BackButton>
+      </Show>
+
+      <Show when={!url.get("usage")}>
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <Select
+            label="Showing"
+            value={url.get("day") === undefined ? period().id : CHOSEN_DAY}
+            options={PERIODS.map((one): string => one.id)}
+            names={PERIOD_NAMES}
+            onChange={pickPeriod}
           >
-            Clear day
-          </Button>
-        </Show>
-      </div>
+            <Show when={url.get("day")}>
+              <option value={CHOSEN_DAY}>{range().label}</option>
+            </Show>
+          </Select>
+          <Show when={url.get("day")}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => url.push({ day: undefined, shown: undefined })}
+            >
+              Clear day
+            </Button>
+          </Show>
+        </div>
+      </Show>
 
       <Show when={app.loaded() && !own()}>
         <p class="text-muted-foreground">
@@ -753,7 +767,7 @@ export const Stats = () => {
         </p>
       </Show>
 
-      <Show when={own()}>
+      <Show when={own() && !weaponPage()}>
         <MainCurrencies
           currencies={mainCurrencies()}
           selected={currency()}
@@ -771,7 +785,7 @@ export const Stats = () => {
         when={currencyView()}
         fallback={
           <Show
-            when={url.get("weapons")}
+            when={url.get("weapons") || url.get("usage")}
             fallback={
               <>
                 <Show when={empty()}>
@@ -809,28 +823,55 @@ export const Stats = () => {
                   )}
                 </Show>
 
-                <Show when={shown.weapons.length > 0}>
+                <Show when={own() && recorded()}>
                   <section class={SECTION}>
-                    <div class="flex items-center gap-2">
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
                       <h2 class={HEADING}>Weapon kills</h2>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => url.push({ weapons: true, weapon: [] })}
-                      >
-                        Graph
-                      </Button>
+                      <div class="flex gap-2">
+                        <Show when={shown.weapons.length > 0}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              url.push({ weapons: true, weapon: [] })
+                            }
+                          >
+                            Over time
+                          </Button>
+                        </Show>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => url.push({ usage: true })}
+                        >
+                          All weapons
+                        </Button>
+                      </div>
                     </div>
-                    <WeaponKillTable
-                      weapons={shown.weapons}
-                      itemOf={(weapon) =>
-                        instanceOf(weapon.instanceId, weapon.itemHash)
+                    <Show
+                      when={shown.weapons.length > 0}
+                      fallback={
+                        <Show when={!empty()}>
+                          <p class="text-muted-foreground">
+                            No weapon kills in this range.
+                          </p>
+                        </Show>
                       }
-                      nameOf={nameOf}
-                      onOpen={(weapon) =>
-                        url.push({ weapons: true, weapon: [weapon.instanceId] })
-                      }
-                    />
+                    >
+                      <WeaponKillTable
+                        weapons={shown.weapons}
+                        itemOf={(weapon) =>
+                          instanceOf(weapon.instanceId, weapon.itemHash)
+                        }
+                        nameOf={nameOf}
+                        onOpen={(weapon) =>
+                          url.push({
+                            weapons: true,
+                            weapon: [weapon.instanceId],
+                          })
+                        }
+                      />
+                    </Show>
                   </section>
                 </Show>
 
@@ -863,23 +904,34 @@ export const Stats = () => {
               </>
             }
           >
-            <WeaponView
-              weapons={shown.weapons}
-              bars={killBars()}
-              interval={killInterval()}
-              activities={killActivities()}
-              timeline={oneDay() ? strip()?.timeline : undefined}
-              mode={url.get("kills")}
-              isPicked={isPicked}
-              itemOf={(weapon) =>
-                instanceOf(weapon.instanceId, weapon.itemHash)
+            <Show
+              when={url.get("usage")}
+              fallback={
+                <WeaponView
+                  weapons={shown.weapons}
+                  bars={killBars()}
+                  interval={killInterval()}
+                  activities={killActivities()}
+                  timeline={oneDay() ? strip()?.timeline : undefined}
+                  mode={url.get("kills")}
+                  isPicked={isPicked}
+                  itemOf={(weapon) =>
+                    instanceOf(weapon.instanceId, weapon.itemHash)
+                  }
+                  nameOf={nameOf}
+                  deathsOf={barDeaths}
+                  onMode={(kills) => url.replace({ kills })}
+                  onPick={togglePick}
+                />
               }
-              nameOf={nameOf}
-              deathsOf={barDeaths}
-              onMode={(kills) => url.replace({ kills })}
-              onPick={togglePick}
-              onBack={() => url.push({ weapons: false, weapon: [] })}
-            />
+            >
+              <UsageView
+                rarity={url.get("rarity")}
+                order={url.get("order")}
+                onRarity={(rarity) => url.replace({ rarity })}
+                onOrder={(order) => url.replace({ order })}
+              />
+            </Show>
           </Show>
         }
       >

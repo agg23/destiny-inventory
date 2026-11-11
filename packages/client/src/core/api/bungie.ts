@@ -1,6 +1,7 @@
 import type {
   DestinyActivityHistoryResults,
   DestinyHistoricalStatsPeriodGroup,
+  DestinyHistoricalWeaponStatsData,
   DestinyPostGameCarnageReportData,
   DestinyProfileResponse,
   DestinyVendorResponse,
@@ -238,6 +239,20 @@ export const fetchActivityHistory = async (
 
   // Bungie omits the array entirely once the pages run out
   return results.activities ?? [];
+};
+
+/** Lifetime kills per exotic for a character, exotics without kills are left out */
+export const fetchUniqueWeapons = async (
+  membership: Membership,
+  characterId: string,
+  accessToken: string,
+): Promise<DestinyHistoricalWeaponStatsData["weapons"]> => {
+  const results = await call<DestinyHistoricalWeaponStatsData>(
+    `${character(membership, characterId)}/Stats/UniqueWeapons/`,
+    accessToken,
+  );
+
+  return results.weapons ?? [];
 };
 
 export const fetchCarnageReport = (

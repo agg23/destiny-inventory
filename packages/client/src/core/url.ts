@@ -77,6 +77,14 @@ export const KILL_MODES = ["all", "pve", "pvp"] as const;
 
 export type KillMode = (typeof KILL_MODES)[number];
 
+export const USAGE_RARITIES = ["exotic", "legendary"] as const;
+
+export type UsageRarity = (typeof USAGE_RARITIES)[number];
+
+export const USAGE_SORTS = ["fewest", "most", "name"] as const;
+
+export type UsageSort = (typeof USAGE_SORTS)[number];
+
 export const KINDS = ["weapon", "armor"] as const;
 
 export type Kind = (typeof KINDS)[number];
@@ -112,6 +120,9 @@ const PARAMS = {
   weapons: flag(),
   weapon: ids(),
   kills: choice(KILL_MODES, "all"),
+  usage: flag(),
+  rarity: choice(USAGE_RARITIES, "exotic"),
+  order: choice(USAGE_SORTS, "fewest"),
 };
 
 export type Params = {

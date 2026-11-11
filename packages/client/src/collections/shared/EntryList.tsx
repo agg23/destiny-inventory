@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/lib/zaidan/table.tsx";
+import { NUMBER, NumCell } from "../../components/NumCell.tsx";
 import { TileRatings } from "../../components/Tile.tsx";
 import {
   CATALYST_LABELS,
@@ -46,11 +47,19 @@ const catalystText = (data: CollectionData, entry: Entry): string => {
   return state === undefined ? "" : CATALYST_LABELS[state];
 };
 
-/** The list view's table */
+interface Kills {
+  pve: number | undefined;
+  pvp: number | undefined;
+  total: number;
+}
+
+/** The list view's table, killsOf adds kill columns */
 export const EntryList = (props: {
   kind: Kind;
   entries: Entry[];
   data: CollectionData;
+  killsOf?: (entry: Entry) => Kills | undefined;
+  byMode?: boolean;
   onOpen: (entry: Entry) => void;
 }) => {
   const hover = useEntryPreview();
@@ -71,6 +80,13 @@ export const EntryList = (props: {
             <Show when={props.kind === "weapon"}>
               <TableHead>Catalyst</TableHead>
               <TableHead>Aegis</TableHead>
+            </Show>
+            <Show when={props.killsOf}>
+              <Show when={props.byMode}>
+                <TableHead class={NUMBER}>PvE</TableHead>
+                <TableHead class={NUMBER}>PvP</TableHead>
+              </Show>
+              <TableHead class={NUMBER}>Kills</TableHead>
             </Show>
           </TableRow>
         </TableHeader>
@@ -135,6 +151,23 @@ export const EntryList = (props: {
                   <TableCell>
                     <TileRatings tiers={(mode) => entryTiers(entry, mode)} />
                   </TableCell>
+                </Show>
+                <Show when={props.killsOf}>
+                  {(killsOf) => (
+                    <>
+                      <Show when={props.byMode}>
+                        <NumCell>
+                          {killsOf()(entry)?.pve?.toLocaleString()}
+                        </NumCell>
+                        <NumCell>
+                          {killsOf()(entry)?.pvp?.toLocaleString()}
+                        </NumCell>
+                      </Show>
+                      <NumCell class="font-medium">
+                        {killsOf()(entry)?.total.toLocaleString()}
+                      </NumCell>
+                    </>
+                  )}
                 </Show>
               </TableRow>
             )}
