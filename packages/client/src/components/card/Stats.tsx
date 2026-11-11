@@ -1,9 +1,11 @@
 import type { DimItem, DimStat } from "app/inventory/item-types";
+import { getArmor3TuningStat } from "app/utils/item-utils";
 import { createMemo, For, Show, type JSX } from "solid-js";
 
 import { delta, TOTAL, type Delta } from "../../core/items/compare.ts";
 import type { StatChange } from "../../core/items/perks.ts";
 import { shortStat } from "../../core/items/statNames.ts";
+import { TuningGlyph } from "../lib/TuningGlyph.tsx";
 
 const Signed = (props: {
   value: number;
@@ -34,12 +36,20 @@ export const TOTAL_ROW = "mt-0.5 border-t pt-1";
 
 export const STAT_NAME = "text-right text-xs text-muted-foreground";
 
+/** Marks the stat an armor piece's tuning slot moves */
+export const Tuned = (props: { when: boolean }) => (
+  <Show when={props.when}>
+    <TuningGlyph class="mr-1 inline-block size-3 align-[-0.125em]" />
+  </Show>
+);
+
 export const StatValue = (props: {
   stat: DimStat;
   against?: DimStat;
   comparing?: boolean;
   total?: boolean;
   best?: boolean;
+  tuned?: boolean;
 }) => (
   <span
     class="flex min-w-[2ch] gap-1 text-xs tabular-nums"
@@ -52,6 +62,9 @@ export const StatValue = (props: {
       "justify-end": Boolean(props.stat.bar),
     }}
   >
+    <Show when={props.tuned}>
+      <TuningGlyph class="size-3 self-center text-muted-foreground" />
+    </Show>
     <span>{props.stat.value}</span>
     <Show when={props.comparing}>
       <StatDelta delta={delta(props.stat, props.against)} />
@@ -93,12 +106,14 @@ const Bar = (props: {
   against?: DimStat;
   comparing?: boolean;
   masterworked?: boolean;
+  tuned: boolean;
 }) => {
   const total = () => props.stat.statHash === TOTAL;
 
   return (
     <>
       <span class={STAT_NAME} classList={{ [TOTAL_ROW]: total() }}>
+        <Tuned when={props.tuned} />
         {shortStat(props.stat.displayProperties.name)}
       </span>
       <StatBar
@@ -131,6 +146,7 @@ export const Stats = (props: { item: DimItem; against?: DimItem }) => {
     props.against?.stats?.find((stat) => stat.statHash === hash);
 
   const boosted = createMemo(() => masterworkHashes(props.item));
+  const tuned = createMemo(() => getArmor3TuningStat(props.item));
 
   return (
     <Show when={props.item.stats?.length}>
@@ -142,6 +158,7 @@ export const Stats = (props: { item: DimItem; against?: DimItem }) => {
               against={theirs(stat.statHash)}
               comparing={Boolean(props.against)}
               masterworked={boosted().has(stat.statHash)}
+              tuned={tuned() === stat.statHash}
             />
           )}
         </For>

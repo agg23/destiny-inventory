@@ -1,4 +1,5 @@
 import type { DimItem, DimStat } from "app/inventory/item-types";
+import { getArmor3TuningStat } from "app/utils/item-utils";
 import { createMemo, createSignal, For, Show } from "solid-js";
 
 import { recency } from "../core/items/arrivals.ts";
@@ -8,7 +9,7 @@ import { ItemDetails } from "./card/ItemDetails.tsx";
 import { ItemHead } from "./card/ItemHead.tsx";
 import { Moves } from "./card/Moves.tsx";
 import { Benefits } from "./card/PerkDetails.tsx";
-import { STAT_NAME, TOTAL_ROW } from "./card/Stats.tsx";
+import { STAT_NAME, TOTAL_ROW, Tuned } from "./card/Stats.tsx";
 import { Checkbox } from "./lib/Checkbox.tsx";
 import { Button } from "./lib/zaidan/button.tsx";
 import { X } from "./lib/zaidan/icons.tsx";
@@ -54,6 +55,11 @@ export const Compare = (props: Props) => {
   });
 
   const compact = () => props.items.length > 1;
+
+  // With several items the mark goes in each item's column
+  const labelTuned = createMemo(() =>
+    compact() ? undefined : getArmor3TuningStat(props.items[0]!),
+  );
 
   const ages = (): (string | undefined)[] => {
     const [a, b] = props.items;
@@ -131,6 +137,7 @@ export const Compare = (props: Props) => {
                 classList={{ [TOTAL_ROW]: row.hash === TOTAL }}
                 style={{ "grid-column": "1", "grid-row": String(4 + index()) }}
               >
+                <Tuned when={labelTuned() === row.hash} />
                 {row.name}
               </div>
             )}

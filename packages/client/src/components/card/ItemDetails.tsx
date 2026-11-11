@@ -1,4 +1,5 @@
 import type { DimItem, DimStat } from "app/inventory/item-types";
+import { getArmor3TuningStat } from "app/utils/item-utils";
 import { createMemo, For, Show, type JSX } from "solid-js";
 
 import type { Catalyst } from "../../core/collections/types.ts";
@@ -54,6 +55,7 @@ export const ItemDetails = (props: {
   const own = (hash: number) =>
     props.item.stats?.find((stat) => stat.statHash === hash);
   const boosted = createMemo(() => masterworkHashes(props.item));
+  const tuned = createMemo(() => getArmor3TuningStat(props.item));
 
   const cell = (row: number) => ({
     "grid-column": props.place!.column,
@@ -154,6 +156,7 @@ export const ItemDetails = (props: {
                         comparing={place().comparing}
                         best={mine().value === stat.best}
                         total={stat.total}
+                        tuned={place().comparing && tuned() === stat.hash}
                       />
                     </>
                   )}
