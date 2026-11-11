@@ -2,9 +2,13 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type {
+  DestinyCollectibleDefinition,
   DestinyInventoryItemDefinition,
   DestinySocketTypeDefinition,
 } from "bungie-api-ts/destiny2";
+
+import missingSources from "../../../vendor/DIM/src/data/d2/missing-source-info.ts";
+import D2Sources from "../../../vendor/DIM/src/data/d2/source-info-v2.ts";
 
 import {
   coreItem,
@@ -26,6 +30,7 @@ import {
   slimReward,
   slimVendor,
   skullTable,
+  type SlimItemSource,
   type SlimOrnament,
   type SlimVendorItem,
   type Tables,
@@ -41,6 +46,7 @@ const PVP_DATA = join(DATA_ROOT, "pvp.json");
 const ITEMS = "DestinyInventoryItemDefinition";
 const PLUG_SETS = "DestinyPlugSetDefinition";
 
+const COLLECTIBLES = "DestinyCollectibleDefinition";
 const ACTIVITIES = "DestinyActivityDefinition";
 const VENDORS = "DestinyVendorDefinition";
 const OBJECTIVES = "DestinyObjectiveDefinition";
@@ -175,6 +181,103 @@ const addCatalysts = (
   }
 
   return added;
+};
+
+// Bungie sources DIM has no tag for
+const SOURCE_STRING_KEYS: Record<string, string> = {
+  "Source: Exotic engrams; extremely rare world drops.": "exoticengram",
+  "Source: Exotic Archive at the Tower": "exoticarchive",
+  "Source: Xûr": "xur",
+  "Source: Acquired from Xûr": "xur",
+};
+
+const VERSION_SUFFIX = / \((Adept|Timelost|Harrowed)\)$/;
+
+// Reissues often have no collectible
+const itemSources = (
+  all: DestinyInventoryItemDefinition[],
+  shipped: DestinyInventoryItemDefinition[],
+  collectibles: Record<number, DestinyCollectibleDefinition>,
+): SlimItemSource[] => {
+  const canonical = new Map<string, string>(
+    Object.entries(D2Sources).flatMap(([key, info]) =>
+      (info.aliases ?? []).map((alias): [string, string] => [alias, key]),
+    ),
+  );
+  const bySource = new Map<number, string[]>();
+  const byItem = new Map<number, string[]>();
+
+  const add = (map: Map<number, string[]>, hash: number, key: string) => {
+    map.set(hash, [...(map.get(hash) ?? []), key]);
+  };
+
+  for (const [key, info] of Object.entries(D2Sources)) {
+    for (const hash of info.sourceHashes ?? []) {
+      add(bySource, hash, key);
+    }
+
+    for (const hash of info.itemHashes ?? []) {
+      add(byItem, hash, key);
+    }
+  }
+
+  for (const [alias, hashes] of Object.entries(missingSources)) {
+    for (const hash of hashes) {
+      add(byItem, hash, canonical.get(alias) ?? alias);
+    }
+  }
+
+  const groupOf = (item: DestinyInventoryItemDefinition) =>
+    `${item.displayProperties.name.replace(VERSION_SUFFIX, "")}|${item.itemType}|${item.classType}`;
+  const gear = (item: DestinyInventoryItemDefinition) =>
+    (item.itemType === WEAPON || item.itemType === ARMOR) &&
+    !!item.displayProperties?.name;
+
+  const own = new Map<number, Set<string>>();
+  const pooled = new Map<string, Set<string>>();
+
+  for (const item of all.filter(gear)) {
+    const collectible =
+      item.collectibleHash === undefined
+        ? undefined
+        : collectibles[item.collectibleHash];
+    const keys = new Set([
+      ...(byItem.get(item.hash) ?? []),
+      ...(collectible?.sourceHash === undefined
+        ? []
+        : (bySource.get(collectible.sourceHash) ?? [])),
+      ...(collectible && SOURCE_STRING_KEYS[collectible.sourceString]
+        ? [SOURCE_STRING_KEYS[collectible.sourceString]!]
+        : []),
+    ]);
+
+    if (keys.size === 0) {
+      continue;
+    }
+
+    own.set(item.hash, keys);
+
+    const group = groupOf(item);
+    pooled.set(group, new Set([...(pooled.get(group) ?? []), ...keys]));
+  }
+
+  // DIM lists all of Monument under one source hash
+  const breadth = new Map<string, number>();
+
+  for (const keys of pooled.values()) {
+    for (const key of keys) {
+      breadth.set(key, (breadth.get(key) ?? 0) + 1);
+    }
+  }
+
+  const narrowest = (keys: Set<string>) =>
+    [...keys].sort((a, b) => breadth.get(a)! - breadth.get(b)!);
+
+  return shipped.filter(gear).flatMap((item): SlimItemSource[] => {
+    const keys = own.get(item.hash) ?? pooled.get(groupOf(item));
+
+    return keys ? [{ hash: item.hash, keys: narrowest(keys) }] : [];
+  });
 };
 
 const main = async () => {
@@ -377,6 +480,14 @@ const main = async () => {
   await emit("ActivityChallenge", challenges);
   await emit("VendorItem", vendorItems);
   await emit("OrnamentTarget", ornaments);
+  await emit(
+    "ItemSource",
+    itemSources(
+      all,
+      shipped,
+      table(manifest, COLLECTIBLES) ?? {},
+    ),
+  );
   const detailFile = await emit("detail", detail);
   await emit("plugsets", plugsets);
   await emit("hidden", hidden);

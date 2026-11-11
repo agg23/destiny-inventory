@@ -6,6 +6,7 @@ import { A } from "@solidjs/router";
 import { Show } from "solid-js";
 
 import type { CardCost } from "../../core/items/preview.ts";
+import { sourceName } from "../../core/items/source.ts";
 import { itemEntryHref, lightGgHref } from "../../core/url.ts";
 import { BungieImage } from "../BungieImage.tsx";
 import { CollectionsGlyph } from "../lib/CollectionsGlyph.tsx";
@@ -35,58 +36,76 @@ export const ItemHead = (props: {
   links?: boolean;
   notes?: string[];
   cost?: CardCost;
-}) => (
-  <>
-    <div
-      class={`tooltip-header ${props.item.rarity.toLowerCase()}`}
-      classList={{ "h-(--item-head) p-0": props.compact }}
-    >
-      <div class="flex h-full items-stretch gap-2">
-        <Show when={props.compact}>
-          <BungieImage
-            path={props.item.icon}
-            class="aspect-square h-full shrink-0"
-          />
-        </Show>
-        <div
-          class="min-w-0 flex-1"
-          classList={{ "flex flex-col justify-center pr-4": props.compact }}
-        >
+}) => {
+  const source = () => sourceName(props.item);
+
+  return (
+    <>
+      <div
+        class={`tooltip-header ${props.item.rarity.toLowerCase()}`}
+        classList={{ "h-(--item-head) p-0": props.compact }}
+      >
+        <div class="flex h-full items-stretch gap-2">
+          <Show when={props.compact}>
+            <BungieImage
+              path={props.item.icon}
+              class="aspect-square h-full shrink-0"
+            />
+          </Show>
           <div
-            class="tooltip-name"
-            classList={{
-              "line-clamp-2 pr-6 text-sm leading-5 whitespace-normal":
-                props.compact,
-            }}
+            class="min-w-0 flex-1"
+            classList={{ "flex flex-col justify-center pr-4": props.compact }}
           >
-            {props.item.name}
-          </div>
-          <div class="tooltip-type">
-            <span class="truncate">{typeName(props.item)}</span>
-            <Show when={props.item.tier > 0}>
-              <span class="gear-tier">Tier {props.item.tier}</span>
-            </Show>
+            <div
+              class="tooltip-name"
+              classList={{
+                "line-clamp-2 pr-6 text-sm leading-5 whitespace-normal":
+                  props.compact,
+              }}
+            >
+              {props.item.name}
+            </div>
+            <div class="tooltip-type">
+              <span class="truncate">{typeName(props.item)}</span>
+              <Show when={props.item.tier > 0}>
+                <span class="gear-tier">Tier {props.item.tier}</span>
+              </Show>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-    <div
-      class="py-2 empty:hidden"
-      classList={{
-        "tooltip-body": !props.compact,
-        "border-b": props.compact,
-      }}
-    >
-      <ItemPower
-        item={props.item}
-        taggable={props.taggable}
-        links={props.links}
-        notes={props.notes}
-        cost={props.cost}
-      />
-    </div>
-  </>
-);
+      <div
+        class="py-2 empty:hidden"
+        classList={{
+          "tooltip-body": !props.compact,
+          "border-b": props.compact,
+        }}
+      >
+        <ItemPower
+          item={props.item}
+          taggable={props.taggable}
+          links={props.links}
+          notes={props.notes}
+          cost={props.cost}
+        />
+      </div>
+      <Show when={source()}>
+        {(name) => (
+          <div
+            class="flex justify-between gap-3 text-xs"
+            classList={{
+              "tooltip-body": !props.compact,
+              "border-b py-2": props.compact,
+            }}
+          >
+            <span class="shrink-0 text-muted-foreground">Source</span>
+            <span class="truncate">{name()}</span>
+          </div>
+        )}
+      </Show>
+    </>
+  );
+};
 
 // DestinyAmmunitionType
 export const AMMO: Record<number, { url: string; name: string }> = {

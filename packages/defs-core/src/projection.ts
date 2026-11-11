@@ -69,6 +69,12 @@ export interface SlimCollectible {
   parentNodeHashes: number[];
 }
 
+/** DIM source tags for a weapon or armor hash, merged across its versions, narrowest first */
+export interface SlimItemSource {
+  hash: number;
+  keys: string[];
+}
+
 /** Collectible source and tree position. Name and icon live on its item */
 export const slimCollectible = (
   collectible: DestinyCollectibleDefinition,

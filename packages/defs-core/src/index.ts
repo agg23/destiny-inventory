@@ -17,6 +17,7 @@ export {
   slimCollectible,
   slimItem,
   type SlimCollectible,
+  type SlimItemSource,
   type SlimItem,
 } from "./projection.ts";
 export { isShipped } from "./shipped.ts";

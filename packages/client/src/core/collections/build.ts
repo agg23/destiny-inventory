@@ -18,7 +18,13 @@ import type { SlimCollectible } from "@dvm/defs-core";
 import { fetchTable } from "../api/artifacts.ts";
 import type { Session } from "../profile/loadTypes.ts";
 import { CORE } from "../profile/store.ts";
-import { AMMO_NAMES, AMMO_SECTIONS, EXOTIC, OTHER } from "./terms.ts";
+import {
+  AMMO_NAMES,
+  AMMO_SECTIONS,
+  EXOTIC,
+  OTHER,
+  SOURCE_SECTIONS,
+} from "./terms.ts";
 import type { Armor, Collections, Entry, Section, Weapon } from "./types.ts";
 
 const WEAPONS_NODE = 1528930164;
@@ -32,85 +38,6 @@ export const CATALYST_RECORDS = exoticToCatalystRecordHash as Record<
   string,
   number | undefined
 >;
-
-const SOURCE_SECTIONS: { label: string; keys: [string, string][] }[] = [
-  {
-    label: "Raids",
-    keys: [
-      ["desertperpetual", "The Desert Perpetual"],
-      ["salvationsedge", "Salvation's Edge"],
-      ["crotasend", "Crota's End"],
-      ["rootofnightmares", "Root of Nightmares"],
-      ["kingsfall", "King's Fall"],
-      ["vowofthedisciple", "Vow of the Disciple"],
-      ["vaultofglass", "Vault of Glass"],
-      ["deepstonecrypt", "Deep Stone Crypt"],
-      ["gardenofsalvation", "Garden of Salvation"],
-      ["crownofsorrow", "Crown of Sorrow"],
-      ["scourgeofthepast", "Scourge of the Past"],
-      ["lastwish", "Last Wish"],
-      ["spireofstars", "Spire of Stars"],
-      ["eow", "Eater of Worlds"],
-      ["leviathan", "Leviathan"],
-    ],
-  },
-  {
-    label: "Dungeons",
-    keys: [
-      ["equilibrium", "Equilibrium"],
-      ["sundereddoctrine", "Sundered Doctrine"],
-      ["vespershost", "Vesper's Host"],
-      ["warlordsruin", "Warlord's Ruin"],
-      ["ghostsofthedeep", "Ghosts of the Deep"],
-      ["spireofthewatcher", "Spire of the Watcher"],
-      ["duality", "Duality"],
-      ["grasp", "Grasp of Avarice"],
-      ["prophecy", "Prophecy"],
-      ["pit", "Pit of Heresy"],
-      ["shatteredthrone", "The Shattered Throne"],
-    ],
-  },
-  {
-    label: "Playlists",
-    keys: [
-      ["nightfall", "Nightfall"],
-      ["strikes", "Vanguard"],
-      ["pinnacleops", "Pinnacle Ops"],
-      ["crucible", "Crucible"],
-      ["trials", "Trials of Osiris"],
-      ["ironbanner", "Iron Banner"],
-      ["gambit", "Gambit"],
-      ["gambitprime", "Gambit Prime"],
-    ],
-  },
-  {
-    label: "Destinations",
-    keys: [
-      ["kepler", "Kepler"],
-      ["paleheart", "The Pale Heart"],
-      ["neomuna", "Neomuna"],
-      ["throneworld", "Throne World"],
-      ["europa", "Europa"],
-      ["moon", "The Moon"],
-      ["dreaming", "Dreaming City"],
-      ["tangled", "Tangled Shore"],
-      ["nessus", "Nessus"],
-      ["edz", "European Dead Zone"],
-    ],
-  },
-  {
-    label: "Elsewhere",
-    keys: [
-      ["legendaryengram", "World drops"],
-      ["campaign", "Campaigns"],
-      ["seasonpass", "Seasons"],
-      ["events", "Events"],
-      ["gunsmith", "Gunsmith"],
-      ["exoticquest", "Exotic quests"],
-      ["eververse", "Eververse"],
-    ],
-  },
-];
 
 const categoryTerm = (weapon: Weapon): string =>
   itemCategoryFilter.fromItem({
