@@ -69,8 +69,8 @@ const EXAMPLES: Example[] = [
     vault: true,
   },
   {
-    label: "Junk rolls that miss both columns",
-    query: "is:weapon misses:2",
+    label: "Junk spare rolls that miss both columns",
+    query: "is:weapon misses:2 is:dupe",
     tagId: "junk",
     vault: true,
   },
