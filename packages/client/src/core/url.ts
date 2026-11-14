@@ -129,6 +129,7 @@ const PARAMS = {
   usage: flag(),
   rarity: choice(USAGE_RARITIES, "exotic"),
   order: choice(USAGE_SORTS, "fewest"),
+  link: text(),
 };
 
 export type Params = {
@@ -166,6 +167,7 @@ export const TABS = [
   "todo",
   "history",
   "stats",
+  "loadouts",
 ] as const;
 
 export type Tab = (typeof TABS)[number];

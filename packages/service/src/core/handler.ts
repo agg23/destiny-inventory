@@ -6,6 +6,11 @@ import {
 import { readBaseline, type Store } from "./baseline.ts";
 import type { Membership } from "./bungie.ts";
 import type { ArtifactLoader } from "./loader.ts";
+import {
+  fetchSharedLoadout,
+  parseShareId,
+  type ShareStore,
+} from "./loadoutShare.ts";
 import { parseNote, type NoteStore } from "./notes.ts";
 import {
   parsePreferences,
@@ -48,6 +53,7 @@ export interface ServiceConfig {
   perkPreferences: PerkPreferenceStore;
   autotag: AutotagStore;
   stats: StatStore;
+  shares: ShareStore;
 }
 
 // Blocks path traversal
@@ -364,6 +370,44 @@ export const createHandler = (config: ServiceConfig) => {
         );
 
         return json({ now }, config.allowedOrigin);
+      }
+
+      if (pathname === "/loadout-share" && request.method === "GET") {
+        const session = await sessionOf(request);
+
+        if (!session) {
+          return json({ error: "Sign in required" }, config.allowedOrigin, 401);
+        }
+
+        const link = new URL(request.url).searchParams.get("link") ?? "";
+        const shareId = parseShareId(link);
+
+        if (!shareId) {
+          return json({ error: "Bad share link" }, config.allowedOrigin, 400);
+        }
+
+        const shared = await fetchSharedLoadout(shareId, config.shares);
+
+        if (shared.kind === "missing") {
+          return json({ error: "No such share" }, config.allowedOrigin, 404);
+        }
+
+        if (shared.kind === "unreadable") {
+          return json(
+            { error: "Couldn't read this share" },
+            config.allowedOrigin,
+            502,
+          );
+        }
+
+        // Shares can't be edited
+        return new Response(JSON.stringify({ loadout: shared.loadout }), {
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "private, max-age=86400",
+            ...cors(config.allowedOrigin),
+          },
+        });
       }
 
       if (pathname === "/auth/token" && request.method === "POST") {

@@ -11,6 +11,7 @@ const LABELS: Record<Tab, string> = {
   todo: "Todo",
   history: "History",
   stats: "Stats",
+  loadouts: "Loadouts",
 };
 
 const PAGE_LINK = "inline-flex h-7 items-center rounded-md px-2.5";

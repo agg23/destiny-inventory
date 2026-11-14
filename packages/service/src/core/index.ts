@@ -10,6 +10,7 @@ export {
   type AutotagStore,
 } from "./autotag.ts";
 export { createHandler, type ServiceConfig } from "./handler.ts";
+export { type ShareStore } from "./loadoutShare.ts";
 export {
   loaderFrom,
   type ArtifactIndex,

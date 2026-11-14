@@ -54,11 +54,14 @@ export const PerkRow = (props: Props) => (
     onMouseEnter={props.onMouseEnter}
     onMouseLeave={props.onMouseLeave}
   >
-    <PerkIcon
-      icon={props.icon}
-      enhanced={props.enhanced}
-      square={props.square}
-    />
+    {/* Centers the icon on the name and the first line under it */}
+    <span class="mt-1 flex flex-none">
+      <PerkIcon
+        icon={props.icon}
+        enhanced={props.enhanced}
+        square={props.square}
+      />
+    </span>
     <div class="min-w-0">
       <b
         class={props.badged ? PERK_TITLE : PERK_NAME}

@@ -130,6 +130,24 @@ const restates = (description: string, stats: StatChange[]): boolean =>
     return [written, `${written} ▲`, `${written} ▼`].includes(description);
   });
 
+// Bungie appends stat changes as lines like "+10 Weapon ▲"
+const STAT_LINE = /^[+\-−]\d+ .+ [▲▼]$/;
+
+const withoutStats = (description: string, stats: StatChange[]): string => {
+  if (stats.length === 0) {
+    return description;
+  }
+
+  return description
+    .split("\n")
+    .filter(
+      (line) => !STAT_LINE.test(line.trim()) && !restates(line.trim(), stats),
+    )
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+};
+
 // Armor mods put their effect on sandbox perks
 const describe = (plug: DimPlug): string => {
   const own = plug.plugDef.displayProperties.description;
@@ -168,7 +186,7 @@ export const benefitFor = (
     icon: iconOf(plug.plugDef.displayProperties),
     enhanced: isEnhancedPerk(plug.plugDef),
     intrinsic: isIntrinsicPlug(plug),
-    description: restates(written, stats) ? "" : written,
+    description: withoutStats(written, stats),
     stats,
   };
 };

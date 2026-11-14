@@ -16,6 +16,7 @@ export const SHIMS: { match: RegExp; shim: string }[] = [
   { match: /^(?:.*\/)?bungie-api\/destiny1-api$/, shim: "destiny1-api.ts" },
   { match: /^(?:.*\/)?bungie-api\/destiny2-api$/, shim: "destiny2-api.ts" },
   { match: /^@sentry\/(browser|react)$/, shim: "sentry-sdk.ts" },
+  { match: /^react$/, shim: "react.ts" },
 ];
 
 // Relative DIM imports. ./selectors differs per feature directory

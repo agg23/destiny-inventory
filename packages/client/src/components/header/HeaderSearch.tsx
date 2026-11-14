@@ -35,6 +35,7 @@ const SCOPES: Record<Tab, string> = {
   todo: "Filter todos",
   history: "Filter runs",
   stats: "Filter stats",
+  loadouts: "Filter loadout",
 };
 
 interface Props {

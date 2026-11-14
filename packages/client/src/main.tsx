@@ -15,6 +15,7 @@ import {
 import { messageOf } from "./core/error.ts";
 import { primeBoot } from "./core/profile/snapshot.ts";
 import { History } from "./history/History.tsx";
+import { Loadouts } from "./loadouts/Loadouts.tsx";
 import { Stats } from "./stats/Stats.tsx";
 import { Todo } from "./todo/Todo.tsx";
 import { Triage } from "./triage/Triage.tsx";
@@ -72,6 +73,7 @@ const start = async () => {
           component={History}
         />
         <Route path="/stats" component={Stats} />
+        <Route path="/loadouts" component={Loadouts} />
         <Route path="*" component={() => <Navigate href="/vault" />} />
       </Router>
     ),

@@ -19,6 +19,7 @@ import {
   type NoteStore,
   type PerkPreference,
   type PerkPreferenceStore,
+  type ShareStore,
   type StatStore,
   type StoredChunk,
   type TagDef,
@@ -247,6 +248,18 @@ const send = (res: ServerResponse, response: Response) => {
   Readable.fromWeb(response.body as never).pipe(res);
 };
 
+const memoryShares = (): ShareStore => {
+  const shares = new Map<string, object>();
+
+  return {
+    read: async (shareId) => shares.get(shareId),
+
+    write: async (shareId, loadout) => {
+      shares.set(shareId, loadout);
+    },
+  };
+};
+
 const handler = createHandler({
   apiKey: process.env.BUNGIE_API_KEY ?? "",
   clientId: process.env.BUNGIE_CLIENT_ID ?? "",
@@ -260,6 +273,7 @@ const handler = createHandler({
   perkPreferences: memoryPreferences(),
   autotag: memoryAutotag(),
   stats: memoryStats(),
+  shares: memoryShares(),
 });
 
 createServer((req, res) => {

@@ -21,6 +21,7 @@ interface Props {
   kept?: (item: DimItem) => boolean;
   onKeep?: (item: DimItem, keep: boolean) => void;
   minColumn?: string;
+  hideMoves?: boolean;
 }
 
 interface Row {
@@ -160,7 +161,11 @@ export const Compare = (props: Props) => {
                     against: column() > 0 ? row.values[0] : undefined,
                   })),
                 }}
-                lead={<Moves compact={compact()} item={item} />}
+                lead={
+                  props.hideMoves ? undefined : (
+                    <Moves compact={compact()} item={item} />
+                  )
+                }
                 trail={
                   <>
                     <Benefits item={item} />

@@ -56,6 +56,7 @@ const service = () =>
       readOne: async () => undefined,
       write: async () => undefined,
     },
+    shares: { read: async () => undefined, write: async () => undefined },
   });
 
 const bearer = async (membershipId: string) =>

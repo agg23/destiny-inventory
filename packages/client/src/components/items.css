@@ -170,7 +170,8 @@
   .row .item-grid .item-tile.small,
   .triage-grid .item-tile.small,
   .collections-grid .item-tile.small,
-  .weapon-page .item-tile.small {
+  .weapon-page .item-tile.small,
+  .loadout-page .item-tile.small {
     width: var(--tile);
     height: var(--tile);
   }

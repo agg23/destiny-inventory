@@ -10,6 +10,7 @@ import {
   type NoteStore,
   type PerkMode,
   type PerkPreferenceStore,
+  type ShareStore,
   type Stance,
   type StatStore,
   type Store,
@@ -464,6 +465,31 @@ const statStore = (db: Database): StatStore => ({
   },
 });
 
+const READ_SHARE = "SELECT loadout FROM loadout_shares WHERE share_id = ?";
+
+const WRITE_SHARE = `INSERT INTO loadout_shares (share_id, loadout, fetched_at)
+VALUES (?, ?, ?)
+ON CONFLICT (share_id) DO NOTHING`;
+
+const shareStore = (db: Database): ShareStore => ({
+  read: async (shareId) => {
+    const rows = await db
+      .prepare(READ_SHARE)
+      .bind(shareId)
+      .all<{ loadout: string }>();
+    const row = rows.results[0];
+
+    return row ? (JSON.parse(row.loadout) as object) : undefined;
+  },
+
+  write: async (shareId, loadout, now) => {
+    await db
+      .prepare(WRITE_SHARE)
+      .bind(shareId, JSON.stringify(loadout), now)
+      .run();
+  },
+});
+
 // Only the index is read here. The client fetches chunks straight from the asset handler
 const assetLoader = (env: Env, origin: string): ArtifactLoader => {
   const read = async (file: string): Promise<ArrayBuffer | undefined> => {
@@ -510,6 +536,7 @@ export default {
       perkPreferences: perkPreferenceStore(env.TAGS),
       autotag: autotagStore(env.TAGS),
       stats: statStore(env.TAGS),
+      shares: shareStore(env.TAGS),
     });
 
     const inner = new Request(

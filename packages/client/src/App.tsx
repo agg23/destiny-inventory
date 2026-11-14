@@ -63,7 +63,7 @@ import { startUpdateCheck } from "./core/update.ts";
 import { tabHref, TABS, type Tab } from "./core/url.ts";
 import { TrashWatch } from "./triage/shared/TrashWatch.tsx";
 
-const RAILED: Tab[] = ["vault", "triage", "todo"];
+const RAILED: Tab[] = ["vault", "triage", "todo", "loadouts"];
 
 export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   const url = useUrl();

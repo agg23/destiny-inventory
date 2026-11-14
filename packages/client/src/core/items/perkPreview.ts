@@ -21,7 +21,7 @@ export const previewPerk = (
   element: HTMLElement,
 ) => {
   card.open(
-    { item, plug, beside: document.querySelector(".rail") === null },
+    { item, plug, beside: element.closest(".rail") === null },
     element,
   );
 };

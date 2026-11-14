@@ -58,6 +58,7 @@ const service = () =>
       writeState: async () => false,
     },
     stats: memory(),
+    shares: { read: async () => undefined, write: async () => undefined },
   });
 
 const bearer = async () =>
