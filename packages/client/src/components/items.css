@@ -581,7 +581,8 @@
     outline-offset: 1px;
   }
 
-  .item-tile.neverseen img {
+  .item-tile.neverseen img,
+  .item-tile.unheld img {
     filter: grayscale(1);
     opacity: 0.35;
   }

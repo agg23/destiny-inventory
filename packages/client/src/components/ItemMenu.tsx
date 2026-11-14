@@ -35,7 +35,7 @@ import {
   transferBlocked,
   transferTargets,
 } from "../core/profile/moveTargets.ts";
-import { itemEntryHref } from "../core/url.ts";
+import { itemEntryHref, vaultHref } from "../core/url.ts";
 import { cn } from "./lib/cn.ts";
 import { Check, ChevronRight } from "./lib/zaidan/icons.tsx";
 import { TagDot } from "./TagDot.tsx";
@@ -44,12 +44,15 @@ interface Props {
   find: (index: string) => DimItem | undefined;
   onTag?: (item: DimItem, tagId: string | undefined) => void;
   selection?: () => DimItem[];
+  /** Items aren't the player's; offers only ways to find them */
+  standIns?: boolean;
   children: JSX.Element;
 }
 
 interface RowProps {
   item: DimItem;
   onTag?: (item: DimItem, tagId: string | undefined) => void;
+  standIn?: boolean;
 }
 
 const ROW =
@@ -286,10 +289,12 @@ const Rows = (props: RowProps) => {
   const equipReason = () => app.moving() ?? pullBlocked(props.item);
   const transferReason = (target: DimStore) =>
     app.moving() ?? transferBlocked(props.item, app.stores(), target);
+  const nameQuery = () =>
+    `exactname:${quoteFilterString(props.item.name.toLowerCase())}`;
 
   return (
     <>
-      <Show when={!guest()}>
+      <Show when={!guest() && !props.standIn}>
         <Show when={equipOn()}>
           {(target) => (
             <SplitRow
@@ -347,28 +352,34 @@ const Rows = (props: RowProps) => {
         </Show>
       </Show>
 
-      <Row
-        label={pinned() ? "Unpin" : "Pin"}
-        onChoose={() =>
-          pinned() ? app.onUnpin(props.item) : app.onPin(props.item)
-        }
-      />
-      <Show when={rival()}>
-        {(reference) => (
+      <Show
+        when={!props.standIn}
+        fallback={
           <Row
-            label={`Compare with ${reference().name}`}
-            onChoose={() => app.onCompare(props.item, reference())}
+            label="Show in vault"
+            onChoose={() => navigate(vaultHref(nameQuery(), undefined))}
           />
-        )}
-      </Show>
-      <Row
-        label="Filter to name"
-        onChoose={() =>
-          app.onQuery(
-            `exactname:${quoteFilterString(props.item.name.toLowerCase())}`,
-          )
         }
-      />
+      >
+        <Row
+          label={pinned() ? "Unpin" : "Pin"}
+          onChoose={() =>
+            pinned() ? app.onUnpin(props.item) : app.onPin(props.item)
+          }
+        />
+        <Show when={rival()}>
+          {(reference) => (
+            <Row
+              label={`Compare with ${reference().name}`}
+              onChoose={() => app.onCompare(props.item, reference())}
+            />
+          )}
+        </Show>
+        <Row
+          label="Filter to name"
+          onChoose={() => app.onQuery(nameQuery())}
+        />
+      </Show>
       <Show when={props.item.bucket.inWeapons || props.item.bucket.inArmor}>
         <Row
           label="Show in Collections"
@@ -431,7 +442,13 @@ export const ItemMenu = (props: Props) => {
             {(item) => (
               <Show
                 when={swept(item())}
-                fallback={<Rows item={item()} onTag={props.onTag} />}
+                fallback={
+                  <Rows
+                    item={item()}
+                    onTag={props.onTag}
+                    standIn={props.standIns}
+                  />
+                }
               >
                 {(items) => <SelectionRows items={items()} />}
               </Show>

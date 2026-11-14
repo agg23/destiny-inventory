@@ -13,6 +13,7 @@ import { BungieImage } from "../../components/BungieImage.tsx";
 import { Perks } from "../../components/card/Perks.tsx";
 import { Changes } from "../../components/card/Stats.tsx";
 import { Heading } from "../../components/Heading.tsx";
+import { ItemMenu } from "../../components/ItemMenu.tsx";
 import { ItemTile } from "../../components/ItemTile.tsx";
 import {
   LABEL,
@@ -20,6 +21,9 @@ import {
   SECTION,
   TILE_GRID,
 } from "../../components/lib/text.ts";
+import { useApp } from "../../core/app/state.ts";
+import { entryKey } from "../../core/collections/build.ts";
+import { copiesByKey } from "../../core/collections/ownership.ts";
 import { dismissPerk, previewPerk } from "../../core/items/perkPreview.ts";
 import { iconOf } from "../../core/items/perks.ts";
 import { LoadoutRail } from "./LoadoutRail.tsx";
@@ -50,18 +54,20 @@ const Plugs = (props: { plugs: SharedPlug[] }) => (
   </div>
 );
 
-interface Focus {
+interface TileState {
   focused: DimItem | undefined;
   onFocus: (item: DimItem) => void;
+  held: (item: DimItem) => boolean;
 }
 
-const ModdedTiles = (props: { items: SharedItem[] } & Focus) => (
+const ModdedTiles = (props: { items: SharedItem[] } & TileState) => (
   <div class={TILE_GRID}>
     <For each={props.items}>
       {(one) => (
         <div class="flex flex-col gap-1">
           <ItemTile
             item={one.item}
+            class={props.held(one.item) ? undefined : "unheld"}
             selected={props.focused === one.item}
             onSelect={props.onFocus}
           />
@@ -72,12 +78,13 @@ const ModdedTiles = (props: { items: SharedItem[] } & Focus) => (
   </div>
 );
 
-const Tiles = (props: { items: DimItem[] } & Focus) => (
+const Tiles = (props: { items: DimItem[] } & TileState) => (
   <div class={TILE_GRID}>
     <For each={props.items}>
       {(item) => (
         <ItemTile
           item={item}
+          class={props.held(item) ? undefined : "unheld"}
           selected={props.focused === item}
           onSelect={props.onFocus}
         />
@@ -101,6 +108,7 @@ export const LoadoutView = (props: {
   shared: SharedLoadout;
   needle: string;
 }) => {
+  const app = useApp();
   const named = <T,>(list: T[], name: (one: T) => string): T[] =>
     props.needle === ""
       ? list
@@ -117,6 +125,20 @@ export const LoadoutView = (props: {
   const mods = () => named(props.shared.mods, plugName);
   const artifact = () => named(props.shared.artifact, plugName);
   const listed = createMemo(() => facts(props.shared.loadout));
+  const copies = createMemo(() => copiesByKey(app.stores()));
+  const held = (item: DimItem) =>
+    copies().has(
+      entryKey(
+        item.name,
+        item.rarity,
+        item.bucket.inArmor ? item.classType : undefined,
+      ),
+    );
+  const findable = createMemo(() => [
+    ...props.shared.equipped.map((one) => one.item),
+    ...props.shared.unequipped,
+    ...(props.shared.exotic ? [props.shared.exotic] : []),
+  ]);
 
   const [focused, setFocused] = createSignal<DimItem | undefined>(undefined);
   const onFocus = (item: DimItem) =>
@@ -199,29 +221,45 @@ export const LoadoutView = (props: {
         </Section>
       </Show>
 
-      <Show when={equipped().length > 0}>
-        <Section title="Equipped" note={equipped().length}>
-          <ModdedTiles
-            items={equipped()}
-            focused={focused()}
-            onFocus={onFocus}
-          />
-        </Section>
-      </Show>
-
-      <Show when={unequipped().length > 0}>
-        <Section title="Unequipped" note={unequipped().length}>
-          <Tiles items={unequipped()} focused={focused()} onFocus={onFocus} />
-        </Section>
-      </Show>
-
-      <Show when={props.shared.exotic}>
-        {(exotic) => (
-          <Section title="Exotic">
-            <Tiles items={[exotic()]} focused={focused()} onFocus={onFocus} />
+      <ItemMenu
+        find={(index) => findable().find((item) => item.index === index)}
+        standIns
+      >
+        <Show when={equipped().length > 0}>
+          <Section title="Equipped" note={equipped().length}>
+            <ModdedTiles
+              items={equipped()}
+              focused={focused()}
+              onFocus={onFocus}
+              held={held}
+            />
           </Section>
-        )}
-      </Show>
+        </Show>
+
+        <Show when={unequipped().length > 0}>
+          <Section title="Unequipped" note={unequipped().length}>
+            <Tiles
+              items={unequipped()}
+              focused={focused()}
+              onFocus={onFocus}
+              held={held}
+            />
+          </Section>
+        </Show>
+
+        <Show when={props.shared.exotic}>
+          {(exotic) => (
+            <Section title="Exotic">
+              <Tiles
+                items={[exotic()]}
+                focused={focused()}
+                onFocus={onFocus}
+                held={held}
+              />
+            </Section>
+          )}
+        </Show>
+      </ItemMenu>
 
       <Show when={mods().length > 0}>
         <Section
