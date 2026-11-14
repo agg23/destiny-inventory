@@ -4,7 +4,10 @@ import { For, Show } from "solid-js";
 
 import { ItemTile } from "../../components/ItemTile.tsx";
 import { CARD, TILE_GRID } from "../../components/lib/text.ts";
+import { autotagRules, ruleQuery } from "../../core/items/autotag.ts";
+import { tagDefs } from "../../core/items/tags.ts";
 import type { Span } from "../../core/stats/attribute.ts";
+import type { AutotagChange } from "../../core/stats/types.ts";
 import { plural } from "../../core/text.ts";
 import { dateTime, duration } from "../../core/time.ts";
 import { Delta } from "./Delta.tsx";
@@ -35,6 +38,38 @@ export const combat = (
   ];
 
   return parts.length > 0 ? parts.join(" · ") : undefined;
+};
+
+/** Hover card lines for what an autotag rule did to a drop */
+export const autotagNotes = (entry: AutotagChange): string[] => {
+  const index = autotagRules().findIndex((rule) => rule.id === entry.ruleId);
+  const rule =
+    index === -1 ? "A removed autotag rule" : `Autotag rule ${index + 1}`;
+  const label =
+    tagDefs().find((def) => def.id === entry.tagId)?.label ?? entry.tagId;
+  const tagged = label === undefined ? undefined : `${rule} tagged it ${label}`;
+
+  let line = tagged ?? rule;
+
+  if (entry.vault === "moved") {
+    line = tagged
+      ? `${tagged} and sent it to the Vault`
+      : `${rule} sent it to the Vault`;
+  } else if (entry.vault === "failed") {
+    line = tagged
+      ? `${tagged}; the Vault move failed`
+      : `${rule} failed to send it to the Vault`;
+  } else if (entry.vault === "skipped") {
+    line = tagged
+      ? `${tagged}; it couldn't go to the Vault`
+      : `${rule} couldn't send it to the Vault`;
+  }
+
+  if (ruleQuery(entry.ruleId) === entry.query) {
+    return [line];
+  }
+
+  return [line, `Matched ${entry.query}`];
 };
 
 /** The id an activity card carries, for the strip to scroll to */
@@ -109,6 +144,9 @@ export const DigestBody = (props: {
                   <ItemTile
                     item={item()}
                     highlight={!!props.onSelect}
+                    notes={
+                      drop.autotag ? autotagNotes(drop.autotag) : undefined
+                    }
                     onSelect={props.onSelect}
                   />
                 )}

@@ -51,7 +51,11 @@ const service = () =>
       write: async () => undefined,
       writeState: async () => false,
     },
-    stats: { read: async () => [], write: async () => undefined },
+    stats: {
+      read: async () => [],
+      readOne: async () => undefined,
+      write: async () => undefined,
+    },
   });
 
 const bearer = async (membershipId: string) =>

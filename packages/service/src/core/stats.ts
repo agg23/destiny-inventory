@@ -39,6 +39,10 @@ export interface StatStore {
     after: StatCursor,
     limit: number,
   ) => Promise<StoredChunk[]>;
+  readOne: (
+    membershipId: string,
+    startsAt: number,
+  ) => Promise<StoredChunk | undefined>;
   write: (
     membershipId: string,
     chunk: Omit<StoredChunk, "updatedAt">,
@@ -63,6 +67,26 @@ export const gunzip = (bytes: Uint8Array): Promise<string> =>
       new DecompressionStream("gzip"),
     ),
   ).text();
+
+const isAutotag = (change: unknown): boolean =>
+  typeof change === "object" &&
+  change !== null &&
+  "kind" in change &&
+  change.kind === "autotag";
+
+/** The winning copy of a bucket plus the autotag entries only the losing copy has */
+export const mergeAutotag = <T>(winner: T[], loser: T[]): T[] => {
+  const seen = new Set(winner.map((change) => JSON.stringify(change)));
+  const missing = loser.filter(
+    (change) => isAutotag(change) && !seen.has(JSON.stringify(change)),
+  );
+
+  if (missing.length === 0) {
+    return winner;
+  }
+
+  return [...winner, ...missing];
+};
 
 const isArrayJson = (body: string): boolean => {
   try {

@@ -26,6 +26,7 @@ import {
 import {
   gunzip,
   gzip,
+  mergeAutotag,
   parseChunk,
   STAT_PAGE,
   type StatStore,
@@ -327,13 +328,37 @@ export const createHandler = (config: ServiceConfig) => {
         }
 
         const now = Date.now();
+        const existing = await config.stats.readOne(
+          session.membershipId,
+          chunk.startsAt,
+        );
+        let body = chunk.body;
+
+        // Only the acting tab logs autotag entries
+        if (existing) {
+          const stored = await gunzip(existing.gzipped);
+          const incomingWins = chunk.body.length >= existing.length;
+          const winner = incomingWins ? chunk.body : stored;
+          const kept = JSON.parse(winner) as unknown[];
+          const merged = mergeAutotag(
+            kept,
+            JSON.parse(incomingWins ? stored : chunk.body) as unknown[],
+          );
+
+          if (!incomingWins && merged === kept) {
+            return json({ now }, config.allowedOrigin);
+          }
+
+          body = merged === kept ? winner : JSON.stringify(merged);
+        }
+
         await config.stats.write(
           session.membershipId,
           {
             startsAt: chunk.startsAt,
             endsAt: chunk.endsAt,
-            gzipped: await gzip(chunk.body),
-            length: chunk.body.length,
+            gzipped: await gzip(body),
+            length: body.length,
           },
           now,
         );

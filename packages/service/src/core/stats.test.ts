@@ -24,6 +24,7 @@ const memory = (): StatStore => {
         .filter((chunk) => isAfter(chunk, after))
         .sort((a, b) => a.updatedAt - b.updatedAt || a.startsAt - b.startsAt)
         .slice(0, limit),
+    readOne: async (_membershipId, startsAt) => chunks.get(startsAt),
     write: async (_membershipId, chunk, now) => {
       const existing = chunks.get(chunk.startsAt);
 
@@ -103,6 +104,29 @@ describe("stat chunks", () => {
     const { chunks } = await pull(handle, 0, 0);
 
     expect(chunks.map((chunk) => JSON.parse(chunk.body))).toEqual([long]);
+  });
+
+  it("keeps autotag entries from the shorter copy", async () => {
+    const handle = service();
+    const tagged = { kind: "autotag", instanceId: "1", at: 5 };
+    const long = [
+      { kind: "currency" },
+      { kind: "currency" },
+      { kind: "stack" },
+    ];
+
+    await post(handle, 0, [tagged]);
+    await post(handle, 0, long);
+    await post(handle, STAT_BUCKET, long);
+    await post(handle, STAT_BUCKET, [tagged]);
+    await post(handle, STAT_BUCKET, [tagged]);
+
+    const { chunks } = await pull(handle, 0, 0);
+
+    expect(chunks.map((chunk) => JSON.parse(chunk.body))).toEqual([
+      [...long, tagged],
+      [...long, tagged],
+    ]);
   });
 
   it("pages from the last chunk handed out", async () => {

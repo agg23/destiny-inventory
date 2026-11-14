@@ -73,6 +73,10 @@ export const STAT_PERIODS = ["24h", "7d", "30d", "all"] as const;
 
 export type StatPeriod = (typeof STAT_PERIODS)[number];
 
+export const ACTIVITY_FILTERS = ["all", "autotagged"] as const;
+
+export type ActivityFilter = (typeof ACTIVITY_FILTERS)[number];
+
 export const KILL_MODES = ["all", "pve", "pvp"] as const;
 
 export type KillMode = (typeof KILL_MODES)[number];
@@ -117,6 +121,7 @@ const PARAMS = {
   period: choice(STAT_PERIODS, "24h"),
   day: text(),
   currency: count(),
+  activities: choice(ACTIVITY_FILTERS, "all"),
   xp: flag(),
   weapons: flag(),
   weapon: ids(),

@@ -48,6 +48,7 @@ export {
 export {
   isAfter,
   MAX_CHUNK_LENGTH,
+  mergeAutotag,
   parseChunk,
   STAT_BUCKET,
   STAT_PAGE,

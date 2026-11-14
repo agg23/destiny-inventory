@@ -5,14 +5,19 @@ import {
 import { silverItemHash } from "app/search/d2-known-values";
 import { createSignal } from "solid-js";
 
-import { STAT_BUCKET, type StatChunk, type StatCursor } from "@dvm/service";
+import {
+  mergeAutotag,
+  STAT_BUCKET,
+  type StatChunk,
+  type StatCursor,
+} from "@dvm/service";
 
 import { callService } from "../api/auth.ts";
 import { defs } from "../profile/defs.ts";
 import { PROFILE, STAT_CHUNKS, type DefStore } from "../profile/store.ts";
 import { readStored, writeStored } from "../storage.ts";
 import { diff, observe, snapshotOf } from "./observe.ts";
-import type { Change, Chunk, Observed } from "./types.ts";
+import type { AutotagChange, Change, Chunk, Observed } from "./types.ts";
 
 /** Chunks are fixed wall clock buckets this long, synced once they close */
 export const SYNC_INTERVAL = STAT_BUCKET;
@@ -32,10 +37,15 @@ let queue: Promise<void> = Promise.resolve();
 
 const [version, setVersion] = createSignal(0);
 
+const [leading, setLeading] = createSignal(false);
+
 /** Bumps whenever recorded changes land in IndexedDB */
 export const statsVersion = version;
 
 const bump = () => setVersion((was) => was + 1);
+
+/** This tab holds the recorder lock */
+export const statsLeader = leading;
 
 /** Start of the bucket holding `at` */
 export const bucketOf = (at: number): number =>
@@ -70,6 +80,26 @@ const accountWide = (progressionHash: number): boolean =>
   defs()?.Progression.getOptional(progressionHash)?.scope ===
   DestinyProgressionScope.Account;
 
+const append = async (held: Recorder, changes: Change[]) => {
+  if (changes.length === 0) {
+    return;
+  }
+
+  const startsAt = bucketOf(Date.now());
+  const chunk: Chunk = (await chunkAt(held, startsAt)) ?? {
+    membershipId: held.membershipId,
+    startsAt,
+    endsAt: startsAt + SYNC_INTERVAL,
+    changes: [],
+    synced: false,
+  };
+
+  await held.store.putAll(STAT_CHUNKS, [
+    { ...chunk, changes: [...chunk.changes, ...changes], synced: false },
+  ]);
+  bump();
+};
+
 const record = async (held: Recorder, profile: DestinyProfileResponse) => {
   const now = observe(profile, accountWide);
   // Never cached in memory. Another tab may have recorded since
@@ -102,23 +132,7 @@ const record = async (held: Recorder, profile: DestinyProfileResponse) => {
       : change,
   );
 
-  if (changes.length === 0) {
-    return;
-  }
-
-  const startsAt = bucketOf(Date.now());
-  const chunk: Chunk = (await chunkAt(held, startsAt)) ?? {
-    membershipId: held.membershipId,
-    startsAt,
-    endsAt: startsAt + SYNC_INTERVAL,
-    changes: [],
-    synced: false,
-  };
-
-  await held.store.putAll(STAT_CHUNKS, [
-    { ...chunk, changes: [...chunk.changes, ...changes], synced: false },
-  ]);
-  bump();
+  await append(held, changes);
 };
 
 /** Diffs a live profile against the last one and logs the changes. Only the leader tab records */
@@ -133,6 +147,20 @@ export const recordProfile = (
   }
 
   return enqueue(() => record(held, profile));
+};
+
+/** Logs what the autotagger did. Only the leader tab records */
+export const recordAutotag = (
+  membershipId: string,
+  changes: AutotagChange[],
+): Promise<void> => {
+  const held = recorder;
+
+  if (!held?.leader || held.membershipId !== membershipId) {
+    return Promise.resolve();
+  }
+
+  return enqueue(() => append(held, changes));
 };
 
 const push = async (held: Recorder) => {
@@ -215,10 +243,21 @@ const pull = async (held: Recorder) => {
         const changes = JSON.parse(incoming.body) as Change[];
         const local = await chunkAt(held, incoming.startsAt);
 
-        if (
-          incoming.startsAt >= open ||
-          (local && (!local.synced || local.changes.length >= changes.length))
-        ) {
+        if (incoming.startsAt >= open || (local && !local.synced)) {
+          continue;
+        }
+
+        // Only the acting tab logs autotag entries
+        if (local && local.changes.length >= changes.length) {
+          const merged = mergeAutotag(local.changes, changes);
+
+          if (merged !== local.changes) {
+            await held.store.putAll(STAT_CHUNKS, [
+              { ...local, changes: merged },
+            ]);
+            landed = true;
+          }
+
           continue;
         }
 
@@ -227,7 +266,7 @@ const pull = async (held: Recorder) => {
             membershipId: held.membershipId,
             startsAt: incoming.startsAt,
             endsAt: incoming.endsAt,
-            changes,
+            changes: local ? mergeAutotag(changes, local.changes) : changes,
             synced: true,
           },
         ]);
@@ -279,6 +318,7 @@ export const startStats = (
         }
 
         held.leader = true;
+        setLeading(true);
         release = resolve;
         void push(held).catch((e: unknown) =>
           console.warn("Stats push failed", e),
@@ -295,6 +335,7 @@ export const startStats = (
   return () => {
     window.clearInterval(timer);
     held.leader = false;
+    setLeading(false);
     release?.();
 
     if (recorder === held) {

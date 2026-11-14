@@ -2,7 +2,7 @@ import type { DestinyProfileResponse } from "bungie-api-ts/destiny2";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DefStore } from "../profile/store.ts";
-import type { Chunk, Observed } from "./types.ts";
+import type { Change, Chunk, Observed } from "./types.ts";
 
 const served: { pages: unknown[][]; pulls: string[] } = { pages: [], pulls: [] };
 
@@ -192,6 +192,62 @@ describe("stats log", () => {
       chunks.map((chunk) => [chunk.startsAt, chunk.changes.length]),
     ).toEqual([[START, 2]]);
   });
+
+  it("keeps autotag entries from whichever copy of a bucket loses", async () => {
+    const store = memoryStore();
+    const older = START - 2 * SYNC_INTERVAL;
+    const newer = START - SYNC_INTERVAL;
+    const currency = {
+      kind: "currency",
+      itemHash: GLIMMER,
+      before: 1_000,
+      after: 1_100,
+    };
+    const autotag = (instanceId: string) => ({
+      kind: "autotag",
+      instanceId,
+      at: START,
+    });
+    const local = (startsAt: number, changes: unknown[]): Chunk => ({
+      membershipId: "m",
+      startsAt,
+      endsAt: startsAt + SYNC_INTERVAL,
+      changes: changes as Change[],
+      synced: true,
+    });
+    const remote = (startsAt: number, changes: unknown[]) => ({
+      startsAt,
+      endsAt: startsAt + SYNC_INTERVAL,
+      body: JSON.stringify(changes),
+      updatedAt: 5,
+    });
+
+    await store.putAll("statChunks", [
+      local(older, [currency, currency, autotag("1")]),
+      local(newer, [autotag("2")]),
+    ]);
+    served.pages = [
+      [
+        remote(older, [currency, autotag("3")]),
+        remote(newer, [currency, currency]),
+      ],
+    ];
+    startStats(store, "m");
+    await settle();
+    await settle();
+
+    const chunks = await store.getRange<Chunk>(
+      "statChunks",
+      ["m", 0],
+      ["m", Number.MAX_SAFE_INTEGER],
+    );
+
+    expect(chunks.map((chunk) => chunk.changes)).toEqual([
+      [currency, currency, autotag("1"), autotag("3")],
+      [currency, currency, autotag("2")],
+    ]);
+  });
+
   it("pulls page after page from where the last one ended", async () => {
     const store = memoryStore();
     const remote = (startsAt: number, updatedAt: number) => ({

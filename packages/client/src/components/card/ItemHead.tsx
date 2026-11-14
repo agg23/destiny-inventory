@@ -3,7 +3,7 @@ import ammoHeavy from "destiny-icons/general/ammo-heavy.svg?inline";
 import ammoPrimary from "destiny-icons/general/ammo-primary.svg?inline";
 import ammoSpecial from "destiny-icons/general/ammo-special.svg?inline";
 import { A } from "@solidjs/router";
-import { Show } from "solid-js";
+import { For, Show } from "solid-js";
 
 import type { CardCost } from "../../core/items/preview.ts";
 import { sourceName } from "../../core/items/source.ts";
@@ -192,10 +192,12 @@ const ItemPower = (props: {
           <FavoriteControl items={[props.item]} />
           <TagControl items={[props.item]} />
         </Show>
-        <Show when={notes().length > 0}>
-          <span class="power-notes">{notes().join(" · ")}</span>
-        </Show>
       </div>
+      <Show when={notes().length > 0}>
+        <div class="power-notes">
+          <For each={notes()}>{(note) => <div>{note}</div>}</For>
+        </div>
+      </Show>
     </Show>
   );
 };

@@ -31,9 +31,10 @@ import {
 import type { Change } from "../core/stats/types.ts";
 import { plural } from "../core/text.ts";
 import { DAY, dayTitle, shortTime, span as timeSpan } from "../core/time.ts";
-import { runHref } from "../core/url.ts";
+import { ACTIVITY_FILTERS, runHref, type ActivityFilter } from "../core/url.ts";
 import {
   ActivityList,
+  autotagNotes,
   cardId,
   combat,
   DigestBody,
@@ -92,6 +93,11 @@ const DAY_ACTIVITIES = 8;
 
 // Every weapon unchecked, since an empty pick means all of them
 const NONE = "none";
+
+const ACTIVITY_FILTER_NAMES: Record<ActivityFilter, string> = {
+  all: "All activities",
+  autotagged: "Autotagged",
+};
 
 const PERIOD_NAMES: Record<string, string> = Object.fromEntries(
   PERIODS.map((one) => [one.id, one.label]),
@@ -181,7 +187,8 @@ export const Stats = () => {
   const [shown, setShown] = createStore<{
     weapons: WeaponKills[];
     digests: ActivityDigest[];
-  }>({ weapons: [], digests: [] });
+    listed: ActivityDigest[];
+  }>({ weapons: [], digests: [], listed: [] });
 
   const [fakes] = createResource(
     () => {
@@ -311,22 +318,45 @@ export const Stats = () => {
         { key: "instanceId" },
       ),
     );
-    setShown(
-      "digests",
-      reconcile(
-        activityDigestsOf(held.changes, held.from, held.to).filter(
-          (digest) =>
-            !digest.span ||
-            matches(spanName(digest.span)) ||
-            digest.events.some(
-              (event) =>
-                event.kind !== "drops" ||
-                event.drops.some((drop) => matches(nameOf(drop.itemHash))),
-            ),
+    const digests = activityDigestsOf(held.changes, held.from, held.to).filter(
+      (digest) =>
+        !digest.span ||
+        matches(spanName(digest.span)) ||
+        digest.events.some(
+          (event) =>
+            event.kind !== "drops" ||
+            event.drops.some((drop) => matches(nameOf(drop.itemHash))),
         ),
-        { key: "key" },
-      ),
     );
+
+    setShown("digests", reconcile(digests, { key: "key" }));
+
+    // Shared objects make reconcile edit both lists
+    const copies = structuredClone(digests);
+
+    if (url.get("activities") === "all") {
+      setShown("listed", reconcile(copies, { key: "key" }));
+
+      return;
+    }
+
+    const autotagged = copies.flatMap((digest) => {
+      const events = digest.events.flatMap((event) => {
+        if (event.kind !== "drops") {
+          return [];
+        }
+
+        const drops = event.drops.filter((drop) => !!drop.autotag);
+
+        return drops.length > 0 ? [{ ...event, drops }] : [];
+      });
+
+      return events.length > 0
+        ? [{ ...digest, events, kills: 0, gains: [] }]
+        : [];
+    });
+
+    setShown("listed", reconcile(autotagged, { key: "key" }));
   });
 
   const spans = createMemo(() => {
@@ -394,6 +424,7 @@ export const Stats = () => {
                   ...(drop.alternative
                     ? [`Or ${spanName(drop.alternative)}`]
                     : []),
+                  ...(drop.autotag ? autotagNotes(drop.autotag) : []),
                 ],
               });
             }
@@ -985,26 +1016,47 @@ export const Stats = () => {
 
                 <Show when={shown.digests.length > 0}>
                   <section class={SECTION}>
-                    <h2 class={HEADING}>Activities</h2>
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+                      <h2 class={HEADING}>Activities</h2>
+                      <Select
+                        label="Show"
+                        size="sm"
+                        value={url.get("activities")}
+                        options={ACTIVITY_FILTERS}
+                        names={ACTIVITY_FILTER_NAMES}
+                        onChange={(activities) =>
+                          url.push({ activities, shown: undefined })
+                        }
+                      />
+                    </div>
+                    <Show when={shown.listed.length === 0}>
+                      <p class="text-muted-foreground">
+                        Nothing was autotagged in this range.
+                      </p>
+                    </Show>
                     <ActivityList
-                      digests={shown.digests.slice(0, limit())}
+                      digests={shown.listed.slice(0, limit())}
                       now={clock()}
                       itemOf={instanceOf}
                       nameOf={nameOf}
                       spanName={spanName}
                       spanHref={spanHref}
                       classOf={classOf}
-                      deathsOf={deathsOf}
+                      deathsOf={(span) =>
+                        url.get("activities") === "all"
+                          ? deathsOf(span)
+                          : undefined
+                      }
                       onSelect={(item: DimItem) => app.onPin(item)}
                     />
-                    <Show when={shown.digests.length > limit()}>
+                    <Show when={shown.listed.length > limit()}>
                       <Button
                         size="sm"
                         variant="ghost"
                         class="self-start"
                         onClick={() => url.push({ shown: limit() + PAGE })}
                       >
-                        Show more of {shown.digests.length}
+                        Show more of {shown.listed.length}
                       </Button>
                     </Show>
                   </section>

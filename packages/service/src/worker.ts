@@ -13,6 +13,7 @@ import {
   type Stance,
   type StatStore,
   type Store,
+  type StoredChunk,
   type TagStore,
 } from "./core/index.ts";
 
@@ -408,6 +409,9 @@ WHERE membership_id = ? AND (updated_at, starts_at) > (?, ?)
 ORDER BY updated_at, starts_at
 LIMIT ?`;
 
+const READ_CHUNK = `SELECT starts_at, ends_at, body, body_length, updated_at FROM stat_chunks
+WHERE membership_id = ? AND starts_at = ?`;
+
 const WRITE_CHUNK = `INSERT INTO stat_chunks (membership_id, starts_at, ends_at, body, body_length, updated_at)
 VALUES (?, ?, ?, ?, ?, ?)
 ON CONFLICT (membership_id, starts_at) DO UPDATE SET
@@ -417,6 +421,14 @@ ON CONFLICT (membership_id, starts_at) DO UPDATE SET
   updated_at = excluded.updated_at
 WHERE excluded.body_length >= stat_chunks.body_length`;
 
+const storedChunk = (row: ChunkRow): StoredChunk => ({
+  startsAt: row.starts_at,
+  endsAt: row.ends_at,
+  gzipped: new Uint8Array(row.body),
+  length: row.body_length,
+  updatedAt: row.updated_at,
+});
+
 const statStore = (db: Database): StatStore => ({
   read: async (membershipId, after, limit) => {
     const chunks = await db
@@ -424,13 +436,17 @@ const statStore = (db: Database): StatStore => ({
       .bind(membershipId, after.updatedAt, after.startsAt, limit)
       .all<ChunkRow>();
 
-    return chunks.results.map((row) => ({
-      startsAt: row.starts_at,
-      endsAt: row.ends_at,
-      gzipped: new Uint8Array(row.body),
-      length: row.body_length,
-      updatedAt: row.updated_at,
-    }));
+    return chunks.results.map(storedChunk);
+  },
+
+  readOne: async (membershipId, startsAt) => {
+    const rows = await db
+      .prepare(READ_CHUNK)
+      .bind(membershipId, startsAt)
+      .all<ChunkRow>();
+    const row = rows.results[0];
+
+    return row ? storedChunk(row) : undefined;
   },
 
   write: async (membershipId, chunk, now) => {

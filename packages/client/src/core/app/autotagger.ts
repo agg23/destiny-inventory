@@ -20,6 +20,8 @@ import { tagTarget, writeRuleTags } from "../items/tags.ts";
 import { defs } from "../profile/defs.ts";
 import type { LoadResult } from "../profile/loadTypes.ts";
 import { itemFilter, valid } from "../search/search.ts";
+import { recordAutotag, statsLeader } from "../stats/log.ts";
+import type { AutotagVault } from "../stats/types.ts";
 import type { AppState } from "./state.ts";
 
 const MOVE_WAIT_MS = 250;
@@ -66,11 +68,17 @@ export const createAutotagger = (sources: Sources) => {
     loaded.tier === "detail" &&
     !loaded.session.guest &&
     !sources.viewing() &&
+    // Only the leader writes the log
+    statsLeader() &&
     autotagSynced() &&
     !!autotagState()?.enabled &&
     MODES.every((mode) => sheet(mode).byHash.size > 0);
 
-  const apply = async (hits: Hit[], stores: DimStore[]) => {
+  const apply = async (
+    hits: Hit[],
+    stores: DimStore[],
+    membershipId: string,
+  ) => {
     for (const rule of autotagRules()) {
       const tagged = hits.filter((hit) => hit.rule.id === rule.id);
 
@@ -88,16 +96,48 @@ export const createAutotagger = (sources: Sources) => {
       .filter((hit) => hit.rule.vault && vaultable(hit.item))
       .map((hit) => hit.item);
 
-    if (!vault || moving.length === 0) {
-      return;
+    let moved = new Set<string>();
+
+    if (vault && moving.length > 0) {
+      // onMoveAll refuses to start while another move is in flight
+      while (sources.moving()) {
+        await sleep(MOVE_WAIT_MS);
+      }
+
+      const done = await sources.moveAll(moving, vault, "Vaulting");
+
+      moved = new Set(done.map((item) => item.id));
     }
 
-    // onMoveAll refuses to start while another move is in flight
-    while (sources.moving()) {
-      await sleep(MOVE_WAIT_MS);
-    }
+    const vaultResult = (hit: Hit): AutotagVault | undefined => {
+      if (!hit.rule.vault) {
+        return undefined;
+      }
 
-    await sources.moveAll(moving, vault, "Vaulting");
+      if (!vaultable(hit.item)) {
+        return "skipped";
+      }
+
+      return moved.has(hit.item.id) ? "moved" : "failed";
+    };
+    const at = Date.now();
+
+    await recordAutotag(
+      membershipId,
+      hits
+        .filter((hit) => hit.rule.tagId !== undefined || hit.rule.vault)
+        .map((hit) => ({
+          from: at,
+          at,
+          kind: "autotag",
+          instanceId: hit.item.id,
+          itemHash: hit.item.hash,
+          ruleId: hit.rule.id,
+          query: hit.rule.query,
+          tagId: hit.rule.tagId,
+          vault: vaultResult(hit),
+        })),
+    );
   };
 
   const run = async () => {
@@ -161,13 +201,16 @@ export const createAutotagger = (sources: Sources) => {
         return;
       }
 
-      await apply(hits, stores);
+      await apply(hits, stores, loaded.session.membership.membershipId);
     } finally {
       working = false;
     }
   };
 
   createEffect(
-    on([sources.current, autotagSynced, autotagState], () => void run()),
+    on(
+      [sources.current, autotagSynced, autotagState, statsLeader],
+      () => void run(),
+    ),
   );
 };

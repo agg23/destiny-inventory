@@ -6,7 +6,7 @@ import {
   spansOf,
   type Span,
 } from "../../core/stats/attribute.ts";
-import type { Change } from "../../core/stats/types.ts";
+import type { AutotagChange, Change } from "../../core/stats/types.ts";
 import { localDay } from "../../core/activities/history.ts";
 import { DAY, HOUR } from "../../core/time.ts";
 import type { KillMode, StatPeriod } from "../../core/url.ts";
@@ -328,6 +328,7 @@ export interface Drop {
   itemHash: number;
   at: number;
   alternative: Span | undefined;
+  autotag: AutotagChange | undefined;
 }
 
 export interface Dropped {
@@ -432,6 +433,11 @@ export const activityDigestsOf = (
   const tallies = new Map<string, Tally>();
   const latest = new Map<string, number>();
   const dropsById = new Map<string, Dropped>();
+  const autotags = new Map(
+    changes.flatMap((change) =>
+      change.kind === "autotag" ? [[change.instanceId, change] as const] : [],
+    ),
+  );
 
   for (const span of spans) {
     if (overlaps(span, from, to)) {
@@ -477,6 +483,7 @@ export const activityDigestsOf = (
         itemHash: change.itemHash,
         at: change.at,
         alternative: found.alternative,
+        autotag: autotags.get(change.instanceId),
       };
 
       dropsById.set(change.instanceId, { span: found.span, at: change.at });

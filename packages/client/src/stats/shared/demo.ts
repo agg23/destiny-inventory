@@ -2,8 +2,9 @@ import type { DimStore } from "app/inventory/store-types";
 
 import type { HistoryRun } from "../../core/activities/history.ts";
 import { acquired } from "../../core/items/arrivals.ts";
+import { autotagRules } from "../../core/items/autotag.ts";
 import { ORBIT } from "../../core/stats/attribute.ts";
-import type { Change } from "../../core/stats/types.ts";
+import type { AutotagVault, Change } from "../../core/stats/types.ts";
 import { MINUTE } from "../../core/time.ts";
 
 // TODO: Prototype only. ?stats=demo fills the page from the real profile, nothing is written
@@ -20,7 +21,7 @@ const PVE_KILLS = 90275515;
 const PVP_KILLS = 1501870536;
 const STEP = 15_000;
 
-/** Three activities over the last hour, with drops, a dismantle, a swap, kills, and currency */
+/** Three activities over the last hour, with drops, autotags, a dismantle, a swap, kills, and currency */
 export const demoChanges = (
   stores: DimStore[],
   runs: HistoryRun[],
@@ -122,6 +123,22 @@ export const demoChanges = (
       characterId,
       bucketHash: item.bucket.hash,
       added: true,
+    });
+  }
+
+  const rule = autotagRules()[0];
+  const results: (AutotagVault | undefined)[] = ["moved", "failed", undefined];
+
+  for (const [index, item] of drops.slice(1, 4).entries()) {
+    changes.push({
+      ...at((dropAt[index + 1] ?? 55) * MINUTE + STEP),
+      kind: "autotag",
+      instanceId: item.id,
+      itemHash: item.hash,
+      ruleId: rule && index < 2 ? rule.id : "removed",
+      query: rule?.query ?? "is:weapon",
+      tagId: "junk",
+      vault: results[index],
     });
   }
 

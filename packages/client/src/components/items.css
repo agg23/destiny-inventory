@@ -546,7 +546,8 @@
     line-height: 1;
   }
 
-  .item-tooltip .tooltip-power .power-notes {
+  .item-tooltip .power-notes {
+    margin-top: var(--space-2);
     color: var(--dim);
     font-size: 0.65rem;
     line-height: 1.5;

@@ -209,6 +209,9 @@ const memoryStats = (): StatStore => {
         .sort((a, b) => a.updatedAt - b.updatedAt || a.startsAt - b.startsAt)
         .slice(0, limit),
 
+    readOne: async (membershipId, startsAt) =>
+      bucket(chunks, membershipId).get(String(startsAt)),
+
     write: async (membershipId, chunk, now) => {
       const held = bucket(chunks, membershipId);
       const existing = held.get(String(chunk.startsAt));

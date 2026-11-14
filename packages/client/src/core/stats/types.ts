@@ -67,9 +67,24 @@ export type Change = Window &
         playlistHash: number;
         startedAt: number;
       }
+    | {
+        kind: "autotag";
+        instanceId: string;
+        itemHash: number;
+        ruleId: string;
+        // Rules get edited
+        query: string;
+        tagId: string | undefined;
+        // Undefined when the rule doesn't vault
+        vault: AutotagVault | undefined;
+      }
   );
 
 export type ChangeKind = Change["kind"];
+
+export type AutotagVault = "moved" | "failed" | "skipped";
+
+export type AutotagChange = Extract<Change, { kind: "autotag" }>;
 
 export interface HeldItem {
   itemHash: number;
