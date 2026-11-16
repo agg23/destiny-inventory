@@ -183,6 +183,64 @@ describe("itemFilter", () => {
     expect(found("is:dupe").length).not.toBe(found("is:dupelower").length);
   });
 
+  it("finds exact dupes only among copies of the same item", () => {
+    const exact = found("is:exactdupe");
+    const counts = new Map<number, number>();
+
+    for (const item of exact) {
+      counts.set(item.hash, (counts.get(item.hash) ?? 0) + 1);
+    }
+
+    expect(exact.length).toBeLessThan(found("is:dupe").length);
+    expect([...counts.values()].every((count) => count > 1)).toBe(true);
+  });
+
+  it("ignores the selected perk on an exact dupe", () => {
+    const original = items.find(
+      (item) =>
+        !item.crafted &&
+        item.sockets?.allSockets.some(
+          (socket) =>
+            socket.hasRandomizedPlugItems && socket.plugOptions.length > 1,
+        ),
+    )!;
+    const allSockets = original.sockets!.allSockets.map((socket) =>
+      socket.hasRandomizedPlugItems && socket.plugOptions.length > 1
+        ? {
+            ...socket,
+            plugged: socket.plugOptions.find(
+              (plug) => plug.plugDef.hash !== socket.plugged?.plugDef.hash,
+            )!,
+          }
+        : socket,
+    );
+    const copy = {
+      ...original,
+      id: "1",
+      index: "copy",
+      sockets: { ...original.sockets!, allSockets },
+    };
+    const store = stores.find((one) => one.items.includes(original))!;
+
+    expect(found("is:exactdupe").map((one) => one.id)).not.toContain(
+      original.id,
+    );
+
+    const before = store.items;
+
+    store.items = [...before, copy];
+    items.push(copy);
+
+    try {
+      expect(found("is:exactdupe").map((one) => one.id)).toEqual(
+        expect.arrayContaining([original.id, copy.id]),
+      );
+    } finally {
+      store.items = before;
+      items.pop();
+    }
+  });
+
   it("matches nothing when a term cannot be completed", () => {
     expect(found("is:arc is:handcannond").length).toBe(0);
     expect(found("is:weapon tag:ju").length).toBe(0);

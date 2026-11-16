@@ -29,6 +29,8 @@ import {
   makeSearchFilterFactory,
   parseAndValidateQuery,
 } from "app/search/search-filter";
+import { getArmor3TuningStat } from "app/utils/item-utils";
+import { socketContainsIntrinsicPlug } from "app/utils/socket-utils";
 
 import { TIERS, type Tier } from "@dvm/defs-core";
 
@@ -235,9 +237,73 @@ const tagFilters: ItemFilterDefinition[] = [
   },
 ];
 
+const rollKey = (item: DimItem): string | undefined => {
+  // Crafted perks are picked, not rolled
+  if (
+    !item.instanced ||
+    !item.comparable ||
+    item.classified ||
+    item.crafted === "crafted"
+  ) {
+    return undefined;
+  }
+
+  const sockets = (item.sockets?.allSockets ?? []).flatMap((socket) => {
+    // Enhanced variants carry their own hash under the same name
+    if (socket.hasRandomizedPlugItems) {
+      const options = new Set(
+        socket.plugOptions.map((plug) => plug.plugDef.displayProperties.name),
+      );
+
+      return [`${socket.socketIndex}:${[...options].sort().join(",")}`];
+    }
+
+    if (socketContainsIntrinsicPlug(socket)) {
+      return [`${socket.socketIndex}:${socket.plugged.plugDef.hash}`];
+    }
+
+    return [];
+  });
+
+  // Custom stat totals have negative hashes
+  const stats = (item.stats ?? [])
+    .filter((stat) => stat.statHash > 0)
+    .map((stat) => `${stat.statHash}:${stat.base}`);
+
+  return [
+    item.hash,
+    getArmor3TuningStat(item),
+    sockets.join("|"),
+    stats.join("|"),
+  ].join("/");
+};
+
+const exactDupeFilter: ItemFilterDefinition = {
+  keywords: ["exactdupe"],
+  description:
+    "Copies with the same roll, ignoring tier, enhanced perks, and anything you can change like mods, masterwork, and the selected perk",
+  destinyVersion: 2,
+  filter: ({ allItems }) => {
+    const keys = new Map<string, string>();
+    const counts = new Map<string, number>();
+
+    for (const item of allItems) {
+      const key = rollKey(item);
+
+      if (key !== undefined) {
+        keys.set(item.id, key);
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+    }
+
+    return (item) => (counts.get(keys.get(item.id) ?? "") ?? 0) > 1;
+  },
+};
+
 // Notes and loadout filters need DIM Sync; left out to make their keywords unknown
 const FILTERS = [
   ...dupeFilters,
+  exactDupeFilter,
   ...freeformFilters.filter((one) => one.keywords !== keywordFilter.keywords),
   keywordFilter,
   ...knownValuesFilters,
