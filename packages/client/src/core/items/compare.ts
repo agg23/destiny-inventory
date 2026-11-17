@@ -32,6 +32,17 @@ export const unmovable = (item: DimItem): boolean =>
 export const comparable = (a: DimItem, b: DimItem): boolean =>
   !unmovable(a) && !unmovable(b) && kind(a) === kind(b);
 
+/** Why a set of items can't share a compare sheet */
+export const compareBlocked = (items: DimItem[]): string | undefined => {
+  const [first] = items;
+
+  if (!first || items.every((one) => comparable(first, one))) {
+    return undefined;
+  }
+
+  return "Cannot compare across weapons and armor";
+};
+
 /** The first pinned item, when the item can be compared against it */
 export const rivalFor = (
   pinned: DimItem[],

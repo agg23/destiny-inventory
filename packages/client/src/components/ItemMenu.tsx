@@ -6,7 +6,7 @@ import { quoteFilterString } from "app/search/query-parser";
 import { For, Show, type JSX } from "solid-js";
 
 import { useApp } from "../core/app/state.ts";
-import { rivalFor } from "../core/items/compare.ts";
+import { compareBlocked, rivalFor } from "../core/items/compare.ts";
 import { menuFor, setMenuFor, setMenuOpen } from "../core/items/itemMenu.ts";
 import { ruleQuery } from "../core/items/autotag.ts";
 import { clear } from "../core/items/preview.ts";
@@ -260,6 +260,11 @@ const SelectionRows = (props: { items: DimItem[] }) => {
           }
         />
       </Show>
+      <Row
+        label="Compare all"
+        reason={compareBlocked(props.items)}
+        onChoose={() => app.onCompare(props.items)}
+      />
       <ContextMenu.Separator class="z-context-menu-separator border-0" />
       <Row label="Clear selection" onChoose={app.onClearSelection} />
     </ContextMenu.Group>
@@ -371,7 +376,7 @@ const Rows = (props: RowProps) => {
           {(reference) => (
             <Row
               label={`Compare with ${reference().name}`}
-              onChoose={() => app.onCompare(props.item, reference())}
+              onChoose={() => app.onCompare([reference(), props.item])}
             />
           )}
         </Show>

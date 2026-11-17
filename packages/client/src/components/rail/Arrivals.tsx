@@ -19,7 +19,7 @@ interface Props {
   items: DimItem[];
   stores: DimStore[];
   onSelect: (item: DimItem) => void;
-  onCompare: (item: DimItem, rival: DimItem) => void;
+  onCompare: (items: DimItem[]) => void;
 }
 
 const WORDING: Record<Verdict["kind"], string> = {
@@ -85,7 +85,7 @@ export const Arrivals = (props: Props) => (
                   )?.rival;
 
                   if (rival) {
-                    props.onCompare(item, rival);
+                    props.onCompare([rival, item]);
                   } else {
                     props.onSelect(item);
                   }

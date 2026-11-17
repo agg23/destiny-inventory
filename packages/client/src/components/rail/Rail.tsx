@@ -10,7 +10,7 @@ import { Status } from "./Status.tsx";
 
 /** The panel docked at the right edge, under the header */
 export const RAIL =
-  "rail fixed top-(--header-h,49px) right-(--scrollbar-width,0px) bottom-0 z-2 flex w-(--rail) flex-col border-l bg-card [anchor-name:--rail] data-wide:w-(--rail-compare) data-floating:shadow-[-8px_0_24px_#000c]";
+  "rail fixed top-(--header-h,49px) right-(--scrollbar-width,0px) bottom-0 z-2 flex w-(--rail) flex-col border-l bg-card [anchor-name:--rail] data-floating:shadow-[-8px_0_24px_#000c]";
 
 export const Rail = () => {
   const app = useApp();
@@ -23,7 +23,6 @@ export const Rail = () => {
       <aside
         class={RAIL}
         data-rail
-        data-wide={app.pinned().length > 1 ? "" : undefined}
         data-floating={floating() ? "" : undefined}
       >
         <Show

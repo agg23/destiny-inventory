@@ -12,6 +12,7 @@ import {
   type JSX,
 } from "solid-js";
 
+import { CompareSheet } from "./components/CompareSheet.tsx";
 import { GuestBanner } from "./components/header/GuestBanner.tsx";
 import { Header } from "./components/header/Header.tsx";
 import { HeaderActions } from "./components/header/HeaderActions.tsx";
@@ -181,7 +182,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
   );
 
   const runs = createRuns(session.current, stores);
-  const selection = createSelection(url, tab, stores, session.current);
+  const selection = createSelection(url, stores, session.current);
   const moves = createItemMoves(session.viewing, () => refresh.refreshSoon());
 
   createAutotagger({
@@ -221,6 +222,7 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     selected: selection.selected,
     isSelected: (item) => selection.selectedSet().has(item.id),
     awaitingPins: selection.awaitingPins,
+    compared: selection.compared,
     feed: () => acquired(stores()),
     moving: moves.moving,
     refreshing: () => refresh.refreshing() || session.awaitingLive(),
@@ -234,8 +236,8 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
     onSelectMany: selection.selectMany,
     onUnpin: selection.unpin,
     onClearSelection: selection.unpinAll,
-    // Rival first puts the deltas on the drop's column
-    onCompare: (item, rival) => url.push({ pin: [rival.id, item.id] }),
+    onCompare: selection.compare,
+    onCloseCompare: selection.closeCompare,
     onMove: moves.onMove,
     onCollect: (items, target) =>
       void moves.moveMany(items, target, "Collecting"),
@@ -314,13 +316,14 @@ export const App = (props: { primed?: LoadResult; children?: JSX.Element }) => {
           <Loading label="Loading inventory" />
         </Show>
 
-        <div class="has-[[data-rail]:not([data-floating])]:mr-(--rail) has-[[data-rail][data-wide]:not([data-floating])]:mr-(--rail-compare)">
+        <div class="has-[[data-rail]:not([data-floating])]:mr-(--rail)">
           <AppContext.Provider value={state}>
             <TrashWatch />
             {props.children}
             <Show when={globalRail()}>
               <Rail />
             </Show>
+            <CompareSheet />
           </AppContext.Provider>
         </div>
 

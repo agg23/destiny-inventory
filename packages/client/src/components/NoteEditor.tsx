@@ -45,6 +45,9 @@ const markUnsaved = (
 const pinnedIn = (search: string): string[] =>
   readParam("pin", new URLSearchParams(search).get("pin") ?? undefined);
 
+const comparingIn = (search: string): boolean =>
+  readParam("compare", new URLSearchParams(search).get("compare") ?? undefined);
+
 /** Asks before an in-app navigation that would drop an unsaved note. Call once, inside the router */
 export const useNoteLeaveGuard = () =>
   useBeforeLeave((event) => {
@@ -84,6 +87,11 @@ export const NoteEditor = (props: { target: NoteTarget }) => {
 
   const discards = (to: URL): boolean => {
     if (to.pathname !== location.pathname) {
+      return true;
+    }
+
+    // Closing the compare sheet unmounts its editors
+    if (comparingIn(location.search) && !comparingIn(to.search)) {
       return true;
     }
 

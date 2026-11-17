@@ -18,6 +18,7 @@ export interface AppState {
   selected: () => DimItem[];
   isSelected: (item: DimItem) => boolean;
   awaitingPins: () => boolean;
+  compared: () => DimItem[];
   feed: () => DimItem[];
   moving: () => string | undefined;
   refreshing: () => boolean;
@@ -31,7 +32,8 @@ export interface AppState {
   onSelectMany: (items: DimItem[]) => void;
   onUnpin: (item: DimItem) => void;
   onClearSelection: () => void;
-  onCompare: (item: DimItem, rival: DimItem) => void;
+  onCompare: (items: DimItem[]) => void;
+  onCloseCompare: () => void;
   onMove: (item: DimItem, target: DimStore, equip: boolean) => void;
   onCollect: (items: DimItem[], target: DimStore) => void;
   onMoveMany: (items: DimItem[], target: DimStore) => void;

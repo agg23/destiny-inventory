@@ -98,6 +98,7 @@ const PARAMS = {
   guest: text(),
   character: text(),
   pin: ids(),
+  compare: flag(),
   realm: text(),
   view: choice(HISTORY_TABS, "recent"),
   range: filled("30d"),

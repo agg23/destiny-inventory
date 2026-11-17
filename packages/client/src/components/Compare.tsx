@@ -21,6 +21,7 @@ interface Props {
   kept?: (item: DimItem) => boolean;
   onKeep?: (item: DimItem, keep: boolean) => void;
   minColumn?: string;
+  column?: string;
   hideMoves?: boolean;
 }
 
@@ -59,7 +60,7 @@ export const Compare = (props: Props) => {
 
   // With several items the mark goes in each item's column
   const labelTuned = createMemo(() =>
-    compact() ? undefined : getArmor3TuningStat(props.items[0]!),
+    props.items.length === 1 ? getArmor3TuningStat(props.items[0]!) : undefined,
   );
 
   const ages = (): (string | undefined)[] => {
@@ -73,9 +74,9 @@ export const Compare = (props: Props) => {
   };
 
   const columns = () =>
-    `var(--compare-labels) repeat(${props.items.length}, minmax(${
-      props.minColumn ?? "0"
-    }, 1fr))`;
+    `var(--compare-labels) repeat(${props.items.length}, ${
+      props.column ?? `minmax(${props.minColumn ?? "0"}, 1fr)`
+    })`;
 
   // Row-placed sections need an explicit column
   const start = (column: number) =>

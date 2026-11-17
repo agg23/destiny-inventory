@@ -1,100 +1,65 @@
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  on,
-  onCleanup,
-} from "solid-js";
+import { createMemo, onCleanup } from "solid-js";
 
-import { comparable } from "../items/compare.ts";
 import { clear } from "../items/preview.ts";
 import type { LoadResult } from "../profile/loadTypes.ts";
 import type { Url } from "../router.ts";
-import type { Tab } from "../url.ts";
-
-const PINS = 2;
 
 export const createSelection = (
   url: Url,
-  tab: () => Tab,
   stores: () => DimStore[],
   current: () => LoadResult | undefined,
 ) => {
-  // Big selections stay out of the URL
-  const [bulk, setBulk] = createSignal<string[]>([]);
   let anchor: string | undefined = undefined;
 
-  createEffect(
-    on(
-      () => url.get("pin"),
-      (ids) => {
-        if (ids.length > 0) {
-          setBulk([]);
-        }
-      },
-      { defer: true },
-    ),
-  );
-
-  // Tab links drop pins
-  createEffect(on(tab, () => setBulk([]), { defer: true }));
-
-  const selectedIds = createMemo(() =>
-    bulk().length > 0 ? bulk() : url.get("pin"),
-  );
+  const selectedIds = () => url.get("pin");
 
   const selectedSet = createMemo(() => new Set(selectedIds()));
 
-  const selected = createMemo(() => {
-    const held = new Map(
-      stores().flatMap((store) => store.items.map((one) => [one.id, one])),
-    );
+  const held = createMemo(
+    () =>
+      new Map(
+        stores().flatMap((store) => store.items.map((one) => [one.id, one])),
+      ),
+  );
 
-    return selectedIds().flatMap((id) => {
-      const found = held.get(id);
+  const resolve = (ids: string[]) =>
+    ids.flatMap((id) => {
+      const found = held().get(id);
 
       return found === undefined ? [] : [found];
     });
-  });
+
+  const selected = createMemo(() => resolve(selectedIds()));
 
   const pinned = createMemo(() => {
     const chosen = selected();
-    const [first, second] = chosen;
 
-    if (chosen.length === 1) {
-      return chosen;
-    }
-
-    if (chosen.length === 2 && comparable(first!, second!)) {
-      return chosen;
-    }
-
-    return [];
+    return chosen.length === 1 ? chosen : [];
   });
+
+  const compared = createMemo(() => (url.get("compare") ? selected() : []));
 
   // The profile may not have loaded these items yet
   const awaitingPins = () =>
     url.get("pin").length > 0 && selected().length === 0 && !current();
 
+  // Only single pins get history entries
   const select = (ids: string[]) => {
-    if (ids.length > PINS) {
-      setBulk(ids);
+    const was = url.get("pin");
 
-      if (url.get("pin").length > 0) {
-        url.replace({ pin: [] });
-      }
-
+    if (was.length === ids.length && was.every((id, at) => id === ids[at])) {
       return;
     }
 
-    const was = url.get("pin");
+    const patch =
+      ids.length === 0 ? { pin: ids, compare: false } : { pin: ids };
 
-    setBulk([]);
-
-    if (was.length !== ids.length || was.some((id, at) => id !== ids[at])) {
-      url.push({ pin: ids });
+    if (was.length > 1 || ids.length > 1) {
+      url.replace(patch);
+    } else {
+      url.push(patch);
     }
   };
 
@@ -167,10 +132,21 @@ export const createSelection = (
     }
   };
 
+  const compare = (items: DimItem[]) => {
+    anchor = undefined;
+    url.push({ pin: items.map((one) => one.id), compare: true });
+  };
+
+  const closeCompare = () => {
+    url.replace({ compare: false });
+  };
+
   const onBackground = (e: MouseEvent) => {
     const target = e.target as HTMLElement;
 
-    if (!target.closest(".item-tile, .rail, [data-menu], header")) {
+    if (
+      !target.closest(".item-tile, .rail, [data-menu], [data-compare], header")
+    ) {
       unpinAll();
     }
   };
@@ -182,6 +158,7 @@ export const createSelection = (
     selectedSet,
     selected,
     pinned,
+    compared,
     awaitingPins,
     pin,
     toggle,
@@ -189,6 +166,8 @@ export const createSelection = (
     selectMany,
     unpin,
     unpinAll,
+    compare,
+    closeCompare,
     onBackground,
   };
 };

@@ -126,10 +126,6 @@
   --scrollbar: 16px;
 
   --rail: 22rem;
-  --rail-compare: calc(
-    var(--compare-labels) + var(--item-run) * 2 + var(--space-6) * 4 +
-      var(--scrollbar)
-  );
 }
 
 /* Static: Tailwind drops colors no utility mentions */

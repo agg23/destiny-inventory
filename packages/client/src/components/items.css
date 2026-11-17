@@ -484,7 +484,8 @@
     padding-top: 0.9rem;
   }
 
-  .rail .item-tooltip {
+  .rail .item-tooltip,
+  .compare-sheet .item-tooltip {
     width: auto;
     max-width: none;
     background: none;

@@ -2,6 +2,7 @@ import type { DimStore } from "app/inventory/store-types";
 import { Show } from "solid-js";
 
 import { useApp } from "../../core/app/state.ts";
+import { compareBlocked } from "../../core/items/compare.ts";
 import { guest } from "../../core/profile/guest.ts";
 import {
   bulkBlocked,
@@ -16,10 +17,11 @@ import { TagControl } from "../card/TagControl.tsx";
 import { IconButton } from "../lib/IconButton.tsx";
 import { SplitButton } from "../lib/SplitButton.tsx";
 import { HEADING, LABEL } from "../lib/text.ts";
+import { Button } from "../lib/zaidan/button.tsx";
 import { X } from "../lib/zaidan/icons.tsx";
 import { NameCounts } from "../NameCounts.tsx";
 
-/** The rail for a selection that Compare cannot show */
+/** The rail for a selection of several items */
 export const SelectionPanel = () => {
   const app = useApp();
 
@@ -82,6 +84,19 @@ export const SelectionPanel = () => {
           </div>
         )}
       </Show>
+
+      <div title={compareBlocked(app.selected())}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          class="w-full"
+          disabled={!!compareBlocked(app.selected())}
+          onClick={() => app.onCompare(app.selected())}
+        >
+          Compare all
+        </Button>
+      </div>
 
       <NameCounts
         items={app.selected()}
