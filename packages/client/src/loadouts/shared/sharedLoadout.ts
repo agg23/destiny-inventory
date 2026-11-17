@@ -45,6 +45,9 @@ const ENDPOINT = "/api/loadout-share";
 // Shares drop the armor's tier
 const TIER_5_ENERGY = 11;
 
+// fitMostMods looks this up by hash and it is only present on old exotic armors
+const UPGRADE_TO_ARTIFICE_PLUG_HASH = 720_825_311;
+
 // Taken from DIM's loadout-import.ts
 const DIM_GG = /^(?:(?:https?:\/\/)?dim\.gg\/)?([a-z0-9]{7,})(?:\/.*)?$/;
 
@@ -179,6 +182,7 @@ export const resolveLoadout = async (
     ...Object.values(byBucket).flat(),
     ...modHashes,
     deprecatedPlaceholderArmorModHash,
+    UPGRADE_TO_ARTIFICE_PLUG_HASH,
   ]);
 
   const built = await fakeItems(loaded, [
