@@ -9,7 +9,12 @@ import { plural } from "../../core/text.ts";
 
 const TRASH_TAG = "junk";
 
-export type TrashPhase = "evacuating" | "feeding" | "waiting" | "restoring";
+export type TrashPhase =
+  | "evacuating"
+  | "feeding"
+  | "waiting"
+  | "done"
+  | "restoring";
 
 export interface TrashRun {
   characterId: string;

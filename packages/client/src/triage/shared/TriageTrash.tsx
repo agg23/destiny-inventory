@@ -35,6 +35,7 @@ const PHASE_LABELS: Record<TrashPhase, string> = {
   evacuating: "Clearing the slot",
   feeding: "Loading junk",
   waiting: "Dismantle these in game",
+  done: "Done",
   restoring: "Putting things back",
 };
 

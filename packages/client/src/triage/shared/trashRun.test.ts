@@ -8,6 +8,7 @@ import {
   advanceTrash,
   bindTrash,
   dismissTrash,
+  finishTrash,
   nextTrash,
   startTrash,
   stopTrash,
@@ -155,6 +156,11 @@ describe("trash run", () => {
     dismantle(fedIds());
     await advanceTrash();
 
+    expect(trashRun()?.phase).toBe("done");
+    expect(vault.items.map((one) => one.id)).toContain("k1");
+
+    await finishTrash();
+
     expect(trashRun()).toBeUndefined();
     expect(character.items.map((one) => one.id).sort()).toEqual([
       "e1",
@@ -163,7 +169,7 @@ describe("trash run", () => {
     ]);
   });
 
-  it("waits for Next while part of a batch is still in the slot", async () => {
+  it("tops up while part of a batch is still in the slot", async () => {
     const { character, vault, junk, dismantle } = world();
 
     for (let at = 1; at <= 12; at += 1) {
@@ -175,7 +181,17 @@ describe("trash run", () => {
     dismantle(["j1", "j2"]);
     await advanceTrash();
 
-    expect(fedIds()).toHaveLength(7);
+    expect(fedIds()).toEqual([
+      "j3",
+      "j4",
+      "j5",
+      "j6",
+      "j7",
+      "j8",
+      "j9",
+      "j10",
+      "j11",
+    ]);
     expect(trashRun()?.dismantled).toEqual(["j1", "j2"]);
   });
 
@@ -215,6 +231,7 @@ describe("trash run", () => {
     expect(fedIds()).toEqual(["j0", "j1"]);
 
     await nextTrash();
+    await finishTrash();
 
     expect(trashRun()).toBeUndefined();
     expect(character.items.map((one) => one.id)).toEqual(["k1", "j0"]);
@@ -241,7 +258,7 @@ describe("trash run", () => {
 
     await vi.advanceTimersByTimeAsync(15_000);
 
-    expect(trashRun()).toBeUndefined();
+    expect(trashRun()?.phase).toBe("done");
 
     vi.useRealTimers();
   });

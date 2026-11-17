@@ -65,7 +65,6 @@ const patch = (change: Partial<TrashRun>) => {
 let app: AppState | undefined = undefined;
 let working: Promise<void> | undefined = undefined;
 let again = false;
-let forced = false;
 let dryTimer: ReturnType<typeof setTimeout> | undefined = undefined;
 
 export const bindTrash = (bound: AppState) => {
@@ -183,6 +182,10 @@ const advance = async (): Promise<boolean> => {
     return false;
   }
 
+  if (held.phase === "done") {
+    return false;
+  }
+
   // Stores are mid-update during a move
   if (!held.dry && !app.moving()) {
     const vanished = held.fed.filter((one) => !items.has(one.instanceId));
@@ -255,7 +258,6 @@ const advance = async (): Promise<boolean> => {
     const movedIds = new Set(moved.map((item) => item.id));
     const after = run()!;
 
-    forced = false;
     settle(
       {
         fed: [...after.fed, ...moved.map(tagTarget)],
@@ -273,17 +275,12 @@ const advance = async (): Promise<boolean> => {
   }
 
   if (now.fed.length === 0 && queue.length === 0) {
-    patch({ phase: "restoring" });
+    patch({ phase: "done" });
 
-    return true;
+    return false;
   }
 
-  if (
-    (now.fed.length === 0 || forced) &&
-    queue.length > 0 &&
-    room > 0 &&
-    gateOpen(now)
-  ) {
+  if (queue.length > 0 && room > 0 && gateOpen(now)) {
     patch({ phase: "feeding" });
 
     return true;
@@ -374,7 +371,16 @@ export const nextTrash = async () => {
       .catch((e: unknown) => console.warn("Refresh failed", e));
   }
 
-  forced = true;
+  await advanceTrash();
+};
+
+/** Returns the holdback once the user has seen the run finish */
+export const finishTrash = async () => {
+  if (run()?.phase !== "done") {
+    return;
+  }
+
+  patch({ phase: "restoring" });
   await advanceTrash();
 };
 

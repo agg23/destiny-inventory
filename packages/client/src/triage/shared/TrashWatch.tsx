@@ -3,18 +3,22 @@ import { createEffect, on, Show } from "solid-js";
 
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogContent,
   AlertDialogDescription,
+  AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../components/lib/zaidan/alert-dialog.tsx";
 import { Button } from "../../components/lib/zaidan/button.tsx";
 import { WarningBanner } from "../../components/WarningBanner.tsx";
 import { useApp } from "../../core/app/state.ts";
+import { plural } from "../../core/text.ts";
 import {
   advanceTrash,
   bindTrash,
   dismissTrash,
+  finishTrash,
   stopTrash,
   trashRun,
   trashStopping,
@@ -92,6 +96,24 @@ export const TrashWatch = () => {
           </Button>
         </WarningBanner>
       </Show>
+
+      <AlertDialog
+        open={trashRun()?.phase === "done" && !trashRun()?.interrupted}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Dismantled {plural(trashRun()?.dismantled.length ?? 0, "item")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>{where()}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => void finishTrash()}>
+              Restore inventory
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={trashStopping()}>
         <AlertDialogContent>
