@@ -217,9 +217,13 @@ const advance = async (): Promise<boolean> => {
 
   const now = run()!;
   const queue = trashQueue(now, stores, character);
+  // Stale snapshots can show fed items back in the vault
   const used = now.dry
     ? now.fed.length
-    : slotContents(character, now.bucketHash).length;
+    : new Set([
+        ...slotContents(character, now.bucketHash).map((item) => item.id),
+        ...now.fed.map((one) => one.instanceId),
+      ]).size;
   const room = bucket.capacity - 1 - used;
 
   if (now.phase === "evacuating") {

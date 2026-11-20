@@ -109,7 +109,7 @@ const world = (playing = CHARACTER) => {
     });
   };
 
-  return { character, vault, junk, dismantle };
+  return { character, vault, junk, dismantle, relocate };
 };
 
 const fedIds = () => trashRun()?.fed.map((one) => one.instanceId) ?? [];
@@ -193,6 +193,26 @@ describe("trash run", () => {
       "j11",
     ]);
     expect(trashRun()?.dismantled).toEqual(["j1", "j2"]);
+  });
+
+  it("doesn't overfill when a stale snapshot shows the slot empty", async () => {
+    const { character, vault, junk, relocate } = world();
+
+    for (let at = 1; at <= 20; at += 1) {
+      junk(`j${at}`, vault);
+    }
+
+    startTrash(character, KINETIC, false);
+    await advanceTrash();
+
+    for (const one of [...character.items]) {
+      relocate(one, vault);
+    }
+
+    await advanceTrash();
+
+    expect(fedIds()).toHaveLength(9);
+    expect(trashRun()?.skipped).toEqual([]);
   });
 
   it("puts everything back on stop", async () => {
