@@ -1,4 +1,5 @@
 import { Navigate, Route, Router } from "@solidjs/router";
+import { lazy } from "solid-js";
 import { render } from "solid-js/web";
 
 import { Activities } from "./activities/Activities.tsx";
@@ -21,6 +22,10 @@ import { Todo } from "./todo/Todo.tsx";
 import { Triage } from "./triage/Triage.tsx";
 import { Vault } from "./vault/Vault.tsx";
 import "./tokens.css";
+
+const Looks = lazy(() =>
+  import("./looks/Looks.tsx").then((module) => ({ default: module.Looks })),
+);
 
 const root = document.getElementById("root");
 
@@ -74,6 +79,7 @@ const start = async () => {
         />
         <Route path="/stats" component={Stats} />
         <Route path="/loadouts" component={Loadouts} />
+        <Route path="/looks" component={Looks} />
         <Route path="*" component={() => <Navigate href="/vault" />} />
       </Router>
     ),

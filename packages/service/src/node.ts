@@ -15,6 +15,8 @@ import {
   type AutotagState,
   type AutotagStore,
   type ItemTag,
+  type Look,
+  type LookStore,
   type Note,
   type NoteStore,
   type PerkPreference,
@@ -112,6 +114,24 @@ const memoryNotes = (): NoteStore => {
 
     write: async (membershipId, change, now) => {
       bucket(notes, membershipId).set(`${change.kind}/${change.targetId}`, {
+        ...change,
+        updatedAt: now,
+      });
+    },
+  };
+};
+
+const memoryLooks = (): LookStore => {
+  const looks = new Map<string, Map<string, Look>>();
+
+  return {
+    read: async (membershipId, since) =>
+      [...bucket(looks, membershipId).values()].filter(
+        (look) => look.updatedAt > since,
+      ),
+
+    write: async (membershipId, change, now) => {
+      bucket(looks, membershipId).set(change.id, {
         ...change,
         updatedAt: now,
       });
@@ -270,6 +290,7 @@ const handler = createHandler({
   loader: loaderFrom(read),
   tags: memoryTags(),
   notes: memoryNotes(),
+  looks: memoryLooks(),
   perkPreferences: memoryPreferences(),
   autotag: memoryAutotag(),
   stats: memoryStats(),

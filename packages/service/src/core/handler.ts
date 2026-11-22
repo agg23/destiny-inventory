@@ -11,6 +11,7 @@ import {
   parseShareId,
   type ShareStore,
 } from "./loadoutShare.ts";
+import { parseLook, type LookStore } from "./looks.ts";
 import { parseNote, type NoteStore } from "./notes.ts";
 import {
   parsePreferences,
@@ -50,6 +51,7 @@ export interface ServiceConfig {
   baseline?: { store: Store; reference: Membership };
   tags: TagStore;
   notes: NoteStore;
+  looks: LookStore;
   perkPreferences: PerkPreferenceStore;
   autotag: AutotagStore;
   stats: StatStore;
@@ -235,6 +237,19 @@ export const createHandler = (config: ServiceConfig) => {
           (notes) => ({ notes }),
           parseNote,
           "Bad note",
+        );
+      }
+
+      if (
+        pathname === "/looks" &&
+        (request.method === "GET" || request.method === "POST")
+      ) {
+        return sync(
+          request,
+          config.looks,
+          (looks) => ({ looks }),
+          parseLook,
+          "Bad look",
         );
       }
 

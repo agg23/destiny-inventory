@@ -5,6 +5,8 @@ import {
   type ArtifactLoader,
   type AutotagRule,
   type AutotagStore,
+  type LookPiece,
+  type LookStore,
   type Membership,
   type NoteKind,
   type NoteStore,
@@ -215,6 +217,64 @@ const noteStore = (db: Database): NoteStore => ({
         change.targetId,
         change.itemHash ?? null,
         change.body,
+        change.removed ? 1 : 0,
+        now,
+      )
+      .run();
+  },
+});
+
+interface LookRow {
+  look_id: string;
+  name: string;
+  class_type: number;
+  female: number;
+  pieces: string;
+  removed: number;
+  updated_at: number;
+}
+
+const READ_LOOKS =
+  "SELECT look_id, name, class_type, female, pieces, removed, updated_at FROM looks WHERE membership_id = ? AND updated_at > ?";
+
+const WRITE_LOOK = `INSERT INTO looks (membership_id, look_id, name, class_type, female, pieces, removed, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (membership_id, look_id) DO UPDATE SET
+  name = excluded.name,
+  class_type = excluded.class_type,
+  female = excluded.female,
+  pieces = excluded.pieces,
+  removed = excluded.removed,
+  updated_at = excluded.updated_at`;
+
+const lookStore = (db: Database): LookStore => ({
+  read: async (membershipId, since) => {
+    const looks = await db
+      .prepare(READ_LOOKS)
+      .bind(membershipId, since)
+      .all<LookRow>();
+
+    return looks.results.map((row) => ({
+      id: row.look_id,
+      name: row.name,
+      classType: row.class_type,
+      female: row.female === 1,
+      pieces: JSON.parse(row.pieces) as Record<string, LookPiece>,
+      removed: row.removed === 1,
+      updatedAt: row.updated_at,
+    }));
+  },
+
+  write: async (membershipId, change, now) => {
+    await db
+      .prepare(WRITE_LOOK)
+      .bind(
+        membershipId,
+        change.id,
+        change.name,
+        change.classType,
+        change.female ? 1 : 0,
+        JSON.stringify(change.pieces),
         change.removed ? 1 : 0,
         now,
       )
@@ -533,6 +593,7 @@ export default {
       baseline: baselineOf(env),
       tags: tagStore(env.TAGS),
       notes: noteStore(env.TAGS),
+      looks: lookStore(env.TAGS),
       perkPreferences: perkPreferenceStore(env.TAGS),
       autotag: autotagStore(env.TAGS),
       stats: statStore(env.TAGS),

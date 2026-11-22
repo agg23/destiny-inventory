@@ -107,7 +107,11 @@ export const useEntryPreview = () => {
   let hovered: number | undefined = undefined;
   let shown: DimItem | undefined = undefined;
 
-  const enter = (entry: Entry, element: HTMLElement, notes: string[]) => {
+  const enter = (
+    entry: Pick<Entry, "newestItemHash">,
+    element: HTMLElement,
+    notes: string[],
+  ) => {
     const loaded = app.loaded();
 
     if (!loaded) {

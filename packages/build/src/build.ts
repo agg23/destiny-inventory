@@ -37,7 +37,13 @@ import {
 } from "@dvm/defs-core";
 
 import { mb, writeArtifact } from "./artifactFiles.ts";
-import { loadManifest, table, type RawTable } from "./manifest.ts";
+import { buildLooks } from "./looks.ts";
+import {
+  loadGearAssets,
+  loadManifest,
+  table,
+  type RawTable,
+} from "./manifest.ts";
 import { ARTIFACT_ROOT, CACHE_ROOT, DATA_ROOT } from "./paths.ts";
 
 const AEGIS_DATA = join(DATA_ROOT, "aegis.json");
@@ -480,6 +486,19 @@ const main = async () => {
   await emit("ActivityChallenge", challenges);
   await emit("VendorItem", vendorItems);
   await emit("OrnamentTarget", ornaments);
+
+  const looks = buildLooks(
+    shipped,
+    tables.items,
+    fits,
+    await loadGearAssets(CACHE_ROOT),
+  );
+
+  await emit("LookItem", looks.items);
+
+  for (const [name, shard] of looks.shards) {
+    await emit(name, shard);
+  }
   await emit(
     "ItemSource",
     itemSources(

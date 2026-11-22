@@ -1,7 +1,9 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import type { AllDestinyManifestComponents } from "bungie-api-ts/destiny2";
+import { unzipSync } from "fflate";
 
 const MANIFEST_INDEX = "https://www.bungie.net/Platform/Destiny2/Manifest/";
 const BUNGIE_ROOT = "https://www.bungie.net";
@@ -73,6 +75,7 @@ interface ManifestIndexResponse {
   Response: {
     version: string;
     jsonWorldComponentContentPaths: Record<string, Record<string, string>>;
+    mobileGearAssetDataBases: { version: number; path: string }[];
   };
 }
 
@@ -121,6 +124,58 @@ const loadTable = async (
   console.log(`  downloading ${table}`);
 
   return fetchTable(path, destination);
+};
+
+/** DestinyGearAssetsDefinition by item hash, only published as the mobile SQLite database */
+export const loadGearAssets = async (
+  cacheRoot: string,
+): Promise<Map<number, unknown>> => {
+  const index = await fetchIndex();
+  const path = index.mobileGearAssetDataBases.at(-1)?.path;
+
+  if (!path) {
+    throw new Error("Manifest index has no gear asset database");
+  }
+
+  const cacheDir = join(cacheRoot, index.version);
+  const destination = join(cacheDir, `${basename(path)}.sqlite`);
+
+  await mkdir(cacheDir, { recursive: true });
+
+  if (!existsSync(destination)) {
+    console.log("  downloading gear assets");
+
+    const response = await fetch(`${BUNGIE_ROOT}${path}`);
+
+    if (!response.ok) {
+      throw new Error(`Gear asset fetch failed: ${response.status} ${path}`);
+    }
+
+    const [database] = Object.values(
+      unzipSync(new Uint8Array(await response.arrayBuffer())),
+    );
+
+    if (!database) {
+      throw new Error(`Gear asset archive is empty: ${path}`);
+    }
+
+    await writeFile(destination, database);
+  }
+
+  const database = new DatabaseSync(destination, { readOnly: true });
+  const rows = database
+    .prepare("SELECT id, json FROM DestinyGearAssetsDefinition")
+    .all() as { id: number; json: string }[];
+  const assets = new Map<number, unknown>();
+
+  // Row ids are the hash as a signed int32
+  for (const row of rows) {
+    assets.set(row.id >>> 0, JSON.parse(row.json));
+  }
+
+  database.close();
+
+  return assets;
 };
 
 export const loadManifest = async (cacheRoot: string): Promise<Manifest> => {

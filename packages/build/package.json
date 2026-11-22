@@ -16,6 +16,7 @@
     "bungie-api-ts": "^5.10.0"
   },
   "devDependencies": {
-    "esbuild": "^0.25.0"
+    "esbuild": "^0.25.0",
+    "fflate": "^0.8.3"
   }
 }

@@ -45,6 +45,7 @@ const service = () =>
     loader: { index: async () => undefined, raw: async () => undefined },
     tags: memory(),
     notes: { read: async () => [], write: async () => undefined },
+    looks: { read: async () => [], write: async () => undefined },
     perkPreferences: { read: async () => [], write: async () => undefined },
     autotag: {
       read: async () => ({ rules: [], state: undefined }),

@@ -169,6 +169,7 @@ export const TABS = [
   "history",
   "stats",
   "loadouts",
+  "looks",
 ] as const;
 
 export type Tab = (typeof TABS)[number];

@@ -171,7 +171,8 @@
   .triage-grid .item-tile.small,
   .collections-grid .item-tile.small,
   .weapon-page .item-tile.small,
-  .loadout-page .item-tile.small {
+  .loadout-page .item-tile.small,
+  .look-page .item-tile.small {
     width: var(--tile);
     height: var(--tile);
   }
@@ -229,6 +230,11 @@
 
   .item-tile:is(:hover, .menued, .hovered) .tile-edge {
     border-color: #fff;
+  }
+
+  /* Fixed, a picker reads better large whatever the tile setting */
+  .look-page {
+    --tile: 4rem;
   }
 
   /* Framework sizes these at 3rem, ignoring the tile setting */
@@ -582,10 +588,19 @@
     outline-offset: 1px;
   }
 
-  .item-tile.neverseen img,
+  .item-tile.neverseen img {
+    filter: brightness(0.6);
+  }
+
   .item-tile.unheld img {
     filter: grayscale(1);
     opacity: 0.35;
+  }
+
+  /* Matches the game's empty mod socket */
+  .item-tile.empty-socket {
+    background-color: rgb(72 73 77);
+    box-shadow: inset 0 0 0 2px rgb(45 46 50);
   }
 
   .item-tile .owned-count {

@@ -67,3 +67,15 @@ export {
   type AegisSetBonus,
   type Tier,
 } from "./rolls.ts";
+export {
+  LOOK_ASSET_SHARDS,
+  LOOK_SLOTS,
+  lookAssetShard,
+  type LookArmor,
+  type LookAsset,
+  type LookDefault,
+  type LookItem,
+  type LookOrnament,
+  type LookShader,
+  type LookSlot,
+} from "./looks.ts";

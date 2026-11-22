@@ -55,6 +55,15 @@ export default defineConfig(() => {
       buildVersion(),
     ],
     define: DIM_GLOBALS,
+    // Linked packages aren't pre-bundled, but their CommonJS deps must be
+    optimizeDeps: {
+      include: [
+        "tgxm-loader > bufferpack",
+        "tgxm-loader > jpeg-js",
+        "tgxm-loader > upng-js",
+        "tgxm-loader > pngjs/browser.js",
+      ],
+    },
     resolve: {
       alias: [
         ...dimAliases(root("../../")),

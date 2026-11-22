@@ -29,6 +29,14 @@ export {
   type Session,
 } from "./session.ts";
 export {
+  MAX_LOOK_NAME_LENGTH,
+  parseLook,
+  type Look,
+  type LookChange,
+  type LookPiece,
+  type LookStore,
+} from "./looks.ts";
+export {
   MAX_NOTE_LENGTH,
   parseNote,
   type Note,

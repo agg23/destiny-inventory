@@ -41,6 +41,7 @@ const service = () =>
       write: async () => undefined,
     },
     notes: memory(),
+    looks: { read: async () => [], write: async () => undefined },
     perkPreferences: { read: async () => [], write: async () => undefined },
     autotag: {
       read: async () => ({ rules: [], state: undefined }),

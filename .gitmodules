@@ -1,3 +1,6 @@
 [submodule "vendor/DIM"]
 	path = vendor/DIM
 	url = https://github.com/DestinyItemManager/DIM.git
+[submodule "vendor/tgxm-loader"]
+	path = vendor/tgxm-loader
+	url = https://github.com/agg23/tgxm-loader.git
