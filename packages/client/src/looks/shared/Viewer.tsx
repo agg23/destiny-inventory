@@ -25,6 +25,7 @@ import {
 } from "../../core/looks/poses.ts";
 import { createLookScene } from "../../core/looks/scene.ts";
 import { showToast } from "../../core/toast.ts";
+import type { LookMode } from "../../core/url.ts";
 import {
   pose,
   posePlaying,
@@ -35,7 +36,6 @@ import {
   SLOT_LABELS,
   slotStatus,
   WEAPON,
-  type Mode,
   type PickSlot,
 } from "./lookState.ts";
 
@@ -45,7 +45,7 @@ const count = (slots: string[]): string =>
   slots.length === 1 ? slots[0]! : `${slots.length} pieces`;
 
 export const Viewer = (props: {
-  mode: Mode;
+  mode: LookMode;
   pieces: ShownPiece[];
   female: boolean;
 }) => {

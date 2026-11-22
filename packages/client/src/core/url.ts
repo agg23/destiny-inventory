@@ -1,5 +1,6 @@
 import type { DimItem } from "app/inventory/item-types";
 
+import { CLASSES } from "./collections/terms.ts";
 import { guest, guestParam, SEPARATOR } from "./profile/guest.ts";
 
 interface Codec<T> {
@@ -93,6 +94,12 @@ export const KINDS = ["weapon", "armor"] as const;
 
 export type Kind = (typeof KINDS)[number];
 
+export const LOOK_MODES = ["armor", "weapons"] as const;
+
+export type LookMode = (typeof LOOK_MODES)[number];
+
+export const BODIES = ["a", "b"] as const;
+
 const PARAMS = {
   q: filled(""),
   guest: text(),
@@ -131,6 +138,14 @@ const PARAMS = {
   rarity: choice(USAGE_RARITIES, "exotic"),
   order: choice(USAGE_SORTS, "fewest"),
   link: text(),
+  mode: choice(LOOK_MODES, "armor"),
+  class: choice(CLASSES, "titan"),
+  body: choice(BODIES, "a"),
+  helmet: ids(),
+  arms: ids(),
+  chest: ids(),
+  legs: ids(),
+  classitem: ids(),
 };
 
 export type Params = {

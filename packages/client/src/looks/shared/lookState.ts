@@ -6,12 +6,9 @@ import type { LookPiece } from "@dvm/service";
 import type { SlotStatus } from "../../core/looks/modelSet.ts";
 import { STANDING } from "../../core/looks/poses.ts";
 import { readStored, writeStored } from "../../core/storage.ts";
+import type { LookMode } from "../../core/url.ts";
 
 export type Pieces = Record<LookSlot, LookPiece>;
-
-export const MODES = ["armor", "weapons"] as const;
-
-export type Mode = (typeof MODES)[number];
 
 export const WEAPON = "weapon";
 
@@ -50,7 +47,7 @@ export const EMPTY_PIECE: LookPiece = {
 const DESIGN_KEY = "dvm.looks.design";
 
 interface Design {
-  mode: Mode;
+  mode: LookMode;
   classType: number;
   female: boolean;
   piecesByClass: Partial<Record<number, Pieces>>;
@@ -59,7 +56,7 @@ interface Design {
 
 const stored = (readStored(DESIGN_KEY) ?? {}) as Partial<Design>;
 
-export const [mode, setMode] = createSignal<Mode>(
+export const [mode, setMode] = createSignal<LookMode>(
   stored.mode === "weapons" ? "weapons" : "armor",
 );
 

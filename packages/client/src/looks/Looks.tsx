@@ -2,6 +2,7 @@ import { ItemRarityMap } from "app/search/d2-known-values";
 import { plainString } from "app/search/text-utils";
 import type { TierType } from "bungie-api-ts/destiny2";
 import {
+  createEffect,
   createMemo,
   createResource,
   createSignal,
@@ -19,6 +20,7 @@ import {
   type LookDefault,
   type LookItem,
   type LookOrnament,
+  type LookSlot,
   type LookWeapon,
   type ShaderColor,
 } from "@dvm/defs-core";
@@ -45,7 +47,15 @@ import type { Ownership } from "../core/collections/types.ts";
 import { messageOf } from "../core/error.ts";
 import { lookItems, unlockedPlugs } from "../core/looks/lookData.ts";
 import { savedLooks, syncLooks, writeLook } from "../core/looks/savedLooks.ts";
+import { useUrl } from "../core/router.ts";
 import { showToast } from "../core/toast.ts";
+import {
+  BODIES,
+  LOOK_MODES,
+  type LookMode,
+  type ParamKey,
+  type Params,
+} from "../core/url.ts";
 import { currentPieces } from "./shared/currentPieces.ts";
 import {
   armorPicking,
@@ -53,7 +63,6 @@ import {
   EMPTY_PIECE,
   female,
   mode,
-  MODES,
   ownedOnly,
   piecesByClass,
   PICK_KINDS,
@@ -71,7 +80,6 @@ import {
   weapon,
   WEAPON,
   weaponPicking,
-  type Mode,
   type Picking,
   type PickKind,
   type PickSlot,
@@ -82,12 +90,10 @@ const Viewer = lazy(() =>
   import("./shared/Viewer.tsx").then((module) => ({ default: module.Viewer })),
 );
 
-const MODE_LABELS: Record<Mode, string> = {
+const MODE_LABELS: Record<LookMode, string> = {
   armor: "Armor",
   weapons: "Weapons",
 };
-
-const BODIES = ["a", "b"] as const;
 
 const SETTING_ROW =
   "grid grid-cols-[1fr_repeat(2,var(--tile))] items-center gap-1.5";
@@ -126,6 +132,30 @@ const COLOR_WORDS: Record<string, ShaderColor> = {
 const setOf = (entry: LookItem): string | undefined =>
   entry.kind === "armor" || entry.kind === "ornament" ? entry.set : undefined;
 
+const SLOT_PARAMS = {
+  helmet: "helmet",
+  arms: "arms",
+  chest: "chest",
+  legs: "legs",
+  class: "classitem",
+} as const satisfies Record<LookSlot, ParamKey>;
+
+const hashIds = (hashes: (number | undefined)[]): string[] => {
+  const ids = hashes.map((hash) => hash?.toString() ?? "");
+
+  while (ids.at(-1) === "") {
+    ids.pop();
+  }
+
+  return ids;
+};
+
+const idHashes = (ids: string[]): (number | undefined)[] =>
+  [0, 1, 2].map((index) => {
+    const parsed = Number.parseInt(ids[index] ?? "", 10);
+
+    return Number.isFinite(parsed) ? parsed : undefined;
+  });
 
 export const Looks = () => {
   const app = useApp();
@@ -147,6 +177,36 @@ export const Looks = () => {
     () => acquiredFor(session()!),
   );
   const [unlocked] = createResource(session, unlockedPlugs);
+
+  const url = useUrl();
+
+  if (url.get("mode") === "weapons") {
+    const [weaponHash, ornamentHash, shaderHash] = idHashes(url.get("weapon"));
+
+    setMode("weapons");
+
+    if (weaponHash !== undefined) {
+      setWeapon({ weaponHash, ornamentHash, shaderHash });
+    }
+  } else if (
+    LOOK_SLOTS.some((slot) => url.get(SLOT_PARAMS[slot]).length > 0)
+  ) {
+    const forClass = CLASSES.indexOf(url.get("class"));
+    const shared = Object.fromEntries(
+      LOOK_SLOTS.map((slot) => {
+        const [armorHash, ornamentHash, shaderHash] = idHashes(
+          url.get(SLOT_PARAMS[slot]),
+        );
+
+        return [slot, { armorHash, ornamentHash, shaderHash }];
+      }),
+    ) as Pieces;
+
+    setMode("armor");
+    setClassType(forClass);
+    setFemale(url.get("body") === "b");
+    setPiecesByClass((all) => ({ ...all, [forClass]: shared }));
+  }
 
   onMount(() => {
     void syncLooks();
@@ -470,6 +530,29 @@ export const Looks = () => {
     ];
   });
 
+  createEffect(() => {
+    const armor = mode() === "armor";
+    const piece = weapon();
+    const patch: Partial<Params> = {
+      mode: mode(),
+      class: armor ? (CLASSES[classType()] ?? "titan") : "titan",
+      body: armor && female() ? "b" : "a",
+      weapon: armor
+        ? []
+        : hashIds([piece.weaponHash, piece.ornamentHash, piece.shaderHash]),
+    };
+
+    for (const slot of LOOK_SLOTS) {
+      const held = pieces()[slot];
+
+      patch[SLOT_PARAMS[slot]] = armor
+        ? hashIds([held.armorHash, held.ornamentHash, held.shaderHash])
+        : [];
+    }
+
+    url.replace(patch);
+  });
+
   const [name, setName] = createSignal("");
   const [removing, setRemoving] = createSignal<Look | undefined>(undefined);
 
@@ -656,7 +739,7 @@ export const Looks = () => {
         <div class="flex items-center justify-between gap-2">
           <PickOne
             value={mode()}
-            options={MODES}
+            options={LOOK_MODES}
             label={(one) => MODE_LABELS[one]}
             onChange={setMode}
           />
