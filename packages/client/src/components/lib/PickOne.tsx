@@ -1,5 +1,6 @@
 import { For, type JSX } from "solid-js";
 
+import { cn } from "./cn.ts";
 import { ToggleGroup, ToggleGroupItem } from "./zaidan/toggle-group.tsx";
 
 interface Props<T extends string> {
@@ -7,6 +8,8 @@ interface Props<T extends string> {
   options: readonly T[];
   label: (option: T) => JSX.Element;
   disabled?: (option: T) => string | undefined;
+  size?: "sm" | "default";
+  class?: string;
   onChange: (value: T) => void;
 }
 
@@ -14,7 +17,8 @@ interface Props<T extends string> {
 export const PickOne = <T extends string>(props: Props<T>) => (
   <ToggleGroup
     variant="outline"
-    class="shrink-0"
+    size={props.size}
+    class={cn("shrink-0", props.class)}
     value={props.value ?? null}
     onChange={(next: string | null) => {
       // Kobalte reports a click on the picked option as null

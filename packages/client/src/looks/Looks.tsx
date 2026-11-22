@@ -36,10 +36,11 @@ import { Toggle } from "../components/lib/Toggle.tsx";
 import { Button } from "../components/lib/zaidan/button.tsx";
 import { Import, X } from "../components/lib/zaidan/icons.tsx";
 import { Input } from "../components/lib/zaidan/input.tsx";
+import { NativeSelect } from "../components/lib/zaidan/native-select.tsx";
 import { Tile } from "../components/Tile.tsx";
 import { useApp } from "../core/app/state.ts";
 import { acquiredFor } from "../core/collections/ownership.ts";
-import { CLASSES } from "../core/collections/terms.ts";
+import { CLASSES, type ClassName } from "../core/collections/terms.ts";
 import type { Ownership } from "../core/collections/types.ts";
 import { messageOf } from "../core/error.ts";
 import { lookItems, unlockedPlugs } from "../core/looks/lookData.ts";
@@ -90,10 +91,10 @@ const MODE_LABELS: Record<Mode, string> = {
 
 const BODIES = ["a", "b"] as const;
 
-const BODY_LABELS: Record<(typeof BODIES)[number], string> = {
-  a: "Body A",
-  b: "Body B",
-};
+const SETTING_ROW =
+  "grid grid-cols-[1fr_repeat(2,var(--tile))] items-center gap-1.5";
+
+const SETTING_LABEL = "text-xs font-medium text-muted-foreground";
 
 // A full five piece set for every class
 const DEFAULT_SET = "Wild Hunt";
@@ -665,12 +666,29 @@ export const Looks = () => {
   return (
     <div class="look-page flex h-[calc(100dvh-var(--header-h,49px))] min-h-0 gap-4 p-4">
       <div class="flex w-80 shrink-0 flex-col gap-4 overflow-y-auto">
-        <PickOne
-          value={mode()}
-          options={MODES}
-          label={(one) => MODE_LABELS[one]}
-          onChange={setMode}
-        />
+        <div class="flex items-center justify-between gap-2">
+          <PickOne
+            value={mode()}
+            options={MODES}
+            label={(one) => MODE_LABELS[one]}
+            onChange={setMode}
+          />
+          <Show when={mode() === "armor" && app.stores().length > 0}>
+            <Button
+              variant="outline"
+              disabled={!matchingCharacter()}
+              title={
+                matchingCharacter()
+                  ? undefined
+                  : `No ${CLASS_LABELS[CLASSES[classType()]!]} character`
+              }
+              onClick={importCharacter}
+            >
+              <Import />
+              Import Character
+            </Button>
+          </Show>
+        </div>
         <Show
           when={mode() === "armor"}
           fallback={
@@ -685,37 +703,25 @@ export const Looks = () => {
             </div>
           }
         >
-          <PickOne
-            value={CLASSES[classType()]}
-            options={CLASSES}
-            label={(one) => CLASS_LABELS[one]}
-            onChange={(one) => setClassType(CLASSES.indexOf(one))}
-          />
-          <div class="flex items-center gap-2">
-            <PickOne
-              value={female() ? "b" : "a"}
-              options={BODIES}
-              label={(one) => BODY_LABELS[one]}
-              onChange={(one) => setFemale(one === "b")}
-            />
-            <Show when={app.stores().length > 0}>
-              <Button
-                variant="outline"
-                disabled={!matchingCharacter()}
-                title={
-                  matchingCharacter()
-                    ? undefined
-                    : `No ${CLASS_LABELS[CLASSES[classType()]!]} character`
-                }
-                onClick={importCharacter}
-              >
-                <Import />
-                Import {CLASS_LABELS[CLASSES[classType()]!]}
-              </Button>
-            </Show>
-          </div>
-
           <div class="flex flex-col gap-1.5">
+            <div class={SETTING_ROW}>
+              <span class={SETTING_LABEL}>Class</span>
+              <NativeSelect
+                class="col-span-2 w-full"
+                size="sm"
+                aria-label="Class"
+                value={CLASSES[classType()]}
+                onChange={(event) =>
+                  setClassType(
+                    CLASSES.indexOf(event.currentTarget.value as ClassName),
+                  )
+                }
+              >
+                <For each={CLASSES}>
+                  {(one) => <option value={one}>{CLASS_LABELS[one]}</option>}
+                </For>
+              </NativeSelect>
+            </div>
             <div class="grid grid-cols-[1fr_repeat(2,var(--tile))] gap-1.5">
               <span />
               <For each={PICK_KINDS}>
@@ -723,6 +729,17 @@ export const Looks = () => {
               </For>
             </div>
             <For each={LOOK_SLOTS}>{(slot) => <SlotRow slot={slot} />}</For>
+            <div class={SETTING_ROW}>
+              <span class={SETTING_LABEL}>Body</span>
+              <PickOne
+                size="sm"
+                class="col-span-2 w-full *:flex-1"
+                value={female() ? "b" : "a"}
+                options={BODIES}
+                label={(one) => one.toUpperCase()}
+                onChange={(one) => setFemale(one === "b")}
+              />
+            </div>
           </div>
 
           <Show when={!guest()}>
