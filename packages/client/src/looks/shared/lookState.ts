@@ -16,7 +16,7 @@ export const SLOT_LABELS: Record<LookSlot, string> = {
   class: "Class item",
 };
 
-export const PICK_KINDS = ["armor", "ornament", "shader"] as const;
+export const PICK_KINDS = ["armor", "shader"] as const;
 
 export type PickKind = (typeof PICK_KINDS)[number];
 

@@ -67,6 +67,9 @@ importers:
       fflate:
         specifier: ^0.8.3
         version: 0.8.3
+      jpeg-js:
+        specifier: ~0.4.4
+        version: 0.4.4
 
   packages/client:
     dependencies:

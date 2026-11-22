@@ -11,16 +11,39 @@ interface LookEntry {
   icon: string;
   tierType: number;
   collectibleHashes: number[];
+  /** The collectible's source text, without "Source:" */
+  source: string | undefined;
 }
 
 export interface LookArmor extends LookEntry {
   kind: "armor";
   classType: number;
   slot: LookSlot;
+  /** Collections set name, undefined for exotics */
+  set: string | undefined;
 }
+
+export const SHADER_COLORS = [
+  "red",
+  "orange",
+  "yellow",
+  "green",
+  "teal",
+  "blue",
+  "purple",
+  "pink",
+  "brown",
+  "black",
+  "grey",
+  "white",
+] as const;
+
+export type ShaderColor = (typeof SHADER_COLORS)[number];
 
 export interface LookShader extends LookEntry {
   kind: "shader";
+  /** Percent of the icon in each color, from the icon swatch */
+  colors: Partial<Record<ShaderColor, number>>;
 }
 
 export interface LookOrnament extends LookEntry {
@@ -29,12 +52,12 @@ export interface LookOrnament extends LookEntry {
   slot: LookSlot;
   /** Armor hashes for an item-specific ornament, undefined for a universal one */
   items: number[] | undefined;
+  set: string | undefined;
 }
 
-/** The game's own "Default Shader" or "Default Ornament", which clear the choice */
+/** The game's own "Default Shader", which clears the choice */
 export interface LookDefault extends LookEntry {
   kind: "default";
-  replaces: "shader" | "ornament";
 }
 
 export type LookItem = LookArmor | LookShader | LookOrnament | LookDefault;

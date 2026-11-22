@@ -14,11 +14,13 @@ import {
 
 import {
   LOOK_SLOTS,
+  SHADER_COLORS,
   type LookArmor,
   type LookDefault,
   type LookItem,
   type LookOrnament,
   type LookSlot,
+  type ShaderColor,
 } from "@dvm/defs-core";
 import type { Look, LookPiece } from "@dvm/service";
 
@@ -71,7 +73,6 @@ const Viewer = lazy(() =>
 
 const KIND_LABELS: Record<PickKind, string> = {
   armor: "Armor",
-  ornament: "Ornament",
   shader: "Shader",
 };
 
@@ -101,12 +102,21 @@ const fits = (
   return !armor || armor.tierType !== EXOTIC;
 };
 
+const COLOR_WORDS: Record<string, ShaderColor> = {
+  ...Object.fromEntries(SHADER_COLORS.map((color) => [color, color])),
+  gray: "grey",
+  silver: "grey",
+  gold: "yellow",
+  cyan: "teal",
+  violet: "purple",
+  magenta: "pink",
+};
+
+const setOf = (entry: LookItem): string | undefined =>
+  entry.kind === "armor" || entry.kind === "ornament" ? entry.set : undefined;
+
 const hashIn = (piece: LookPiece, kind: PickKind): number | undefined =>
-  kind === "armor"
-    ? piece.armorHash
-    : kind === "ornament"
-      ? piece.ornamentHash
-      : piece.shaderHash;
+  kind === "armor" ? (piece.ornamentHash ?? piece.armorHash) : piece.shaderHash;
 
 export const Looks = () => {
   const app = useApp();
@@ -145,10 +155,9 @@ export const Looks = () => {
     return found;
   });
 
-  const defaultFor = (kind: PickKind): LookDefault | undefined =>
+  const defaultShader = (): LookDefault | undefined =>
     (items() ?? []).find(
-      (entry): entry is LookDefault =>
-        entry.kind === "default" && entry.replaces === kind,
+      (entry): entry is LookDefault => entry.kind === "default",
     );
 
   const held = createMemo(() => {
@@ -230,28 +239,29 @@ export const Looks = () => {
   // Nothing chosen shows the game's default item
   const shownIn = (slot: LookSlot, kind: PickKind): LookItem | undefined =>
     entryFor(hashIn(pieces()[slot], kind)) ??
-    (kind === "armor" ? undefined : defaultFor(kind));
+    (kind === "shader" ? defaultShader() : undefined);
 
   const choose = (entry: LookItem) => {
-    const { slot, kind } = picking();
+    const { slot } = picking();
     const piece = pieces()[slot];
-    const hash = entry.kind === "default" ? undefined : entry.hash;
     let next: LookPiece = piece;
 
-    if (kind === "armor") {
-      const armor = entry as LookArmor;
-      const ornament = entryFor<LookOrnament>(piece.ornamentHash);
-
-      next = {
-        ...piece,
-        armorHash: hash,
-        ornamentHash:
-          ornament && fits(ornament, armor) ? piece.ornamentHash : undefined,
-      };
-    } else if (kind === "ornament") {
-      next = { ...piece, ornamentHash: hash };
+    if (entry.kind === "default") {
+      next = { ...piece, shaderHash: undefined };
+    } else if (entry.kind === "shader") {
+      next = { ...piece, shaderHash: entry.hash };
+    } else if (entry.kind === "armor") {
+      next = { ...piece, armorHash: entry.hash, ornamentHash: undefined };
     } else {
-      next = { ...piece, shaderHash: hash };
+      const current = entryFor<LookArmor>(piece.armorHash);
+      // An item-specific ornament needs its own armor underneath
+      const base = entry.items
+        ? entryFor<LookArmor>(entry.items[0])
+        : current && fits(entry, current)
+          ? current
+          : undefined;
+
+      next = { ...piece, armorHash: base?.hash, ornamentHash: entry.hash };
     }
 
     setPieces({ ...pieces(), [slot]: next });
@@ -274,40 +284,88 @@ export const Looks = () => {
   const choices = createMemo(() => {
     const { slot, kind } = picking();
     const forClass = classType();
-    const armor =
-      kind === "ornament"
-        ? entryFor<LookArmor>(pieces()[slot].armorHash)
-        : undefined;
-    const text = needle();
+    const words = needle()
+      .split(/\s+/)
+      .filter((word) => word.length > 0);
+    const colors = words.flatMap((word) =>
+      COLOR_WORDS[word] === undefined ? [] : [COLOR_WORDS[word]],
+    );
     const onlyOwned = ownedOnly();
-    const fallback = kind === "armor" ? undefined : defaultFor(kind);
+    const fallback = kind === "shader" ? defaultShader() : undefined;
 
     const matching = (items() ?? []).filter((entry) => {
-      if (entry.kind !== kind) {
+      if (entry.kind === "armor" || entry.kind === "ornament") {
+        if (
+          kind !== "armor" ||
+          entry.classType !== forClass ||
+          entry.slot !== slot
+        ) {
+          return false;
+        }
+      } else if (kind !== "shader" || entry.kind !== "shader") {
         return false;
       }
 
-      if (
-        entry.kind !== "shader" &&
-        (entry.classType !== forClass || entry.slot !== slot)
-      ) {
-        return false;
-      }
+      const searched = [entry.name, setOf(entry) ?? "", entry.source ?? ""]
+        .map((field) => plainString(field.toLowerCase(), "en"))
+        .join("\n");
+      const found = words.every((word) =>
+        entry.kind === "shader" && COLOR_WORDS[word] !== undefined
+          ? entry.colors[COLOR_WORDS[word]] !== undefined
+          : searched.includes(word),
+      );
 
-      if (entry.kind === "ornament" && !fits(entry, armor)) {
-        return false;
-      }
-
-      if (text && !plainString(entry.name.toLowerCase(), "en").includes(text)) {
+      if (!found) {
         return false;
       }
 
       return !onlyOwned || ownership(entry) !== "neverseen";
     });
 
-    matching.sort((a, b) => b.tierType - a.tierType);
+    const share = (entry: LookItem): number =>
+      entry.kind === "shader"
+        ? colors.reduce((total, color) => total + (entry.colors[color] ?? 0), 0)
+        : 0;
+
+    matching.sort((a, b) => share(b) - share(a) || b.tierType - a.tierType);
 
     return fallback ? [fallback, ...matching] : matching;
+  });
+
+  const otherSets = createMemo(() => {
+    const { slot: picked, kind } = picking();
+
+    return [
+      ...new Set(
+        LOOK_SLOTS.flatMap((slot) => {
+          if (slot === picked) {
+            return [];
+          }
+
+          const entry = entryFor(hashIn(pieces()[slot], kind));
+          const set = entry && setOf(entry);
+
+          return set === undefined ? [] : [set];
+        }),
+      ),
+    ];
+  });
+
+  const inSets = createMemo(() => {
+    const sets = otherSets();
+    const current = shownIn(picking().slot, picking().kind);
+
+    return choices()
+      .filter(
+        (entry) => entry !== current && sets.includes(setOf(entry) ?? ""),
+      )
+      .sort((a, b) => sets.indexOf(setOf(a)!) - sets.indexOf(setOf(b)!));
+  });
+
+  const outsideSets = createMemo(() => {
+    const matched = new Set(inSets());
+
+    return choices().filter((entry) => !matched.has(entry));
   });
 
   const shown = createMemo(() =>
@@ -485,7 +543,7 @@ export const Looks = () => {
   };
 
   return (
-    <div class="look-page flex h-[calc(100dvh-2.75rem)] min-h-0 gap-4 p-4">
+    <div class="look-page flex h-[calc(100dvh-var(--header-h,49px))] min-h-0 gap-4 p-4">
       <div class="flex w-80 shrink-0 flex-col gap-4 overflow-y-auto">
         <PickOne
           value={CLASSES[classType()]}
@@ -518,7 +576,7 @@ export const Looks = () => {
         </div>
 
         <div class="flex flex-col gap-1.5">
-          <div class="grid grid-cols-[1fr_repeat(3,var(--tile))] gap-1.5">
+          <div class="grid grid-cols-[1fr_repeat(2,var(--tile))] gap-1.5">
             <span />
             <For each={PICK_KINDS}>
               {(kind) => <span class={LABEL}>{KIND_LABELS[kind]}</span>}
@@ -526,7 +584,7 @@ export const Looks = () => {
           </div>
           <For each={LOOK_SLOTS}>
             {(slot) => (
-              <div class="grid grid-cols-[1fr_repeat(3,var(--tile))] items-center gap-1.5">
+              <div class="grid grid-cols-[1fr_repeat(2,var(--tile))] items-center gap-1.5">
                 <SlotLabel slot={slot} />
                 <For each={PICK_KINDS}>
                   {(kind) => <Cell slot={slot} kind={kind} />}
@@ -615,7 +673,7 @@ export const Looks = () => {
         </Show>
       </div>
 
-      <div class="flex w-[calc(var(--tile)*6+2.25rem)] shrink-0 flex-col gap-3 overflow-hidden">
+      <div class="flex w-[calc(var(--tile)*6+2.75rem)] shrink-0 flex-col gap-3 overflow-hidden">
         <div class="flex items-center gap-3">
           <Heading
             note={choices().filter((entry) => entry.kind !== "default").length}
@@ -636,16 +694,36 @@ export const Looks = () => {
             />
           </div>
         </div>
-        <div class={`${TILE_GRID} overflow-y-auto pb-4`}>
-          <For each={choices()}>
-            {(entry) => (
-              <LookTile
-                entry={entry}
-                selected={shownIn(picking().slot, picking().kind) === entry}
-                onClick={() => choose(entry)}
-              />
-            )}
-          </For>
+        <div class="flex flex-col gap-3 overflow-y-auto p-1 pb-4">
+          <Show when={inSets().length > 0}>
+            <div class="flex flex-col gap-1.5">
+              <span class={LABEL}>Matching sets</span>
+              <div class={TILE_GRID}>
+                <For each={inSets()}>
+                  {(entry) => (
+                    <LookTile
+                      entry={entry}
+                      selected={
+                        shownIn(picking().slot, picking().kind) === entry
+                      }
+                      onClick={() => choose(entry)}
+                    />
+                  )}
+                </For>
+              </div>
+            </div>
+          </Show>
+          <div class={TILE_GRID}>
+            <For each={outsideSets()}>
+              {(entry) => (
+                <LookTile
+                  entry={entry}
+                  selected={shownIn(picking().slot, picking().kind) === entry}
+                  onClick={() => choose(entry)}
+                />
+              )}
+            </For>
+          </div>
         </div>
       </div>
 

@@ -1,4 +1,8 @@
-import type { DestinyInventoryItemDefinition } from "bungie-api-ts/destiny2";
+import type {
+  DestinyCollectibleDefinition,
+  DestinyInventoryItemDefinition,
+  DestinyPresentationNodeDefinition,
+} from "bungie-api-ts/destiny2";
 
 import {
   lookAssetShard,
@@ -11,16 +15,22 @@ import {
   type LookSlot,
 } from "@dvm/defs-core";
 
+import { loadShaderColors } from "./shaderColors.ts";
+
 // DestinyItemType
 const ARMOR = 2;
 const MOD = 19;
 
 const DEFAULT_SHADER = 4_248_210_736;
-const DEFAULT_ORNAMENT = 702_981_643;
 
 // DestinyItemSubType
 const SHADER = 20;
 const ORNAMENT = 21;
+
+const SOURCE_PREFIX = /^Source:\s*/;
+
+// Collections > Armor, whose grandchildren are one node per set
+const ARMOR_NODE = 1_605_042_242;
 
 // BucketHashes, whose enum file Node can't strip
 const SLOT_BY_BUCKET: Record<number, LookSlot> = {
@@ -51,10 +61,16 @@ const groupBy = (
   return [...groups.values()];
 };
 
-const entryOf = (group: DestinyInventoryItemDefinition[]) => {
+const entryOf = (
+  group: DestinyInventoryItemDefinition[],
+  collectibles: Record<number, DestinyCollectibleDefinition>,
+) => {
   const newest = group.reduce((best, item) =>
     item.index > best.index ? item : best,
   );
+  const source = group
+    .map((item) => collectibles[item.collectibleHash ?? 0]?.sourceString)
+    .find((text) => !!text);
 
   return {
     hash: newest.hash,
@@ -69,22 +85,56 @@ const entryOf = (group: DestinyInventoryItemDefinition[]) => {
         ),
       ),
     ],
+    source: source?.replace(SOURCE_PREFIX, ""),
   };
+};
+
+const setNames = (
+  nodes: Record<number, DestinyPresentationNodeDefinition>,
+): Map<number, string> => {
+  const childrenOf = (hash: number) =>
+    (nodes[hash]?.children.presentationNodes ?? []).flatMap((child) => {
+      const node = nodes[child.presentationNodeHash];
+
+      return node ? [node] : [];
+    });
+  const sets = childrenOf(ARMOR_NODE)
+    .flatMap((node) => childrenOf(node.hash))
+    .flatMap((node) => childrenOf(node.hash));
+
+  return new Map(
+    sets.flatMap((node) =>
+      node.children.collectibles.map(
+        (child) => [child.collectibleHash, node.displayProperties.name] as const,
+      ),
+    ),
+  );
 };
 
 const byName = (a: LookItem, b: LookItem): number =>
   a.name.localeCompare(b.name);
 
 /** Picker entries plus the loader's per-hash data, sharded by hash */
-export const buildLooks = (
+export const buildLooks = async (
   shipped: DestinyInventoryItemDefinition[],
   items: Record<number, DestinyInventoryItemDefinition>,
+  collectibles: Record<number, DestinyCollectibleDefinition>,
+  nodes: Record<number, DestinyPresentationNodeDefinition>,
   ornamentFits: Map<number, Set<number>>,
   gearAssets: Map<number, unknown>,
-): { items: LookItem[]; shards: Map<string, Record<number, LookAsset>> } => {
+  iconCacheDir: string,
+): Promise<{
+  items: LookItem[];
+  shards: Map<string, Record<number, LookAsset>>;
+}> => {
   const renderable = shipped.filter((item) => gearAssets.has(item.hash));
   const slotOf = (item: DestinyInventoryItemDefinition) =>
     SLOT_BY_BUCKET[item.inventory?.bucketTypeHash ?? 0];
+  const sets = setNames(nodes);
+  const setOf = (group: DestinyInventoryItemDefinition[]) =>
+    group
+      .map((item) => sets.get(item.collectibleHash ?? 0))
+      .find((name) => name !== undefined);
 
   const armorItems = renderable.filter(
     (item) => item.itemType === ARMOR && slotOf(item) !== undefined,
@@ -95,17 +145,27 @@ export const buildLooks = (
       `${item.displayProperties.name}|${item.inventory?.tierType}|${item.classType}|${slotOf(item)}`,
   ).map((group): LookArmor => ({
     kind: "armor",
-    ...entryOf(group),
+    ...entryOf(group, collectibles),
     classType: group[0]!.classType,
     slot: slotOf(group[0]!)!,
+    set: setOf(group),
   }));
 
-  const shaders = groupBy(
+  const shaderGroups = groupBy(
     renderable.filter(
       (item) => item.itemType === MOD && item.itemSubType === SHADER,
     ),
     (item) => item.displayProperties.name,
-  ).map((group): LookShader => ({ kind: "shader", ...entryOf(group) }));
+  );
+  const colors = await loadShaderColors(
+    iconCacheDir,
+    shaderGroups.map((group) => entryOf(group, collectibles).icon),
+  );
+  const shaders = shaderGroups.map((group): LookShader => {
+    const entry = entryOf(group, collectibles);
+
+    return { kind: "shader", ...entry, colors: colors.get(entry.icon) ?? {} };
+  });
 
   const ornamentItems = renderable.flatMap((item) => {
     if (item.itemSubType !== ORNAMENT) {
@@ -147,36 +207,28 @@ export const buildLooks = (
 
     return {
       kind: "ornament",
-      ...entryOf(group),
+      ...entryOf(group, collectibles),
       classType: targets[0]!.classType,
       slot: slotOf(targets[0]!)!,
       items:
         names.size === 1
           ? [...new Set(targets.map((target) => target.hash))]
           : undefined,
+      set: setOf(group),
     };
   });
 
-  const defaults = (
-    [
-      ["shader", DEFAULT_SHADER],
-      ["ornament", DEFAULT_ORNAMENT],
-    ] as const
-  ).flatMap(([replaces, hash]): LookDefault[] => {
-    const item = items[hash];
-
-    return item
-      ? [
-          {
-            kind: "default",
-            replaces,
-            ...entryOf([item]),
-            hashes: [],
-            collectibleHashes: [],
-          },
-        ]
-      : [];
-  });
+  const defaultShader = items[DEFAULT_SHADER];
+  const defaults: LookDefault[] = defaultShader
+    ? [
+        {
+          kind: "default",
+          ...entryOf([defaultShader], collectibles),
+          hashes: [],
+          collectibleHashes: [],
+        },
+      ]
+    : [];
 
   const entries = [
     ...defaults,

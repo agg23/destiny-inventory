@@ -53,6 +53,7 @@ const ITEMS = "DestinyInventoryItemDefinition";
 const PLUG_SETS = "DestinyPlugSetDefinition";
 
 const COLLECTIBLES = "DestinyCollectibleDefinition";
+const PRESENTATION_NODES = "DestinyPresentationNodeDefinition";
 const ACTIVITIES = "DestinyActivityDefinition";
 const VENDORS = "DestinyVendorDefinition";
 const OBJECTIVES = "DestinyObjectiveDefinition";
@@ -487,11 +488,14 @@ const main = async () => {
   await emit("VendorItem", vendorItems);
   await emit("OrnamentTarget", ornaments);
 
-  const looks = buildLooks(
+  const looks = await buildLooks(
     shipped,
     tables.items,
+    table(manifest, COLLECTIBLES) ?? {},
+    table(manifest, PRESENTATION_NODES) ?? {},
     fits,
     await loadGearAssets(CACHE_ROOT),
+    join(DATA_ROOT, "icons"),
   );
 
   await emit("LookItem", looks.items);
