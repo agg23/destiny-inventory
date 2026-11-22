@@ -1,33 +1,49 @@
 import { createEffect, createRoot, createSignal } from "solid-js";
 
-import { LOOK_SLOTS, type LookSlot } from "@dvm/defs-core";
+import { type LookSlot } from "@dvm/defs-core";
 import type { LookPiece } from "@dvm/service";
 
-import type { SlotStatus } from "../../core/looks/armorSet.ts";
+import type { SlotStatus } from "../../core/looks/modelSet.ts";
+import { STANDING } from "../../core/looks/poses.ts";
 import { readStored, writeStored } from "../../core/storage.ts";
 
 export type Pieces = Record<LookSlot, LookPiece>;
 
-export const SLOT_LABELS: Record<LookSlot, string> = {
+export const MODES = ["armor", "weapons"] as const;
+
+export type Mode = (typeof MODES)[number];
+
+export const WEAPON = "weapon";
+
+export type PickSlot = LookSlot | typeof WEAPON;
+
+export const SLOT_LABELS: Record<PickSlot, string> = {
   helmet: "Helmet",
   arms: "Arms",
   chest: "Chest",
   legs: "Legs",
   class: "Class item",
+  weapon: "Weapon",
 };
 
-export const PICK_KINDS = ["armor", "shader"] as const;
+export const PICK_KINDS = ["gear", "shader"] as const;
 
 export type PickKind = (typeof PICK_KINDS)[number];
 
 export interface Picking {
-  slot: LookSlot;
+  slot: PickSlot;
   kind: PickKind;
 }
 
 export interface Editing {
   id: string;
   name: string;
+}
+
+export interface WeaponPiece {
+  weaponHash: number | undefined;
+  ornamentHash: number | undefined;
+  shaderHash: number | undefined;
 }
 
 export const EMPTY_PIECE: LookPiece = {
@@ -39,13 +55,19 @@ export const EMPTY_PIECE: LookPiece = {
 const DESIGN_KEY = "dvm.looks.design";
 
 interface Design {
+  mode: Mode;
   classType: number;
   female: boolean;
   piecesByClass: Partial<Record<number, Pieces>>;
+  weapon: WeaponPiece;
   editing: Editing | undefined;
 }
 
 const stored = (readStored(DESIGN_KEY) ?? {}) as Partial<Design>;
+
+export const [mode, setMode] = createSignal<Mode>(
+  stored.mode === "weapons" ? "weapons" : "armor",
+);
 
 export const [classType, setClassType] = createSignal(
   typeof stored.classType === "number" ? stored.classType : 0,
@@ -62,9 +84,20 @@ export const [piecesByClass, setPiecesByClass] = createSignal<
     : {},
 );
 
-export const [picking, setPicking] = createSignal<Picking>({
+export const [weapon, setWeapon] = createSignal<WeaponPiece>(
+  typeof stored.weapon === "object" && stored.weapon !== null
+    ? stored.weapon
+    : { weaponHash: undefined, ornamentHash: undefined, shaderHash: undefined },
+);
+
+export const [armorPicking, setArmorPicking] = createSignal<Picking>({
   slot: "helmet",
-  kind: "armor",
+  kind: "gear",
+});
+
+export const [weaponPicking, setWeaponPicking] = createSignal<Picking>({
+  slot: WEAPON,
+  kind: "gear",
 });
 
 export const [ownedOnly, setOwnedOnly] = createSignal(false);
@@ -77,9 +110,11 @@ export const [editing, setEditing] = createSignal<Editing | undefined>(
 createRoot(() =>
   createEffect(() => {
     const design: Design = {
+      mode: mode(),
       classType: classType(),
       female: female(),
       piecesByClass: piecesByClass(),
+      weapon: weapon(),
       editing: editing(),
     };
 
@@ -87,10 +122,14 @@ createRoot(() =>
   }),
 );
 
-export const NOTHING_SHOWN = Object.fromEntries(
-  LOOK_SLOTS.map((slot) => [slot, { kind: "loading" }]),
-) as Record<LookSlot, SlotStatus>;
+/** STANDING, or a D1 animation file from POSES */
+export const [pose, setPose] = createSignal(STANDING);
 
-/** What the viewer has on screen for each slot */
-export const [slotStatus, setSlotStatus] =
-  createSignal<Record<LookSlot, SlotStatus>>(NOTHING_SHOWN);
+export const [posePlaying, setPosePlaying] = createSignal(false);
+
+export const [poseLoading, setPoseLoading] = createSignal(false);
+
+/** What the viewer has on screen for each slot, empty until it mounts */
+export const [slotStatus, setSlotStatus] = createSignal<
+  Record<string, SlotStatus>
+>({});

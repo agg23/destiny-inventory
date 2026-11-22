@@ -1,5 +1,5 @@
 declare module "tgxm-loader" {
-  import type { Group } from "three";
+  import type { AnimationClip, Bone, Group, Skeleton } from "three";
 
   interface DefinitionSource<T> {
     source: "asyncHandler";
@@ -23,6 +23,13 @@ declare module "tgxm-loader" {
     isFemale: boolean;
     shaderHash: number | undefined;
     container?: TGXModelContainer;
+    skeleton?: Skeleton;
+  }
+
+  export interface GuardianSkeleton {
+    skeleton: Skeleton;
+    rootBone: Bone;
+    boneNames: string[];
   }
 
   export interface LoadProgress {
@@ -49,5 +56,11 @@ declare module "tgxm-loader" {
       shaderHash: number | undefined,
     ): Promise<void>;
     dispose(id?: string): void;
+    loadSkeleton(type: "guardian"): Promise<GuardianSkeleton>;
+    loadAnimation(
+      animationHash: number | string,
+      animationFileName: string,
+      boneNames: string[],
+    ): Promise<AnimationClip>;
   }
 }

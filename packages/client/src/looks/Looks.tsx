@@ -19,7 +19,7 @@ import {
   type LookDefault,
   type LookItem,
   type LookOrnament,
-  type LookSlot,
+  type LookWeapon,
   type ShaderColor,
 } from "@dvm/defs-core";
 import type { Look, LookPiece } from "@dvm/service";
@@ -47,23 +47,35 @@ import { savedLooks, syncLooks, writeLook } from "../core/looks/savedLooks.ts";
 import { showToast } from "../core/toast.ts";
 import { currentPieces } from "./shared/currentPieces.ts";
 import {
+  armorPicking,
   classType,
   editing,
   EMPTY_PIECE,
   female,
+  mode,
+  MODES,
   ownedOnly,
-  picking,
   piecesByClass,
   PICK_KINDS,
+  poseLoading,
+  setArmorPicking,
   setClassType,
   setEditing,
   setFemale,
+  setMode,
   setOwnedOnly,
-  setPicking,
   setPiecesByClass,
+  setWeapon,
+  setWeaponPicking,
   SLOT_LABELS,
   slotStatus,
+  weapon,
+  WEAPON,
+  weaponPicking,
+  type Mode,
+  type Picking,
   type PickKind,
+  type PickSlot,
   type Pieces,
 } from "./shared/lookState.ts";
 
@@ -71,9 +83,9 @@ const Viewer = lazy(() =>
   import("./shared/Viewer.tsx").then((module) => ({ default: module.Viewer })),
 );
 
-const KIND_LABELS: Record<PickKind, string> = {
+const MODE_LABELS: Record<Mode, string> = {
   armor: "Armor",
-  shader: "Shader",
+  weapons: "Weapons",
 };
 
 const BODIES = ["a", "b"] as const;
@@ -115,8 +127,6 @@ const COLOR_WORDS: Record<string, ShaderColor> = {
 const setOf = (entry: LookItem): string | undefined =>
   entry.kind === "armor" || entry.kind === "ornament" ? entry.set : undefined;
 
-const hashIn = (piece: LookPiece, kind: PickKind): number | undefined =>
-  kind === "armor" ? (piece.ornamentHash ?? piece.armorHash) : piece.shaderHash;
 
 export const Looks = () => {
   const app = useApp();
@@ -165,7 +175,7 @@ export const Looks = () => {
 
     for (const store of app.stores()) {
       for (const item of store.items) {
-        if (item.bucket.inArmor) {
+        if (item.bucket.inArmor || item.bucket.inWeapons) {
           counts.set(item.hash, (counts.get(item.hash) ?? 0) + 1);
         }
       }
@@ -175,7 +185,7 @@ export const Looks = () => {
   });
 
   const copies = (entry: LookItem): number =>
-    entry.kind === "armor"
+    entry.kind === "armor" || entry.kind === "weapon"
       ? entry.hashes.reduce((total, hash) => total + (held().get(hash) ?? 0), 0)
       : 0;
 
@@ -190,7 +200,7 @@ export const Looks = () => {
 
     const plugs = unlocked.latest;
 
-    if (entry.kind !== "armor" && plugs?.size) {
+    if (entry.kind !== "armor" && entry.kind !== "weapon" && plugs?.size) {
       if (entry.hashes.some((hash) => plugs.has(hash))) {
         return "unlocked";
       }
@@ -236,13 +246,64 @@ export const Looks = () => {
   ): T | undefined =>
     hash === undefined ? undefined : (byHash().get(hash) as T | undefined);
 
+  const picking = (): Picking =>
+    mode() === "armor" ? armorPicking() : weaponPicking();
+
+  const setPicking = (next: Picking) =>
+    mode() === "armor" ? setArmorPicking(next) : setWeaponPicking(next);
+
+  const kindLabel = (kind: PickKind): string =>
+    kind === "shader" ? "Shader" : mode() === "armor" ? "Armor" : "Weapon";
+
+  const hashAt = (slot: PickSlot, kind: PickKind): number | undefined => {
+    if (slot === WEAPON) {
+      const piece = weapon();
+
+      return kind === "gear"
+        ? (piece.ornamentHash ?? piece.weaponHash)
+        : piece.shaderHash;
+    }
+
+    const piece = pieces()[slot];
+
+    return kind === "gear"
+      ? (piece.ornamentHash ?? piece.armorHash)
+      : piece.shaderHash;
+  };
+
   // Nothing chosen shows the game's default item
-  const shownIn = (slot: LookSlot, kind: PickKind): LookItem | undefined =>
-    entryFor(hashIn(pieces()[slot], kind)) ??
+  const shownIn = (slot: PickSlot, kind: PickKind): LookItem | undefined =>
+    entryFor(hashAt(slot, kind)) ??
     (kind === "shader" ? defaultShader() : undefined);
+
+  const chooseWeapon = (entry: LookItem) => {
+    const piece = weapon();
+
+    if (entry.kind === "default") {
+      setWeapon({ ...piece, shaderHash: undefined });
+    } else if (entry.kind === "shader") {
+      setWeapon({ ...piece, shaderHash: entry.hash });
+    } else if (entry.kind === "weapon") {
+      setWeapon({ ...piece, weaponHash: entry.hash, ornamentHash: undefined });
+    } else if (entry.kind === "weaponOrnament") {
+      const current = entryFor<LookWeapon>(piece.weaponHash);
+      const base = current?.hashes.some((hash) => entry.items.includes(hash))
+        ? current
+        : entryFor<LookWeapon>(entry.items[0]);
+
+      setWeapon({ ...piece, weaponHash: base?.hash, ornamentHash: entry.hash });
+    }
+  };
 
   const choose = (entry: LookItem) => {
     const { slot } = picking();
+
+    if (slot === WEAPON) {
+      chooseWeapon(entry);
+
+      return;
+    }
+
     const piece = pieces()[slot];
     let next: LookPiece = piece;
 
@@ -252,7 +313,7 @@ export const Looks = () => {
       next = { ...piece, shaderHash: entry.hash };
     } else if (entry.kind === "armor") {
       next = { ...piece, armorHash: entry.hash, ornamentHash: undefined };
-    } else {
+    } else if (entry.kind === "ornament") {
       const current = entryFor<LookArmor>(piece.armorHash);
       // An item-specific ornament needs its own armor underneath
       const base = entry.items
@@ -268,7 +329,7 @@ export const Looks = () => {
   };
 
   const shaderEverywhere = () => {
-    const shaderHash = pieces()[picking().slot].shaderHash;
+    const shaderHash = hashAt(picking().slot, "shader");
 
     setPieces(
       Object.fromEntries(
@@ -296,17 +357,31 @@ export const Looks = () => {
     const matching = (items() ?? []).filter((entry) => {
       if (entry.kind === "armor" || entry.kind === "ornament") {
         if (
-          kind !== "armor" ||
+          kind !== "gear" ||
           entry.classType !== forClass ||
           entry.slot !== slot
         ) {
+          return false;
+        }
+      } else if (entry.kind === "weapon" || entry.kind === "weaponOrnament") {
+        if (kind !== "gear" || slot !== WEAPON) {
           return false;
         }
       } else if (kind !== "shader" || entry.kind !== "shader") {
         return false;
       }
 
-      const searched = [entry.name, setOf(entry) ?? "", entry.source ?? ""]
+      const targets =
+        entry.kind === "weaponOrnament" || entry.kind === "ornament"
+          ? (entry.items ?? []).map((hash) => entryFor(hash)?.name ?? "")
+          : [];
+      const searched = [
+        entry.name,
+        setOf(entry) ?? "",
+        entry.source ?? "",
+        entry.kind === "weapon" ? entry.typeName : "",
+        ...targets,
+      ]
         .map((field) => plainString(field.toLowerCase(), "en"))
         .join("\n");
       const found = words.every((word) =>
@@ -335,6 +410,10 @@ export const Looks = () => {
   const otherSets = createMemo(() => {
     const { slot: picked, kind } = picking();
 
+    if (picked === WEAPON) {
+      return [];
+    }
+
     return [
       ...new Set(
         LOOK_SLOTS.flatMap((slot) => {
@@ -342,7 +421,7 @@ export const Looks = () => {
             return [];
           }
 
-          const entry = entryFor(hashIn(pieces()[slot], kind));
+          const entry = entryFor(hashAt(slot, kind));
           const set = entry && setOf(entry);
 
           return set === undefined ? [] : [set];
@@ -379,6 +458,18 @@ export const Looks = () => {
       };
     }),
   );
+
+  const weaponShown = createMemo(() => {
+    const piece = weapon();
+
+    return [
+      {
+        slot: WEAPON,
+        itemHash: piece.ornamentHash ?? piece.weaponHash,
+        shaderHash: piece.shaderHash,
+      },
+    ];
+  });
 
   const [name, setName] = createSignal(editing()?.name ?? "");
   const [removing, setRemoving] = createSignal<Look | undefined>(undefined);
@@ -490,7 +581,7 @@ export const Looks = () => {
     />
   );
 
-  const Cell = (props: { slot: LookSlot; kind: PickKind }) => {
+  const Cell = (props: { slot: PickSlot; kind: PickKind }) => {
     const selected = () =>
       picking().slot === props.slot && picking().kind === props.kind;
     const pick = () => setPicking({ slot: props.slot, kind: props.kind });
@@ -501,7 +592,7 @@ export const Looks = () => {
         fallback={
           <button
             type="button"
-            aria-label={`${SLOT_LABELS[props.slot]} ${KIND_LABELS[props.kind]}`}
+            aria-label={`${SLOT_LABELS[props.slot]} ${kindLabel(props.kind)}`}
             class="size-(--tile) rounded-sm border border-dashed border-foreground/20 hover:border-foreground/50"
             classList={{ "border-foreground! border-solid": selected() }}
             onClick={pick}
@@ -515,16 +606,45 @@ export const Looks = () => {
     );
   };
 
-  const busy = () =>
-    (!items() && !items.error) ||
-    LOOK_SLOTS.some((slot) => slotStatus()[slot].kind === "loading");
+  const busy = () => {
+    if (items.error) {
+      return false;
+    }
 
-  const SlotLabel = (props: { slot: LookSlot }) => {
-    const status = () => slotStatus()[props.slot];
+    const statuses = Object.values(slotStatus());
+
+    return (
+      !items() ||
+      statuses.length === 0 ||
+      statuses.some((status) => status.kind === "loading") ||
+      poseLoading()
+    );
+  };
+
+  const heading = (): string => {
+    const { slot, kind } = picking();
+
+    if (slot === WEAPON) {
+      return kind === "gear" ? "Weapons" : "Weapon shader";
+    }
+
+    return `${SLOT_LABELS[slot]} ${kindLabel(kind).toLowerCase()}`;
+  };
+
+  const SlotRow = (props: { slot: PickSlot }) => (
+    <div class="grid grid-cols-[1fr_repeat(2,var(--tile))] items-center gap-1.5">
+      <SlotLabel slot={props.slot} />
+      <For each={PICK_KINDS}>
+        {(kind) => <Cell slot={props.slot} kind={kind} />}
+      </For>
+    </div>
+  );
+
+  const SlotLabel = (props: { slot: PickSlot }) => {
     const failure = () => {
-      const now = status();
+      const now = slotStatus()[props.slot];
 
-      return now.kind === "failed" ? now.message : undefined;
+      return now?.kind === "failed" ? now.message : undefined;
     };
 
     return (
@@ -546,107 +666,119 @@ export const Looks = () => {
     <div class="look-page flex h-[calc(100dvh-var(--header-h,49px))] min-h-0 gap-4 p-4">
       <div class="flex w-80 shrink-0 flex-col gap-4 overflow-y-auto">
         <PickOne
-          value={CLASSES[classType()]}
-          options={CLASSES}
-          label={(one) => CLASS_LABELS[one]}
-          onChange={(one) => setClassType(CLASSES.indexOf(one))}
+          value={mode()}
+          options={MODES}
+          label={(one) => MODE_LABELS[one]}
+          onChange={setMode}
         />
-        <div class="flex items-center gap-2">
-          <PickOne
-            value={female() ? "b" : "a"}
-            options={BODIES}
-            label={(one) => BODY_LABELS[one]}
-            onChange={(one) => setFemale(one === "b")}
-          />
-          <Show when={app.stores().length > 0}>
-            <Button
-              variant="outline"
-              disabled={!matchingCharacter()}
-              title={
-                matchingCharacter()
-                  ? undefined
-                  : `No ${CLASS_LABELS[CLASSES[classType()]!]} character`
-              }
-              onClick={importCharacter}
-            >
-              <Import />
-              Import {CLASS_LABELS[CLASSES[classType()]!]}
-            </Button>
-          </Show>
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <div class="grid grid-cols-[1fr_repeat(2,var(--tile))] gap-1.5">
-            <span />
-            <For each={PICK_KINDS}>
-              {(kind) => <span class={LABEL}>{KIND_LABELS[kind]}</span>}
-            </For>
-          </div>
-          <For each={LOOK_SLOTS}>
-            {(slot) => (
-              <div class="grid grid-cols-[1fr_repeat(2,var(--tile))] items-center gap-1.5">
-                <SlotLabel slot={slot} />
+        <Show
+          when={mode() === "armor"}
+          fallback={
+            <div class="flex flex-col gap-1.5">
+              <div class="grid grid-cols-[1fr_repeat(2,var(--tile))] gap-1.5">
+                <span />
                 <For each={PICK_KINDS}>
-                  {(kind) => <Cell slot={slot} kind={kind} />}
+                  {(kind) => <span class={LABEL}>{kindLabel(kind)}</span>}
                 </For>
               </div>
-            )}
-          </For>
-        </div>
-
-        <Show when={!guest()}>
-          <div class="flex flex-col gap-1.5">
-            <Heading>Saved</Heading>
-            <div class="flex gap-1.5">
-              <Input
-                class="h-7"
-                placeholder="Look name"
-                aria-label="Look name"
-                maxLength={100}
-                value={name()}
-                onInput={(event) => setName(event.currentTarget.value)}
-              />
-              <Button size="sm" onClick={() => void save(false)}>
-                Save
-              </Button>
+              <SlotRow slot={WEAPON} />
             </div>
-            <Show when={editing()}>
+          }
+        >
+          <PickOne
+            value={CLASSES[classType()]}
+            options={CLASSES}
+            label={(one) => CLASS_LABELS[one]}
+            onChange={(one) => setClassType(CLASSES.indexOf(one))}
+          />
+          <div class="flex items-center gap-2">
+            <PickOne
+              value={female() ? "b" : "a"}
+              options={BODIES}
+              label={(one) => BODY_LABELS[one]}
+              onChange={(one) => setFemale(one === "b")}
+            />
+            <Show when={app.stores().length > 0}>
               <Button
                 variant="outline"
-                size="sm"
-                onClick={() => void save(true)}
+                disabled={!matchingCharacter()}
+                title={
+                  matchingCharacter()
+                    ? undefined
+                    : `No ${CLASS_LABELS[CLASSES[classType()]!]} character`
+                }
+                onClick={importCharacter}
               >
-                Save as new
+                <Import />
+                Import {CLASS_LABELS[CLASSES[classType()]!]}
               </Button>
             </Show>
-            <div class="flex flex-col">
-              <For each={savedLooks()}>
-                {(look) => (
-                  <div class="flex items-center gap-0.5">
-                    <button
-                      type="button"
-                      class={`${ROW} flex-1`}
-                      classList={{ "bg-muted": editing()?.id === look.id }}
-                      onClick={() => open(look)}
-                    >
-                      <span class="truncate">{look.name}</span>
-                      <span class={`${HEADING_NOTE} shrink-0`}>
-                        {CLASS_LABELS[CLASSES[look.classType]!]}
-                      </span>
-                    </button>
-                    <IconButton
-                      size="icon-sm"
-                      class="text-muted-foreground"
-                      label="Remove"
-                      onClick={() => setRemoving(look)}
-                    >
-                      <X />
-                    </IconButton>
-                  </div>
-                )}
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <div class="grid grid-cols-[1fr_repeat(2,var(--tile))] gap-1.5">
+              <span />
+              <For each={PICK_KINDS}>
+                {(kind) => <span class={LABEL}>{kindLabel(kind)}</span>}
               </For>
             </div>
+            <For each={LOOK_SLOTS}>{(slot) => <SlotRow slot={slot} />}</For>
           </div>
+
+          <Show when={!guest()}>
+            <div class="flex flex-col gap-1.5">
+              <Heading>Saved</Heading>
+              <div class="flex gap-1.5">
+                <Input
+                  class="h-7"
+                  placeholder="Look name"
+                  aria-label="Look name"
+                  maxLength={100}
+                  value={name()}
+                  onInput={(event) => setName(event.currentTarget.value)}
+                />
+                <Button size="sm" onClick={() => void save(false)}>
+                  Save
+                </Button>
+              </div>
+              <Show when={editing()}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void save(true)}
+                >
+                  Save as new
+                </Button>
+              </Show>
+              <div class="flex flex-col">
+                <For each={savedLooks()}>
+                  {(look) => (
+                    <div class="flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        class={`${ROW} flex-1`}
+                        classList={{ "bg-muted": editing()?.id === look.id }}
+                        onClick={() => open(look)}
+                      >
+                        <span class="truncate">{look.name}</span>
+                        <span class={`${HEADING_NOTE} shrink-0`}>
+                          {CLASS_LABELS[CLASSES[look.classType]!]}
+                        </span>
+                      </button>
+                      <IconButton
+                        size="icon-sm"
+                        class="text-muted-foreground"
+                        label="Remove"
+                        onClick={() => setRemoving(look)}
+                      >
+                        <X />
+                      </IconButton>
+                    </div>
+                  )}
+                </For>
+              </div>
+            </div>
+          </Show>
         </Show>
       </div>
 
@@ -660,7 +792,14 @@ export const Looks = () => {
           }
         >
           <Suspense>
-            <Viewer pieces={shown()} female={female()} />
+            <Show
+              when={mode() === "armor"}
+              fallback={
+                <Viewer mode="weapons" pieces={weaponShown()} female={false} />
+              }
+            >
+              <Viewer mode="armor" pieces={shown()} female={female()} />
+            </Show>
           </Suspense>
         </Show>
         <Show when={busy()}>
@@ -678,10 +817,9 @@ export const Looks = () => {
           <Heading
             note={choices().filter((entry) => entry.kind !== "default").length}
           >
-            {SLOT_LABELS[picking().slot]}{" "}
-            {KIND_LABELS[picking().kind].toLowerCase()}
+            {heading()}
           </Heading>
-          <Show when={picking().kind === "shader"}>
+          <Show when={mode() === "armor" && picking().kind === "shader"}>
             <Button variant="outline" size="xs" onClick={shaderEverywhere}>
               Apply to all
             </Button>

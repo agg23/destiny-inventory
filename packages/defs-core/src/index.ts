@@ -78,6 +78,10 @@ export {
   type LookOrnament,
   type LookShader,
   type LookSlot,
+  type LookWeapon,
+  type LookWeaponOrnament,
   SHADER_COLORS,
   type ShaderColor,
+  WEAPON_SLOTS,
+  type WeaponSlot,
 } from "./looks.ts";

@@ -1,7 +1,11 @@
-import { Group, type Object3D } from "three";
-import { TGXMLoader, type TGXModelContainer } from "tgxm-loader";
+import { Group, Matrix4, type AnimationClip, type Object3D } from "three";
+import {
+  TGXMLoader,
+  type GuardianSkeleton,
+  type TGXModelContainer,
+} from "tgxm-loader";
 
-import { LOOK_SLOTS, type LookAsset, type LookSlot } from "@dvm/defs-core";
+import type { LookAsset } from "@dvm/defs-core";
 
 import { messageOf } from "../error.ts";
 
@@ -12,7 +16,7 @@ export type SlotStatus =
   { kind: "ready" } | { kind: "loading" } | { kind: "failed"; message: string };
 
 export interface ShownPiece {
-  slot: LookSlot;
+  slot: string;
   itemHash: number | undefined;
   shaderHash: number | undefined;
 }
@@ -24,10 +28,13 @@ interface SlotState {
   failed: string | undefined;
 }
 
-export interface ArmorSetOptions {
+export interface ModelSetOptions {
+  slots: readonly string[];
+  /** Binds armor to the D1 player skeleton so it can pose */
+  rigged: boolean;
   fetchAsset: (hash: number) => Promise<LookAsset>;
   compile: (object: Object3D) => Promise<unknown>;
-  onStatus: (slot: LookSlot, status: SlotStatus) => void;
+  onStatus: (slot: string, status: SlotStatus) => void;
 }
 
 // The real lookup is a game file. Iridescent dyes lose their sheen
@@ -64,30 +71,33 @@ const quietly = async <T>(task: () => Promise<T>): Promise<T> => {
   }
 };
 
-/** One armor piece and shader per slot, rendered into group */
-export class ArmorSet {
+/** One item and shader per slot, rendered into group */
+export class ModelSet {
   readonly group = new Group();
 
   private readonly loader: TGXMLoader;
-  private readonly options: ArmorSetOptions;
-  private readonly slots = new Map<LookSlot, SlotState>(
-    LOOK_SLOTS.map((slot) => [
-      slot,
-      {
-        itemHash: undefined,
-        shaderHash: undefined,
-        container: undefined,
-        failed: undefined,
-      },
-    ]),
-  );
+  private readonly options: ModelSetOptions;
+  private readonly slots: Map<string, SlotState>;
   private queue: Promise<void> = Promise.resolve();
   private wanted: symbol | undefined = undefined;
   private female = false;
   private disposed = false;
+  private skeleton: GuardianSkeleton | undefined = undefined;
+  private rest: Matrix4[] = [];
 
-  constructor(options: ArmorSetOptions) {
+  constructor(options: ModelSetOptions) {
     this.options = options;
+    this.slots = new Map(
+      options.slots.map((slot) => [
+        slot,
+        {
+          itemHash: undefined,
+          shaderHash: undefined,
+          container: undefined,
+          failed: undefined,
+        },
+      ]),
+    );
     this.loader = new TGXMLoader({
       Destiny2InventoryDefinition: {
         source: "asyncHandler",
@@ -122,6 +132,38 @@ export class ArmorSet {
     this.queue = run.catch(() => {});
 
     return run;
+  }
+
+  private async rig(): Promise<GuardianSkeleton> {
+    if (!this.skeleton) {
+      this.skeleton = await this.loader.loadSkeleton("guardian");
+      this.rest = this.skeleton.skeleton.bones.map((bone) =>
+        bone.matrix.clone(),
+      );
+      this.group.add(this.skeleton.rootBone);
+    }
+
+    return this.skeleton;
+  }
+
+  /** Puts every bone back where the skeleton file has it */
+  stand() {
+    const bones = this.skeleton?.skeleton.bones ?? [];
+
+    for (const [index, bone] of bones.entries()) {
+      this.rest[index]!.decompose(bone.position, bone.quaternion, bone.scale);
+    }
+  }
+
+  /** A D1 player animation file as a clip for this set's skeleton */
+  animation(fileName: string): Promise<AnimationClip> {
+    let clip: AnimationClip | undefined = undefined;
+
+    return this.enqueue(async () => {
+      const { boneNames } = await this.rig();
+
+      clip = await this.loader.loadAnimation(fileName, fileName, boneNames);
+    }).then(() => clip!);
   }
 
   private remove(container: TGXModelContainer | undefined) {
@@ -165,9 +207,12 @@ export class ArmorSet {
       }
 
       const superseded = () => this.wanted !== token || this.disposed;
-      const loaded = new Map<LookSlot, TGXModelContainer | undefined>();
-      const failed = new Map<LookSlot, string>();
-      const reshaped = new Set<LookSlot>();
+      const skeleton = this.options.rigged
+        ? (await this.rig()).skeleton
+        : undefined;
+      const loaded = new Map<string, TGXModelContainer | undefined>();
+      const failed = new Map<string, string>();
+      const reshaped = new Set<string>();
 
       for (const piece of pieces) {
         const state = this.slots.get(piece.slot)!;
@@ -190,6 +235,7 @@ export class ArmorSet {
               game: "destiny2",
               isFemale: female,
               shaderHash: piece.shaderHash,
+              skeleton,
             },
             () => {},
           );

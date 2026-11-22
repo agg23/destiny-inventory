@@ -13,13 +13,20 @@ import {
   type LookOrnament,
   type LookShader,
   type LookSlot,
+  type LookWeapon,
+  type LookWeaponOrnament,
+  type WeaponSlot,
 } from "@dvm/defs-core";
 
 import { loadShaderColors } from "./shaderColors.ts";
 
 // DestinyItemType
 const ARMOR = 2;
+const WEAPON = 3;
 const MOD = 19;
+
+// ItemCategoryHashes
+const WEAPON_ORNAMENTS = 3_124_752_623;
 
 const DEFAULT_SHADER = 4_248_210_736;
 
@@ -28,6 +35,12 @@ const SHADER = 20;
 const ORNAMENT = 21;
 
 const SOURCE_PREFIX = /^Source:\s*/;
+
+const WEAPON_SLOT_BY_BUCKET: Record<number, WeaponSlot> = {
+  1498876634: "kinetic",
+  2465295065: "energy",
+  953998645: "power",
+};
 
 // Collections > Armor, whose grandchildren are one node per set
 const ARMOR_NODE = 1_605_042_242;
@@ -218,6 +231,46 @@ export const buildLooks = async (
     };
   });
 
+  const weaponSlotOf = (item: DestinyInventoryItemDefinition) =>
+    WEAPON_SLOT_BY_BUCKET[item.inventory?.bucketTypeHash ?? 0];
+  const weapons = groupBy(
+    renderable.filter(
+      (item) => item.itemType === WEAPON && weaponSlotOf(item) !== undefined,
+    ),
+    (item) =>
+      `${item.displayProperties.name}|${item.inventory?.tierType}|${weaponSlotOf(item)}`,
+  ).map((group): LookWeapon => ({
+    kind: "weapon",
+    ...entryOf(group, collectibles),
+    slot: weaponSlotOf(group[0]!)!,
+    typeName: group[0]!.itemTypeDisplayName ?? "",
+  }));
+
+  const weaponOrnaments = groupBy(
+    renderable.filter(
+      (item) =>
+        item.itemCategoryHashes?.includes(WEAPON_ORNAMENTS) &&
+        [...(ornamentFits.get(item.hash) ?? [])].some(
+          (hash) => items[hash]?.itemType === WEAPON,
+        ),
+    ),
+    (item) => item.displayProperties.name,
+  ).map(
+    (group): LookWeaponOrnament => ({
+      kind: "weaponOrnament",
+      ...entryOf(group, collectibles),
+      items: [
+        ...new Set(
+          group.flatMap((item) =>
+            [...(ornamentFits.get(item.hash) ?? [])].filter(
+              (hash) => items[hash]?.itemType === WEAPON,
+            ),
+          ),
+        ),
+      ],
+    }),
+  );
+
   const defaultShader = items[DEFAULT_SHADER];
   const defaults: LookDefault[] = defaultShader
     ? [
@@ -235,6 +288,8 @@ export const buildLooks = async (
     ...armor.sort(byName),
     ...shaders.sort(byName),
     ...ornaments.sort(byName),
+    ...weapons.sort(byName),
+    ...weaponOrnaments.sort(byName),
   ];
 
   const shards = new Map<string, Record<number, LookAsset>>();

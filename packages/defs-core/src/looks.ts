@@ -2,6 +2,10 @@ export const LOOK_SLOTS = ["helmet", "arms", "chest", "legs", "class"] as const;
 
 export type LookSlot = (typeof LOOK_SLOTS)[number];
 
+export const WEAPON_SLOTS = ["kinetic", "energy", "power"] as const;
+
+export type WeaponSlot = (typeof WEAPON_SLOTS)[number];
+
 interface LookEntry {
   /** The newest version, the one rendered */
   hash: number;
@@ -55,12 +59,31 @@ export interface LookOrnament extends LookEntry {
   set: string | undefined;
 }
 
+export interface LookWeapon extends LookEntry {
+  kind: "weapon";
+  slot: WeaponSlot;
+  /** Like "Auto Rifle" */
+  typeName: string;
+}
+
+export interface LookWeaponOrnament extends LookEntry {
+  kind: "weaponOrnament";
+  /** Weapon hashes whose sockets offer it */
+  items: number[];
+}
+
 /** The game's own "Default Shader", which clears the choice */
 export interface LookDefault extends LookEntry {
   kind: "default";
 }
 
-export type LookItem = LookArmor | LookShader | LookOrnament | LookDefault;
+export type LookItem =
+  | LookArmor
+  | LookShader
+  | LookOrnament
+  | LookWeapon
+  | LookWeaponOrnament
+  | LookDefault;
 
 /** What tgxm-loader reads for one hash */
 export interface LookAsset {

@@ -1,11 +1,13 @@
 import {
   AmbientLight,
+  Box3,
   DirectionalLight,
   NoToneMapping,
   PerspectiveCamera,
   PMREMGenerator,
   Scene,
   SRGBColorSpace,
+  Vector3,
   WebGLRenderer,
   type Object3D,
 } from "three";
@@ -17,6 +19,10 @@ export interface LookScene {
   compile: (object: Object3D) => Promise<unknown>;
   /** Draws a frame, after the scene changed */
   invalidate: () => void;
+  /** Points the camera at an object's bounds, from its side */
+  frame: (object: Object3D) => void;
+  /** Called with the elapsed seconds before every frame, or undefined to go idle */
+  setTicker: (ticker: ((seconds: number) => void) | undefined) => void;
   dispose: () => void;
 }
 
@@ -54,15 +60,20 @@ export const createLookScene = (canvas: HTMLCanvasElement): LookScene => {
   controls.enableDamping = true;
 
   let animating = false;
+  let ticker: ((seconds: number) => void) | undefined = undefined;
+  let last = 0;
 
   // Keeps going while damping settles
-  const frame = () => {
+  const frame = (time: number) => {
     const moving = controls.update();
 
+    ticker?.(last === 0 ? 0 : (time - last) / 1000);
+    last = time;
     renderer.render(scene, camera);
 
-    if (!moving) {
+    if (!moving && !ticker) {
       animating = false;
+      last = 0;
       renderer.setAnimationLoop(null);
     }
   };
@@ -98,6 +109,26 @@ export const createLookScene = (canvas: HTMLCanvasElement): LookScene => {
     scene,
     compile: (object) => renderer.compileAsync(object, camera, scene),
     invalidate,
+    frame: (object) => {
+      const bounds = new Box3().setFromObject(object);
+
+      if (bounds.isEmpty()) {
+        return;
+      }
+
+      const center = bounds.getCenter(new Vector3());
+      const radius = bounds.getSize(new Vector3()).length() / 2;
+      const distance = radius / Math.sin(((camera.fov / 2) * Math.PI) / 180);
+
+      controls.target.copy(center);
+      camera.position.set(center.x + distance, center.y + radius * 0.2, center.z);
+      controls.update();
+      invalidate();
+    },
+    setTicker: (next) => {
+      ticker = next;
+      invalidate();
+    },
     dispose: () => {
       renderer.setAnimationLoop(null);
       controls.removeEventListener("change", invalidate);
