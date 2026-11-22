@@ -5,6 +5,9 @@ Upstream code, as submodules, pristine. Nothing in here is ever edited.
 | Submodule | Pinned | License |
 |---|---|---|
 | `DIM` | `dd9fc5d0` (2026-08-17) | MIT, see `DIM/LICENSE.md` |
+| `tgxm-loader` | `0602ef4` (2026-11-21) | GPL-3.0, see `tgxm-loader/LICENSE` |
+
+`tgxm-loader` is lazy loaded and separated from the main bundle due to GPLv3.
 
 ### Why A Submodule Instead Of Copying?
 
