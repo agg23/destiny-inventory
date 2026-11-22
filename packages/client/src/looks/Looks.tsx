@@ -50,7 +50,6 @@ import { currentPieces } from "./shared/currentPieces.ts";
 import {
   armorPicking,
   classType,
-  editing,
   EMPTY_PIECE,
   female,
   mode,
@@ -61,7 +60,6 @@ import {
   poseLoading,
   setArmorPicking,
   setClassType,
-  setEditing,
   setFemale,
   setMode,
   setOwnedOnly,
@@ -472,15 +470,13 @@ export const Looks = () => {
     ];
   });
 
-  const [name, setName] = createSignal(editing()?.name ?? "");
+  const [name, setName] = createSignal("");
   const [removing, setRemoving] = createSignal<Look | undefined>(undefined);
 
-  const save = async (asNew: boolean) => {
-    const current = editing();
-    const id = !asNew && current ? current.id : crypto.randomUUID();
+  const save = async () => {
     const trimmed = name().trim() || "Untitled look";
     const saved = await writeLook({
-      id,
+      id: crypto.randomUUID(),
       name: trimmed,
       classType: classType(),
       female: female(),
@@ -498,16 +494,13 @@ export const Looks = () => {
       return;
     }
 
-    setEditing({ id, name: trimmed });
-    setName(trimmed);
+    setName("");
   };
 
   const open = (look: Look) => {
     setClassType(look.classType);
     setFemale(look.female);
     setPiecesByClass((all) => ({ ...all, [look.classType]: look.pieces }));
-    setEditing({ id: look.id, name: look.name });
-    setName(look.name);
   };
 
   const remove = async (look: Look) => {
@@ -519,10 +512,6 @@ export const Looks = () => {
       showToast("Look not removed", "danger");
 
       return;
-    }
-
-    if (editing()?.id === look.id) {
-      setEditing(undefined);
     }
   };
 
@@ -544,8 +533,6 @@ export const Looks = () => {
     setPieces(
       currentPieces(store, (hash) => hash !== undefined && byHash().has(hash)),
     );
-    setEditing(undefined);
-    setName("");
   };
 
   const LookTile = (props: {
@@ -754,19 +741,10 @@ export const Looks = () => {
                   value={name()}
                   onInput={(event) => setName(event.currentTarget.value)}
                 />
-                <Button size="sm" onClick={() => void save(false)}>
+                <Button size="sm" onClick={() => void save()}>
                   Save
                 </Button>
               </div>
-              <Show when={editing()}>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void save(true)}
-                >
-                  Save as new
-                </Button>
-              </Show>
               <div class="flex flex-col">
                 <For each={savedLooks()}>
                   {(look) => (
@@ -774,7 +752,6 @@ export const Looks = () => {
                       <button
                         type="button"
                         class={`${ROW} flex-1`}
-                        classList={{ "bg-muted": editing()?.id === look.id }}
                         onClick={() => open(look)}
                       >
                         <span class="truncate">{look.name}</span>

@@ -35,11 +35,6 @@ export interface Picking {
   kind: PickKind;
 }
 
-export interface Editing {
-  id: string;
-  name: string;
-}
-
 export interface WeaponPiece {
   weaponHash: number | undefined;
   ornamentHash: number | undefined;
@@ -60,7 +55,6 @@ interface Design {
   female: boolean;
   piecesByClass: Partial<Record<number, Pieces>>;
   weapon: WeaponPiece;
-  editing: Editing | undefined;
 }
 
 const stored = (readStored(DESIGN_KEY) ?? {}) as Partial<Design>;
@@ -102,11 +96,6 @@ export const [weaponPicking, setWeaponPicking] = createSignal<Picking>({
 
 export const [ownedOnly, setOwnedOnly] = createSignal(false);
 
-/** The saved look these pieces came from */
-export const [editing, setEditing] = createSignal<Editing | undefined>(
-  typeof stored.editing?.id === "string" ? stored.editing : undefined,
-);
-
 createRoot(() =>
   createEffect(() => {
     const design: Design = {
@@ -115,7 +104,6 @@ createRoot(() =>
       female: female(),
       piecesByClass: piecesByClass(),
       weapon: weapon(),
-      editing: editing(),
     };
 
     writeStored(DESIGN_KEY, design);
