@@ -30,6 +30,7 @@ import { PerkIcon } from "./card/PerkRow.tsx";
 import { Loading } from "./lib/Loading.tsx";
 import { SearchField } from "./lib/SearchField.tsx";
 import { Select } from "./lib/Select.tsx";
+import { PICK_OPTION, PICK_TRACK } from "./lib/text.ts";
 import { Button } from "./lib/zaidan/button.tsx";
 import {
   Dialog,
@@ -172,8 +173,9 @@ const PerkPreferencesContent = (props: Props) => {
                 <For each={MODES}>
                   {(mode) => (
                     <ToggleGroup
-                      variant="outline"
                       size="sm"
+                      spacing={0.5}
+                      class={PICK_TRACK}
                       value={draft()[mode].get(trait.name) ?? null}
                       onChange={(next: string | null) =>
                         setStance(
@@ -185,14 +187,14 @@ const PerkPreferencesContent = (props: Props) => {
                     >
                       <ToggleGroupItem
                         value="up"
-                        class="px-0! data-pressed:text-good"
+                        class={`${PICK_OPTION} h-6 px-0! aria-pressed:text-good`}
                         aria-label={`Like for ${MODE_NAMES[mode]}`}
                       >
                         <ThumbsUp />
                       </ToggleGroupItem>
                       <ToggleGroupItem
                         value="down"
-                        class="px-0! data-pressed:text-destructive"
+                        class={`${PICK_OPTION} h-6 px-0! aria-pressed:text-destructive`}
                         aria-label={`Dislike for ${MODE_NAMES[mode]}`}
                       >
                         <ThumbsDown />

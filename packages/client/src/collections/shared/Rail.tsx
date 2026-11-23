@@ -1,6 +1,6 @@
 import { For } from "solid-js";
 
-import { LABEL, ROW } from "../../components/lib/text.ts";
+import { LABEL, PICK_OPTION, ROW } from "../../components/lib/text.ts";
 import type { Group, Section } from "../../core/collections/types.ts";
 
 const LIST = "flex flex-col";
@@ -18,8 +18,8 @@ export const Rail = (props: {
     <li>
       <button
         type="button"
-        class={ROW}
-        classList={{ "bg-muted": props.picked.includes(group) }}
+        class={`${ROW} ${PICK_OPTION}`}
+        aria-pressed={props.picked.includes(group)}
         onClick={() => props.onPick(group)}
       >
         <span class="min-w-0 flex-1 truncate">{group.label}</span>
@@ -34,8 +34,8 @@ export const Rail = (props: {
         <li>
           <button
             type="button"
-            class={ROW}
-            classList={{ "bg-muted": props.picked.length === 0 }}
+            class={`${ROW} ${PICK_OPTION}`}
+            aria-pressed={props.picked.length === 0}
             onClick={() => props.onPick(undefined)}
           >
             <span class="flex-1">All</span>

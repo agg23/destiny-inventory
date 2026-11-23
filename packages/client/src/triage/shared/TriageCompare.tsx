@@ -1,15 +1,8 @@
 import type { DimItem } from "app/inventory/item-types";
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  For,
-  on,
-  Show,
-} from "solid-js";
+import { createEffect, createMemo, createSignal, on, Show } from "solid-js";
 
 import { Compare } from "../../components/Compare.tsx";
-import { Button } from "../../components/lib/zaidan/button.tsx";
+import { PickOne } from "../../components/lib/PickOne.tsx";
 import { tagFor } from "../../core/items/tags.ts";
 import { useUrl } from "../../core/router.ts";
 import { bundlesOf, taggedIds, type Bundle } from "./triage.ts";
@@ -52,6 +45,9 @@ export const TriageCompare = (props: Props) => {
     return bundlesOf(props.pool.filter((item) => held.has(item.id)));
   });
 
+  const byHash = (hash: string): Bundle | undefined =>
+    bundles().find((one) => `${one.hash}` === hash);
+
   const bundle = (): Bundle | undefined => {
     const wanted = url.get("group");
     const held = bundles();
@@ -77,27 +73,20 @@ export const TriageCompare = (props: Props) => {
           <p class="text-muted-foreground">Nothing carries that tag.</p>
         }
       >
-        <div class="flex flex-wrap gap-1.5">
-          <For each={bundles()}>
-            {(one) => (
-              <Button
-                size="sm"
-                variant="outline"
-                class="max-w-64"
-                classList={{
-                  "bg-muted": bundle()?.hash === one.hash,
-                }}
-                aria-pressed={bundle()?.hash === one.hash}
-                onClick={() => url.push({ group: one.hash })}
-              >
-                <span class="min-w-0 truncate">{one.name}</span>
-                <span class="text-muted-foreground tabular-nums">
-                  {one.items.length}
-                </span>
-              </Button>
-            )}
-          </For>
-        </div>
+        <PickOne
+          value={bundle() ? `${bundle()?.hash}` : undefined}
+          options={bundles().map((one) => `${one.hash}`)}
+          class="flex-wrap"
+          label={(hash) => (
+            <>
+              <span class="max-w-60 truncate">{byHash(hash)?.name}</span>
+              <span class="text-muted-foreground tabular-nums">
+                {byHash(hash)?.items.length}
+              </span>
+            </>
+          )}
+          onChange={(hash) => url.push({ group: Number(hash) })}
+        />
 
         <Show when={bundle()}>
           {(held) => (

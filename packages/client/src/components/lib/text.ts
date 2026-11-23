@@ -8,6 +8,13 @@ export const LABEL = "text-xs font-medium text-muted-foreground";
 export const ROW =
   "flex w-full min-w-0 items-center gap-2 rounded-md p-1.5 text-left hover:bg-accent";
 
+/** Sunken strip behind a set of PICK_OPTION buttons */
+export const PICK_TRACK = "bg-black/40 p-0.5";
+
+/** A button drawn as a raised pill while aria-pressed */
+export const PICK_OPTION =
+  "rounded-md text-muted-foreground hover:text-foreground not-aria-pressed:hover:bg-transparent aria-pressed:bg-popover aria-pressed:font-semibold aria-pressed:text-foreground aria-pressed:inset-ring aria-pressed:inset-ring-border aria-pressed:hover:bg-popover";
+
 /** Struck through, for rewards already claimed this week */
 export const SPENT = "text-muted-foreground/60 line-through";
 
