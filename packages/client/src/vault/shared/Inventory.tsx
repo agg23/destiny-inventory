@@ -7,7 +7,7 @@ import { createMemo, For, Index, onCleanup, Show } from "solid-js";
 import { CharacterPicker } from "../../components/CharacterPicker.tsx";
 import { ItemMenu } from "../../components/ItemMenu.tsx";
 import { ItemTile } from "../../components/ItemTile.tsx";
-import { HEADING, LABEL } from "../../components/lib/text.ts";
+import { HEADING, HEADING_NOTE, LABEL } from "../../components/lib/text.ts";
 import { useApp } from "../../core/app/state.ts";
 import { CollectAll } from "./CollectAll.tsx";
 import { createDragSelect } from "./dragSelect.ts";
@@ -71,6 +71,17 @@ export const Inventory = () => {
 
   const present = (bucket: InventoryBucket) =>
     shown().some((store) => cell(store, bucket).length > 0);
+
+  const bucketCount = (bucket: InventoryBucket) => {
+    const items = shown().flatMap((store) => cell(store, bucket));
+    const visible = items.filter((item) => hits().has(item)).length;
+
+    if (visible === items.length) {
+      return `(${items.length})`;
+    }
+
+    return `(${visible} of ${items.length})`;
+  };
 
   const itemAt = (index: string): DimItem | undefined => {
     for (const store of app.stores()) {
@@ -374,8 +385,13 @@ export const Inventory = () => {
                         class={`row ${COLUMNS} border-t py-1`}
                         classList={{ hidden: !occupied(bucket()) }}
                       >
-                        <h3 class={`${LABEL} col-span-full mb-1`}>
+                        <h3
+                          class={`${LABEL} col-span-full mb-1 flex items-baseline gap-2`}
+                        >
                           {bucket().name || `Bucket ${bucket().hash}`}
+                          <span class={HEADING_NOTE}>
+                            {bucketCount(bucket())}
+                          </span>
                         </h3>
                         <For each={shown()}>
                           {(store) => (
