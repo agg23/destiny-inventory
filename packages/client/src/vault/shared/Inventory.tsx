@@ -2,11 +2,20 @@ import type { InventoryBucket } from "app/inventory/inventory-buckets";
 import type { DimItem } from "app/inventory/item-types";
 import type { DimStore } from "app/inventory/store-types";
 import { BucketHashes } from "data/d2/generated-enums";
-import { createMemo, For, Index, onCleanup, Show } from "solid-js";
+import {
+  createMemo,
+  createSignal,
+  For,
+  Index,
+  onCleanup,
+  onMount,
+  Show,
+} from "solid-js";
 
 import { CharacterPicker } from "../../components/CharacterPicker.tsx";
 import { ItemMenu } from "../../components/ItemMenu.tsx";
 import { ItemTile } from "../../components/ItemTile.tsx";
+import { ChevronDown, ChevronUp } from "../../components/lib/zaidan/icons.tsx";
 import { HEADING, HEADING_NOTE, LABEL } from "../../components/lib/text.ts";
 import { useApp } from "../../core/app/state.ts";
 import { CollectAll } from "./CollectAll.tsx";
@@ -71,6 +80,57 @@ export const Inventory = () => {
 
   const present = (bucket: InventoryBucket) =>
     shown().some((store) => cell(store, bucket).length > 0);
+
+  const slots = createMemo(() =>
+    SECTIONS.flatMap((category) => bucketsIn(category)).filter(
+      (bucket) => present(bucket) && occupied(bucket),
+    ),
+  );
+
+  const slotName = (bucket: InventoryBucket) =>
+    bucket.name || `Bucket ${bucket.hash}`;
+
+  const [previousSlot, setPreviousSlot] = createSignal<
+    InventoryBucket | undefined
+  >(undefined);
+  const [nextSlot, setNextSlot] = createSignal<InventoryBucket | undefined>(
+    undefined,
+  );
+
+  const measureSlots = () => {
+    if (!root) {
+      return;
+    }
+
+    const ceiling = root.querySelector(".sticky")!.getBoundingClientRect().bottom;
+    const atBottom =
+      window.scrollY + window.innerHeight >=
+      document.documentElement.scrollHeight - 1;
+    let current = 0;
+
+    for (const [index, bucket] of slots().entries()) {
+      const row = root.querySelector(`[data-bucket="${bucket.hash}"]`);
+
+      if (row && row.getBoundingClientRect().top <= ceiling + 2) {
+        current = index;
+      }
+    }
+
+    setPreviousSlot(slots()[current - 1]);
+    setNextSlot(atBottom ? undefined : slots()[current + 1]);
+  };
+
+  const jump = (bucket: InventoryBucket) => {
+    const row = root?.querySelector(`[data-bucket="${bucket.hash}"]`);
+
+    if (!root || !row) {
+      return;
+    }
+
+    const ceiling = root.querySelector(".sticky")!.getBoundingClientRect().bottom;
+
+    window.scrollBy(0, row.getBoundingClientRect().top - ceiling);
+  };
 
   const bucketCount = (bucket: InventoryBucket) => {
     const items = shown().flatMap((store) => cell(store, bucket));
@@ -313,9 +373,19 @@ export const Inventory = () => {
 
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keydown", onArrowKey);
+  window.addEventListener("scroll", measureSlots, { passive: true });
   onCleanup(() => {
     window.removeEventListener("keydown", onKeyDown);
     window.removeEventListener("keydown", onArrowKey);
+    window.removeEventListener("scroll", measureSlots);
+  });
+
+  // Filtering and refreshes change row heights without scrolling
+  onMount(() => {
+    const observer = new ResizeObserver(measureSlots);
+
+    observer.observe(root!);
+    onCleanup(() => observer.disconnect());
   });
 
   return (
@@ -384,11 +454,12 @@ export const Inventory = () => {
                       <div
                         class={`row ${COLUMNS} border-t py-1`}
                         classList={{ hidden: !occupied(bucket()) }}
+                        data-bucket={bucket().hash}
                       >
                         <h3
                           class={`${LABEL} col-span-full mb-1 flex items-baseline gap-2`}
                         >
-                          {bucket().name || `Bucket ${bucket().hash}`}
+                          {slotName(bucket())}
                           <span class={HEADING_NOTE}>
                             {bucketCount(bucket())}
                           </span>
@@ -439,6 +510,31 @@ export const Inventory = () => {
             </Show>
           )}
         </For>
+
+        <div
+          class="sticky bottom-0 mt-4 flex w-(--store-column) flex-col divide-y overflow-hidden rounded-t-lg bg-card ring-1 ring-foreground/10"
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <Show when={previousSlot()}>
+            {(slot) => (
+              <button
+                class="flex h-8 items-center gap-1.5 px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                onClick={() => jump(slot())}
+              >
+                <ChevronUp class="size-3.5" />
+                {slotName(slot())}
+              </button>
+            )}
+          </Show>
+          <button
+            class="flex h-8 items-center gap-1.5 px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+            classList={{ invisible: !nextSlot() }}
+            onClick={() => jump(nextSlot()!)}
+          >
+            <ChevronDown class="size-3.5" />
+            {nextSlot() ? slotName(nextSlot()!) : ""}
+          </button>
+        </div>
       </div>
     </ItemMenu>
   );
