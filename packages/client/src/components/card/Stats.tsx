@@ -76,25 +76,37 @@ export const StatBar = (props: {
   stat: DimStat;
   total?: boolean;
   masterworked?: boolean;
+  base?: boolean;
 }) => {
-  const fraction = () =>
+  const fraction = (value: number) =>
     props.stat.maximumValue > 0
-      ? Math.min(1, Math.abs(props.stat.value) / props.stat.maximumValue)
+      ? Math.min(1, Math.abs(value) / props.stat.maximumValue)
       : 0;
+
+  const valueFraction = () => fraction(props.stat.value);
+
+  // Tuning can pull a stat below its base
+  const baseFraction = () =>
+    props.base ? Math.min(fraction(props.stat.base), valueFraction()) : 0;
 
   return (
     <Show when={props.stat.bar}>
       <span
-        class="block h-1.5 overflow-hidden rounded-full bg-muted"
+        class="flex h-1.5 overflow-hidden rounded-full bg-muted"
         classList={{ [TOTAL_ROW]: props.total }}
       >
         <span
-          class="block h-full"
+          class="h-full bg-foreground"
+          style={{ width: `${baseFraction() * 100}%` }}
+        />
+        <span
+          class="h-full"
           classList={{
-            "bg-light": props.masterworked,
-            "bg-foreground": !props.masterworked,
+            "bg-light": props.masterworked && !props.base,
+            "bg-foreground": !props.masterworked && !props.base,
+            "bg-muted-foreground": props.base,
           }}
-          style={{ width: `${fraction() * 100}%` }}
+          style={{ width: `${(valueFraction() - baseFraction()) * 100}%` }}
         />
       </span>
     </Show>
@@ -106,6 +118,7 @@ const Bar = (props: {
   against?: DimStat;
   comparing?: boolean;
   masterworked?: boolean;
+  base: boolean;
   tuned: boolean;
 }) => {
   const total = () => props.stat.statHash === TOTAL;
@@ -120,6 +133,7 @@ const Bar = (props: {
         stat={props.stat}
         total={total()}
         masterworked={props.masterworked}
+        base={props.base}
       />
       <StatValue
         stat={props.stat}
@@ -158,6 +172,7 @@ export const Stats = (props: { item: DimItem; against?: DimItem }) => {
               against={theirs(stat.statHash)}
               comparing={Boolean(props.against)}
               masterworked={boosted().has(stat.statHash)}
+              base={!!props.item.bucket.inArmor}
               tuned={tuned() === stat.statHash}
             />
           )}

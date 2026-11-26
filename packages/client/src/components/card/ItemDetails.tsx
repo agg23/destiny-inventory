@@ -149,6 +149,7 @@ export const ItemDetails = (props: {
                         stat={mine()}
                         total={stat.total}
                         masterworked={boosted().has(stat.hash)}
+                        base={props.item.bucket.inArmor}
                       />
                       <StatValue
                         stat={mine()}
