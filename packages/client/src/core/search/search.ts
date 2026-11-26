@@ -13,7 +13,9 @@ import type {
   SuggestionsContext,
 } from "app/search/items/item-filter-types";
 import advancedFilters from "app/search/items/search-filters/advanced";
-import dupeFilters from "app/search/items/search-filters/dupes";
+import dupeFilters, {
+  itemDupeID,
+} from "app/search/items/search-filters/dupes";
 import freeformFilters from "app/search/items/search-filters/freeform";
 import knownValuesFilters from "app/search/items/search-filters/known-values";
 import simpleRangeFilters from "app/search/items/search-filters/range-numeric";
@@ -29,7 +31,11 @@ import {
   makeSearchFilterFactory,
   parseAndValidateQuery,
 } from "app/search/search-filter";
-import { getArmor3TuningStat } from "app/utils/item-utils";
+import {
+  getArmor3StatFocus,
+  getArmor3TuningStat,
+  isArmor3,
+} from "app/utils/item-utils";
 import { socketContainsIntrinsicPlug } from "app/utils/socket-utils";
 
 import { TIERS, type Tier } from "@dvm/defs-core";
@@ -300,10 +306,41 @@ const exactDupeFilter: ItemFilterDefinition = {
   },
 };
 
+/** Sorted hashes of the three stats an Armor 3.0 piece rolled */
+export const statFocusKey = (item: DimItem): string | undefined =>
+  item.bucket.inArmor && isArmor3(item)
+    ? getArmor3StatFocus(item).sort().join(",")
+    : undefined;
+
+const similarFilter: ItemFilterDefinition = {
+  keywords: ["similar"],
+  description:
+    "Copies of the same armor with the same three base stats",
+  destinyVersion: 2,
+  filter: ({ allItems }) => {
+    const keys = new Map<string, string>();
+    const counts = new Map<string, number>();
+
+    for (const item of allItems) {
+      const focus = item.comparable ? statFocusKey(item) : undefined;
+
+      if (focus !== undefined) {
+        const key = `${itemDupeID(item)}/${focus}`;
+
+        keys.set(item.id, key);
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+    }
+
+    return (item) => (counts.get(keys.get(item.id) ?? "") ?? 0) > 1;
+  },
+};
+
 // Notes and loadout filters need DIM Sync; left out to make their keywords unknown
 const FILTERS = [
   ...dupeFilters,
   exactDupeFilter,
+  similarFilter,
   ...freeformFilters.filter((one) => one.keywords !== keywordFilter.keywords),
   keywordFilter,
   ...knownValuesFilters,

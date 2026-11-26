@@ -15,7 +15,13 @@ import {
   tagTarget,
   writeRuleTags,
 } from "../items/tags.ts";
-import { completion, itemFilter, suggest, valid } from "./search.ts";
+import {
+  completion,
+  itemFilter,
+  statFocusKey,
+  suggest,
+  valid,
+} from "./search.ts";
 
 let defs: D2ManifestDefinitions;
 let stores: DimStore[] = [];
@@ -192,6 +198,20 @@ describe("itemFilter", () => {
     }
 
     expect(exact.length).toBeLessThan(found("is:dupe").length);
+    expect([...counts.values()].every((count) => count > 1)).toBe(true);
+  });
+
+  it("finds similar armor only among copies with the same three stats", () => {
+    const similar = found("is:similar");
+    const counts = new Map<string, number>();
+
+    for (const item of similar) {
+      const key = `${item.hash}/${statFocusKey(item)}`;
+
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+
+    expect(similar.length).toBeGreaterThan(0);
     expect([...counts.values()].every((count) => count > 1)).toBe(true);
   });
 

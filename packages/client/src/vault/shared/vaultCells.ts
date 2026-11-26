@@ -8,6 +8,7 @@ import { groupBy } from "es-toolkit";
 import { createMemo } from "solid-js";
 
 import { isFavorite } from "../../core/items/tags.ts";
+import { statFocusKey } from "../../core/search/search.ts";
 import { settings } from "../../core/settings.ts";
 
 const CATEGORIES = ["Postmaster", "Weapons", "Armor", "General", "Inventory"];
@@ -25,7 +26,10 @@ const ordered = (items: DimItem[]): DimItem[] =>
 const orderedVault = (items: DimItem[]): DimItem[] =>
   settings().sort === "name"
     ? [...items].sort(
-        (a, b) => a.name.localeCompare(b.name) || b.power - a.power,
+        (a, b) =>
+          a.name.localeCompare(b.name) ||
+          (statFocusKey(a) ?? "").localeCompare(statFocusKey(b) ?? "") ||
+          b.power - a.power,
       )
     : ordered(items);
 

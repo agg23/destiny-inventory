@@ -107,16 +107,27 @@ export const Inventory = () => {
       window.scrollY + window.innerHeight >=
       document.documentElement.scrollHeight - 1;
     let current = 0;
+    let previous: InventoryBucket | undefined = undefined;
 
     for (const [index, bucket] of slots().entries()) {
       const row = root.querySelector(`[data-bucket="${bucket.hash}"]`);
 
-      if (row && row.getBoundingClientRect().top <= ceiling + 2) {
+      if (!row) {
+        continue;
+      }
+
+      const top = row.getBoundingClientRect().top;
+
+      if (top <= ceiling + 2) {
         current = index;
+      }
+
+      if (top < ceiling - 2) {
+        previous = bucket;
       }
     }
 
-    setPreviousSlot(slots()[current - 1]);
+    setPreviousSlot(previous);
     setNextSlot(atBottom ? undefined : slots()[current + 1]);
   };
 
@@ -511,30 +522,32 @@ export const Inventory = () => {
           )}
         </For>
 
-        <div
-          class="sticky bottom-0 mt-4 flex w-(--store-column) flex-col divide-y overflow-hidden rounded-t-lg bg-card ring-1 ring-foreground/10"
-          onPointerDown={(event) => event.stopPropagation()}
-        >
-          <Show when={previousSlot()}>
-            {(slot) => (
-              <button
-                class="flex h-8 items-center gap-1.5 px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
-                onClick={() => jump(slot())}
-              >
-                <ChevronUp class="size-3.5" />
-                {slotName(slot())}
-              </button>
-            )}
-          </Show>
-          <button
-            class="flex h-8 items-center gap-1.5 px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
-            classList={{ invisible: !nextSlot() }}
-            onClick={() => jump(nextSlot()!)}
+        <Show when={previousSlot() || nextSlot()}>
+          <div
+            class="sticky bottom-0 mt-4 flex w-(--store-column) flex-col divide-y overflow-hidden rounded-t-lg bg-card ring-1 ring-foreground/10"
+            onPointerDown={(event) => event.stopPropagation()}
           >
-            <ChevronDown class="size-3.5" />
-            {nextSlot() ? slotName(nextSlot()!) : ""}
-          </button>
-        </div>
+            <Show when={previousSlot()}>
+              {(slot) => (
+                <button
+                  class="flex h-8 items-center gap-1.5 px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                  onClick={() => jump(slot())}
+                >
+                  <ChevronUp class="size-3.5" />
+                  {slotName(slot())}
+                </button>
+              )}
+            </Show>
+            <button
+              class="flex h-8 items-center gap-1.5 px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+              classList={{ invisible: !nextSlot() }}
+              onClick={() => jump(nextSlot()!)}
+            >
+              <ChevronDown class="size-3.5" />
+              {nextSlot() ? slotName(nextSlot()!) : ""}
+            </button>
+          </div>
+        </Show>
       </div>
     </ItemMenu>
   );
